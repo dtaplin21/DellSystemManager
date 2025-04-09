@@ -1,0 +1,97 @@
+I want to create a professional software application intended to run primarily on Dell desktop and laptop computers (Windows OS). The core function of the application is to support the role of a Quality Control (QC) Manager in geosynthetic material projects. The application should be optimized for efficiency, longevity, and scalability, leveraging multiple languages where appropriate (e.g., C++ for performance-intensive operations, Python for AI and automation tasks, and Next.js with React for the front-end).
+
+Functional Requirements:
+2D Automation Module:
+
+Build a 2D automation system that can interpret panel layouts (with all shapes and dimensions).
+
+This system should scale accurately to large projects (up to 400,000 sq ft).
+
+The automated layout must be editable and savable by multiple users collaboratively.
+
+Include an export option to AutoCAD-compatible formats.
+
+Synchronize panel placement and repair logs from field documents directly into the 2D automation grid.
+
+AI-Enhanced Document Analysis:
+
+Include a section to upload QC files (PDFs, Excel sheets, etc.).
+
+The application must use AI/LLM models to:
+
+Extract relevant data (e.g., dates, results, panel IDs).
+
+Answer user questions based on document content.
+
+Suggest patterns or anomalies in destructive and trial weld data.
+
+Dashboard & Homepage:
+
+The homepage should mirror Procore-like UI, with:
+
+A login and signup screen.
+
+A dashboard showing active jobs, test statuses, and pending reports.
+
+Links to reports, seaming plans, and repair documents.
+
+Notifications for overdue QC tasks.
+
+QC Input Forms:
+
+Allow users to input QC data manually or through import from structured Excel files.
+
+Parsed data should be searchable, filterable, and linked to the 2D layout (e.g., click a panel in 2D view to view its weld test results).
+
+Link each data record to relevant documents for traceability.
+
+AutoCAD Integration:
+
+Allow files to be pushed to or pulled from AutoCAD.
+
+Integration should allow for overlaying QC data on CAD-generated layouts.
+
+Option to download full 2D layout as a DWG or DXF file.
+
+Real-Time Sync & Multi-User Support:
+
+Use technologies like WebSockets or Firestore for live updates between users.
+
+Ensure role-based access to control who can edit, view, or export data.
+
+Payment Plan Integration:
+
+Include two subscription tiers:
+
+$115/month: Access to document uploads, dashboard, and manual QC data tools.
+
+$315/month: Includes everything from $115 tier plus access to 2D automation features, CAD downloads, and AI suggestions.
+
+Files for Contextual Input: The AI should use the following documents to understand the format and structure of data:
+
+_Destructive Nov 3 - Dec 12-23.pdf
+
+_Panel Placement Primary Area A 57-89.xlsx
+
+_Panel Seaming Secondary Area B 55-64.xlsx
+
+_Repair Report Primary Nov 4 - May 11.xlsx
+
+_Trial Weld Nov 3 - Dec 12.xlsx
+
+These documents contain real-world field data on panel placements, destructive test results, trial welds, and repairs. AI models must be trained or fine-tuned to handle this format and extract relevant data accordingly.
+
+Tech Stack Overview:
+
+Frontend/UI: Next.js + React, Tailwind CSS for styling.
+
+Backend: Node.js for handling API calls and user auth, Python for AI tasks, C++ for performance-heavy CAD logic.
+
+Database: PostgreSQL or MongoDB for storing job/project/QC info.
+
+AI/ML: OpenAI API or open-source LLM (e.g., LLaMA, Mistral) for question answering, anomaly detection.
+
+Auth & Payment: Firebase Auth, Stripe for payments.
+
+CAD Sync: AutoCAD API or DWG TrueView SDK for export compatibility.
+
