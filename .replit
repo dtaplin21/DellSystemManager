@@ -15,6 +15,10 @@ author = "agent"
 task = "workflow.run"
 args = "Backend Server"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Frontend Server"
+
 [[workflows.workflow]]
 name = "Backend Server"
 author = "agent"
@@ -30,8 +34,21 @@ task = "shell.exec"
 args = "cd backend && node server.js"
 waitForPort = 8000
 
+[[workflows.workflow]]
+name = "Frontend Server"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd frontend && npm run dev"
+waitForPort = 3000
+
 [deployment]
 run = ["sh", "-c", "cd backend && node server.js"]
+
+[[ports]]
+localPort = 3000
+externalPort = 3000
 
 [[ports]]
 localPort = 8000
