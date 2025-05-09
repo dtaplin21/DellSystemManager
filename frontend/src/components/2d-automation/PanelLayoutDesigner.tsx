@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
+import { Textarea } from '../../components/ui/textarea';
 import { useToast } from '../../hooks/use-toast';
 import { AlertTriangle } from 'lucide-react';
 
@@ -494,6 +495,94 @@ export default function PanelLayoutDesigner() {
                                     ));
                                   }}
                                 />
+                              </div>
+                            </div>
+                            
+                            {/* Material Properties Section */}
+                            <div className="mt-6 pt-4 border-t border-gray-200">
+                              <h3 className="text-sm font-medium mb-3">Material Properties</h3>
+                              
+                              <div className="space-y-4">
+                                <div className="space-y-2">
+                                  <Label htmlFor="panel-material">Material Type</Label>
+                                  <select 
+                                    id="panel-material"
+                                    className="w-full border border-gray-300 rounded-md p-2"
+                                    value={panel.material || ''}
+                                    onChange={(e) => {
+                                      setPanels(panels.map(p => 
+                                        p.id === selectedPanel 
+                                          ? { ...p, material: e.target.value } 
+                                          : p
+                                      ));
+                                    }}
+                                  >
+                                    <option value="">Select Material</option>
+                                    <option value="HDPE">HDPE</option>
+                                    <option value="LLDPE">LLDPE</option>
+                                    <option value="PVC">PVC</option>
+                                    <option value="GCL">GCL</option>
+                                    <option value="EPDM">EPDM</option>
+                                  </select>
+                                </div>
+                                
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div className="space-y-2">
+                                    <Label htmlFor="panel-thickness">Thickness (mil)</Label>
+                                    <Input 
+                                      id="panel-thickness" 
+                                      type="number" 
+                                      value={panel.thickness || ''} 
+                                      onChange={(e) => {
+                                        const value = e.target.value === '' ? undefined : parseInt(e.target.value);
+                                        setPanels(panels.map(p => 
+                                          p.id === selectedPanel 
+                                            ? { ...p, thickness: value } 
+                                            : p
+                                        ));
+                                      }}
+                                    />
+                                  </div>
+                                  
+                                  <div className="space-y-2">
+                                    <Label htmlFor="panel-seams">Seams Type</Label>
+                                    <select 
+                                      id="panel-seams"
+                                      className="w-full border border-gray-300 rounded-md p-2"
+                                      value={panel.seamsType || ''}
+                                      onChange={(e) => {
+                                        const value = e.target.value === '' ? undefined : e.target.value as 'heat' | 'fusion' | 'extrusion' | 'other';
+                                        setPanels(panels.map(p => 
+                                          p.id === selectedPanel 
+                                            ? { ...p, seamsType: value } 
+                                            : p
+                                        ));
+                                      }}
+                                    >
+                                      <option value="">Select Type</option>
+                                      <option value="heat">Heat Seam</option>
+                                      <option value="fusion">Fusion Weld</option>
+                                      <option value="extrusion">Extrusion Weld</option>
+                                      <option value="other">Other</option>
+                                    </select>
+                                  </div>
+                                </div>
+                                
+                                <div className="space-y-2">
+                                  <Label htmlFor="panel-notes">Notes</Label>
+                                  <Textarea 
+                                    id="panel-notes" 
+                                    value={panel.notes || ''}
+                                    rows={3}
+                                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
+                                      setPanels(panels.map(p => 
+                                        p.id === selectedPanel 
+                                          ? { ...p, notes: e.target.value } 
+                                          : p
+                                      ));
+                                    }}
+                                  />
+                                </div>
                               </div>
                             </div>
                           </div>

@@ -1,8 +1,35 @@
-import { useToast as useToastFromUI } from '@/components/ui/toast';
+'use client';
 
-export { useToast };
+import * as React from 'react';
 
-// This is just a re-export of the toast hook from the UI components
-// Doing it this way allows us to potentially add functionality later
-// without changing import statements throughout the app
-const useToast = useToastFromUI;
+// Types for toast components
+export type ToastProps = {
+  title?: string;
+  description?: string;
+  action?: React.ReactNode;
+  variant?: 'default' | 'destructive' | 'success';
+};
+
+// Simple implementation for now (would normally use a toast library)
+const toastContext = React.createContext<{
+  toast: (props: ToastProps) => void;
+}>({
+  toast: () => {},
+});
+
+export const useToast = () => {
+  const context = React.useContext(toastContext);
+
+  if (!context) {
+    throw new Error('useToast must be used within a ToastProvider');
+  }
+
+  // For now, this will just log the toast message to the console
+  // In a production app, we would use a proper toast component
+  const toast = (props: ToastProps) => {
+    console.log('Toast:', props);
+    alert(`${props.title}: ${props.description}`);
+  };
+
+  return { toast };
+};

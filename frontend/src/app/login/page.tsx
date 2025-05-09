@@ -1,65 +1,191 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import LoginForm from '@/components/auth/login-form';
-import SignupForm from '@/components/auth/signup-form';
-import { useAuth } from '@/hooks/use-auth';
+import Link from 'next/link';
+import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../../components/ui/card';
+import { useAuth } from '../../hooks/use-auth';
+import { useToast } from '../../hooks/use-toast';
 
 export default function LoginPage() {
-  const [activeTab, setActiveTab] = useState<string>('login');
   const searchParams = useSearchParams();
+  const showSignup = searchParams?.get('signup') === 'true';
+  const [isSignUp, setIsSignUp] = useState(showSignup);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [company, setCompany] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  
+  const { user, login, signup, loginWithGoogle } = useAuth();
   const router = useRouter();
-  const { user, isLoading } = useAuth();
+  const { toast } = useToast();
   
   useEffect(() => {
-    if (searchParams.get('signup') === 'true') {
-      setActiveTab('signup');
-    }
-  }, [searchParams]);
-
-  useEffect(() => {
-    if (user && !isLoading) {
+    // If user is already logged in, redirect to dashboard
+    if (user) {
       router.push('/dashboard');
     }
-  }, [user, isLoading, router]);
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-      </div>
-    );
-  }
-
+  }, [user, router]);
+  
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    
+    try {
+      if (isSignUp) {
+        await signup(name, email, password, company);
+        toast({
+          title: 'Account created',
+          description: 'Your account has been created successfully. Welcome!',
+        });
+      } else {
+        await login(email, password);
+        toast({
+          title: 'Welcome back',
+          description: 'You have successfully logged in.',
+        });
+      }
+      router.push('/dashboard');
+    } catch (error) {
+      toast({
+        title: 'Authentication failed',
+        description: error instanceof Error ? error.message : 'Failed to authenticate. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  const handleGoogleSignIn = async () => {
+    try {
+      await loginWithGoogle();
+      router.push('/dashboard');
+    } catch (error) {
+      toast({
+        title: 'Google authentication failed',
+        description: error instanceof Error ? error.message : 'Failed to authenticate with Google. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
+  
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-50">
-      <div className="w-full max-w-md">
-        <Card>
-          <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl text-center">GeoQC</CardTitle>
-            <CardDescription className="text-center">
-              Access your geosynthetic QC management dashboard
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-2 mb-6">
-                <TabsTrigger value="login">Login</TabsTrigger>
-                <TabsTrigger value="signup">Signup</TabsTrigger>
-              </TabsList>
-              <TabsContent value="login">
-                <LoginForm />
-              </TabsContent>
-              <TabsContent value="signup">
-                <SignupForm />
-              </TabsContent>
-            </Tabs>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <Card className="w-full max-w-md">
+        <CardHeader>
+          <CardTitle>{isSignUp ? 'Create an Account' : 'Log In'}</CardTitle>
+          <CardDescription>
+            {isSignUp 
+              ? 'Sign up to access all features of GeoQC' 
+              : 'Enter your credentials to access your account'
+            }
+          </CardDescription>
+        </CardHeader>
+        <form onSubmit={handleSubmit}>
+          <CardContent className="space-y-4">
+            {isSignUp && (
+              <div className="space-y-2">
+                <Label htmlFor="name">Full Name</Label>
+                <Input 
+                  id="name" 
+                  type="text" 
+                  value={name} 
+                  onChange={(e) => setName(e.target.value)} 
+                  required 
+                />
+              </div>
+            )}
+            
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input 
+                id="email" 
+                type="email" 
+                value={email} 
+                onChange={(e) => setEmail(e.target.value)} 
+                required 
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <Label htmlFor="password">Password</Label>
+                {!isSignUp && (
+                  <Link href="/forgot-password" className="text-sm text-blue-600 hover:underline">
+                    Forgot password?
+                  </Link>
+                )}
+              </div>
+              <Input 
+                id="password" 
+                type="password" 
+                value={password} 
+                onChange={(e) => setPassword(e.target.value)} 
+                required 
+              />
+            </div>
+            
+            {isSignUp && (
+              <div className="space-y-2">
+                <Label htmlFor="company">Company (Optional)</Label>
+                <Input 
+                  id="company" 
+                  type="text" 
+                  value={company} 
+                  onChange={(e) => setCompany(e.target.value)} 
+                />
+              </div>
+            )}
+            
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading 
+                ? 'Processing...' 
+                : isSignUp ? 'Sign Up' : 'Log In'
+              }
+            </Button>
+            
+            <div className="relative my-4">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white text-gray-500">Or continue with</span>
+              </div>
+            </div>
+            
+            <Button 
+              type="button" 
+              variant="outline" 
+              className="w-full" 
+              onClick={handleGoogleSignIn}
+            >
+              <span className="mr-2">
+                <svg width="18" height="18" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512">
+                  <path d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 123 24.5 166.3 64.9l-67.5 64.9C258.5 52.6 94.3 116.6 94.3 256c0 86.5 69.1 156.6 153.7 156.6 98.2 0 135-70.4 140.8-106.9H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z" 
+                    fill="#4285f4"/>
+                </svg>
+              </span>
+              Continue with Google
+            </Button>
           </CardContent>
-        </Card>
-      </div>
+        </form>
+        <CardFooter className="flex justify-center">
+          <div className="text-sm text-gray-600">
+            {isSignUp ? 'Already have an account? ' : 'Need to create an account? '}
+            <a 
+              className="text-blue-600 hover:underline cursor-pointer" 
+              onClick={() => setIsSignUp(!isSignUp)}
+            >
+              {isSignUp ? 'Log in' : 'Sign up'}
+            </a>
+          </div>
+        </CardFooter>
+      </Card>
     </div>
   );
 }
