@@ -18,15 +18,20 @@ const nextConfig = {
         headers: [
           {
             key: 'Content-Security-Policy',
-            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' ws: wss:; frame-src 'self';"
+            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' ws: wss: http://localhost:8000; frame-src 'self';"
           }
         ],
       },
     ];
   },
-  // Important for Replit preview
-  assetPrefix: process.env.NODE_ENV === 'production' ? undefined : '',
-  basePath: process.env.NODE_ENV === 'production' ? undefined : '',
+  // For Replit web preview
+  output: 'standalone',
+  // Important for Replit
+  experimental: {
+    allowedDevOrigins: ['.replit.dev', '.picard.replit.dev', '.csb.app']
+  },
+  // Handle cross-origin issues on Replit
+  crossOrigin: 'anonymous',
 };
 
 module.exports = nextConfig;
