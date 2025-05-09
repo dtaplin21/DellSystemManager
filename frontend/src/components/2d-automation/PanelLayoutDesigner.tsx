@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { useToast } from '@/hooks/use-toast';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
+import { useToast } from '../../hooks/use-toast';
 import { AlertTriangle } from 'lucide-react';
 
 interface Panel {
@@ -16,6 +16,19 @@ interface Panel {
   height: number;
   color: string;
   label: string;
+  material?: string;
+  thickness?: number;
+  seamsType?: 'heat' | 'fusion' | 'extrusion' | 'other';
+  notes?: string;
+}
+
+interface PanelLayoutSettings {
+  gridSize: number;
+  containerWidth: number;
+  containerHeight: number;
+  snapToGrid: boolean;
+  scale: number; // Scale factor (e.g., 1 unit = 1 ft)
+  units: 'ft' | 'm';
 }
 
 export default function PanelLayoutDesigner() {
@@ -30,6 +43,16 @@ export default function PanelLayoutDesigner() {
   const canvasRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
+  // State for layout settings
+  const [settings, setSettings] = useState<PanelLayoutSettings>({
+    gridSize: gridSize,
+    containerWidth: containerWidth,
+    containerHeight: containerHeight,
+    snapToGrid: snapToGrid,
+    scale: 0.25, // 1 unit = 0.25 ft
+    units: 'ft'
+  });
+
   useEffect(() => {
     // Initial setup with some example panels
     setPanels([
@@ -40,7 +63,11 @@ export default function PanelLayoutDesigner() {
         width: 200,
         height: 100,
         color: '#3b82f6',
-        label: 'Panel 1'
+        label: 'Panel 1',
+        material: 'HDPE',
+        thickness: 60,
+        seamsType: 'fusion',
+        notes: 'North section primary panel'
       },
       {
         id: '2',
@@ -49,7 +76,11 @@ export default function PanelLayoutDesigner() {
         width: 150,
         height: 150,
         color: '#10b981',
-        label: 'Panel 2'
+        label: 'Panel 2',
+        material: 'HDPE',
+        thickness: 60,
+        seamsType: 'extrusion',
+        notes: 'Corner section with drainage connection'
       },
       {
         id: '3',
@@ -58,12 +89,20 @@ export default function PanelLayoutDesigner() {
         width: 250,
         height: 120,
         color: '#f59e0b',
-        label: 'Panel 3'
+        label: 'Panel 3',
+        material: 'LLDPE',
+        thickness: 40,
+        seamsType: 'heat',
+        notes: 'South connection panel'
       }
     ]);
   }, []);
 
   const addNewPanel = () => {
+    // Default material types based on common geosynthetic materials
+    const materials = ['HDPE', 'LLDPE', 'PVC', 'GCL', 'EPDM'];
+    const seamsTypes: ('heat' | 'fusion' | 'extrusion' | 'other')[] = ['heat', 'fusion', 'extrusion', 'other'];
+    
     const newPanel: Panel = {
       id: Date.now().toString(),
       x: 50,
@@ -71,13 +110,17 @@ export default function PanelLayoutDesigner() {
       width: 150,
       height: 100,
       color: getRandomColor(),
-      label: `Panel ${panels.length + 1}`
+      label: `Panel ${panels.length + 1}`,
+      material: materials[Math.floor(Math.random() * materials.length)],
+      thickness: [40, 60, 80, 100][Math.floor(Math.random() * 4)], // Common mil thicknesses
+      seamsType: seamsTypes[Math.floor(Math.random() * seamsTypes.length)],
+      notes: `Auto-generated panel ${panels.length + 1}`
     };
     
     setPanels([...panels, newPanel]);
     toast({
       title: 'Panel Added',
-      description: `Added new panel: ${newPanel.label}`,
+      description: `Added new panel: ${newPanel.label} (${newPanel.material} ${newPanel.thickness} mil)`,
     });
   };
 
