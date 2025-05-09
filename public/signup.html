@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>GeoSynth QC Pro - Sign Up</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    :root {
+      --primary: #0052cc;
+      --primary-dark: #003d99;
+      --secondary: #00857c;
+      --light: #f5f8fa;
+      --dark: #172b4d;
+      --accent: #ff5630;
+      --gray: #6b778c;
+      --border: #dfe1e6;
+    }
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      line-height: 1.6;
+      color: var(--dark);
+      background-color: var(--light);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+    
+    .signup-container {
+      width: 100%;
+      max-width: 500px;
+      background-color: white;
+      border-radius: 8px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+    
+    .signup-header {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+      padding: 2rem;
+      text-align: center;
+      color: white;
+    }
+    
+    .logo {
+      font-size: 1.8rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+    }
+    
+    .logo span {
+      color: #b3e5e1;
+    }
+    
+    .signup-header p {
+      opacity: 0.9;
+      font-size: 0.95rem;
+    }
+    
+    .signup-form {
+      padding: 2rem;
+    }
+    
+    .form-tabs {
+      display: flex;
+      margin-bottom: 2rem;
+      border-bottom: 1px solid var(--border);
+    }
+    
+    .form-tab {
+      flex: 1;
+      text-align: center;
+      padding: 0.8rem;
+      cursor: pointer;
+      font-weight: 500;
+      color: var(--gray);
+      border-bottom: 2px solid transparent;
+      transition: all 0.3s;
+    }
+    
+    .form-tab.active {
+      color: var(--primary);
+      border-bottom: 2px solid var(--primary);
+    }
+    
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+    
+    .form-group label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 500;
+      color: var(--dark);
+      font-size: 0.9rem;
+    }
+    
+    .form-group input, .form-group select {
+      width: 100%;
+      padding: 0.8rem;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 1rem;
+      transition: border-color 0.3s;
+    }
+    
+    .form-group input:focus, .form-group select:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px rgba(0,82,204,0.2);
+    }
+    
+    .form-row {
+      display: flex;
+      gap: 1rem;
+    }
+    
+    .form-row .form-group {
+      flex: 1;
+    }
+    
+    .form-terms {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.8rem;
+      margin-bottom: 2rem;
+      font-size: 0.9rem;
+      color: var(--gray);
+    }
+    
+    .form-terms input {
+      margin-top: 0.25rem;
+    }
+    
+    .form-terms a {
+      color: var(--primary);
+      text-decoration: none;
+    }
+    
+    .form-terms a:hover {
+      text-decoration: underline;
+    }
+    
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 0.8rem;
+      background-color: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    
+    .btn:hover {
+      background-color: var(--primary-dark);
+    }
+    
+    .social-login {
+      margin-top: 2rem;
+      text-align: center;
+    }
+    
+    .social-label {
+      display: flex;
+      align-items: center;
+      color: var(--gray);
+      font-size: 0.9rem;
+      margin-bottom: 1.5rem;
+    }
+    
+    .social-label::before,
+    .social-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background-color: var(--border);
+    }
+    
+    .social-label::before {
+      margin-right: 1rem;
+    }
+    
+    .social-label::after {
+      margin-left: 1rem;
+    }
+    
+    .social-buttons {
+      display: flex;
+      gap: 1rem;
+    }
+    
+    .social-btn {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.8rem;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background-color: white;
+      color: var(--dark);
+      font-family: inherit;
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    
+    .social-btn:hover {
+      background-color: var(--light);
+      border-color: var(--gray);
+    }
+    
+    .login-prompt {
+      margin-top: 2rem;
+      text-align: center;
+      font-size: 0.9rem;
+      color: var(--gray);
+    }
+    
+    .login-prompt a {
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 500;
+    }
+    
+    .login-prompt a:hover {
+      text-decoration: underline;
+    }
+    
+    .subscription-options {
+      margin-bottom: 2rem;
+    }
+    
+    .subscription-title {
+      font-weight: 600;
+      margin-bottom: 1rem;
+    }
+    
+    .subscription-cards {
+      display: flex;
+      gap: 1rem;
+    }
+    
+    .subscription-card {
+      flex: 1;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.5rem;
+      cursor: pointer;
+      transition: all 0.3s;
+      position: relative;
+    }
+    
+    .subscription-card:hover {
+      border-color: var(--primary);
+    }
+    
+    .subscription-card.selected {
+      border-color: var(--primary);
+      background-color: rgba(0,82,204,0.05);
+    }
+    
+    .subscription-card.selected::before {
+      content: '✓';
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 20px;
+      height: 20px;
+      background-color: var(--primary);
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.8rem;
+      font-weight: bold;
+    }
+    
+    .subscription-name {
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+    
+    .subscription-price {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 1rem;
+    }
+    
+    .subscription-price span {
+      font-size: 0.9rem;
+      font-weight: 400;
+      color: var(--gray);
+    }
+    
+    .subscription-features {
+      font-size: 0.9rem;
+      color: var(--gray);
+    }
+    
+    .subscription-feature {
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .subscription-feature::before {
+      content: '✓';
+      color: var(--success);
+      font-weight: bold;
+    }
+    
+    @media (max-width: 768px) {
+      .subscription-cards {
+        flex-direction: column;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      .signup-container {
+        box-shadow: none;
+      }
+      
+      .form-row {
+        flex-direction: column;
+        gap: 0;
+      }
+      
+      .social-buttons {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="signup-container">
+    <div class="signup-header">
+      <div class="logo">Geo<span>Synth</span> QC Pro</div>
+      <p>Professional Quality Control for Geosynthetic Projects</p>
+    </div>
+    
+    <div class="signup-form">
+      <div class="form-tabs">
+        <div class="form-tab">Login</div>
+        <div class="form-tab active">Sign Up</div>
+      </div>
+      
+      <form id="signup-form">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="first-name">First Name</label>
+            <input type="text" id="first-name" name="first-name" required>
+          </div>
+          
+          <div class="form-group">
+            <label for="last-name">Last Name</label>
+            <input type="text" id="last-name" name="last-name" required>
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label for="email">Work Email</label>
+          <input type="email" id="email" name="email" required>
+        </div>
+        
+        <div class="form-group">
+          <label for="company">Company Name</label>
+          <input type="text" id="company" name="company" required>
+        </div>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" required>
+          </div>
+          
+          <div class="form-group">
+            <label for="confirm-password">Confirm Password</label>
+            <input type="password" id="confirm-password" name="confirm-password" required>
+          </div>
+        </div>
+        
+        <div class="subscription-options">
+          <div class="subscription-title">Choose a Subscription Plan</div>
+          
+          <div class="subscription-cards">
+            <div class="subscription-card" data-plan="basic">
+              <div class="subscription-name">Basic</div>
+              <div class="subscription-price">$115<span>/month</span></div>
+              <div class="subscription-features">
+                <div class="subscription-feature">5 Active Projects</div>
+                <div class="subscription-feature">3 Team Members</div>
+                <div class="subscription-feature">Limited Document Analysis</div>
+                <div class="subscription-feature">Basic Panel Layout Tools</div>
+              </div>
+            </div>
+            
+            <div class="subscription-card selected" data-plan="premium">
+              <div class="subscription-name">Premium</div>
+              <div class="subscription-price">$315<span>/month</span></div>
+              <div class="subscription-features">
+                <div class="subscription-feature">Unlimited Projects</div>
+                <div class="subscription-feature">Unlimited Team Members</div>
+                <div class="subscription-feature">Advanced AI Analysis</div>
+                <div class="subscription-feature">Advanced Panel Optimization</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="form-terms">
+          <input type="checkbox" id="terms" name="terms" required>
+          <label for="terms">
+            I agree to the <a href="/terms">Terms of Service</a> and <a href="/privacy">Privacy Policy</a>. By creating an account, you agree to receive communication from GeoSynth QC Pro.
+          </label>
+        </div>
+        
+        <button type="submit" class="btn">Create Account</button>
+      </form>
+      
+      <div class="social-login">
+        <div class="social-label">Or sign up with</div>
+        <div class="social-buttons">
+          <button type="button" class="social-btn">
+            Google
+          </button>
+          <button type="button" class="social-btn">
+            LinkedIn
+          </button>
+        </div>
+      </div>
+      
+      <div class="login-prompt">
+        Already have an account? <a href="/login">Log In</a>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const tabs = document.querySelectorAll('.form-tab');
+      const subscriptionCards = document.querySelectorAll('.subscription-card');
+      
+      tabs.forEach(tab => {
+        tab.addEventListener('click', function() {
+          tabs.forEach(t => t.classList.remove('active'));
+          this.classList.add('active');
+          
+          if (this.textContent === 'Login') {
+            window.location.href = '/login';
+          }
+        });
+      });
+      
+      subscriptionCards.forEach(card => {
+        card.addEventListener('click', function() {
+          subscriptionCards.forEach(c => c.classList.remove('selected'));
+          this.classList.add('selected');
+        });
+      });
+      
+      document.getElementById('signup-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        // Get form data
+        const firstName = document.getElementById('first-name').value;
+        const lastName = document.getElementById('last-name').value;
+        const email = document.getElementById('email').value;
+        const company = document.getElementById('company').value;
+        const password = document.getElementById('password').value;
+        const confirmPassword = document.getElementById('confirm-password').value;
+        
+        // Get selected plan
+        const selectedPlan = document.querySelector('.subscription-card.selected').getAttribute('data-plan');
+        
+        // Validate password match
+        if (password !== confirmPassword) {
+          alert('Passwords do not match!');
+          return;
+        }
+        
+        console.log('Signup with:', { 
+          firstName, 
+          lastName, 
+          email, 
+          company, 
+          password,
+          plan: selectedPlan
+        });
+        
+        // Redirect to dashboard for demo purposes
+        window.location.href = '/demo';
+      });
+    });
+  </script>
+</body>
+</html>
