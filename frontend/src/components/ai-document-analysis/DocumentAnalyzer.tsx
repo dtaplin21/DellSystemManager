@@ -19,6 +19,27 @@ interface Document {
   analyzed: boolean;
 }
 
+interface QCDataEntry {
+  id: number;
+  location: string;
+  parameter: string;
+  value: string;
+  status: string;
+}
+
+interface Material {
+  name: string;
+  thickness?: string;
+  weight?: string;
+  manufacturer: string;
+  quantity: string;
+}
+
+interface DocumentSection {
+  heading: string;
+  contentSummary: string;
+}
+
 export default function DocumentAnalyzer() {
   const [documents, setDocuments] = useState<Document[]>([
     {
@@ -53,7 +74,25 @@ export default function DocumentAnalyzer() {
   const [analysisResult, setAnalysisResult] = useState<string | null>(null);
   const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
   const [extractionType, setExtractionType] = useState('auto');
-  const [extractedData, setExtractedData] = useState<any>(null);
+  interface QCDataExtraction {
+    type: 'QC Data';
+    entries: QCDataEntry[];
+  }
+  
+  interface MaterialExtraction {
+    type: 'Material Specifications';
+    materials: Material[];
+  }
+  
+  interface DocumentContentExtraction {
+    type: 'Document Content';
+    title: string;
+    sections: DocumentSection[];
+  }
+  
+  type ExtractedData = QCDataExtraction | MaterialExtraction | DocumentContentExtraction;
+  
+  const [extractedData, setExtractedData] = useState<ExtractedData | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -182,7 +221,7 @@ export default function DocumentAnalyzer() {
     // Simulate API call to extract data
     setTimeout(() => {
       // Generate simulated extracted data based on extraction type
-      let data: any = {};
+      let data: ExtractedData;
       
       if (document.type === 'Excel' && (extractionType === 'auto' || extractionType === 'qc_data')) {
         data = {
@@ -369,7 +408,7 @@ export default function DocumentAnalyzer() {
                       id="analysis-question"
                       placeholder="E.g., What are the key specifications for the geomembrane installation? Or what quality control issues are mentioned?"
                       value={analysisQuestion}
-                      onChange={(e) => setAnalysisQuestion(e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setAnalysisQuestion(e.target.value)}
                       rows={3}
                     />
                   </div>
@@ -468,7 +507,7 @@ export default function DocumentAnalyzer() {
                           </tr>
                         </thead>
                         <tbody>
-                          {extractedData.entries.map((entry: any) => (
+                          {extractedData.entries.map((entry: QCDataEntry) => (
                             <tr key={entry.id} className="border-t">
                               <td className="p-2">{entry.location}</td>
                               <td className="p-2">{entry.parameter}</td>
@@ -503,7 +542,7 @@ export default function DocumentAnalyzer() {
                           </tr>
                         </thead>
                         <tbody>
-                          {extractedData.materials.map((material: any, index: number) => (
+                          {extractedData.materials.map((material: Material, index: number) => (
                             <tr key={index} className="border-t">
                               <td className="p-2">{material.name}</td>
                               <td className="p-2">
