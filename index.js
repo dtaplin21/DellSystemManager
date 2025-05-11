@@ -1791,13 +1791,28 @@ app.get('/demo', (req, res) => {
   `);
 });
 
+// API endpoint mock
+app.post('/api/contact', (req, res) => {
+  res.json({ success: true, message: 'Thank you for contacting us!' });
+});
+
+// Fallback route for any unhandled routes
+app.use((req, res) => {
+  // If no route matched, redirect to home page
+  res.redirect('/');
+});
+
 // Handle errors
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+  console.error('Error caught:', err.stack);
   res.status(500).send('Something went wrong!');
 });
 
 // Start server
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
+  console.log(`- Main site: http://localhost:${PORT}/`);
+  console.log(`- Login page: http://localhost:${PORT}/login`);
+  console.log(`- Signup page: http://localhost:${PORT}/signup`);
+  console.log(`- Dashboard demo: http://localhost:${PORT}/demo`);
 });
