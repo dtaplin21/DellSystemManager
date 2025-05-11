@@ -78,7 +78,7 @@ export default function ExcelImporter({ projectId, onImportComplete }: ExcelImpo
       // Add column mappings to form data
       Object.entries(mappingOptions).forEach(([key, value]) => {
         if (key !== 'hasHeaderRow' && value) {
-          formData.append(key, value);
+          formData.append(key, String(value));
         }
       });
 

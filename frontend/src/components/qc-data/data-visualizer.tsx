@@ -88,8 +88,11 @@ export default function DataVisualizer({ projectId, qcData }: DataVisualizerProp
       const Chart = ChartModule.default;
       
       // Destroy existing charts
-      Chart.getChart(chartRef.current)?.destroy();
-      Chart.getChart(timeChartRef.current)?.destroy();
+      const existingChart = chartRef.current && Chart.getChart(chartRef.current);
+      if (existingChart) existingChart.destroy();
+      
+      const existingTimeChart = timeChartRef.current && Chart.getChart(timeChartRef.current);
+      if (existingTimeChart) existingTimeChart.destroy();
       
       // Prepare data for results pie chart
       const resultsData = {
@@ -116,7 +119,7 @@ export default function DataVisualizer({ projectId, qcData }: DataVisualizerProp
       };
       
       // Create results pie chart
-      new Chart(chartRef.current, {
+      new Chart(chartRef.current!, {
         type: 'pie',
         data: resultsData,
         options: {
@@ -137,7 +140,7 @@ export default function DataVisualizer({ projectId, qcData }: DataVisualizerProp
       const timeData = prepareTimeSeriesData(data);
       
       // Create time-series chart
-      new Chart(timeChartRef.current, {
+      new Chart(timeChartRef.current!, {
         type: 'line',
         data: {
           labels: timeData.labels,
