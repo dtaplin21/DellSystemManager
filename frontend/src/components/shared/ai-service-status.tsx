@@ -57,7 +57,7 @@ export default function AIServiceStatus({ onConfigure, compact = false }: Servic
   
   // If all AI services are available, show a success message
   if (!missingSecrets || missingSecrets.length === 0 || 
-      !missingSecrets.some(s => s.startsWith('ai.'))) {
+      !missingSecrets.some((s: string) => s.startsWith('ai.'))) {
     if (compact) {
       return (
         <div className="flex items-center space-x-2 text-sm text-green-600">
@@ -79,7 +79,7 @@ export default function AIServiceStatus({ onConfigure, compact = false }: Servic
   }
   
   // If there are missing AI services, show a warning
-  const aiMissingServices = missingSecrets.filter(s => s.startsWith('ai.'));
+  const aiMissingServices = missingSecrets.filter((s: string) => s.startsWith('ai.'));
   
   if (compact) {
     return (
@@ -123,7 +123,7 @@ export default function AIServiceStatus({ onConfigure, compact = false }: Servic
           <div className="mt-2 text-sm">
             <p className="font-medium mb-1">Missing services:</p>
             <ul className="space-y-1 list-disc pl-5">
-              {aiMissingServices.map((service, index) => (
+              {aiMissingServices.map((service: string, index: number) => (
                 <li key={index}>
                   {service === 'ai.openai' ? 'OpenAI API for advanced AI features' : service}
                 </li>

@@ -251,7 +251,7 @@ export default function PanelLayoutAutoOptimizer({
             <div>
               <h3 className="text-sm font-semibold mb-2">Recommended Changes</h3>
               <ul className="space-y-1">
-                {optimizationResults.changesSummary.map((change, idx) => (
+                {optimizationResults.changesSummary.map((change: string, idx: number) => (
                   <li key={idx} className="text-sm flex items-start">
                     <Check className="h-4 w-4 text-green-500 mr-1 mt-0.5 flex-shrink-0" />
                     <span>{change}</span>

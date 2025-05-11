@@ -46,7 +46,11 @@ export default function Checkout({ plan, onCancel }: CheckoutProps) {
       setIsLoading(true);
       
       // Create checkout session on the server
-      const { sessionId } = await createCheckoutSession(plan);
+      const response = await createCheckoutSession(plan);
+      if (!response) {
+        throw new Error('Failed to create checkout session');
+      }
+      const { sessionId } = response;
       
       // Redirect to Stripe checkout
       const stripe = await getStripe();

@@ -36,6 +36,9 @@ export default function ExportDialog({
       setIsExporting(true);
       
       const blob = await exportPanelLayoutToCAD(projectId, exportFormat);
+      if (!blob) {
+        throw new Error('No data received from export');
+      }
       
       // Create a download link
       const url = window.URL.createObjectURL(blob);
