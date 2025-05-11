@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>GeoSynth QC Pro - Professional Quality Control for Geosynthetic Projects</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    :root {
+      --primary: #0052cc;
+      --primary-dark: #003d99;
+      --secondary: #00857c;
+      --light: #f5f8fa;
+      --dark: #172b4d;
+      --accent: #ff5630;
+      --gray: #6b778c;
+      --success: #36b37e;
+      --warning: #ffab00;
+      --error: #ff5630;
+    }
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      line-height: 1.6;
+      color: var(--dark);
+      background-color: var(--light);
+    }
+    
+    header {
+      background-color: white;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    
+    .header-container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 2rem;
+      max-width: 1300px;
+      margin: 0 auto;
+    }
+    
+    .logo {
+      display: flex;
+      align-items: center;
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--primary);
+    }
+    
+    .logo span {
+      color: var(--secondary);
+    }
+    
+    nav ul {
+      display: flex;
+      list-style: none;
+    }
+    
+    nav ul li {
+      margin-left: 2rem;
+    }
+    
+    nav ul li a {
+      text-decoration: none;
+      color: var(--dark);
+      font-weight: 500;
+      transition: color 0.3s;
+      border-bottom: 2px solid transparent;
+      padding-bottom: 0.3rem;
+    }
+    
+    nav ul li a:hover {
+      color: var(--primary);
+      border-bottom: 2px solid var(--primary);
+    }
+    
+    .hero {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+      color: white;
+      padding: 5rem 2rem;
+      text-align: center;
+    }
+    
+    .hero-container {
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+    
+    .hero h1 {
+      font-size: 2.8rem;
+      margin-bottom: 1.5rem;
+      line-height: 1.2;
+    }
+    
+    .hero p {
+      font-size: 1.25rem;
+      margin-bottom: 2.5rem;
+      opacity: 0.9;
+    }
+    
+    .btn {
+      display: inline-block;
+      background-color: var(--primary);
+      color: white;
+      padding: 0.8rem 2rem;
+      border-radius: 4px;
+      text-decoration: none;
+      font-weight: 600;
+      transition: all 0.3s;
+      border: none;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+    
+    .btn:hover {
+      background-color: var(--primary-dark);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+    
+    .btn-light {
+      background-color: white;
+      color: var(--primary);
+    }
+    
+    .btn-light:hover {
+      background-color: var(--light);
+    }
+    
+    .btn-cta {
+      background-color: var(--accent);
+      padding: 1rem 2.5rem;
+      font-size: 1.1rem;
+    }
+    
+    .btn-group {
+      display: flex;
+      gap: 1.5rem;
+      justify-content: center;
+    }
+    
+    section {
+      padding: 5rem 2rem;
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    
+    .section-title {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+    
+    .section-title h2 {
+      font-size: 2.2rem;
+      color: var(--dark);
+      position: relative;
+      margin-bottom: 1.5rem;
+    }
+    
+    .section-title h2::after {
+      content: '';
+      position: absolute;
+      bottom: -15px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 50px;
+      height: 3px;
+      background-color: var(--primary);
+    }
+    
+    .section-title p {
+      color: var(--gray);
+      font-size: 1.2rem;
+      max-width: 700px;
+      margin: 0 auto;
+    }
+    
+    .features {
+      background-color: white;
+    }
+    
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 2.5rem;
+    }
+    
+    .feature-card {
+      background-color: var(--light);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+      transition: transform 0.3s, box-shadow 0.3s;
+    }
+    
+    .feature-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+    }
+    
+    .feature-icon {
+      background-color: var(--primary);
+      height: 8px;
+      width: 100%;
+    }
+    
+    .feature-icon.ai {
+      background-color: #5243aa;
+    }
+    
+    .feature-icon.design {
+      background-color: var(--secondary);
+    }
+    
+    .feature-icon.data {
+      background-color: #ff8b00;
+    }
+    
+    .feature-content {
+      padding: 1.5rem;
+    }
+    
+    .feature-content h3 {
+      font-size: 1.3rem;
+      margin-bottom: 1rem;
+      color: var(--dark);
+    }
+    
+    .feature-content p {
+      color: var(--gray);
+      margin-bottom: 1.5rem;
+    }
+    
+    .cta-section {
+      background-color: var(--primary);
+      color: white;
+      text-align: center;
+      padding: 4rem 2rem;
+    }
+    
+    .cta-section h2 {
+      font-size: 2.2rem;
+      margin-bottom: 1rem;
+    }
+    
+    .cta-section p {
+      font-size: 1.2rem;
+      margin-bottom: 2rem;
+      opacity: 0.9;
+    }
+    
+    .pricing {
+      background-color: var(--light);
+    }
+    
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 2rem;
+      justify-content: center;
+    }
+    
+    .pricing-card {
+      background-color: white;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+      transition: transform 0.3s;
+      position: relative;
+    }
+    
+    .pricing-card:hover {
+      transform: translateY(-10px);
+    }
+    
+    .pricing-card.highlight {
+      border: 2px solid var(--primary);
+      transform: scale(1.05);
+    }
+    
+    .pricing-card.highlight:hover {
+      transform: scale(1.05) translateY(-10px);
+    }
+    
+    .pricing-header {
+      padding: 2rem;
+      text-align: center;
+      border-bottom: 1px solid #eee;
+    }
+    
+    .pricing-header h3 {
+      font-size: 1.8rem;
+      margin-bottom: 0.5rem;
+    }
+    
+    .pricing-price {
+      font-size: 2.5rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
+      color: var(--primary);
+    }
+    
+    .pricing-price span {
+      font-size: 1rem;
+      font-weight: 400;
+      color: var(--gray);
+    }
+    
+    .popular-badge {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background-color: var(--accent);
+      color: white;
+      padding: 0.3rem 0.8rem;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+    
+    .pricing-features {
+      padding: 2rem;
+    }
+    
+    .pricing-features ul {
+      list-style: none;
+    }
+    
+    .pricing-features li {
+      margin-bottom: 1rem;
+      padding-left: 1.5rem;
+      position: relative;
+    }
+    
+    .pricing-features li::before {
+      content: '✓';
+      position: absolute;
+      left: 0;
+      color: var(--success);
+      font-weight: bold;
+    }
+    
+    .pricing-action {
+      padding: 0 2rem 2rem;
+      text-align: center;
+    }
+    
+    .testimonials {
+      background-color: white;
+    }
+    
+    .testimonial-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 2rem;
+    }
+    
+    .testimonial-card {
+      background-color: var(--light);
+      padding: 2rem;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+    
+    .testimonial-text {
+      margin-bottom: 1.5rem;
+      font-style: italic;
+      color: var(--dark);
+    }
+    
+    .testimonial-author {
+      display: flex;
+      align-items: center;
+    }
+    
+    .testimonial-avatar {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background-color: #ddd;
+      margin-right: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      color: var(--primary);
+    }
+    
+    .testimonial-info h4 {
+      font-size: 1.1rem;
+      margin-bottom: 0.2rem;
+    }
+    
+    .testimonial-info p {
+      color: var(--gray);
+      font-size: 0.9rem;
+    }
+    
+    .contact {
+      background-color: var(--dark);
+      color: white;
+    }
+    
+    .contact-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 3rem;
+    }
+    
+    .contact-form {
+      background-color: white;
+      padding: 2rem;
+      border-radius: 8px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    }
+    
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+    
+    .form-group label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 500;
+      color: var(--dark);
+    }
+    
+    .form-group input,
+    .form-group textarea,
+    .form-group select {
+      width: 100%;
+      padding: 0.8rem;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 1rem;
+    }
+    
+    .form-group textarea {
+      min-height: 120px;
+      resize: vertical;
+    }
+    
+    .contact-info {
+      padding: 2rem;
+    }
+    
+    .contact-info h3 {
+      font-size: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    
+    .contact-method {
+      margin-bottom: 2rem;
+    }
+    
+    .contact-method h4 {
+      font-size: 1.2rem;
+      margin-bottom: 0.8rem;
+    }
+    
+    .contact-method p {
+      opacity: 0.8;
+    }
+    
+    footer {
+      background-color: var(--dark);
+      color: white;
+      padding: 2rem;
+      text-align: center;
+      border-top: 1px solid rgba(255,255,255,0.1);
+    }
+    
+    footer p {
+      opacity: 0.7;
+      font-size: 0.9rem;
+    }
+    
+    .login-form {
+      max-width: 450px;
+      margin: 4rem auto;
+      padding: 2rem;
+      background-color: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+    }
+    
+    .login-form h2 {
+      margin-bottom: 1.5rem;
+      text-align: center;
+      color: var(--primary);
+    }
+    
+    .login-options {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 1.5rem;
+    }
+    
+    .login-option {
+      flex: 1;
+      text-align: center;
+      padding: 1rem;
+      cursor: pointer;
+      color: var(--gray);
+      font-weight: 500;
+      border-bottom: 2px solid transparent;
+    }
+    
+    .login-option.active {
+      color: var(--primary);
+      border-bottom: 2px solid var(--primary);
+    }
+    
+    .login-footer {
+      text-align: center;
+      margin-top: 1.5rem;
+      color: var(--gray);
+      font-size: 0.9rem;
+    }
+    
+    .login-footer a {
+      color: var(--primary);
+      text-decoration: none;
+    }
+    
+    @media (max-width: 768px) {
+      .header-container {
+        flex-direction: column;
+        padding: 1rem;
+      }
+      
+      .logo {
+        margin-bottom: 1rem;
+      }
+      
+      nav ul {
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      
+      nav ul li {
+        margin: 0.5rem;
+      }
+      
+      .hero {
+        padding: 3rem 1rem;
+      }
+      
+      .hero h1 {
+        font-size: 2rem;
+      }
+      
+      .btn-group {
+        flex-direction: column;
+        align-items: center;
+      }
+      
+      section {
+        padding: 3rem 1rem;
+      }
+      
+      .contact-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-container">
+      <div class="logo">Geo<span>Synth</span> QC Pro</div>
+      <nav>
+        <ul>
+          <li><a href="/">Home</a></li>
+          <li><a href="#features">Features</a></li>
+          <li><a href="#pricing">Pricing</a></li>
+          <li><a href="/demo">Demo</a></li>
+          <li><a href="#contact">Contact</a></li>
+          <li><a href="/login">Login</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+  
+  <section class="hero">
+    <div class="hero-container">
+      <h1>Professional Quality Control for Geosynthetic Projects</h1>
+      <p>Advanced AI-powered tools to streamline your QC process, reduce errors, and deliver projects with confidence.</p>
+      <div class="btn-group">
+        <a href="/demo" class="btn btn-cta">See It In Action</a>
+        <a href="/signup" class="btn btn-light">Start Free Trial</a>
+      </div>
+    </div>
+  </section>
+  
+  <section class="features" id="features">
+    <div class="container">
+      <div class="section-title">
+        <h2>Powerful Features</h2>
+        <p>Our comprehensive platform provides all the tools you need to manage geosynthetic quality control from start to finish.</p>
+      </div>
+      
+      <div class="feature-grid">
+        <div class="feature-card">
+          <div class="feature-icon ai"></div>
+          <div class="feature-content">
+            <h3>AI Document Analysis</h3>
+            <p>Automatically extract data from test reports, specifications, and field notes with our advanced OCR technology. Save hours of manual entry and eliminate transcription errors.</p>
+            <a href="/features#ai" class="btn">Learn More</a>
+          </div>
+        </div>
+        
+        <div class="feature-card">
+          <div class="feature-icon design"></div>
+          <div class="feature-content">
+            <h3>2D Panel Optimization</h3>
+            <p>Our intelligent panel layout tools help you design efficient installations, minimize material waste, and visualize your project before deployment. Includes CAD export functionality.</p>
+            <a href="/features#design" class="btn">Learn More</a>
+          </div>
+        </div>
+        
+        <div class="feature-card">
+          <div class="feature-icon"></div>
+          <div class="feature-content">
+            <h3>Real-Time Collaboration</h3>
+            <p>Work seamlessly with your team members and clients regardless of location. Changes update instantly with our secure websocket technology. Includes role-based access control.</p>
+            <a href="/features#collaboration" class="btn">Learn More</a>
+          </div>
+        </div>
+        
+        <div class="feature-card">
+          <div class="feature-icon data"></div>
+          <div class="feature-content">
+            <h3>QC Data Management</h3>
+            <p>Track all quality control metrics in one place with customizable dashboards, automated alerts for test failures, and comprehensive reporting tools to satisfy client requirements.</p>
+            <a href="/features#data" class="btn">Learn More</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+  
+  <section class="cta-section">
+    <div class="container">
+      <h2>Ready to Modernize Your QC Process?</h2>
+      <p>Join industry leaders who have reduced reporting time by 60% and material waste by 35%.</p>
+      <a href="/signup" class="btn btn-light">Get Started Today</a>
+    </div>
+  </section>
+  
+  <section class="pricing" id="pricing">
+    <div class="container">
+      <div class="section-title">
+        <h2>Simple, Transparent Pricing</h2>
+        <p>Choose the plan that best fits your project needs with no hidden fees or long-term commitments.</p>
+      </div>
+      
+      <div class="pricing-grid">
+        <div class="pricing-card">
+          <div class="pricing-header">
+            <h3>Basic</h3>
+            <div class="pricing-price">$115<span>/month</span></div>
+            <p>For smaller projects and teams</p>
+          </div>
+          <div class="pricing-features">
+            <ul>
+              <li>5 Active Projects</li>
+              <li>3 Team Members</li>
+              <li>Document Analysis (Limited)</li>
+              <li>Panel Layout Tools</li>
+              <li>Basic Reporting</li>
+              <li>Email Support</li>
+            </ul>
+          </div>
+          <div class="pricing-action">
+            <a href="/signup?plan=basic" class="btn">Get Started</a>
+          </div>
+        </div>
+        
+        <div class="pricing-card highlight">
+          <div class="popular-badge">Most Popular</div>
+          <div class="pricing-header">
+            <h3>Premium</h3>
+            <div class="pricing-price">$315<span>/month</span></div>
+            <p>For professional teams & complex projects</p>
+          </div>
+          <div class="pricing-features">
+            <ul>
+              <li>Unlimited Projects</li>
+              <li>Unlimited Team Members</li>
+              <li>Advanced AI Analysis</li>
+              <li>Custom Workflows</li>
+              <li>API Integration</li>
+              <li>Priority Support</li>
+              <li>Compliance Reports</li>
+              <li>Advanced Panel Optimization</li>
+            </ul>
+          </div>
+          <div class="pricing-action">
+            <a href="/signup?plan=premium" class="btn btn-cta">Get Started</a>
+          </div>
+        </div>
+        
+        <div class="pricing-card">
+          <div class="pricing-header">
+            <h3>Enterprise</h3>
+            <div class="pricing-price">Custom<span>/pricing</span></div>
+            <p>For large organizations with specific needs</p>
+          </div>
+          <div class="pricing-features">
+            <ul>
+              <li>All Premium Features</li>
+              <li>Dedicated Account Manager</li>
+              <li>Custom AI Training</li>
+              <li>On-site Implementation</li>
+              <li>SSO Integration</li>
+              <li>24/7 Phone Support</li>
+              <li>Custom Reporting</li>
+            </ul>
+          </div>
+          <div class="pricing-action">
+            <a href="/contact" class="btn">Contact Us</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+  
+  <section class="testimonials">
+    <div class="container">
+      <div class="section-title">
+        <h2>What Our Clients Say</h2>
+        <p>Join hundreds of satisfied clients who have transformed their quality control processes.</p>
+      </div>
+      
+      <div class="testimonial-grid">
+        <div class="testimonial-card">
+          <div class="testimonial-text">
+            "GeoSynth QC Pro has completely transformed how we manage quality control. The AI document analysis alone has saved us countless hours of manual data entry and eliminated errors."
+          </div>
+          <div class="testimonial-author">
+            <div class="testimonial-avatar">JD</div>
+            <div class="testimonial-info">
+              <h4>John Donovan</h4>
+              <p>Senior QC Manager, EcoLiner Solutions</p>
+            </div>
+          </div>
+        </div>
+        
+        <div class="testimonial-card">
+          <div class="testimonial-text">
+            "The panel optimization tools have reduced our material waste by over 30%. The system paid for itself within the first two projects."
+          </div>
+          <div class="testimonial-author">
+            <div class="testimonial-avatar">SM</div>
+            <div class="testimonial-info">
+              <h4>Sarah Martinez</h4>
+              <p>Project Director, GeoTech Industries</p>
+            </div>
+          </div>
+        </div>
+        
+        <div class="testimonial-card">
+          <div class="testimonial-text">
+            "As a compliance manager, the automated reporting tools have made my job significantly easier. I can generate client-ready reports with just a few clicks."
+          </div>
+          <div class="testimonial-author">
+            <div class="testimonial-avatar">RJ</div>
+            <div class="testimonial-info">
+              <h4>Robert Johnson</h4>
+              <p>Compliance Director, EnviroCell</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+  
+  <section class="contact" id="contact">
+    <div class="container">
+      <div class="section-title">
+        <h2>Contact Us</h2>
+        <p>Have questions? Our team is ready to help you find the perfect solution for your needs.</p>
+      </div>
+      
+      <div class="contact-grid">
+        <div class="contact-form">
+          <form action="/api/contact" method="POST">
+            <div class="form-group">
+              <label for="name">Name</label>
+              <input type="text" id="name" name="name" required>
+            </div>
+            <div class="form-group">
+              <label for="email">Email</label>
+              <input type="email" id="email" name="email" required>
+            </div>
+            <div class="form-group">
+              <label for="company">Company</label>
+              <input type="text" id="company" name="company">
+            </div>
+            <div class="form-group">
+              <label for="interest">I'm interested in</label>
+              <select id="interest" name="interest">
+                <option value="general">General Information</option>
+                <option value="demo">Product Demo</option>
+                <option value="quote">Custom Quote</option>
+                <option value="support">Technical Support</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="message">Message</label>
+              <textarea id="message" name="message" required></textarea>
+            </div>
+            <button type="submit" class="btn btn-cta" style="width: 100%;">Send Message</button>
+          </form>
+        </div>
+        
+        <div class="contact-info">
+          <h3>Get In Touch</h3>
+          
+          <div class="contact-method">
+            <h4>Email</h4>
+            <p>info@geosynthqcpro.com</p>
+          </div>
+          
+          <div class="contact-method">
+            <h4>Phone</h4>
+            <p>+1 (555) 123-4567</p>
+          </div>
+          
+          <div class="contact-method">
+            <h4>Office</h4>
+            <p>
+              123 Geosynthetic Way<br>
+              Suite 400<br>
+              Houston, TX 77002
+            </p>
+          </div>
+          
+          <div class="contact-method">
+            <h4>Hours</h4>
+            <p>
+              Monday - Friday: 8am - 6pm CST<br>
+              Saturday: 9am - 1pm CST<br>
+              Sunday: Closed
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+  
+  <footer>
+    <p>&copy; 2025 GeoSynth QC Pro. All rights reserved.</p>
+  </footer>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Smooth scrolling for anchor links
+      document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', function(e) {
+          e.preventDefault();
+          const targetId = this.getAttribute('href');
+          
+          if (targetId === '#') return;
+          
+          const targetElement = document.querySelector(targetId);
+          if (targetElement) {
+            window.scrollTo({
+              top: targetElement.offsetTop - 80,
+              behavior: 'smooth'
+            });
+          }
+        });
+      });
+      
+      // Form submission
+      const contactForm = document.querySelector('form[action="/api/contact"]');
+      if (contactForm) {
+        contactForm.addEventListener('submit', function(e) {
+          e.preventDefault();
+          
+          // In a real application, this would send the form data to your backend
+          alert('Thank you for your message! Our team will get back to you shortly.');
+          this.reset();
+        });
+      }
+    });
+  </script>
+</body>
+</html>
