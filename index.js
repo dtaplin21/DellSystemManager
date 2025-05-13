@@ -721,7 +721,7 @@ app.get('/demo', (req, res) => {
               📊 Dashboard
             </li>
             <li class="sidebar-menu-item">
-              <a href="/dashboard/projects" style="color: inherit; text-decoration: none; display: flex; align-items: center; width: 100%;">📋 Projects</a>
+              <a href="/dashboard/projects" target="_self" style="color: inherit; text-decoration: none; display: flex; align-items: center; width: 100%;">📋 Projects</a>
             </li>
             <li class="sidebar-menu-item">
               📱 Panel Layout
@@ -970,8 +970,8 @@ app.post('/api/contact', (req, res) => {
   res.json({ success: true, message: 'Thank you for contacting us!' });
 });
 
-// Proxy requests to the Next.js application
-app.use('/dashboard', createProxyMiddleware({
+// Proxy all Next.js related paths to the Next.js application
+app.use(['/dashboard', '/_next'], createProxyMiddleware({
   target: 'http://localhost:3000',
   changeOrigin: true,
   ws: true,
