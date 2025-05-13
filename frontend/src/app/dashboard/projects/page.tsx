@@ -28,8 +28,17 @@ export default function ProjectsPage() {
     const loadProjects = async () => {
       try {
         setIsLoading(true);
-        // Return an empty array for the demo
-        setProjects([]);
+        
+        // For demo purposes, create a sample project
+        setProjects([
+          {
+            id: '1',
+            name: 'Lakeview Containment Facility',
+            status: 'Active',
+            lastUpdated: new Date().toISOString(),
+            progress: 35
+          }
+        ]);
         
         // In production, we would fetch from API:
         // const data = await fetchProjects();
