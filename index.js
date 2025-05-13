@@ -7,7 +7,7 @@ const { createProxyMiddleware } = require('http-proxy-middleware');
 const events = require('events');
 
 // Increase EventEmitter max listeners to prevent memory leak warnings
-events.EventEmitter.defaultMaxListeners = 20;
+events.EventEmitter.defaultMaxListeners = 50;
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -43,17 +43,10 @@ app.use(express.static(path.join(__dirname, 'public'), {
   }
 }));
 
-// Home page route as a backup in case static serving fails
+// Home page route - redirect to dashboard 
 app.get('/', (req, res) => {
-  console.log('Serving index.html through explicit route handler');
-  fs.readFile(path.join(__dirname, 'public/index.html'), 'utf8', (err, data) => {
-    if (err) {
-      console.error('Error reading index file:', err);
-      return res.status(500).send('Error loading home page');
-    }
-    res.set('Content-Type', 'text/html');
-    res.send(data);
-  });
+  console.log('Redirecting from home to dashboard');
+  res.redirect('/dashboard');
 });
 
 // Login route - redirects to dashboard since login is no longer required
@@ -985,6 +978,14 @@ app.use((req, res, next) => {
       target: 'http://localhost:3000',
       changeOrigin: true,
       ws: true,
+      // Enhance proxy connection handling
+      onProxyRes: (proxyRes, req, res) => {
+        proxyRes.headers['Connection'] = 'keep-alive';
+      },
+      // Handle Replit environment
+      hostRewrite: true,
+      autoRewrite: true,
+      protocolRewrite: 'https',
     });
     return proxy(req, res, next);
   }
