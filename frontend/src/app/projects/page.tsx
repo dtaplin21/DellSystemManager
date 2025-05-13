@@ -130,7 +130,7 @@ export default function ProjectsPage() {
               <DialogContent className="sm:max-w-[550px]">
                 <DialogHeader>
                   <DialogTitle className="text-2xl font-bold text-[#172b4d]">Create New Project</DialogTitle>
-                  <DialogDescription className="text-[#6b778c]">
+                  <DialogDescription className="text-[#6b778c] border border-[#dfe1e6] rounded-md py-2 px-3 bg-[#f9fafc] mt-2">
                     Enter the details for your new geosynthetic engineering project.
                   </DialogDescription>
                 </DialogHeader>
@@ -232,8 +232,8 @@ export default function ProjectsPage() {
           <CardContent className="p-6 bg-[#fcfcfc]">
             {isLoading ? (
               <div className="flex flex-col items-center justify-center py-12">
-                <div className="w-12 h-12 border-4 border-[#0052cc] border-t-transparent rounded-full animate-spin mb-4"></div>
-                <p className="text-[#6b778c]">Loading your projects...</p>
+                <div className="w-12 h-12 border-4 border-[#0052cc] border-t-transparent rounded-full animate-spin mb-4 shadow-md"></div>
+                <p className="text-[#6b778c] border border-[#dfe1e6] rounded-md py-2 px-4 bg-[#f9fafc]">Loading your projects...</p>
               </div>
             ) : projects.length > 0 ? (
               <div className="space-y-6">
@@ -262,8 +262,8 @@ export default function ProjectsPage() {
         </Card>
         
         {/* Footer */}
-        <div className="text-center text-[#6b778c] text-sm p-4 border-t border-[#dfe1e6] mt-8">
-          <p>© 2025 GeoSynth QC Pro. All rights reserved.</p>
+        <div className="text-center text-[#6b778c] text-sm p-6 border border-[#dfe1e6] rounded-xl bg-white shadow-sm mt-8">
+          <p className="border border-[#dfe1e6] rounded-md py-2 px-3 bg-[#f9fafc] inline-block">© 2025 GeoSynth QC Pro. All rights reserved.</p>
         </div>
       </div>
     </div>

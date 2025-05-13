@@ -87,7 +87,7 @@ export default function ProjectForm({ onProjectCreated }: ProjectFormProps) {
       </div>
       
       <div className="space-y-2">
-        <label className="text-sm font-medium" htmlFor="description">
+        <label className="text-sm font-medium bg-[#f5f8fa] px-2 py-1 rounded border border-[#dfe1e6] inline-block" htmlFor="description">
           Description
         </label>
         <Input
@@ -101,7 +101,7 @@ export default function ProjectForm({ onProjectCreated }: ProjectFormProps) {
       </div>
       
       <div className="space-y-2">
-        <label className="text-sm font-medium" htmlFor="client">
+        <label className="text-sm font-medium bg-[#f5f8fa] px-2 py-1 rounded border border-[#dfe1e6] inline-block" htmlFor="client">
           Client*
         </label>
         <Input
@@ -116,7 +116,7 @@ export default function ProjectForm({ onProjectCreated }: ProjectFormProps) {
       </div>
       
       <div className="space-y-2">
-        <label className="text-sm font-medium" htmlFor="location">
+        <label className="text-sm font-medium bg-[#f5f8fa] px-2 py-1 rounded border border-[#dfe1e6] inline-block" htmlFor="location">
           Location
         </label>
         <Input
@@ -131,7 +131,7 @@ export default function ProjectForm({ onProjectCreated }: ProjectFormProps) {
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <label className="text-sm font-medium" htmlFor="startDate">
+          <label className="text-sm font-medium bg-[#f5f8fa] px-2 py-1 rounded border border-[#dfe1e6] inline-block" htmlFor="startDate">
             Start Date*
           </label>
           <Input
@@ -147,7 +147,7 @@ export default function ProjectForm({ onProjectCreated }: ProjectFormProps) {
         </div>
         
         <div className="space-y-2">
-          <label className="text-sm font-medium" htmlFor="endDate">
+          <label className="text-sm font-medium bg-[#f5f8fa] px-2 py-1 rounded border border-[#dfe1e6] inline-block" htmlFor="endDate">
             Expected End Date
           </label>
           <Input
@@ -163,7 +163,7 @@ export default function ProjectForm({ onProjectCreated }: ProjectFormProps) {
       </div>
       
       <div className="space-y-2">
-        <label className="text-sm font-medium" htmlFor="area">
+        <label className="text-sm font-medium bg-[#f5f8fa] px-2 py-1 rounded border border-[#dfe1e6] inline-block" htmlFor="area">
           Area (sq ft)
         </label>
         <Input
@@ -182,6 +182,7 @@ export default function ProjectForm({ onProjectCreated }: ProjectFormProps) {
         <Button 
           type="submit" 
           disabled={isLoading}
+          className="bg-[#0052cc] hover:bg-[#003d99] text-white border-2 border-[#003d99] shadow-sm transition-all duration-200 hover:shadow transform hover:translate-y-[-1px]"
         >
           {isLoading ? (
             <>
