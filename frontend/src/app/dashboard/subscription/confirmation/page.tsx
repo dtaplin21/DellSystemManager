@@ -8,11 +8,12 @@ import { useAuth } from '@/hooks/use-auth';
 
 export default function SubscriptionConfirmationPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const params = useSearchParams();
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   
-  // Get status from query params
+  // Get status from query params (with null safety)
+  const searchParams = params || new URLSearchParams();
   const success = searchParams.get('success') === 'true';
   const plan = searchParams.get('plan') || 'premium'; // Default to premium
   

@@ -35,40 +35,41 @@ export default function Sidebar() {
       name: 'Dashboard',
       href: '/dashboard',
       icon: LayoutDashboard,
-      current: isActive('/dashboard') && pathname === '/dashboard'
+      current: Boolean(isActive('/dashboard') && pathname === '/dashboard')
     },
     {
       name: 'Projects',
       href: '/dashboard/projects',
       icon: FolderOpen,
-      current: isActive('/dashboard/projects')
+      current: Boolean(isActive('/dashboard/projects'))
     },
     {
       name: 'Documents',
       href: '/dashboard/documents',
       icon: FileText,
-      current: isActive('/dashboard/documents')
+      current: Boolean(isActive('/dashboard/documents'))
     },
     {
       section: 'Account',
+      current: false, // Section header is never active
       items: [
         {
           name: 'Account Settings',
           href: '/dashboard/account',
           icon: UserCircle,
-          current: isActive('/dashboard/account')
+          current: Boolean(isActive('/dashboard/account'))
         },
         {
           name: 'Subscription',
           href: '/dashboard/subscription',
           icon: CreditCard,
-          current: isActive('/dashboard/subscription')
+          current: Boolean(isActive('/dashboard/subscription'))
         },
         {
           name: 'Settings',
           href: '/dashboard/settings',
           icon: Settings,
-          current: isActive('/dashboard/settings')
+          current: Boolean(isActive('/dashboard/settings'))
         }
       ]
     }
