@@ -78,18 +78,10 @@ app.get('/signup', (req, res) => {
   });
 });
 
-// Projects page - serve the redirect HTML page
+// Projects page - direct redirect to the Next.js projects page
 app.get('/projects', (req, res) => {
-  console.log('Serving dashboard-redirect.html');
-  fs.readFile(path.join(__dirname, 'public/dashboard-redirect.html'), 'utf8', (err, data) => {
-    if (err) {
-      console.error('Error reading dashboard-redirect file:', err);
-      res.redirect('/dashboard/projects'); // Fallback to direct redirect
-      return;
-    }
-    res.set('Content-Type', 'text/html');
-    res.send(data);
-  });
+  console.log('Direct redirect to Next.js dashboard/projects');
+  res.redirect('/dashboard/projects');
 });
 
 // Demo route - Hardcoded HTML response
