@@ -78,11 +78,8 @@ app.get('/signup', (req, res) => {
   });
 });
 
-// Projects page - direct redirect to the Next.js projects page
-app.get('/projects', (req, res) => {
-  console.log('Direct redirect to Next.js dashboard/projects');
-  res.redirect('/dashboard/projects');
-});
+// Projects page is now handled directly by the Next.js app
+// No special handler needed as it's included in the proxy middleware
 
 // Demo route - Hardcoded HTML response
 app.get('/demo', (req, res) => {
@@ -978,7 +975,7 @@ app.post('/api/contact', (req, res) => {
 
 // Proxy all Next.js related paths to the Next.js application
 // This will handle routing for the Next.js application including dashboard and projects
-app.use(['/dashboard', '/_next'], createProxyMiddleware({
+app.use(['/dashboard', '/projects', '/_next'], createProxyMiddleware({
   target: 'http://localhost:3000',
   changeOrigin: true,
   ws: true,
