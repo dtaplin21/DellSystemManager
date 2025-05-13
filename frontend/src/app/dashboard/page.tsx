@@ -76,29 +76,31 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+      <header className="py-6 border-b border-gray-100 bg-white shadow-sm">
+        <div className="container mx-auto px-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-gray-900">GeoQC</h1>
+              <h1 className="text-2xl font-bold text-blue-800">GeoQC</h1>
               <nav className="ml-10 space-x-4">
-                <Link href="/dashboard" className="text-gray-900 font-medium">Dashboard</Link>
-                <Link href="/dashboard/projects" className="text-gray-500 hover:text-gray-900">Projects</Link>
-                <Link href="#" className="text-gray-500 hover:text-gray-900">Reports</Link>
-                <Link href="#" className="text-gray-500 hover:text-gray-900">Settings</Link>
+                <Link href="/dashboard" className="text-blue-800 font-medium">Dashboard</Link>
+                <Link href="/dashboard/projects" className="text-gray-700 hover:text-blue-800">Projects</Link>
+                <Link href="/dashboard/documents" className="text-gray-700 hover:text-blue-800">Documents</Link>
+                <Link href="/dashboard/settings" className="text-gray-700 hover:text-blue-800">Settings</Link>
               </nav>
             </div>
             <div className="flex items-center space-x-3">
               {user ? (
                 <>
                   <span className="text-sm text-gray-700">{user.email}</span>
-                  <Button variant="ghost" onClick={handleLogout}>Logout</Button>
+                  <Button variant="outline" onClick={handleLogout} className="border-blue-600 text-blue-600 hover:bg-blue-50">
+                    Logout
+                  </Button>
                 </>
               ) : (
                 <>
                   <Link href="/login">
-                    <Button variant="outline">Log in</Button>
+                    <Button variant="outline" className="border-blue-600 text-blue-600 hover:bg-blue-50">Log in</Button>
                   </Link>
                   <Link href="/signup">
                     <Button className="bg-blue-600 hover:bg-blue-700 text-white">Sign up</Button>
@@ -110,18 +112,28 @@ export default function Dashboard() {
         </div>
       </header>
       
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8 flex justify-between items-center">
+      <main className="container mx-auto px-4 py-12">
+        <div className="max-w-3xl mx-auto text-center mb-12">
+          <h1 className="text-4xl font-bold mb-6 text-gray-900">
+            Welcome to Your GeoQC Dashboard
+          </h1>
+          <p className="text-xl mb-8 text-gray-600">
+            Manage your geosynthetic projects with our specialized tools for quality control, 
+            document analysis, and collaborative workflows.
+          </p>
+        </div>
+        
+        <div className="mb-12 flex justify-between items-center">
           <h2 className="text-2xl font-bold text-gray-900">Your Projects</h2>
-          <Button>New Project</Button>
+          <Button className="bg-blue-600 hover:bg-blue-700 text-white">New Project</Button>
         </div>
         
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {projects.map((project) => (
             <Link href={`/projects/${project.id}`} key={project.id}>
-              <Card className="cursor-pointer hover:shadow-md transition-shadow">
+              <Card className="cursor-pointer hover:shadow-md transition-shadow border border-gray-200 bg-white">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-lg">{project.name}</CardTitle>
+                  <CardTitle className="text-lg text-blue-800">{project.name}</CardTitle>
                   <CardDescription>{project.client}</CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -153,7 +165,7 @@ export default function Dashboard() {
           ))}
           
           {/* Add New Project Card */}
-          <Card className="cursor-pointer hover:shadow-md transition-shadow border-dashed border-2 border-gray-300 bg-gray-50">
+          <Card className="cursor-pointer hover:shadow-md transition-shadow border-dashed border-2 border-blue-300 bg-blue-50">
             <CardContent className="h-full flex items-center justify-center p-6">
               <div className="text-center">
                 <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
@@ -161,17 +173,38 @@ export default function Dashboard() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                   </svg>
                 </div>
-                <p className="text-gray-700 font-medium">Create New Project</p>
-                <p className="text-gray-500 text-sm mt-1">Add a new geosynthetic project</p>
+                <p className="text-blue-800 font-medium">Create New Project</p>
+                <p className="text-blue-600 text-sm mt-1">Add a new geosynthetic project</p>
               </div>
             </CardContent>
           </Card>
         </div>
         
-        <div className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card>
+        <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+            <h2 className="text-xl font-semibold mb-4 text-blue-800">2D Automation</h2>
+            <p className="text-gray-600">
+              Interpret panel layouts with precision, collaborate in real-time, and export to AutoCAD-compatible formats.
+            </p>
+          </div>
+          <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+            <h2 className="text-xl font-semibold mb-4 text-blue-800">AI Document Analysis</h2>
+            <p className="text-gray-600">
+              Extract data from QC files, get intelligent insights, and identify patterns in test results.
+            </p>
+          </div>
+          <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+            <h2 className="text-xl font-semibold mb-4 text-blue-800">Multi-User Collaboration</h2>
+            <p className="text-gray-600">
+              Work together in real-time with role-based access controls and live updates.
+            </p>
+          </div>
+        </div>
+        
+        <div className="mt-16 grid grid-cols-1 md:grid-cols-2 gap-8">
+          <Card className="border border-gray-200">
             <CardHeader>
-              <CardTitle>Recent QC Data</CardTitle>
+              <CardTitle className="text-blue-800">Recent QC Data</CardTitle>
               <CardDescription>Latest quality control measurements</CardDescription>
             </CardHeader>
             <CardContent>
@@ -201,9 +234,9 @@ export default function Dashboard() {
             </CardContent>
           </Card>
           
-          <Card>
+          <Card className="border border-gray-200">
             <CardHeader>
-              <CardTitle>Activity Feed</CardTitle>
+              <CardTitle className="text-blue-800">Activity Feed</CardTitle>
               <CardDescription>Recent updates across all your projects</CardDescription>
             </CardHeader>
             <CardContent>
@@ -250,6 +283,12 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </div>
+        
+        <footer className="py-8 mt-16 border-t border-gray-200">
+          <div className="text-center text-gray-500">
+            &copy; {new Date().getFullYear()} GeoQC. All rights reserved.
+          </div>
+        </footer>
       </main>
     </div>
   );
