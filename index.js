@@ -973,33 +973,27 @@ app.post('/api/contact', (req, res) => {
   res.json({ success: true, message: 'Thank you for contacting us!' });
 });
 
-// Proxy Next.js frontend routes to the Next.js application
-app.use(['/dashboard', '/projects'], createProxyMiddleware({
-  target: 'http://localhost:3000',
-  changeOrigin: true,
-  ws: true,
-  onProxyReq: (proxyReq, req, res) => {
-    console.log(`Gateway Server: Proxying page ${req.method} ${req.url} to Next.js server`);
-  }
-}));
+// Proxy Next.js app requests (This captures ALL Next.js related routes)
+// Any paths that start with these will be directed to the Next.js app
+const nextJsRoutes = ['/dashboard', '/projects', '/_next', '/static'];
 
-// Proxy Next.js resources (assets, CSS, JS) to the Next.js application
-app.use('/_next', createProxyMiddleware({
-  target: 'http://localhost:3000',
-  changeOrigin: true,
-  onProxyReq: (proxyReq, req, res) => {
-    console.log(`Gateway Server: Proxying asset ${req.method} ${req.url} to Next.js server`);
+// Check if the URL path starts with any of the Next.js routes
+app.use((req, res, next) => {
+  const isNextJsRoute = nextJsRoutes.some(route => req.path.startsWith(route));
+  
+  if (isNextJsRoute) {
+    console.log(`Gateway Server: Proxying to Next.js app: ${req.method} ${req.url}`);
+    const proxy = createProxyMiddleware({
+      target: 'http://localhost:3000',
+      changeOrigin: true,
+      ws: true,
+    });
+    return proxy(req, res, next);
   }
-}));
-
-// Proxy static assets
-app.use('/static', createProxyMiddleware({
-  target: 'http://localhost:3000',
-  changeOrigin: true,
-  onProxyReq: (proxyReq, req, res) => {
-    console.log(`Gateway Server: Proxying static ${req.method} ${req.url} to Next.js server`);
-  }
-}));
+  
+  // Not a Next.js route, continue to the next middleware
+  next();
+});
 
 // Proxy API requests to the backend server
 app.use('/api', createProxyMiddleware({
