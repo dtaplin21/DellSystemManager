@@ -721,7 +721,7 @@ app.get('/demo', (req, res) => {
               📊 Dashboard
             </li>
             <li class="sidebar-menu-item">
-              <a href="/dashboard/projects" target="_self" style="color: inherit; text-decoration: none; display: flex; align-items: center; width: 100%;">📋 Projects</a>
+              <a href="http://localhost:3000/dashboard/projects" target="_blank" style="color: inherit; text-decoration: none; display: flex; align-items: center; width: 100%;">📋 Projects</a>
             </li>
             <li class="sidebar-menu-item">
               📱 Panel Layout
@@ -975,7 +975,11 @@ app.use(['/dashboard', '/_next'], createProxyMiddleware({
   target: 'http://localhost:3000',
   changeOrigin: true,
   ws: true,
-  logLevel: 'debug'
+  pathRewrite: { '^/static/': '/_next/' },
+  onProxyReq: (proxyReq, req, res) => {
+    // Log the request for debugging
+    console.log(`Proxying ${req.method} ${req.url} to Next.js server`);
+  }
 }));
 
 // Fallback route for any unhandled routes (must come after all other routes)
