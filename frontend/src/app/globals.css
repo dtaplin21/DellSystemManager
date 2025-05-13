@@ -74,6 +74,47 @@
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
   }
+  
+  /* Enhanced styling for all paragraphs */
+  p {
+    margin-bottom: 1rem;
+    padding: 0.5rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.375rem;
+    background-color: #f8fafc;
+    font-size: 1rem;
+    line-height: 1.5;
+  }
+  
+  /* Enhanced styling for all buttons */
+  button {
+    border: 2px solid #3b82f6;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    transition: all 0.2s ease-in-out;
+  }
+  
+  button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  }
+  
+  /* Enhanced styling for all form labels */
+  label {
+    font-weight: 600;
+    color: #334155;
+  }
+  
+  /* Enhanced styling for all input fields */
+  input, select, textarea {
+    border: 2px solid #cbd5e1;
+    transition: border-color 0.2s ease-in-out;
+  }
+  
+  input:focus, select:focus, textarea:focus {
+    border-color: #3b82f6;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+  }
 }
 
 /* Panel Layout Grid Styles */

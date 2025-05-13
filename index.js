@@ -975,13 +975,15 @@ app.post('/api/contact', (req, res) => {
 
 // Proxy all Next.js related paths to the Next.js application
 // This will handle routing for the Next.js application including dashboard and projects
-app.use(['/dashboard', '/projects', '/_next', '/api/projects'], createProxyMiddleware({
+app.use(['/dashboard', '/projects', '/_next', '/static', '/api/projects'], createProxyMiddleware({
   target: 'http://localhost:3000',
   changeOrigin: true,
   ws: true,
   pathRewrite: {
     '^/projects': '/projects',
-    '^/dashboard': '/dashboard'
+    '^/dashboard': '/dashboard',
+    '^/static': '/static',
+    '^/_next': '/_next'
   },
   onProxyReq: (proxyReq, req, res) => {
     // Log the request for debugging
