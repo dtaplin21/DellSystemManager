@@ -973,21 +973,31 @@ app.post('/api/contact', (req, res) => {
   res.json({ success: true, message: 'Thank you for contacting us!' });
 });
 
-// Proxy all Next.js related paths to the Next.js application
-// This will handle routing for the Next.js application including dashboard and projects
-app.use(['/dashboard', '/projects', '/_next', '/static', '/api/projects'], createProxyMiddleware({
+// Proxy Next.js frontend routes to the Next.js application
+app.use(['/dashboard', '/projects'], createProxyMiddleware({
   target: 'http://localhost:3000',
   changeOrigin: true,
   ws: true,
-  pathRewrite: {
-    '^/projects': '/projects',
-    '^/dashboard': '/dashboard',
-    '^/static': '/static',
-    '^/_next': '/_next'
-  },
   onProxyReq: (proxyReq, req, res) => {
-    // Log the request for debugging
-    console.log(`Gateway Server: Proxying ${req.method} ${req.url} to Next.js server at http://localhost:3000`);
+    console.log(`Gateway Server: Proxying page ${req.method} ${req.url} to Next.js server`);
+  }
+}));
+
+// Proxy Next.js resources (assets, CSS, JS) to the Next.js application
+app.use('/_next', createProxyMiddleware({
+  target: 'http://localhost:3000',
+  changeOrigin: true,
+  onProxyReq: (proxyReq, req, res) => {
+    console.log(`Gateway Server: Proxying asset ${req.method} ${req.url} to Next.js server`);
+  }
+}));
+
+// Proxy static assets
+app.use('/static', createProxyMiddleware({
+  target: 'http://localhost:3000',
+  changeOrigin: true,
+  onProxyReq: (proxyReq, req, res) => {
+    console.log(`Gateway Server: Proxying static ${req.method} ${req.url} to Next.js server`);
   }
 }));
 
@@ -995,12 +1005,8 @@ app.use(['/dashboard', '/projects', '/_next', '/static', '/api/projects'], creat
 app.use('/api', createProxyMiddleware({
   target: 'http://localhost:8000',
   changeOrigin: true,
-  pathRewrite: {
-    '^/api': '/api'
-  },
   onProxyReq: (proxyReq, req, res) => {
-    // Log the request for debugging
-    console.log(`Gateway Server: Proxying API ${req.method} ${req.url} to Backend server at http://localhost:8000`);
+    console.log(`Gateway Server: Proxying API ${req.method} ${req.url} to Backend server`);
   }
 }));
 
