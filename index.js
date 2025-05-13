@@ -721,7 +721,7 @@ app.get('/demo', (req, res) => {
               📊 Dashboard
             </li>
             <li class="sidebar-menu-item">
-              <a href="http://localhost:3000/dashboard/projects" style="color: inherit; text-decoration: none; display: flex; align-items: center; width: 100%;">📋 Projects</a>
+              <a href="/dashboard/projects" style="color: inherit; text-decoration: none; display: flex; align-items: center; width: 100%;">📋 Projects</a>
             </li>
             <li class="sidebar-menu-item">
               📱 Panel Layout
@@ -975,10 +975,9 @@ app.use(['/dashboard', '/_next'], createProxyMiddleware({
   target: 'http://localhost:3000',
   changeOrigin: true,
   ws: true,
-  pathRewrite: { '^/static/': '/_next/' },
   onProxyReq: (proxyReq, req, res) => {
     // Log the request for debugging
-    console.log(`Proxying ${req.method} ${req.url} to Next.js server`);
+    console.log(`Proxying ${req.method} ${req.url} to Next.js server at http://localhost:3000`);
   }
 }));
 
