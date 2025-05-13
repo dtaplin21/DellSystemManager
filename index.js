@@ -4,6 +4,10 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const { createProxyMiddleware } = require('http-proxy-middleware');
+const events = require('events');
+
+// Increase EventEmitter max listeners to prevent memory leak warnings
+events.EventEmitter.defaultMaxListeners = 20;
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -961,7 +965,15 @@ app.post('/api/contact', (req, res) => {
 
 // Proxy Next.js app requests (This captures ALL Next.js related routes)
 // Any paths that start with these will be directed to the Next.js app
-const nextJsRoutes = ['/dashboard', '/projects', '/_next', '/static'];
+const nextJsRoutes = [
+  '/dashboard', 
+  '/projects', 
+  '/_next', 
+  '/static', 
+  '/api', 
+  '/subscription',
+  '/account'
+];
 
 // Check if the URL path starts with any of the Next.js routes
 app.use((req, res, next) => {

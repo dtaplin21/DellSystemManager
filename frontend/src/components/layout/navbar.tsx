@@ -20,8 +20,16 @@ export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const handleLogout = async () => {
-    await logout();
-    router.push('/login');
+    try {
+      if (user) {
+        await logout();
+      }
+      // Simply refresh the page rather than pushing to login
+      // since we've removed login restrictions
+      router.refresh();
+    } catch (error) {
+      console.error('Error during logout:', error);
+    }
   };
 
   return (
@@ -54,9 +62,9 @@ export default function Navbar() {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm" className="gap-2">
                 <div className="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center text-white">
-                  {user?.displayName?.charAt(0) || user?.email?.charAt(0) || 'U'}
+                  {user?.displayName?.charAt(0) || user?.email?.charAt(0) || 'G'}
                 </div>
-                <span className="hidden md:inline">{user?.displayName || user?.email}</span>
+                <span className="hidden md:inline">{user?.displayName || user?.email || 'Guest User'}</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
