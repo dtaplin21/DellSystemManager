@@ -52,30 +52,16 @@ app.get('/', (req, res) => {
   });
 });
 
-// Login route
+// Login route - redirects to dashboard since login is no longer required
 app.get('/login', (req, res) => {
-  console.log('Serving login.html through explicit route handler');
-  fs.readFile(path.join(__dirname, 'public/login.html'), 'utf8', (err, data) => {
-    if (err) {
-      console.error('Error reading login file:', err);
-      return res.status(500).send('Error loading login page');
-    }
-    res.set('Content-Type', 'text/html');
-    res.send(data);
-  });
+  console.log('Redirecting from login to dashboard (login bypass)');
+  res.redirect('/dashboard');
 });
 
-// Signup route
+// Signup route - redirects to dashboard since signup is no longer required
 app.get('/signup', (req, res) => {
-  console.log('Serving signup.html through explicit route handler');
-  fs.readFile(path.join(__dirname, 'public/signup.html'), 'utf8', (err, data) => {
-    if (err) {
-      console.error('Error reading signup file:', err);
-      return res.status(500).send('Error loading signup page');
-    }
-    res.set('Content-Type', 'text/html');
-    res.send(data);
-  });
+  console.log('Redirecting from signup to dashboard (login bypass)');
+  res.redirect('/dashboard');
 });
 
 // Projects page is now handled directly by the Next.js app
