@@ -43,9 +43,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         
         if (storedUser) {
           setUser(JSON.parse(storedUser));
+        } else {
+          // Since we've removed login requirements, we'll create a guest user
+          const guestUser: User = {
+            id: 'guest-' + Math.random().toString(36).substring(2, 15),
+            email: 'guest@example.com',
+            displayName: 'Guest User',
+            subscription: 'basic',
+            company: 'Demo Company',
+            roles: ['user'],
+            createdAt: new Date().toISOString()
+          };
+          setUser(guestUser);
         }
       } catch (error) {
         console.error('Auth error:', error);
+        // Create a fallback guest user if there's any error
+        setUser({
+          id: 'guest',
+          email: 'guest@example.com',
+          displayName: 'Guest User'
+        });
       } finally {
         setIsLoading(false);
       }
