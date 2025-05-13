@@ -44,17 +44,11 @@ export default function Dashboard() {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Check authentication state
-    if (!authLoading && !user) {
-      router.push('/login');
-      return;
-    }
-    
     // Simulate fetching projects from API
     setTimeout(() => {
       setIsLoading(false);
     }, 800);
-  }, [user, authLoading, router]);
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -96,10 +90,21 @@ export default function Dashboard() {
               </nav>
             </div>
             <div className="flex items-center space-x-3">
-              <span className="text-sm text-gray-700">
-                {user?.email}
-              </span>
-              <Button variant="ghost" onClick={handleLogout}>Logout</Button>
+              {user ? (
+                <>
+                  <span className="text-sm text-gray-700">{user.email}</span>
+                  <Button variant="ghost" onClick={handleLogout}>Logout</Button>
+                </>
+              ) : (
+                <>
+                  <Link href="/login">
+                    <Button variant="outline">Log in</Button>
+                  </Link>
+                  <Link href="/signup">
+                    <Button className="bg-blue-600 hover:bg-blue-700 text-white">Sign up</Button>
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>

@@ -10,11 +10,8 @@ export default function Home() {
   const { user, isLoading } = useAuth();
   const router = useRouter();
 
-  useEffect(() => {
-    if (user && !isLoading) {
-      router.push('/dashboard');
-    }
-  }, [user, isLoading, router]);
+  // We no longer automatically redirect users
+  // They can now see the landing page regardless of login status
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
@@ -22,19 +19,25 @@ export default function Home() {
         <header className="py-6 flex justify-between items-center">
           <div className="text-2xl font-bold text-blue-800">GeoQC</div>
           <div className="space-x-4">
-            {!user && !isLoading ? (
+            <Link href="/dashboard">
+              <Button variant="ghost">Dashboard</Button>
+            </Link>
+            <Link href="/projects">
+              <Button variant="ghost">Projects</Button>
+            </Link>
+            {!user ? (
               <>
                 <Link href="/login">
-                  <Button variant="ghost">Log in</Button>
+                  <Button variant="outline">Log in</Button>
                 </Link>
-                <Link href="/login?signup=true">
-                  <Button>Sign up</Button>
+                <Link href="/signup">
+                  <Button className="bg-blue-600 hover:bg-blue-700 text-white">Sign up</Button>
                 </Link>
               </>
             ) : (
-              <Link href="/dashboard">
-                <Button>Dashboard</Button>
-              </Link>
+              <Button variant="outline" onClick={() => router.push('/dashboard')}>
+                My Account
+              </Button>
             )}
           </div>
         </header>
@@ -49,8 +52,8 @@ export default function Home() {
               AI document analysis, and collaborative tools designed for geosynthetic material projects.
             </p>
             <div className="flex justify-center gap-4">
-              <Link href="/login?signup=true">
-                <Button size="lg" className="px-8">Get Started</Button>
+              <Link href="/dashboard">
+                <Button size="lg" className="px-8 bg-blue-600 hover:bg-blue-700">Get Started</Button>
               </Link>
               <Button size="lg" variant="outline" className="px-8">
                 Learn More
