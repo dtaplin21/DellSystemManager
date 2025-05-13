@@ -971,7 +971,7 @@ app.post('/api/contact', (req, res) => {
 });
 
 // Proxy all Next.js related paths to the Next.js application
-app.use(['/dashboard', '/_next'], createProxyMiddleware({
+app.use(['/dashboard', '/_next', '/projects'], createProxyMiddleware({
   target: 'http://localhost:3000',
   changeOrigin: true,
   ws: true,
