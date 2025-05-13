@@ -963,7 +963,6 @@ const nextJsRoutes = [
   '/projects', 
   '/_next', 
   '/static', 
-  '/api', 
   '/subscription',
   '/account'
 ];
