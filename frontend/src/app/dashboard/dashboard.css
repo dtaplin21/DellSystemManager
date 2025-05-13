@@ -1,0 +1,236 @@
+/* Dashboard specific styling */
+
+.dashboard-container {
+  min-height: 100vh;
+  background: linear-gradient(to bottom, var(--navy-50), white);
+}
+
+.dashboard-header {
+  padding-top: 1.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--orange-200);
+  background-color: white;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.dashboard-logo {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: var(--navy-800);
+}
+
+.dashboard-nav {
+  margin-left: 2.5rem;
+}
+
+.dashboard-nav-item {
+  margin-left: 1rem;
+  margin-right: 1rem;
+}
+
+.dashboard-nav-item.active {
+  color: var(--navy-800);
+  font-weight: 500;
+}
+
+.dashboard-nav-item.inactive {
+  color: var(--gray-700);
+}
+
+.dashboard-nav-item.inactive:hover {
+  color: var(--orange-600);
+}
+
+.dashboard-main {
+  padding: 3rem 1rem;
+}
+
+.dashboard-welcome {
+  max-width: 768px;
+  margin: 0 auto 3rem auto;
+  text-align: center;
+}
+
+.dashboard-welcome-title {
+  font-size: 2.25rem;
+  font-weight: bold;
+  margin-bottom: 1.5rem;
+  color: var(--navy-900);
+}
+
+.dashboard-welcome-text {
+  font-size: 1.25rem;
+  margin-bottom: 2rem;
+  color: var(--navy-600);
+}
+
+.dashboard-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 3rem;
+}
+
+.dashboard-section-title {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: var(--navy-800);
+}
+
+.dashboard-new-button {
+  background-color: var(--orange-600);
+  color: white;
+  border: 1px solid var(--orange-700);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+}
+
+.dashboard-new-button:hover {
+  background-color: var(--orange-700);
+}
+
+.dashboard-card {
+  cursor: pointer;
+  transition: box-shadow 0.2s;
+  border: 1px solid var(--orange-200);
+  background-color: white;
+  padding: 0.25rem;
+}
+
+.dashboard-card:hover {
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.dashboard-card-header {
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--orange-100);
+}
+
+.dashboard-card-title {
+  font-size: 1.125rem;
+  color: var(--navy-800);
+}
+
+.dashboard-card-description {
+  color: var(--navy-600);
+}
+
+.dashboard-card-content {
+  padding: 1rem;
+}
+
+.dashboard-progress-container {
+  margin-top: 0.25rem;
+}
+
+.dashboard-progress-bar {
+  width: 100%;
+  height: 0.5rem;
+  background-color: var(--navy-100);
+  border-radius: 9999px;
+}
+
+.dashboard-progress-fill {
+  height: 0.5rem;
+  background-color: var(--orange-500);
+  border-radius: 9999px;
+}
+
+.dashboard-new-project-card {
+  cursor: pointer;
+  transition: box-shadow 0.2s;
+  border: 2px dashed var(--orange-300);
+  background-color: var(--orange-50);
+  padding: 0.25rem;
+}
+
+.dashboard-new-project-card:hover {
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.dashboard-feature-container {
+  margin-top: 4rem;
+  display: grid;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 2rem;
+}
+
+@media (min-width: 768px) {
+  .dashboard-feature-container {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.dashboard-feature-card {
+  background-color: white;
+  padding: 1.5rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--orange-200);
+}
+
+.dashboard-feature-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: var(--navy-800);
+}
+
+.dashboard-feature-text {
+  color: var(--navy-600);
+}
+
+.dashboard-activity-container {
+  margin-top: 4rem;
+  display: grid;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 2rem;
+}
+
+@media (min-width: 768px) {
+  .dashboard-activity-container {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.dashboard-activity-card {
+  border: 1px solid var(--orange-200);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  padding: 0.25rem;
+}
+
+.dashboard-footer {
+  padding: 2rem 0;
+  margin-top: 4rem;
+  border-top: 1px solid var(--orange-200);
+  text-align: center;
+  color: var(--navy-500);
+}
+
+/* Define CSS variables for our custom colors */
+:root {
+  --navy-50: #f0f4f8;
+  --navy-100: #d9e2ec;
+  --navy-200: #bcccdc;
+  --navy-300: #9fb3c8;
+  --navy-400: #829ab1;
+  --navy-500: #627d98;
+  --navy-600: #486581;
+  --navy-700: #334e68;
+  --navy-800: #243b53;
+  --navy-900: #102a43;
+  
+  --orange-50: #fff8f1;
+  --orange-100: #feecdc;
+  --orange-200: #fcd9bd;
+  --orange-300: #fdba8c;
+  --orange-400: #ff8a4c;
+  --orange-500: #ff5a1f;
+  --orange-600: #d03801;
+  --orange-700: #b43403;
+  --orange-800: #8a2c0d;
+  --orange-900: #73230d;
+  
+  --gray-700: #4a5568;
+}

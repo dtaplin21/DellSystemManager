@@ -8,9 +8,6 @@ import { Button } from '../../components/ui/button';
 import { useAuth } from '../../hooks/use-auth';
 import { useToast } from '../../hooks/use-toast';
 
-// Import the dashboard-specific CSS
-import './dashboard.css';
-
 // Mock project data for demonstration
 const DEMO_PROJECTS = [
   {
@@ -79,17 +76,17 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="dashboard-container">
-      <header className="dashboard-header">
+    <div className="min-h-screen bg-gradient-to-b from-navy-50 to-white">
+      <header className="py-6 border-b border-orange-200 bg-white shadow-sm">
         <div className="container mx-auto px-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center">
-              <h1 className="dashboard-logo">GeoQC</h1>
-              <nav className="dashboard-nav">
-                <Link href="/dashboard" className="dashboard-nav-item active">Dashboard</Link>
-                <Link href="/dashboard/projects" className="dashboard-nav-item inactive">Projects</Link>
-                <Link href="/dashboard/documents" className="dashboard-nav-item inactive">Documents</Link>
-                <Link href="/dashboard/settings" className="dashboard-nav-item inactive">Settings</Link>
+              <h1 className="text-2xl font-bold text-navy-800">GeoQC</h1>
+              <nav className="ml-10 space-x-4">
+                <Link href="/dashboard" className="text-navy-800 font-medium">Dashboard</Link>
+                <Link href="/dashboard/projects" className="text-gray-700 hover:text-orange-600">Projects</Link>
+                <Link href="/dashboard/documents" className="text-gray-700 hover:text-orange-600">Documents</Link>
+                <Link href="/dashboard/settings" className="text-gray-700 hover:text-orange-600">Settings</Link>
               </nav>
             </div>
             <div className="flex items-center space-x-3">
@@ -115,20 +112,20 @@ export default function Dashboard() {
         </div>
       </header>
       
-      <main className="dashboard-main container mx-auto">
-        <div className="dashboard-welcome">
-          <h1 className="dashboard-welcome-title">
+      <main className="container mx-auto px-4 py-12">
+        <div className="max-w-3xl mx-auto text-center mb-12">
+          <h1 className="text-4xl font-bold mb-6 text-navy-900">
             Welcome to Your GeoQC Dashboard
           </h1>
-          <p className="dashboard-welcome-text">
+          <p className="text-xl mb-8 text-navy-600">
             Manage your geosynthetic projects with our specialized tools for quality control, 
             document analysis, and collaborative workflows.
           </p>
         </div>
         
-        <div className="dashboard-section-header">
-          <h2 className="dashboard-section-title">Your Projects</h2>
-          <Button className="dashboard-new-button">
+        <div className="mb-12 flex justify-between items-center">
+          <h2 className="text-2xl font-bold text-navy-800">Your Projects</h2>
+          <Button className="bg-orange-600 hover:bg-orange-700 text-white border border-orange-700 shadow-sm px-6">
             New Project
           </Button>
         </div>
