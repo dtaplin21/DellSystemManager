@@ -3,6 +3,7 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
+const { createProxyMiddleware } = require('http-proxy-middleware');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -720,7 +721,7 @@ app.get('/demo', (req, res) => {
               📊 Dashboard
             </li>
             <li class="sidebar-menu-item">
-              📋 Projects
+              <a href="/dashboard/projects" style="color: inherit; text-decoration: none; display: flex; align-items: center; width: 100%;">📋 Projects</a>
             </li>
             <li class="sidebar-menu-item">
               📱 Panel Layout
@@ -969,7 +970,15 @@ app.post('/api/contact', (req, res) => {
   res.json({ success: true, message: 'Thank you for contacting us!' });
 });
 
-// Fallback route for any unhandled routes
+// Proxy requests to the Next.js application
+app.use('/dashboard', createProxyMiddleware({
+  target: 'http://localhost:3000',
+  changeOrigin: true,
+  ws: true,
+  logLevel: 'debug'
+}));
+
+// Fallback route for any unhandled routes (must come after all other routes)
 app.use((req, res) => {
   console.log(`No route found for ${req.url}, redirecting to home page`);
   res.redirect('/');
@@ -988,4 +997,5 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`- Login page: http://localhost:${PORT}/login`);
   console.log(`- Signup page: http://localhost:${PORT}/signup`);
   console.log(`- Dashboard demo: http://localhost:${PORT}/demo`);
+  console.log(`- Next.js Dashboard: http://localhost:${PORT}/dashboard`);
 });
