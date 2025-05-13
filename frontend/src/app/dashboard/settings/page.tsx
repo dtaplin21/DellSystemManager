@@ -17,11 +17,11 @@ export default function SettingsPage() {
   const [automaticQC, setAutomaticQC] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSaveGeneral = async () => {
+  const handleSaveGeneral = async (): Promise<void> => {
     setIsLoading(true);
     
     // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise<void>((resolve) => setTimeout(resolve, 1000));
     
     toast({
       title: 'Settings Saved',
@@ -31,11 +31,11 @@ export default function SettingsPage() {
     setIsLoading(false);
   };
 
-  const handleSaveNotifications = async () => {
+  const handleSaveNotifications = async (): Promise<void> => {
     setIsLoading(true);
     
     // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise<void>((resolve) => setTimeout(resolve, 1000));
     
     toast({
       title: 'Notification Settings Saved',
@@ -45,11 +45,11 @@ export default function SettingsPage() {
     setIsLoading(false);
   };
 
-  const handleSaveData = async () => {
+  const handleSaveData = async (): Promise<void> => {
     setIsLoading(true);
     
     // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise<void>((resolve) => setTimeout(resolve, 1000));
     
     toast({
       title: 'Data Settings Saved',
@@ -59,11 +59,11 @@ export default function SettingsPage() {
     setIsLoading(false);
   };
 
-  const handleSaveQC = async () => {
+  const handleSaveQC = async (): Promise<void> => {
     setIsLoading(true);
     
     // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise<void>((resolve) => setTimeout(resolve, 1000));
     
     toast({
       title: 'QC Settings Saved',
