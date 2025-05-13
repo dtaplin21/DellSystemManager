@@ -62,11 +62,14 @@ export default function Navbar() {
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>Account</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => router.push('/dashboard/profile')}>
-                Profile
+              <DropdownMenuItem onClick={() => router.push('/dashboard/account')}>
+                Account Settings
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => router.push('/dashboard/subscription')}>
                 Subscription
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push('/dashboard/settings')}>
+                Settings
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleLogout}>
