@@ -28,9 +28,12 @@ export default function ProjectsPage() {
     const loadProjects = async () => {
       try {
         setIsLoading(true);
-        // In a real app, this would fetch from API
-        // For now, we'll just set an empty array
+        // Return an empty array for the demo
         setProjects([]);
+        
+        // In production, we would fetch from API:
+        // const data = await fetchProjects();
+        // setProjects(data);
       } catch (error) {
         toast({
           title: 'Error',
