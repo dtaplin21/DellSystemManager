@@ -975,13 +975,30 @@ app.post('/api/contact', (req, res) => {
 
 // Proxy all Next.js related paths to the Next.js application
 // This will handle routing for the Next.js application including dashboard and projects
-app.use(['/dashboard', '/projects', '/_next'], createProxyMiddleware({
+app.use(['/dashboard', '/projects', '/_next', '/api/projects'], createProxyMiddleware({
   target: 'http://localhost:3000',
   changeOrigin: true,
   ws: true,
+  pathRewrite: {
+    '^/projects': '/projects',
+    '^/dashboard': '/dashboard'
+  },
   onProxyReq: (proxyReq, req, res) => {
     // Log the request for debugging
     console.log(`Gateway Server: Proxying ${req.method} ${req.url} to Next.js server at http://localhost:3000`);
+  }
+}));
+
+// Proxy API requests to the backend server
+app.use('/api', createProxyMiddleware({
+  target: 'http://localhost:8000',
+  changeOrigin: true,
+  pathRewrite: {
+    '^/api': '/api'
+  },
+  onProxyReq: (proxyReq, req, res) => {
+    // Log the request for debugging
+    console.log(`Gateway Server: Proxying API ${req.method} ${req.url} to Backend server at http://localhost:8000`);
   }
 }));
 
