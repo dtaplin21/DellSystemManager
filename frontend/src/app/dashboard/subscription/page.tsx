@@ -110,10 +110,10 @@ export default function SubscriptionPage() {
   };
 
   return (
-    <div className="container max-w-6xl py-8 bg-gradient-to-b from-blue-50 to-white min-h-screen">
+    <div className="container max-w-6xl py-8 bg-gradient-to-b from-navy-50 to-white min-h-screen">
       <div className="text-center mb-10">
-        <h1 className="text-4xl font-bold tracking-tight mb-4 text-gray-900">Subscription Plans</h1>
-        <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+        <h1 className="text-4xl font-bold tracking-tight mb-4 text-navy-900">Subscription Plans</h1>
+        <p className="text-xl text-navy-600 max-w-3xl mx-auto">
           Choose the plan that best fits your needs. All plans include access to our core QC management platform.
         </p>
       </div>
@@ -139,20 +139,20 @@ export default function SubscriptionPage() {
 
       <div className="grid grid-cols-1 gap-8 md:grid-cols-2 mb-12">
         {/* Basic Plan */}
-        <Card className={`relative overflow-hidden border border-gray-200 shadow-md ${selectedPlan === 'basic' ? 'ring-2 ring-blue-600' : ''}`}>
+        <Card className={`relative overflow-hidden border border-orange-200 shadow-md ${selectedPlan === 'basic' ? 'ring-2 ring-orange-600' : ''}`}>
           {selectedPlan === 'basic' && (
-            <div className="absolute top-0 right-0 bg-blue-600 text-white px-3 py-1 text-sm font-medium">
+            <div className="absolute top-0 right-0 bg-orange-600 text-white px-3 py-1 text-sm font-medium">
               Selected
             </div>
           )}
-          <CardHeader className="border-b border-gray-100">
-            <CardTitle className="text-2xl text-blue-800">
+          <CardHeader className="border-b border-orange-100">
+            <CardTitle className="text-2xl text-navy-800">
               {plans.basic.name}{' '}
               {user?.subscription === 'basic' && (
-                <span className="ml-2 text-sm bg-blue-100 text-blue-800 rounded-full px-2 py-0.5">Current Plan</span>
+                <span className="ml-2 text-sm bg-orange-100 text-navy-800 rounded-full px-2 py-0.5">Current Plan</span>
               )}
             </CardTitle>
-            <CardDescription className="mt-2 text-gray-600">{plans.basic.description}</CardDescription>
+            <CardDescription className="mt-2 text-navy-600">{plans.basic.description}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="mb-4">
@@ -224,23 +224,23 @@ export default function SubscriptionPage() {
         </Card>
 
         {/* Premium Plan */}
-        <Card className={`relative overflow-hidden border border-gray-200 shadow-md ${selectedPlan === 'premium' ? 'ring-2 ring-blue-600' : ''}`}>
+        <Card className={`relative overflow-hidden border border-orange-200 shadow-md ${selectedPlan === 'premium' ? 'ring-2 ring-orange-600' : ''}`}>
           {selectedPlan === 'premium' && (
-            <div className="absolute top-0 right-0 bg-blue-600 text-white px-3 py-1 text-sm font-medium">
+            <div className="absolute top-0 right-0 bg-orange-600 text-white px-3 py-1 text-sm font-medium">
               Selected
             </div>
           )}
-          <CardHeader className="border-b border-gray-100">
-            <div className="absolute top-0 right-0 bg-blue-100 text-blue-800 px-3 py-1 text-sm font-medium rounded-bl-lg">
+          <CardHeader className="border-b border-orange-100">
+            <div className="absolute top-0 right-0 bg-navy-100 text-navy-800 px-3 py-1 text-sm font-medium rounded-bl-lg">
               Popular
             </div>
-            <CardTitle className="text-2xl text-blue-800">
+            <CardTitle className="text-2xl text-navy-800">
               {plans.premium.name}{' '}
               {user?.subscription === 'premium' && (
-                <span className="ml-2 text-sm bg-blue-100 text-blue-800 rounded-full px-2 py-0.5">Current Plan</span>
+                <span className="ml-2 text-sm bg-orange-100 text-navy-800 rounded-full px-2 py-0.5">Current Plan</span>
               )}
             </CardTitle>
-            <CardDescription className="mt-2 text-gray-600">{plans.premium.description}</CardDescription>
+            <CardDescription className="mt-2 text-navy-600">{plans.premium.description}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="mb-4">
@@ -294,8 +294,8 @@ export default function SubscriptionPage() {
 
       <div className="mt-16 text-center">
         {selectedPlan && (
-          <div className="max-w-md mx-auto bg-white p-8 rounded-lg shadow-md border border-gray-200">
-            <h2 className="text-2xl font-bold mb-4 text-blue-800">
+          <div className="max-w-md mx-auto bg-white p-8 rounded-lg shadow-md border border-orange-200">
+            <h2 className="text-2xl font-bold mb-4 text-navy-800">
               {user?.subscription === selectedPlan
                 ? 'You are already subscribed to this plan'
                 : `Subscribe to ${plans[selectedPlan].name}`}
@@ -303,12 +303,12 @@ export default function SubscriptionPage() {
             
             {user?.subscription !== selectedPlan && (
               <>
-                <p className="text-gray-600 mb-8">
+                <p className="text-navy-600 mb-8">
                   {`You will be charged $${plans[selectedPlan].price[billingInterval]} ${billingInterval === 'monthly' ? 'per month' : 'per year'} for the ${plans[selectedPlan].name}.`}
                 </p>
                 
                 <Button 
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 font-medium"
+                  className="w-full bg-orange-600 hover:bg-orange-700 text-white py-3 font-medium border border-orange-700 shadow-sm"
                   disabled={isLoading || user?.subscription === selectedPlan}
                   onClick={handleCheckout}
                 >
@@ -325,7 +325,7 @@ export default function SubscriptionPage() {
                   )}
                 </Button>
                 
-                <p className="text-sm text-gray-500 mt-6">
+                <p className="text-sm text-navy-500 mt-6">
                   By subscribing, you agree to our Terms of Service and Privacy Policy.
                 </p>
               </>
@@ -334,8 +334,8 @@ export default function SubscriptionPage() {
         )}
       </div>
       
-      <footer className="py-8 mt-16 border-t border-gray-200">
-        <div className="text-center text-gray-500">
+      <footer className="py-8 mt-16 border-t border-orange-200">
+        <div className="text-center text-navy-500">
           &copy; {new Date().getFullYear()} GeoQC. All rights reserved.
         </div>
       </footer>
