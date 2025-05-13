@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
+import './tailwind.css';
 import './globals.css';
 import { AuthProvider } from '../contexts/auth-context';
 import { WebSocketProvider } from '../contexts/websocket-context';
