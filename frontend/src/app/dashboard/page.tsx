@@ -89,10 +89,10 @@ export default function Dashboard() {
             <div className="flex items-center">
               <h1 className="text-2xl font-bold text-gray-900">GeoQC</h1>
               <nav className="ml-10 space-x-4">
-                <a href="#" className="text-gray-900 font-medium">Dashboard</a>
-                <a href="#" className="text-gray-500 hover:text-gray-900">Projects</a>
-                <a href="#" className="text-gray-500 hover:text-gray-900">Reports</a>
-                <a href="#" className="text-gray-500 hover:text-gray-900">Settings</a>
+                <Link href="/dashboard" className="text-gray-900 font-medium">Dashboard</Link>
+                <Link href="/dashboard/projects" className="text-gray-500 hover:text-gray-900">Projects</Link>
+                <Link href="#" className="text-gray-500 hover:text-gray-900">Reports</Link>
+                <Link href="#" className="text-gray-500 hover:text-gray-900">Settings</Link>
               </nav>
             </div>
             <div className="flex items-center space-x-3">

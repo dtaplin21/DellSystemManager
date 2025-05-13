@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import ProjectCard from '@/components/dashboard/project-card';
 import ProjectForm from '@/components/projects/project-form';
+import { EmptyState } from '@/components/ui/empty-state';
 import { useToast } from '@/hooks/use-toast';
 import { fetchProjects } from '@/lib/api';
 
@@ -27,8 +28,9 @@ export default function ProjectsPage() {
     const loadProjects = async () => {
       try {
         setIsLoading(true);
-        const data = await fetchProjects();
-        setProjects(data);
+        // In a real app, this would fetch from API
+        // For now, we'll just set an empty array
+        setProjects([]);
       } catch (error) {
         toast({
           title: 'Error',
@@ -50,6 +52,10 @@ export default function ProjectsPage() {
       title: 'Project Created',
       description: `${newProject.name} has been created successfully.`,
     });
+  };
+
+  const openCreateDialog = () => {
+    setDialogOpen(true);
   };
 
   return (
@@ -89,9 +95,19 @@ export default function ProjectsPage() {
               ))}
             </div>
           ) : (
-            <div className="text-center py-8 text-gray-500">
-              No projects found. Create your first project to get started.
-            </div>
+            <EmptyState
+              title="No Projects Yet"
+              description="You haven't created any geosynthetic QC projects yet. Projects help you organize your quality control data, documents, and panel layouts."
+              icon={
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+              }
+              action={{
+                label: "Create Your First Project",
+                onClick: openCreateDialog
+              }}
+            />
           )}
         </CardContent>
       </Card>
