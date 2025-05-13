@@ -72,7 +72,7 @@ export default function ProjectForm({ onProjectCreated }: ProjectFormProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
-        <label className="text-sm font-medium" htmlFor="name">
+        <label className="text-sm font-medium bg-[#f5f8fa] px-2 py-1 rounded border border-[#dfe1e6] inline-block" htmlFor="name">
           Project Name*
         </label>
         <Input

@@ -116,11 +116,11 @@ export default function ProjectsPage() {
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
               <h1 className="text-3xl font-bold text-[#172b4d]">Projects</h1>
-              <p className="mt-2 text-[#6b778c]">Manage and track all your geosynthetic engineering projects</p>
+              <p className="mt-2 text-[#6b778c] border border-[#dfe1e6] rounded-md py-2 px-3 bg-[#f9fafc]">Manage and track all your geosynthetic engineering projects</p>
             </div>
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="bg-[#0052cc] hover:bg-[#003d99] text-white shadow transition-all duration-200 transform hover:translate-y-[-2px]">
+                <Button className="bg-[#0052cc] hover:bg-[#003d99] text-white shadow transition-all duration-200 transform hover:translate-y-[-2px] border-2 border-[#003d99]">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
                   </svg>
@@ -152,7 +152,7 @@ export default function ProjectsPage() {
                 </div>
               </div>
               <div className="text-3xl font-bold text-[#172b4d]">{projects.length}</div>
-              <p className="text-[#6b778c] mt-2 text-sm">Projects in system</p>
+              <p className="text-[#6b778c] mt-2 text-sm border border-[#dfe1e6] rounded-md py-1 px-2 bg-[#f9fafc]">Projects in system</p>
             </CardContent>
           </Card>
           
@@ -168,7 +168,7 @@ export default function ProjectsPage() {
               <div className="text-3xl font-bold text-[#172b4d]">
                 {projects.filter(p => p.status.toLowerCase() === 'active').length}
               </div>
-              <p className="text-[#6b778c] mt-2 text-sm">Currently in progress</p>
+              <p className="text-[#6b778c] mt-2 text-sm border border-[#dfe1e6] rounded-md py-1 px-2 bg-[#f9fafc]">Currently in progress</p>
             </CardContent>
           </Card>
           
@@ -184,7 +184,7 @@ export default function ProjectsPage() {
               <div className="text-3xl font-bold text-[#172b4d]">
                 {projects.filter(p => p.status.toLowerCase() === 'completed').length}
               </div>
-              <p className="text-[#6b778c] mt-2 text-sm">Successfully finished</p>
+              <p className="text-[#6b778c] mt-2 text-sm border border-[#dfe1e6] rounded-md py-1 px-2 bg-[#f9fafc]">Successfully finished</p>
             </CardContent>
           </Card>
           
@@ -200,7 +200,7 @@ export default function ProjectsPage() {
               <div className="text-3xl font-bold text-[#172b4d]">
                 {projects.filter(p => ['delayed', 'on hold'].includes(p.status.toLowerCase())).length}
               </div>
-              <p className="text-[#6b778c] mt-2 text-sm">Require follow-up</p>
+              <p className="text-[#6b778c] mt-2 text-sm border border-[#dfe1e6] rounded-md py-1 px-2 bg-[#f9fafc]">Require follow-up</p>
             </CardContent>
           </Card>
         </div>
@@ -214,13 +214,13 @@ export default function ProjectsPage() {
                 <CardDescription className="text-[#6b778c]">Manage all your geosynthetic engineering projects</CardDescription>
               </div>
               <div className="flex gap-2">
-                <Button variant="outline" className="text-[#6b778c] border-[#dfe1e6] hover:bg-[#f5f8fa] transition-colors">
+                <Button variant="outline" className="text-[#6b778c] border-2 border-[#dfe1e6] hover:bg-[#f5f8fa] transition-colors bg-white shadow-sm">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4" />
                   </svg>
                   Sort
                 </Button>
-                <Button variant="outline" className="text-[#6b778c] border-[#dfe1e6] hover:bg-[#f5f8fa] transition-colors">
+                <Button variant="outline" className="text-[#6b778c] border-2 border-[#dfe1e6] hover:bg-[#f5f8fa] transition-colors bg-white shadow-sm">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                   </svg>
