@@ -721,7 +721,7 @@ app.get('/demo', (req, res) => {
               📊 Dashboard
             </li>
             <li class="sidebar-menu-item">
-              <a href="/dashboard/projects" style="color: inherit; text-decoration: none; display: flex; align-items: center; width: 100%;">📋 Projects</a>
+              <a href="/projects.html" style="color: inherit; text-decoration: none; display: flex; align-items: center; width: 100%;">📋 Projects</a>
             </li>
             <li class="sidebar-menu-item">
               📱 Panel Layout
