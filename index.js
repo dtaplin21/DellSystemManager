@@ -923,7 +923,10 @@ const nextJsRoutes = [
   '/_next', 
   '/static', 
   '/subscription',
-  '/account'
+  '/account',
+  '/api',
+  '/app',
+  '/__nextjs'
 ];
 
 // Check if the URL path starts with any of the Next.js routes
@@ -952,7 +955,7 @@ app.use((req, res, next) => {
       // Handle Replit environment
       hostRewrite: true,
       autoRewrite: true,
-      protocolRewrite: 'https',
+      secure: false,
     });
     return proxy(req, res, next);
   }
