@@ -65,8 +65,10 @@ app.get('/signup', (req, res) => {
 // No special handler needed as it's included in the proxy middleware
 
 // Demo route - Hardcoded HTML response
-app.get('/demo', (req, res) => {
-  console.log('Serving demo dashboard');
+// Remove /demo endpoint as requested
+// The free-trial route will now replace it with fully functional version
+app.get('/free-trial', (req, res) => {
+  console.log('Serving functional dashboard with demo UI');
   res.set('Content-Type', 'text/html');
   res.send(`
     <!DOCTYPE html>
