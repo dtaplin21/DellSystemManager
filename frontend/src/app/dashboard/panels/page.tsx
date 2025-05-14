@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import PanelLayout from '@/components/panels/PanelLayout'
+import SimplePanelLayout from '@/components/panels/SimplePanelLayout'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { generateTemplateFile } from '@/lib/excel-import'
@@ -83,13 +83,13 @@ export default function PanelsPage() {
           <TabsTrigger value="auto">Auto Layout</TabsTrigger>
         </TabsList>
         <TabsContent value="manual">
-          <PanelLayout 
+          <SimplePanelLayout 
             mode="manual" 
             projectInfo={projectInfo}
           />
         </TabsContent>
         <TabsContent value="auto">
-          <PanelLayout 
+          <SimplePanelLayout 
             mode="auto" 
             projectInfo={projectInfo}
           />
