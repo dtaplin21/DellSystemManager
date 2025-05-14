@@ -706,19 +706,19 @@ app.get('/free-trial', (req, res) => {
           
           <ul class="sidebar-menu">
             <li class="sidebar-menu-item active">
-              📊 Dashboard
+              <a href="/dashboard" style="color: inherit; text-decoration: none; display: flex; align-items: center; width: 100%;">📊 Dashboard</a>
             </li>
             <li class="sidebar-menu-item">
               <a href="/dashboard/projects" style="color: inherit; text-decoration: none; display: flex; align-items: center; width: 100%;">📋 Projects</a>
             </li>
             <li class="sidebar-menu-item">
-              📱 Panel Layout
+              <a href="/dashboard/panels" style="color: inherit; text-decoration: none; display: flex; align-items: center; width: 100%;">📱 Panel Layout</a>
             </li>
             <li class="sidebar-menu-item">
-              📄 QC Data
+              <a href="/dashboard/qc-data" style="color: inherit; text-decoration: none; display: flex; align-items: center; width: 100%;">📄 QC Data</a>
             </li>
             <li class="sidebar-menu-item">
-              📝 Documents
+              <a href="/dashboard/documents" style="color: inherit; text-decoration: none; display: flex; align-items: center; width: 100%;">📝 Documents</a>
             </li>
             <li class="sidebar-menu-item">
               📈 Reports
