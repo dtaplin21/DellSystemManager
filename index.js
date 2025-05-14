@@ -43,10 +43,18 @@ app.use(express.static(path.join(__dirname, 'public'), {
   }
 }));
 
-// Home page route - redirect to dashboard 
+console.log('Static file directory path:', path.join(__dirname, 'public'));
+
+// Home page route - serve the index.html file directly
 app.get('/', (req, res) => {
-  console.log('Redirecting from home to dashboard');
-  res.redirect('/dashboard');
+  const indexPath = path.join(__dirname, 'public', 'index.html');
+  console.log('Serving the landing page from:', indexPath);
+  res.sendFile(indexPath, (err) => {
+    if (err) {
+      console.error('Error sending index.html:', err);
+      res.status(500).send('Error loading landing page');
+    }
+  });
 });
 
 // Login route - redirects to dashboard since login is no longer required
@@ -64,13 +72,14 @@ app.get('/signup', (req, res) => {
 // Projects page is now handled directly by the Next.js app
 // No special handler needed as it's included in the proxy middleware
 
-// Demo route - Hardcoded HTML response
-// The free-trial route provides the same UI as the demo but with functional components
+// Free trial route - Replace the old demo with a functional version
+// This provides the same UI as the demo but with empty states for real user input
 app.get('/free-trial', (req, res) => {
   console.log('Serving functional dashboard with empty state UI');
   
   // Get plan from query parameter if available
   const plan = req.query.plan || 'basic';
+  console.log('Selected plan:', plan);
   
   res.set('Content-Type', 'text/html');
   res.send(`
@@ -924,9 +933,18 @@ app.use((req, res, next) => {
       target: 'http://localhost:3000',
       changeOrigin: true,
       ws: true,
-      // Enhance proxy connection handling
+      // Add error handling
+      onError: (err, req, res) => {
+        console.error('Next.js proxy error:', err);
+        res.writeHead(500, {
+          'Content-Type': 'text/plain'
+        });
+        res.end('Next.js server error, please try again');
+      },
+      // Enhance proxy connection handling 
       onProxyRes: (proxyRes, req, res) => {
         proxyRes.headers['Connection'] = 'keep-alive';
+        console.log(`Next.js proxy response: ${proxyRes.statusCode} for ${req.url}`);
       },
       // Handle Replit environment
       hostRewrite: true,
@@ -937,6 +955,7 @@ app.use((req, res, next) => {
   }
   
   // Not a Next.js route, continue to the next middleware
+  console.log(`Not a Next.js route: ${req.method} ${req.url}`);
   next();
 });
 
@@ -951,8 +970,20 @@ app.use('/api', createProxyMiddleware({
 
 // Fallback route for any unhandled routes (must come after all other routes)
 app.use((req, res) => {
-  console.log(`No route found for ${req.url}, redirecting to home page`);
-  res.redirect('/');
+  // Check if the request is for an HTML page
+  const isHtmlRequest = req.headers.accept && 
+                       req.headers.accept.includes('text/html') && 
+                       !req.url.includes('.');
+  
+  console.log(`No route found for ${req.url}, ${isHtmlRequest ? 'serving index page' : 'returning 404'}`);
+  
+  if (isHtmlRequest) {
+    // For HTML requests, serve the index.html page
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  } else {
+    // For other requests (like API calls, missing resources), return 404
+    res.status(404).send('Not Found');
+  }
 });
 
 // Handle errors
