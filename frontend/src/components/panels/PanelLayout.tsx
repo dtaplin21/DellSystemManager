@@ -5,8 +5,9 @@ import { Stage, Layer, Rect, Line, Text } from 'react-konva'
 import { Button } from '@/components/ui/button'
 import CreatePanelModal from './CreatePanelModal'
 import PanelAIChat from './PanelAIChat'
+import { parseExcelPanels, generateTemplateFile } from '@/lib/excel-import'
+import { exportToDXF, exportToJSON } from '@/lib/dxf-helpers'
 import { saveAs } from 'file-saver'
-import { Drawing, DxfWriter } from 'dxf-writer'
 
 interface PanelLayoutProps {
   mode: 'manual' | 'auto'
@@ -139,35 +140,7 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
   }
 
   const handleExportToDXF = () => {
-    const d = new Drawing()
-    
-    panels.forEach(panel => {
-      if (panel.shape === 'rectangle') {
-        const points = [
-          panel.x, panel.y,
-          panel.x + panel.width, panel.y,
-          panel.x + panel.width, panel.y + panel.length,
-          panel.x, panel.y + panel.length,
-          panel.x, panel.y // Close the rectangle
-        ]
-        
-        d.addPolyline(points, true)
-        d.addText(panel.x + panel.width / 2, panel.y + panel.length / 2, 5, 0, panel.panelNumber)
-      } else if (panel.shape === 'circle' && panel.radius) {
-        d.addCircle(panel.x, panel.y, panel.radius)
-        d.addText(panel.x, panel.y, 5, 0, panel.panelNumber)
-      } else if (panel.shape === 'polygon' && panel.points) {
-        d.addPolyline(panel.points, true)
-        // Add panel number at centroid of polygon
-        const centroidX = panel.points.filter((_, i) => i % 2 === 0).reduce((a, b) => a + b, 0) / (panel.points.length / 2)
-        const centroidY = panel.points.filter((_, i) => i % 2 === 1).reduce((a, b) => a + b, 0) / (panel.points.length / 2)
-        d.addText(centroidX, centroidY, 5, 0, panel.panelNumber)
-      }
-    })
-    
-    const dxfString = d.toDxfString()
-    const blob = new Blob([dxfString], { type: 'application/dxf' })
-    saveAs(blob, `${projectInfo.projectName.replace(/\s+/g, '_')}_panels.dxf`)
+    exportToDXF(panels, projectInfo)
   }
 
   const grid = []

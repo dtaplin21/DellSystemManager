@@ -4,6 +4,8 @@ import { useState } from 'react'
 import PanelLayout from '@/components/panels/PanelLayout'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { generateTemplateFile } from '@/lib/excel-import'
+import { saveAs } from 'file-saver'
 
 export default function PanelsPage() {
   const [activeTab, setActiveTab] = useState<string>('manual')
@@ -20,8 +22,36 @@ export default function PanelsPage() {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-navy-600">Panel Layout</h1>
         <div className="flex space-x-2">
-          <Button variant="outline">Import Excel</Button>
-          <Button variant="outline">Export CAD</Button>
+          <label htmlFor="excel-import" className="cursor-pointer">
+            <Button variant="outline" type="button" onClick={() => document.getElementById('excel-import')?.click()}>
+              Import Excel
+            </Button>
+            <input 
+              id="excel-import" 
+              type="file" 
+              accept=".xlsx,.xls" 
+              className="hidden" 
+              onChange={(e) => {
+                if (e.target.files && e.target.files[0]) {
+                  // This would typically be handled by passing the file to the PanelLayout component
+                  // For demo purposes, we'll just show an alert
+                  alert('Excel file selected: ' + e.target.files[0].name);
+                  // In a full implementation, we would call a function like:
+                  // handleExcelImport(e.target.files[0]);
+                }
+              }}
+            />
+          </label>
+          <Button 
+            variant="outline"
+            onClick={() => {
+              // Generate template file
+              const templateBlob = generateTemplateFile();
+              saveAs(templateBlob, 'panel_template.xlsx');
+            }}
+          >
+            Download Template
+          </Button>
           <Button>Save Layout</Button>
         </div>
       </div>
