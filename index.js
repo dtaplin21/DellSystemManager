@@ -826,42 +826,6 @@ app.get('/free-trial', (req, res) => {
                     </div>
                   </td>
                 </tr>
-                <tr>
-                  <td><strong>Industrial Retention Pond</strong></td>
-                  <td>Ace Manufacturing</td>
-                  <td>Detroit, MI</td>
-                  <td><span class="status-badge planned">Planned</span></td>
-                  <td>32%</td>
-                  <td>5 days ago</td>
-                  <td class="table-action">⋯</td>
-                </tr>
-                <tr>
-                  <td><strong>Wastewater Treatment Lining</strong></td>
-                  <td>PureWater Inc.</td>
-                  <td>Tampa, FL</td>
-                  <td><span class="status-badge completed">Completed</span></td>
-                  <td>94%</td>
-                  <td>1 day ago</td>
-                  <td class="table-action">⋯</td>
-                </tr>
-                <tr>
-                  <td><strong>Solar Farm Stormwater System</strong></td>
-                  <td>SunPeak Energy</td>
-                  <td>Phoenix, AZ</td>
-                  <td><span class="status-badge in-progress">In Progress</span></td>
-                  <td>45%</td>
-                  <td>Today</td>
-                  <td class="table-action">⋯</td>
-                </tr>
-                <tr>
-                  <td><strong>Highway Embankment Reinforcement</strong></td>
-                  <td>State DOT</td>
-                  <td>Denver, CO</td>
-                  <td><span class="status-badge in-progress">In Progress</span></td>
-                  <td>72%</td>
-                  <td>3 days ago</td>
-                  <td class="table-action">⋯</td>
-                </tr>
               </tbody>
             </table>
           </div>
@@ -877,7 +841,11 @@ app.get('/free-trial', (req, res) => {
                   <div class="filter-pill">Peel</div>
                 </div>
               </div>
-              <div class="chart-placeholder">QC Test Results Chart Visualization</div>
+              <div class="chart-placeholder" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 200px; text-align: center; color: var(--gray); border: 1px dashed var(--border); border-radius: 8px; padding: 2rem;">
+                <h3 style="margin-bottom: 1rem;">No QC test data available</h3>
+                <p style="margin-bottom: 1rem;">Upload test data to see visualization here</p>
+                <a href="/dashboard/qc-data/upload" class="btn">Upload QC Data</a>
+              </div>
             </div>
             
             <div class="qc-summary">
@@ -885,23 +853,23 @@ app.get('/free-trial', (req, res) => {
               
               <div class="summary-item">
                 <div class="summary-label">Tests Performed</div>
-                <div class="summary-value">248</div>
+                <div class="summary-value">0</div>
               </div>
               <div class="summary-item">
                 <div class="summary-label">Pass Rate</div>
-                <div class="summary-value green">96.8%</div>
+                <div class="summary-value">0%</div>
               </div>
               <div class="summary-item">
                 <div class="summary-label">Pending Tests</div>
-                <div class="summary-value orange">14</div>
+                <div class="summary-value">0</div>
               </div>
               <div class="summary-item">
                 <div class="summary-label">Failed Tests</div>
-                <div class="summary-value red">8</div>
+                <div class="summary-value">0</div>
               </div>
               <div class="summary-item">
                 <div class="summary-label">AI Anomaly Detections</div>
-                <div class="summary-value orange">5</div>
+                <div class="summary-value">0</div>
               </div>
             </div>
           </div>
@@ -910,42 +878,17 @@ app.get('/free-trial', (req, res) => {
             <h2 class="chart-title" style="margin-bottom: 1rem;">Recent Activities</h2>
             
             <div class="activity-list">
-              <div class="activity-item">
-                <div class="activity-icon blue">📄</div>
-                <div class="activity-content">
-                  <div class="activity-text"><strong>Sarah Johnson</strong> uploaded 8 new QC test documents to <strong>Landfill Cell 4 Expansion</strong></div>
-                  <div class="activity-time">Today, 10:34 AM</div>
-                </div>
-              </div>
-              
-              <div class="activity-item">
-                <div class="activity-icon green">✓</div>
-                <div class="activity-content">
-                  <div class="activity-text"><strong>AI System</strong> completed analysis of 12 density test reports for <strong>Industrial Retention Pond</strong></div>
-                  <div class="activity-time">Yesterday, 4:21 PM</div>
-                </div>
-              </div>
-              
-              <div class="activity-item">
-                <div class="activity-icon orange">⚠️</div>
-                <div class="activity-content">
-                  <div class="activity-text"><strong>AI Anomaly Detection</strong> identified potential issue with seam strength in <strong>Wastewater Treatment Lining</strong></div>
-                  <div class="activity-time">Yesterday, 1:15 PM</div>
-                </div>
-              </div>
-              
-              <div class="activity-item">
-                <div class="activity-icon blue">📱</div>
-                <div class="activity-content">
-                  <div class="activity-text"><strong>Mike Peterson</strong> optimized panel layout for <strong>Solar Farm Stormwater System</strong>, reducing material waste by 8%</div>
-                  <div class="activity-time">2 days ago</div>
-                </div>
+              <div style="text-align: center; padding: 2rem; color: var(--gray);">
+                <div style="margin-bottom: 1rem; font-size: 3rem;">📋</div>
+                <h3 style="margin-bottom: 1rem;">No activities yet</h3>
+                <p style="margin-bottom: 1.5rem;">Activities will appear here as you and your team work on projects</p>
               </div>
             </div>
           </div>
           
           <div style="text-align: center; margin-top: 2rem;">
-            <a href="/" style="color: var(--primary); text-decoration: none; font-weight: 500;">← Back to Home</a>
+            <a href="/dashboard" style="display: inline-block; margin-right: 1rem; color: var(--primary); text-decoration: none; font-weight: 500;">← Back to Dashboard</a>
+            <a href="/dashboard/subscription" class="btn" style="margin-left: 1rem;">Upgrade Subscription</a>
           </div>
         </main>
       </div>
@@ -1024,6 +967,6 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`- Main site: http://localhost:${PORT}/`);
   console.log(`- Login page: http://localhost:${PORT}/login`);
   console.log(`- Signup page: http://localhost:${PORT}/signup`);
-  console.log(`- Dashboard demo: http://localhost:${PORT}/demo`);
+  console.log(`- Free trial dashboard: http://localhost:${PORT}/free-trial`);
   console.log(`- Next.js Dashboard: http://localhost:${PORT}/dashboard`);
 });
