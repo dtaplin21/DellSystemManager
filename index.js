@@ -65,25 +65,28 @@ app.get('/signup', (req, res) => {
 // No special handler needed as it's included in the proxy middleware
 
 // Demo route - Hardcoded HTML response
-// Remove /demo endpoint as requested
-// The free-trial route will now replace it with fully functional version
+// The free-trial route provides the same UI as the demo but with functional components
 app.get('/free-trial', (req, res) => {
-  console.log('Serving functional dashboard with demo UI');
+  console.log('Serving functional dashboard with empty state UI');
+  
+  // Get plan from query parameter if available
+  const plan = req.query.plan || 'basic';
+  
   res.set('Content-Type', 'text/html');
   res.send(`
     <!DOCTYPE html>
     <html>
     <head>
-      <title>GeoSynth QC Pro - Dashboard Demo</title>
+      <title>GeoSynth QC Pro - Dashboard</title>
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <style>
         :root {
-          --primary: #0052cc;
-          --primary-dark: #003d99;
-          --secondary: #00857c;
+          --primary: #003366;  /* Navy blue */
+          --primary-dark: #002244;
+          --secondary: #ff9933; /* Orange */
           --light: #f5f8fa;
           --dark: #172b4d;
-          --accent: #ff5630;
+          --accent: #ff6633;
           --gray: #6b778c;
           --success: #36b37e;
           --warning: #ffab00;
@@ -798,7 +801,7 @@ app.get('/free-trial', (req, res) => {
               <h2 class="table-title">Active Projects</h2>
               <div class="table-actions">
                 <button class="btn btn-light">Filter</button>
-                <button class="btn">+ New Project</button>
+                <a href="/dashboard/projects/new" class="btn">+ New Project</a>
               </div>
             </div>
             
@@ -816,13 +819,12 @@ app.get('/free-trial', (req, res) => {
               </thead>
               <tbody>
                 <tr>
-                  <td><strong>Landfill Cell 4 Expansion</strong></td>
-                  <td>Metro Waste Management</td>
-                  <td>Northfield, MN</td>
-                  <td><span class="status-badge in-progress">In Progress</span></td>
-                  <td>68%</td>
-                  <td>2 days ago</td>
-                  <td class="table-action">⋯</td>
+                  <td colspan="7" style="text-align: center; padding: 2rem;">
+                    <div>
+                      <h3 style="margin-bottom: 1rem; color: var(--gray);">No projects yet</h3>
+                      <p style="margin-bottom: 1.5rem; color: var(--gray);">Click the button above to add your first project</p>
+                    </div>
+                  </td>
                 </tr>
                 <tr>
                   <td><strong>Industrial Retention Pond</strong></td>
