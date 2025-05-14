@@ -33,8 +33,11 @@ app.use((req, res, next) => {
   next();
 });
 
+// Define the public directory path
+const publicDir = '/home/runner/workspace/public';
+
 // Serve static assets with max-age=0 (disable cache)
-app.use(express.static(path.join(__dirname, 'public'), {
+app.use(express.static(publicDir, {
   maxAge: '0',
   setHeaders: (res, path) => {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
@@ -43,11 +46,11 @@ app.use(express.static(path.join(__dirname, 'public'), {
   }
 }));
 
-console.log('Static file directory path:', path.join(__dirname, 'public'));
+console.log('Static file directory path:', publicDir);
 
 // Home page route - serve the index.html file directly
 app.get('/', (req, res) => {
-  const indexPath = path.join(__dirname, 'public', 'index.html');
+  const indexPath = path.join(publicDir, 'index.html');
   console.log('Serving the landing page from:', indexPath);
   res.sendFile(indexPath, (err) => {
     if (err) {
@@ -979,7 +982,7 @@ app.use((req, res) => {
   
   if (isHtmlRequest) {
     // For HTML requests, serve the index.html page
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    res.sendFile(path.join(publicDir, 'index.html'));
   } else {
     // For other requests (like API calls, missing resources), return 404
     res.status(404).send('Not Found');
