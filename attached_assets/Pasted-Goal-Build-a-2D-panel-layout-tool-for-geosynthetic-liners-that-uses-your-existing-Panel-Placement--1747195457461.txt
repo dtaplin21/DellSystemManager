@@ -1,0 +1,72 @@
+Goal: Build a 2D panel-layout tool for geosynthetic liners that uses your existing “Panel Placement” Excel templates as the source of truth and makes it dead-simple for end users—whether they draw panels by hand or let AI do the heavy lifting.
+
+Base Schema (from ZIP):
+– Use the “Panel Placement Form” tables in the Panel placement WPWM folder (Primary Area A, Primary Area B, Secondary Area C) to define your manual-entry modal. For every panel, surface these fields exactly:
+
+Date
+
+Panel #
+
+Length (ft)
+
+Width (ft)
+
+Roll Number
+
+Panel Location / Comment
+– Preload the project header info into the UI (Project Name, Location, Description, Manager, Material) so users never have to re-type it.
+
+Requirements:
+
+Auto-Layout Mode
+
+Accept a batch of panel records (from Excel import or user form) and automatically arrange them on a grid, scaled to square-foot and linear-foot dimensions.
+
+Interpret free-text instructions (e.g. “Place panel 3 at the northeast corner, 2' inset”) via your OpenAI agent chain.
+
+Export the final layout in CAD-friendly format (DXF/DWG).
+
+Manual Mode
+
+Show a “Create Panel” modal with the six fields above, plus a dropdown to select shape type (rectangle, polygon, circle).
+
+Allow drag-and-drop placement, click-and-drag resize handles, zoom in/out, and a “Fit to Scale” button.
+
+Embedded AI Chat
+
+Embed your existing OpenAI model and secret key so the chat widget retains full project context.
+
+Let users type commands like “Combine panels 4 and 5 into one 20×30 rectangle” and instantly see updates.
+
+Simplify for Users & Developers
+
+Provide preset panel templates for common liner sizes (e.g. 60 mil × 100 ft rolls).
+
+Real-time validation that warns if panels overlap or exceed liner area.
+
+Tooltips on each input and a one-click “How it Works” guide.
+
+Supply npm packages (e.g. react-canvas-grid, dxf-writer) and environment variable examples in your README.
+
+Your Task:
+Paste this prompt into your AI chat and then:
+
+Spin up the React/Next.js scaffolding for the panel-layout component.
+
+Wire in the manual-entry modal based on the Excel schema.
+
+Hook up the auto-layout algorithm and CAD exporter.
+
+Embed the AI chat widget with full context preservation.
+
+Include a sample data CSV (matching the templates) and a copy-paste code snippet for easy Replit integration.
+
+Make every step as plug-and-play as possible so the next developer can drop it into your Replit project and start drawing, automating, and exporting their geosynthetic panel layouts immediately.
+
+
+
+
+
+
+
+
