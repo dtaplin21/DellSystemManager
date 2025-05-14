@@ -721,10 +721,10 @@ app.get('/free-trial', (req, res) => {
               <a href="/dashboard/documents" style="color: inherit; text-decoration: none; display: flex; align-items: center; width: 100%;">📝 Documents</a>
             </li>
             <li class="sidebar-menu-item">
-              📈 Reports
+              <a href="/dashboard/reports" style="color: inherit; text-decoration: none; display: flex; align-items: center; width: 100%;">📈 Reports</a>
             </li>
             <li class="sidebar-menu-item">
-              👥 Team Members
+              <a href="/dashboard/team" style="color: inherit; text-decoration: none; display: flex; align-items: center; width: 100%;">👥 Team Members</a>
             </li>
           </ul>
           
@@ -732,13 +732,13 @@ app.get('/free-trial', (req, res) => {
             <div class="sidebar-submenu-title">Admin</div>
             <ul class="sidebar-menu">
               <li class="sidebar-menu-item">
-                ⚙️ Settings
+                <a href="/dashboard/settings" style="color: inherit; text-decoration: none; display: flex; align-items: center; width: 100%;">⚙️ Settings</a>
               </li>
               <li class="sidebar-menu-item">
-                👤 Account
+                <a href="/dashboard/account" style="color: inherit; text-decoration: none; display: flex; align-items: center; width: 100%;">👤 Account</a>
               </li>
               <li class="sidebar-menu-item">
-                🔑 Subscription
+                <a href="/dashboard/subscription" style="color: inherit; text-decoration: none; display: flex; align-items: center; width: 100%;">🔑 Subscription</a>
               </li>
             </ul>
           </div>
@@ -753,9 +753,9 @@ app.get('/free-trial', (req, res) => {
                 <h3 class="stat-card-title">Active Projects</h3>
                 <div class="stat-card-icon blue">📋</div>
               </div>
-              <div class="stat-card-value">12</div>
+              <div class="stat-card-value">0</div>
               <div class="stat-card-label">
-                <span class="trend-up">▲ 2</span> from last month
+                <span class="trend-neutral">—</span> No data yet
               </div>
             </div>
             
@@ -764,9 +764,9 @@ app.get('/free-trial', (req, res) => {
                 <h3 class="stat-card-title">QC Tests</h3>
                 <div class="stat-card-icon green">🧪</div>
               </div>
-              <div class="stat-card-value">248</div>
+              <div class="stat-card-value">0</div>
               <div class="stat-card-label">
-                <span class="trend-up">▲ 12%</span> from last week
+                <span class="trend-neutral">—</span> No data yet
               </div>
             </div>
             
@@ -775,9 +775,9 @@ app.get('/free-trial', (req, res) => {
                 <h3 class="stat-card-title">Documents</h3>
                 <div class="stat-card-icon orange">📄</div>
               </div>
-              <div class="stat-card-value">56</div>
+              <div class="stat-card-value">0</div>
               <div class="stat-card-label">
-                <span class="trend-up">▲ 8</span> new this week
+                <span class="trend-neutral">—</span> No data yet
               </div>
             </div>
             
@@ -786,9 +786,9 @@ app.get('/free-trial', (req, res) => {
                 <h3 class="stat-card-title">Material Usage</h3>
                 <div class="stat-card-icon purple">📊</div>
               </div>
-              <div class="stat-card-value">86%</div>
+              <div class="stat-card-value">0%</div>
               <div class="stat-card-label">
-                <span class="trend-up">▲ 3%</span> efficiency increase
+                <span class="trend-neutral">—</span> No data yet
               </div>
             </div>
           </div>
