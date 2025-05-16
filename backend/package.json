@@ -14,12 +14,16 @@
   "dependencies": {
     "@types/express": "^5.0.1",
     "@types/node": "^22.15.18",
+    "dotenv": "^16.5.0",
     "drizzle-orm": "^0.43.1",
     "express": "^5.1.0",
     "pg": "^8.16.0",
     "typescript": "^5.8.3"
   },
   "devDependencies": {
+    "@types/cookie-parser": "^1.4.8",
+    "@types/cors": "^2.8.18",
+    "@types/morgan": "^1.9.9",
     "@types/pg": "^8.15.2",
     "@types/ws": "^8.18.1",
     "nodemon": "^3.1.10",
