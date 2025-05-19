@@ -61,8 +61,6 @@ function setupWebSocketServer(wss) {
       console.log('WebSocket client disconnected');
     });
   });
-  
-  console.log('WebSocket server initialized');
 }
 
 // Handle authentication

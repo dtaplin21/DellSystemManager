@@ -1,44 +1,49 @@
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const morgan = require('morgan');
-const cookieParser = require('cookie-parser');
-const helmet = require('helmet');
-const path = require('path');
-const { WebSocketServer } = require('ws');
-const { setupWebSocketServer } = require('./services/websocket');
+import dotenv from 'dotenv';
+import express, { Express, Request, Response, NextFunction } from 'express';
+import helmet from 'helmet';
+import cors from 'cors';
+import morgan from 'morgan';
+import cookieParser from 'cookie-parser';
+import { WebSocketServer } from 'ws';
+import { setupWebSocketServer } from '../backend/services/websocket';
+import { connectToDatabase, applyMigrations } from '../backend/db';
+import { isOpenAIConfigured, initAIServices } from '../backend/services/ai-connector';
 
-// Initialize Express app
-const app = express();
+// Load environment variables
+dotenv.config();
+
+const app: Express = express();
 
 // Middleware
 app.use(helmet());
-app.use(cors());
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  credentials: true
+}));
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 // Setup routes
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/projects', require('./routes/projects'));
-app.use('/api/documents', require('./routes/documents'));
-app.use('/api/panels', require('./routes/panels'));
-app.use('/api/qc-data', require('./routes/qc-data'));
-app.use('/api/payments', require('./routes/payments'));
-app.use('/api/system', require('./routes/api/system'));
+app.use('/api/auth', require('../backend/routes/auth'));
+app.use('/api/projects', require('../backend/routes/projects'));
+app.use('/api/documents', require('../backend/routes/documents'));
+app.use('/api/panels', require('../backend/routes/panels'));
+app.use('/api/qc-data', require('../backend/routes/qc-data'));
+app.use('/api/payments', require('../backend/routes/payments'));
+app.use('/api/system', require('../backend/routes/api/system'));
 
 // Error handler
-app.use((err, req, res, next) => {
+app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   console.error(err.stack);
   res.status(500).json({ message: 'Something went wrong!' });
 });
 
-// Database connection
-const { connectToDatabase, applyMigrations } = require('./db');
-
-// Check for OpenAI API configuration
-const { isOpenAIConfigured, initAIServices } = require('./services/ai-connector');
+// Add this type declaration
+declare global {
+  var wsServer: WebSocketServer | undefined;
+}
 
 // Start the server
 async function startServer() {
@@ -56,8 +61,8 @@ async function startServer() {
   }
   
   try {
-    // Start HTTP server on port 8000
-    const PORT = process.env.PORT || 8000;
+    // Start HTTP server
+    const PORT = parseInt(process.env.PORT || '8000', 10);
     const server = app.listen(PORT, '0.0.0.0', () => {
       console.log(`Server running on http://0.0.0.0:${PORT}`);
     });
@@ -70,7 +75,7 @@ async function startServer() {
       console.log('WebSocket server initialized');
     }
     
-    // Initialize AI services if OpenAI API key is available
+    // Initialize AI services
     let aiServiceAvailable = false;
     let openaiServiceAvailable = false;
 
@@ -93,8 +98,6 @@ async function startServer() {
     try {
       await connectToDatabase();
       console.log('Connected to PostgreSQL database');
-      
-      // Apply database migrations
       await applyMigrations();
     } catch (dbError) {
       console.error('Database connection failed:', dbError);
@@ -105,10 +108,9 @@ async function startServer() {
   }
 }
 
-// Export only what's needed
-module.exports = app;
-
-// Start server only if this is the main module
+// Start server if this is the main module
 if (require.main === module) {
   startServer();
 }
+
+export default app; 
