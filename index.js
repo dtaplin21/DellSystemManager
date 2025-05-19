@@ -34,7 +34,7 @@ app.use((req, res, next) => {
 });
 
 // Define the public directory path
-const publicDir = '/home/runner/workspace/public';
+const publicDir = path.join(__dirname, 'public');
 
 // Serve static assets with max-age=0 (disable cache)
 app.use(express.static(publicDir, {

@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import cors from 'cors';
 import morgan from 'morgan';
 import cookieParser from 'cookie-parser';
+import path from 'path';
 import { WebSocketServer } from 'ws';
 import { setupWebSocketServer } from '../backend/services/websocket';
 import { connectToDatabase, applyMigrations } from '../backend/db';
@@ -25,6 +26,9 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
+// Serve static files from the public directory
+app.use(express.static(path.join(__dirname, '..', 'public')));
+
 // Setup routes
 app.use('/api/auth', require('../backend/routes/auth'));
 app.use('/api/projects', require('../backend/routes/projects'));
@@ -33,6 +37,11 @@ app.use('/api/panels', require('../backend/routes/panels'));
 app.use('/api/qc-data', require('../backend/routes/qc-data'));
 app.use('/api/payments', require('../backend/routes/payments'));
 app.use('/api/system', require('../backend/routes/api/system'));
+
+// Serve index.html for all non-API routes
+app.get('*', (req: Request, res: Response) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
+});
 
 // Error handler
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
