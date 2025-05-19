@@ -33,8 +33,12 @@ app.use((req, res, next) => {
   next();
 });
 
+
 // Define the public directory path
-const publicDir = path.join(__dirname, 'public');
+
+// Define the public directory path - works both locally and on Replit
+const publicDir = process.env.REPLIT_DB_URL ? '/home/runner/workspace/public' : path.join(__dirname, 'public');
+
 
 // Serve static assets with max-age=0 (disable cache)
 app.use(express.static(publicDir, {
