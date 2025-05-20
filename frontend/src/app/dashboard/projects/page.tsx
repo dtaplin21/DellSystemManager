@@ -55,7 +55,7 @@ export default function ProjectsPage() {
     };
 
     loadProjects();
-  }, [toast]);
+  }, []); // Empty dependency array since we only want to run this once
 
   const handleProjectCreated = (newProject: Project) => {
     setProjects((prev) => [newProject, ...prev]);
