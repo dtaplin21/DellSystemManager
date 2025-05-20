@@ -923,7 +923,16 @@ app.post('/api/contact', (req, res) => {
 // Any paths that start with these will be directed to the Next.js app
 const nextJsRoutes = [
   '/dashboard', 
-  '/projects', 
+  '/projects',
+  '/dashboard/projects',
+  '/dashboard/panels',
+  '/dashboard/qc-data',
+  '/dashboard/documents',
+  '/dashboard/reports',
+  '/dashboard/team',
+  '/dashboard/settings',
+  '/dashboard/account',
+  '/dashboard/subscription',
   '/_next', 
   '/static', 
   '/subscription',
