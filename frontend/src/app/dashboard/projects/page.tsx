@@ -22,6 +22,7 @@ export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -91,11 +92,109 @@ export default function ProjectsPage() {
     setDialogOpen(true);
   };
 
+  // Handle project editing
+  const handleProjectUpdate = (updatedProject: Project) => {
+    setProjects(projects.map(p => 
+      p.id === updatedProject.id ? updatedProject : p
+    ));
+    setDialogOpen(false);
+    setEditingProject(null);
+    
+    toast({
+      title: 'Project Updated',
+      description: `${updatedProject.name} has been updated successfully.`,
+    });
+  };
+
   return (
     <div className="space-y-8 p-6 max-w-7xl mx-auto">
       <div className="border-b border-navy-200 pb-4 mb-8">
         <h1 className="text-3xl font-bold text-navy-800">Projects</h1>
       </div>
+      
+      {/* Edit Project Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Edit Project</DialogTitle>
+            <DialogDescription>
+              Make changes to the project details. Click save when you're done.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {editingProject && (
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <label htmlFor="name" className="text-right font-medium">
+                  Name
+                </label>
+                <input
+                  id="name"
+                  className="col-span-3 h-10 rounded-md border border-gray-300 px-3"
+                  value={editingProject.name}
+                  onChange={(e) => setEditingProject({...editingProject, name: e.target.value})}
+                />
+              </div>
+              
+              <div className="grid grid-cols-4 items-center gap-4">
+                <label htmlFor="status" className="text-right font-medium">
+                  Status
+                </label>
+                <select
+                  id="status"
+                  className="col-span-3 h-10 rounded-md border border-gray-300 px-3"
+                  value={editingProject.status}
+                  onChange={(e) => setEditingProject({...editingProject, status: e.target.value})}
+                >
+                  <option value="Active">Active</option>
+                  <option value="Completed">Completed</option>
+                  <option value="On Hold">On Hold</option>
+                  <option value="Delayed">Delayed</option>
+                </select>
+              </div>
+              
+              <div className="grid grid-cols-4 items-center gap-4">
+                <label htmlFor="progress" className="text-right font-medium">
+                  Progress (%)
+                </label>
+                <input
+                  id="progress"
+                  type="number"
+                  min="0"
+                  max="100"
+                  className="col-span-3 h-10 rounded-md border border-gray-300 px-3"
+                  value={editingProject.progress}
+                  onChange={(e) => setEditingProject({...editingProject, progress: parseInt(e.target.value, 10) || 0})}
+                />
+              </div>
+            </div>
+          )}
+          
+          <div className="flex justify-end gap-2">
+            <button 
+              onClick={() => setDialogOpen(false)}
+              className="inline-flex items-center justify-center rounded-md text-sm font-medium px-4 py-2 bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button 
+              onClick={() => {
+                if (editingProject) {
+                  // Update the timestamp
+                  const updatedProject = {
+                    ...editingProject,
+                    lastUpdated: new Date().toISOString()
+                  };
+                  handleProjectUpdate(updatedProject);
+                }
+              }}
+              className="inline-flex items-center justify-center rounded-md text-sm font-medium px-4 py-2 bg-navy-600 text-white hover:bg-navy-700"
+            >
+              Save Changes
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {isLoading ? (
@@ -176,12 +275,18 @@ export default function ProjectsPage() {
                       Layout
                     </a>
                   </div>
-                  <a href={`/dashboard/projects/${project.id}/edit`} className="inline-flex items-center justify-center rounded-md text-xs font-medium px-3 py-1.5 bg-white text-navy-600 border border-navy-200 hover:bg-navy-50 transition-colors">
+                  <button 
+                    onClick={() => {
+                      setEditingProject(project);
+                      setDialogOpen(true);
+                    }}
+                    className="inline-flex items-center justify-center rounded-md text-xs font-medium px-3 py-1.5 bg-white text-navy-600 border border-navy-200 hover:bg-navy-50 transition-colors"
+                  >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 0L11.828 15H9v-2.828l8.586-8.586z" />
                     </svg>
                     <span className="ml-1">Edit</span>
-                  </a>
+                  </button>
                 </div>
               </div>
             ))}
