@@ -84,10 +84,11 @@ app.get('/free-trial', (req, res) => {
   res.send(freeTrial);
 });
 
-// Configure Next.js routes
+// Configure Next.js routes - ensure all dashboard paths are properly proxied
 const nextJsRoutes = [
   '/dashboard', 
   '/dashboard/projects',
+  '/dashboard/*',
   '/projects',
   '/_next', 
   '/static', 
@@ -106,7 +107,9 @@ app.use('/dashboard', (req, res, next) => {
   const proxy = createProxyMiddleware({
     target,
     changeOrigin: true,
+    pathRewrite: { '^/dashboard': '/dashboard' },
     ws: true,
+    logLevel: 'debug',
     onError: (err, req, res) => {
       console.error('Proxy error:', err);
       res.writeHead(500, { 'Content-Type': 'text/plain' });
