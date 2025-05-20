@@ -1,93 +1,76 @@
 'use client';
-// This is the Projects page component for the dashboard
 
-import { useEffect, useState } from 'react';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import EditForm from './edit-form';
 import { useToast } from '@/hooks/use-toast';
 
 export default function ProjectsPage() {
   const [projects, setProjects] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProject, setEditingProject] = useState(null);
   const { toast } = useToast();
 
   useEffect(() => {
     // Simulate loading projects from API
-    const loadProjects = async () => {
-      try {
-        // Simulated API call
-        setTimeout(() => {
-          const mockProjects = [
-            {
-              id: '1',
-              name: 'North Valley Containment',
-              status: 'Active',
-              lastUpdated: '2025-05-01T12:00:00Z',
-              progress: 75
-            },
-            {
-              id: '2',
-              name: 'Southside Liner Installation',
-              status: 'On Hold',
-              lastUpdated: '2025-04-15T09:30:00Z',
-              progress: 45
-            },
-            {
-              id: '3',
-              name: 'Eastwood Landfill Cover',
-              status: 'Completed',
-              lastUpdated: '2025-05-10T16:45:00Z',
-              progress: 100
-            },
-            {
-              id: '4',
-              name: 'Westlake Industrial Pond',
-              status: 'Delayed',
-              lastUpdated: '2025-03-22T10:15:00Z',
-              progress: 30
-            },
-            {
-              id: '5',
-              name: 'Central City Treatment Plant',
-              status: 'Active',
-              lastUpdated: '2025-05-18T14:20:00Z',
-              progress: 60
-            }
-          ];
-          
-          setProjects(mockProjects);
-          setIsLoading(false);
-        }, 1000);
-      } catch (error) {
-        console.error('Failed to load projects:', error);
-        setIsLoading(false);
-        toast({
-          title: 'Error',
-          description: 'Failed to load projects. Please try again later.',
-          variant: 'destructive',
-        });
-      }
-    };
+    setTimeout(() => {
+      const mockProjects = [
+        {
+          id: '1',
+          name: 'North Valley Containment',
+          client: 'Valley Engineering',
+          status: 'Active',
+          location: 'North Valley, CA',
+          lastUpdated: '2025-05-01',
+          progress: 75
+        },
+        {
+          id: '2',
+          name: 'Southside Liner Installation',
+          client: 'Metro Waste Solutions',
+          status: 'On Hold',
+          location: 'Southside, TX',
+          lastUpdated: '2025-04-15',
+          progress: 45
+        },
+        {
+          id: '3',
+          name: 'Eastwood Landfill Cover',
+          client: 'Eastwood County',
+          status: 'Completed',
+          location: 'Eastwood, OR',
+          lastUpdated: '2025-05-10',
+          progress: 100
+        },
+        {
+          id: '4',
+          name: 'Westlake Industrial Pond',
+          client: 'Westlake Industries',
+          status: 'Delayed',
+          location: 'Westlake, MI',
+          lastUpdated: '2025-03-22',
+          progress: 30
+        },
+        {
+          id: '5',
+          name: 'Central City Treatment Plant',
+          client: 'Central Municipal Authority',
+          status: 'Active',
+          location: 'Central City, NY',
+          lastUpdated: '2025-05-18',
+          progress: 60
+        }
+      ];
+      
+      setProjects(mockProjects);
+      setIsLoading(false);
+    }, 1000);
+  }, []);
 
-    loadProjects();
-  }, [toast]);
-
-  const handleProjectCreated = (newProject) => {
-    setProjects((prev) => [newProject, ...prev]);
-    setDialogOpen(false);
-    toast({
-      title: 'Project Created',
-      description: `${newProject.name} has been created successfully.`,
-    });
-  };
-
-  // Handle project editing
-  const handleProjectUpdate = (updatedProject) => {
+  const handleUpdateProject = (updatedProject) => {
     setProjects(projects.map(p => 
       p.id === updatedProject.id ? updatedProject : p
     ));
-    setDialogOpen(false);
     setEditingProject(null);
     
     toast({
@@ -102,90 +85,15 @@ export default function ProjectsPage() {
         <h1 className="text-3xl font-bold text-navy-800">Projects</h1>
       </div>
       
-      {/* Edit Project Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Edit Project</DialogTitle>
-            <DialogDescription>
-              Make changes to the project details. Click save when you're done.
-            </DialogDescription>
-          </DialogHeader>
-          
-          {editingProject && (
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <label htmlFor="name" className="text-right font-medium">
-                  Name
-                </label>
-                <input
-                  id="name"
-                  className="col-span-3 h-10 rounded-md border border-gray-300 px-3"
-                  value={editingProject.name}
-                  onChange={(e) => setEditingProject({...editingProject, name: e.target.value})}
-                />
-              </div>
-              
-              <div className="grid grid-cols-4 items-center gap-4">
-                <label htmlFor="status" className="text-right font-medium">
-                  Status
-                </label>
-                <select
-                  id="status"
-                  className="col-span-3 h-10 rounded-md border border-gray-300 px-3"
-                  value={editingProject.status}
-                  onChange={(e) => setEditingProject({...editingProject, status: e.target.value})}
-                >
-                  <option value="Active">Active</option>
-                  <option value="Completed">Completed</option>
-                  <option value="On Hold">On Hold</option>
-                  <option value="Delayed">Delayed</option>
-                </select>
-              </div>
-              
-              <div className="grid grid-cols-4 items-center gap-4">
-                <label htmlFor="progress" className="text-right font-medium">
-                  Progress (%)
-                </label>
-                <input
-                  id="progress"
-                  type="number"
-                  min="0"
-                  max="100"
-                  className="col-span-3 h-10 rounded-md border border-gray-300 px-3"
-                  value={editingProject.progress}
-                  onChange={(e) => setEditingProject({...editingProject, progress: parseInt(e.target.value, 10) || 0})}
-                />
-              </div>
-            </div>
-          )}
-          
-          <div className="flex justify-end gap-2">
-            <button 
-              onClick={() => setDialogOpen(false)}
-              className="inline-flex items-center justify-center rounded-md text-sm font-medium px-4 py-2 bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
-            >
-              Cancel
-            </button>
-            <button 
-              onClick={() => {
-                if (editingProject) {
-                  // Update the timestamp
-                  const updatedProject = {
-                    ...editingProject,
-                    lastUpdated: new Date().toISOString()
-                  };
-                  handleProjectUpdate(updatedProject);
-                }
-              }}
-              className="inline-flex items-center justify-center rounded-md text-sm font-medium px-4 py-2 bg-navy-600 text-white hover:bg-navy-700"
-            >
-              Save Changes
-            </button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
+      {/* Edit Project Modal */}
+      {editingProject && (
+        <EditForm 
+          project={editingProject}
+          onSave={handleUpdateProject}
+          onCancel={() => setEditingProject(null)}
+        />
+      )}
+      
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {isLoading ? (
           <div className="flex justify-center py-12 col-span-full">
@@ -214,6 +122,12 @@ export default function ProjectsPage() {
                 
                 <div className="p-5 flex-grow">
                   <div className="mb-4">
+                    <p className="text-navy-600 text-sm">
+                      <span className="font-medium">Client:</span> {project.client}
+                    </p>
+                    <p className="text-navy-600 text-sm">
+                      <span className="font-medium">Location:</span> {project.location}
+                    </p>
                     <p className="text-navy-600 text-sm">
                       Last Updated: {new Date(project.lastUpdated).toLocaleDateString('en-US', {
                         year: 'numeric',
@@ -266,13 +180,10 @@ export default function ProjectsPage() {
                     </a>
                   </div>
                   <button 
-                    onClick={() => {
-                      setEditingProject(project);
-                      setDialogOpen(true);
-                    }}
+                    onClick={() => setEditingProject(project)}
                     className="inline-flex items-center justify-center rounded-md text-xs font-medium px-3 py-1.5 bg-white text-navy-600 border border-navy-200 hover:bg-navy-50 transition-colors"
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 0L11.828 15H9v-2.828l8.586-8.586z" />
                     </svg>
                     <span className="ml-1">Edit</span>
@@ -282,7 +193,7 @@ export default function ProjectsPage() {
             ))}
           </>
         ) : (
-          <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
+          <div className="bg-white border border-gray-200 rounded-lg p-8 text-center col-span-full">
             <h3 className="text-lg font-medium text-gray-900">No projects yet</h3>
             <p className="mt-1 text-sm text-gray-500">Get started by creating a new project.</p>
           </div>
