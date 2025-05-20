@@ -109,7 +109,7 @@ export default function Dashboard() {
       {showEditModal && selectedProject && (
         <EditProjectForm 
           project={selectedProject}
-          onUpdate={(updatedProject) => handleProjectUpdate(updatedProject as Project)}
+          onUpdate={(updatedProject: Project) => handleProjectUpdate(updatedProject)}
           onCancel={() => {
             setShowEditModal(false);
             setSelectedProject(null);
@@ -201,7 +201,7 @@ export default function Dashboard() {
                   </div>
                   
                   <div className="flex justify-between items-center pt-3 mt-2 border-t border-orange-100">
-                    <Link href={`/projects/${project.id}`} className="text-navy-600 hover:text-navy-800 font-medium text-sm">
+                    <Link href={`/dashboard/projects/${project.id}`} className="text-navy-600 hover:text-navy-800 font-medium text-sm">
                       View Details
                     </Link>
                     <button 

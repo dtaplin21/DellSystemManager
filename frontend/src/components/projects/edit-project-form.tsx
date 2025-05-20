@@ -2,19 +2,38 @@
 
 import React, { useState } from 'react';
 
+// Define TypeScript interface for a Project
+interface Project {
+  id: string;
+  name: string;
+  client: string;
+  location: string;
+  lastUpdated: string;
+  progress: number;
+  status?: string;
+}
+
+interface EditProjectFormProps {
+  project: Project;
+  onUpdate: (project: Project) => void;
+  onCancel: () => void;
+}
+
 /**
  * Edit Project Form Component
  * Allows editing of project details with a simple form interface
  */
-export default function EditProjectForm({ project, onUpdate, onCancel }) {
-  const [editedProject, setEditedProject] = useState(project || {
+export default function EditProjectForm({ project, onUpdate, onCancel }: EditProjectFormProps) {
+  const [editedProject, setEditedProject] = useState<Project>(project || {
+    id: '',
     name: '',
     client: '',
     location: '',
+    lastUpdated: '',
     progress: 0
   });
 
-  const handleChange = (e) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setEditedProject(prev => ({
       ...prev,
@@ -22,7 +41,7 @@ export default function EditProjectForm({ project, onUpdate, onCancel }) {
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
     // Update the timestamp
