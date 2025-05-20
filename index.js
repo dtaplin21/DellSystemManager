@@ -216,9 +216,9 @@ app.get('/dashboard', (req, res) => {
         <nav>
           <a href="/dashboard" class="active">Dashboard</a>
           <a href="/dashboard/projects">Projects</a>
+          <a href="/dashboard/panel-layout">Panel Layout</a>
           <a href="/dashboard/qc-data">QC Data</a>
           <a href="/dashboard/documents">Documents</a>
-          <a href="/settings">Settings</a>
         </nav>
         <div>
           <span>User123</span>
@@ -1005,6 +1005,12 @@ app.get('/dashboard/projects', (req, res) => {
     </body>
     </html>
   `);
+});
+
+// Panel Layout Tool
+app.get('/dashboard/panel-layout', (req, res) => {
+  const panelLayoutPage = fs.readFileSync(path.join(publicDir, 'dashboard/panel-layout.html'), 'utf8');
+  res.send(panelLayoutPage);
 });
 
 // QC data page
