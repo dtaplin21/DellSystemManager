@@ -99,13 +99,13 @@ const nextJsRoutes = [
 
 // Proxy dashboard routes to the frontend Next.js app
 app.use('/dashboard', (req, res, next) => {
-  console.log('Proxying dashboard route to Next.js:', req.url);
+  const fullPath = req.originalUrl;
+  console.log('Proxying dashboard route to Next.js:', fullPath);
   
   const target = 'http://localhost:3000';
   const proxy = createProxyMiddleware({
     target,
     changeOrigin: true,
-    pathRewrite: { '^/dashboard': '/dashboard' },
     ws: true,
     onError: (err, req, res) => {
       console.error('Proxy error:', err);

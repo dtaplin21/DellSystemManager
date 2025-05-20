@@ -1,85 +1,78 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import ProjectCard from '@/components/dashboard/project-card';
-import ProjectForm from '@/components/projects/project-form';
-import { EmptyState } from '@/components/ui/empty-state';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { fetchProjects } from '@/lib/api';
-
-interface Project {
-  id: string;
-  name: string;
-  status: string;
-  lastUpdated: string;
-  progress: number;
-}
 
 export default function ProjectsPage() {
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [projects, setProjects] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [editingProject, setEditingProject] = useState(null);
   const { toast } = useToast();
 
   useEffect(() => {
+    // Simulate loading projects from API
     const loadProjects = async () => {
       try {
-        setIsLoading(true);
-        
-        // For demo purposes, create sample projects
-        setProjects([
-          {
-            id: '1',
-            name: 'Lakeview Containment Facility',
-            status: 'Active',
-            lastUpdated: new Date().toISOString(),
-            progress: 35
-          },
-          {
-            id: '2',
-            name: 'Riverside Dam Liner',
-            status: 'Completed',
-            lastUpdated: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days ago
-            progress: 100
-          },
-          {
-            id: '3',
-            name: 'Mountain Creek Landfill',
-            status: 'On Hold',
-            lastUpdated: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days ago
-            progress: 68
-          },
-          {
-            id: '4',
-            name: 'Desert Solar Farm',
-            status: 'Delayed',
-            lastUpdated: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(), // 14 days ago
-            progress: 22
-          }
-        ]);
-        
-        // In production, we would fetch from API:
-        // const data = await fetchProjects();
-        // setProjects(data);
+        // Simulated API call
+        setTimeout(() => {
+          const mockProjects = [
+            {
+              id: '1',
+              name: 'North Valley Containment',
+              status: 'Active',
+              lastUpdated: '2025-05-01T12:00:00Z',
+              progress: 75
+            },
+            {
+              id: '2',
+              name: 'Southside Liner Installation',
+              status: 'On Hold',
+              lastUpdated: '2025-04-15T09:30:00Z',
+              progress: 45
+            },
+            {
+              id: '3',
+              name: 'Eastwood Landfill Cover',
+              status: 'Completed',
+              lastUpdated: '2025-05-10T16:45:00Z',
+              progress: 100
+            },
+            {
+              id: '4',
+              name: 'Westlake Industrial Pond',
+              status: 'Delayed',
+              lastUpdated: '2025-03-22T10:15:00Z',
+              progress: 30
+            },
+            {
+              id: '5',
+              name: 'Central City Treatment Plant',
+              status: 'Active',
+              lastUpdated: '2025-05-18T14:20:00Z',
+              progress: 60
+            }
+          ];
+          
+          setProjects(mockProjects);
+          setIsLoading(false);
+        }, 1000);
       } catch (error) {
+        console.error('Failed to load projects:', error);
+        setIsLoading(false);
         toast({
           title: 'Error',
-          description: 'Failed to load projects. Please try again.',
+          description: 'Failed to load projects. Please try again later.',
           variant: 'destructive',
         });
-      } finally {
-        setIsLoading(false);
       }
     };
 
     loadProjects();
-  }, []); // Empty dependency array since we only want to run this once
+  }, [toast]);
 
-  const handleProjectCreated = (newProject: Project) => {
+  const handleProjectCreated = (newProject) => {
     setProjects((prev) => [newProject, ...prev]);
     setDialogOpen(false);
     toast({
@@ -88,12 +81,8 @@ export default function ProjectsPage() {
     });
   };
 
-  const openCreateDialog = () => {
-    setDialogOpen(true);
-  };
-
   // Handle project editing
-  const handleProjectUpdate = (updatedProject: Project) => {
+  const handleProjectUpdate = (updatedProject) => {
     setProjects(projects.map(p => 
       p.id === updatedProject.id ? updatedProject : p
     ));
@@ -293,11 +282,8 @@ export default function ProjectsPage() {
           </>
         ) : (
           <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-orange-500 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-            </svg>
-            <h3 className="text-xl font-bold text-navy-800 mb-2">No Projects Available</h3>
-            <p className="text-navy-600 mb-6">There are currently no geosynthetic projects in the system.</p>
+            <h3 className="text-lg font-medium text-gray-900">No projects yet</h3>
+            <p className="mt-1 text-sm text-gray-500">Get started by creating a new project.</p>
           </div>
         )}
       </div>
