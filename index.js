@@ -933,11 +933,614 @@ const nextJsRoutes = [
   '/__nextjs'
 ];
 
-// Create a direct proxy for the dashboard/projects page
-app.use('/dashboard/projects', (req, res) => {
-  console.log('Proxying to Next.js dashboard/projects:', req.url);
-  // Forward the request directly to the Next.js server
-  res.redirect(302, 'http://localhost:3000/dashboard/projects');
+// Handle specific dashboard routes directly
+app.get('/dashboard/projects', (req, res) => {
+  // Serve a fully rendered project page directly
+  res.set('Content-Type', 'text/html');
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Project Management - GeoQC</title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <style>
+        /* Base Styles */
+        :root {
+          --primary: #003366;  /* Navy blue */
+          --primary-dark: #002244;
+          --secondary: #ff9933; /* Orange */
+          --light: #f5f8fa;
+          --dark: #172b4d;
+          --accent: #ff6633;
+          --gray: #6b778c;
+          --success: #36b37e;
+          --warning: #ffab00;
+          --error: #ff5630;
+          --border: #dfe1e6;
+        }
+        
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+          background-color: #f5f8fa;
+          color: #172b4d;
+          line-height: 1.6;
+        }
+        
+        .container {
+          max-width: 1200px;
+          margin: 0 auto;
+          padding: 0 1rem;
+        }
+        
+        /* Navigation */
+        .navbar {
+          background-color: white;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+          height: 64px;
+          display: flex;
+          align-items: center;
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          z-index: 100;
+        }
+        
+        .navbar-content {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          width: 100%;
+        }
+        
+        .logo {
+          font-size: 1.5rem;
+          font-weight: 700;
+          color: var(--primary);
+          display: flex;
+          align-items: center;
+        }
+        
+        .logo span {
+          color: var(--secondary);
+        }
+        
+        .nav-user {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+        }
+        
+        .user-info {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          cursor: pointer;
+        }
+        
+        .user-avatar {
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          background-color: var(--primary);
+          color: white;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: 600;
+        }
+        
+        /* Layout */
+        .layout {
+          display: flex;
+          min-height: 100vh;
+          padding-top: 64px; /* Navbar height */
+        }
+        
+        /* Sidebar */
+        .sidebar {
+          width: 240px;
+          background-color: var(--dark);
+          color: white;
+          position: fixed;
+          top: 64px;
+          bottom: 0;
+          overflow-y: auto;
+          z-index: 50;
+        }
+        
+        .sidebar-menu {
+          padding: 1.5rem 0;
+        }
+        
+        .menu-item {
+          padding: 0.75rem 1.5rem;
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          cursor: pointer;
+          transition: all 0.2s;
+          color: rgba(255,255,255,0.8);
+          text-decoration: none;
+        }
+        
+        .menu-item:hover {
+          background-color: rgba(255,255,255,0.1);
+          color: white;
+        }
+        
+        .menu-item.active {
+          background-color: var(--primary);
+          color: white;
+          font-weight: 500;
+        }
+        
+        .menu-section {
+          padding: 0.5rem 1.5rem;
+          font-size: 0.75rem;
+          text-transform: uppercase;
+          font-weight: 600;
+          color: rgba(255,255,255,0.5);
+          margin-top: 1.5rem;
+        }
+        
+        /* Main Content */
+        .main {
+          flex: 1;
+          margin-left: 240px;
+          padding: 2rem;
+        }
+        
+        .page-header {
+          margin-bottom: 2rem;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+        
+        .page-title {
+          font-size: 1.8rem;
+          font-weight: 600;
+          color: var(--dark);
+        }
+        
+        /* Project Cards Grid */
+        .projects-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+          gap: 1.5rem;
+        }
+        
+        .project-card {
+          background-color: white;
+          border-radius: 8px;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+          overflow: hidden;
+          display: flex;
+          flex-direction: column;
+          border: 1px solid var(--border);
+          transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .project-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        .project-header {
+          padding: 1.25rem;
+          border-bottom: 1px solid var(--border);
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+        
+        .project-title {
+          font-size: 1.15rem;
+          font-weight: 600;
+          color: var(--dark);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          max-width: 65%;
+        }
+        
+        .status-badge {
+          padding: 0.25rem 0.75rem;
+          border-radius: 1rem;
+          font-size: 0.75rem;
+          font-weight: 600;
+          display: inline-block;
+        }
+        
+        .status-active {
+          background-color: rgba(54, 179, 126, 0.1);
+          color: var(--success);
+          border: 1px solid var(--success);
+        }
+        
+        .status-completed {
+          background-color: rgba(0, 82, 204, 0.1);
+          color: #0052cc;
+          border: 1px solid #0052cc;
+        }
+        
+        .status-onhold {
+          background-color: rgba(255, 171, 0, 0.1);
+          color: var(--warning);
+          border: 1px solid var(--warning);
+        }
+        
+        .status-delayed {
+          background-color: rgba(255, 86, 48, 0.1);
+          color: var(--error);
+          border: 1px solid var(--error);
+        }
+        
+        .project-content {
+          padding: 1.25rem;
+          flex-grow: 1;
+        }
+        
+        .project-meta {
+          margin-bottom: 1rem;
+          font-size: 0.85rem;
+          color: var(--gray);
+        }
+        
+        .progress-section {
+          margin-bottom: 1rem;
+        }
+        
+        .progress-header {
+          display: flex;
+          justify-content: space-between;
+          margin-bottom: 0.5rem;
+          font-size: 0.875rem;
+        }
+        
+        .progress-bar {
+          height: 6px;
+          background-color: #f0f2f5;
+          border-radius: 3px;
+          overflow: hidden;
+        }
+        
+        .progress-value {
+          height: 100%;
+          border-radius: 3px;
+        }
+        
+        .progress-low {
+          background-color: var(--error);
+        }
+        
+        .progress-medium {
+          background-color: var(--warning);
+        }
+        
+        .progress-high {
+          background-color: var(--success);
+        }
+        
+        .project-badges {
+          display: flex;
+          gap: 0.5rem;
+          flex-wrap: wrap;
+          margin-bottom: 1rem;
+        }
+        
+        .info-badge {
+          background-color: #f0f2f5;
+          color: var(--gray);
+          padding: 0.25rem 0.5rem;
+          border-radius: 4px;
+          font-size: 0.75rem;
+          display: flex;
+          align-items: center;
+          gap: 0.25rem;
+        }
+        
+        .project-actions {
+          padding: 1rem 1.25rem;
+          border-top: 1px solid var(--border);
+          background-color: #fafbfc;
+          display: flex;
+          justify-content: space-between;
+        }
+        
+        .action-buttons {
+          display: flex;
+          gap: 0.5rem;
+        }
+        
+        .btn {
+          padding: 0.5rem 0.75rem;
+          border-radius: 4px;
+          font-size: 0.75rem;
+          font-weight: 500;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.2s;
+          text-decoration: none;
+        }
+        
+        .btn-primary {
+          background-color: var(--primary);
+          color: white;
+          border: none;
+        }
+        
+        .btn-primary:hover {
+          background-color: var(--primary-dark);
+        }
+        
+        .btn-secondary {
+          background-color: white;
+          color: var(--primary);
+          border: 1px solid var(--primary);
+        }
+        
+        .btn-secondary:hover {
+          background-color: #f0f7ff;
+        }
+        
+        .btn-outline {
+          background-color: white;
+          color: var(--gray);
+          border: 1px solid var(--border);
+        }
+        
+        .btn-outline:hover {
+          background-color: #f5f8fa;
+        }
+      </style>
+    </head>
+    <body>
+      <!-- Navigation Bar -->
+      <div class="navbar">
+        <div class="container navbar-content">
+          <div class="logo">
+            Geo<span>QC</span>
+          </div>
+          <div class="nav-user">
+            <div class="user-info">
+              <div class="user-avatar">JD</div>
+              <span>John Doe</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Main Layout -->
+      <div class="layout">
+        <!-- Sidebar -->
+        <div class="sidebar">
+          <div class="sidebar-menu">
+            <a href="/dashboard" class="menu-item">
+              📊 Dashboard
+            </a>
+            <a href="/dashboard/projects" class="menu-item active">
+              📋 Projects
+            </a>
+            <a href="/dashboard/panels" class="menu-item">
+              📱 Panel Layout
+            </a>
+            <a href="/dashboard/qc-data" class="menu-item">
+              📄 QC Data
+            </a>
+            <a href="/dashboard/documents" class="menu-item">
+              📝 Documents
+            </a>
+            <a href="/dashboard/reports" class="menu-item">
+              📈 Reports
+            </a>
+            
+            <div class="menu-section">Administration</div>
+            <a href="/dashboard/team" class="menu-item">
+              👥 Team Members
+            </a>
+            <a href="/dashboard/settings" class="menu-item">
+              ⚙️ Settings
+            </a>
+            <a href="/dashboard/account" class="menu-item">
+              👤 Account
+            </a>
+            <a href="/dashboard/subscription" class="menu-item">
+              🔑 Subscription
+            </a>
+          </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="main">
+          <div class="page-header">
+            <h1 class="page-title">Projects</h1>
+          </div>
+          
+          <!-- Projects Grid -->
+          <div class="projects-grid">
+            <!-- Project Card 1 -->
+            <div class="project-card">
+              <div class="project-header">
+                <h3 class="project-title">Lakeview Containment Facility</h3>
+                <span class="status-badge status-active">Active</span>
+              </div>
+              <div class="project-content">
+                <div class="project-meta">
+                  Last updated: May 20, 2025
+                </div>
+                <div class="progress-section">
+                  <div class="progress-header">
+                    <span>Progress</span>
+                    <span>35%</span>
+                  </div>
+                  <div class="progress-bar">
+                    <div class="progress-value progress-medium" style="width: 35%"></div>
+                  </div>
+                </div>
+                <div class="project-badges">
+                  <div class="info-badge">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                    3 docs
+                  </div>
+                  <div class="info-badge">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                    5 comments
+                  </div>
+                </div>
+              </div>
+              <div class="project-actions">
+                <div class="action-buttons">
+                  <a href="/dashboard/projects/1" class="btn btn-primary">View</a>
+                  <a href="/dashboard/projects/1/panel-layout" class="btn btn-secondary">Layout</a>
+                </div>
+                <a href="/dashboard/projects/1/edit" class="btn btn-outline">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                  Edit
+                </a>
+              </div>
+            </div>
+            
+            <!-- Project Card 2 -->
+            <div class="project-card">
+              <div class="project-header">
+                <h3 class="project-title">Riverside Dam Liner</h3>
+                <span class="status-badge status-completed">Completed</span>
+              </div>
+              <div class="project-content">
+                <div class="project-meta">
+                  Last updated: May 13, 2025
+                </div>
+                <div class="progress-section">
+                  <div class="progress-header">
+                    <span>Progress</span>
+                    <span>100%</span>
+                  </div>
+                  <div class="progress-bar">
+                    <div class="progress-value progress-high" style="width: 100%"></div>
+                  </div>
+                </div>
+                <div class="project-badges">
+                  <div class="info-badge">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                    8 docs
+                  </div>
+                  <div class="info-badge">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                    12 comments
+                  </div>
+                </div>
+              </div>
+              <div class="project-actions">
+                <div class="action-buttons">
+                  <a href="/dashboard/projects/2" class="btn btn-primary">View</a>
+                  <a href="/dashboard/projects/2/panel-layout" class="btn btn-secondary">Layout</a>
+                </div>
+                <a href="/dashboard/projects/2/edit" class="btn btn-outline">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                  Edit
+                </a>
+              </div>
+            </div>
+            
+            <!-- Project Card 3 -->
+            <div class="project-card">
+              <div class="project-header">
+                <h3 class="project-title">Mountain Creek Landfill</h3>
+                <span class="status-badge status-onhold">On Hold</span>
+              </div>
+              <div class="project-content">
+                <div class="project-meta">
+                  Last updated: May 17, 2025
+                </div>
+                <div class="progress-section">
+                  <div class="progress-header">
+                    <span>Progress</span>
+                    <span>68%</span>
+                  </div>
+                  <div class="progress-bar">
+                    <div class="progress-value progress-high" style="width: 68%"></div>
+                  </div>
+                </div>
+                <div class="project-badges">
+                  <div class="info-badge">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                    5 docs
+                  </div>
+                  <div class="info-badge">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                    3 comments
+                  </div>
+                </div>
+              </div>
+              <div class="project-actions">
+                <div class="action-buttons">
+                  <a href="/dashboard/projects/3" class="btn btn-primary">View</a>
+                  <a href="/dashboard/projects/3/panel-layout" class="btn btn-secondary">Layout</a>
+                </div>
+                <a href="/dashboard/projects/3/edit" class="btn btn-outline">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                  Edit
+                </a>
+              </div>
+            </div>
+            
+            <!-- Project Card 4 -->
+            <div class="project-card">
+              <div class="project-header">
+                <h3 class="project-title">Desert Solar Farm</h3>
+                <span class="status-badge status-delayed">Delayed</span>
+              </div>
+              <div class="project-content">
+                <div class="project-meta">
+                  Last updated: May 6, 2025
+                </div>
+                <div class="progress-section">
+                  <div class="progress-header">
+                    <span>Progress</span>
+                    <span>22%</span>
+                  </div>
+                  <div class="progress-bar">
+                    <div class="progress-value progress-low" style="width: 22%"></div>
+                  </div>
+                </div>
+                <div class="project-badges">
+                  <div class="info-badge">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                    2 docs
+                  </div>
+                  <div class="info-badge">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                    7 comments
+                  </div>
+                </div>
+              </div>
+              <div class="project-actions">
+                <div class="action-buttons">
+                  <a href="/dashboard/projects/4" class="btn btn-primary">View</a>
+                  <a href="/dashboard/projects/4/panel-layout" class="btn btn-secondary">Layout</a>
+                </div>
+                <a href="/dashboard/projects/4/edit" class="btn btn-outline">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                  Edit
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </body>
+    </html>
+  `);
 });
 
 // Check if the URL path starts with any of the Next.js routes
