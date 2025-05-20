@@ -20,6 +20,7 @@ const nextConfig = {
     
     return config;
   },
+  // Configure API proxy
   async rewrites() {
     return [
       {
@@ -28,7 +29,7 @@ const nextConfig = {
       }
     ];
   },
-  // Allow Replit domains for development
+  // Ensure security headers allow proper asset loading
   async headers() {
     return [
       {
@@ -36,20 +37,31 @@ const nextConfig = {
         headers: [
           {
             key: 'Content-Security-Policy',
-            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' ws: wss: http://localhost:8000; frame-src 'self';"
+            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' ws: wss: http://localhost:8000 http://localhost:5000; frame-src 'self';"
+          },
+          {
+            key: 'Access-Control-Allow-Origin',
+            value: '*'
           }
         ],
       },
     ];
   },
-  // For Replit web preview
+  // For Replit web preview - important for dashboard display
   output: 'standalone',
+  distDir: '.next',
+  // Turn off compression for easier debugging
+  compress: false,
   // Important for Replit
   experimental: {
-    allowedDevOrigins: ['.replit.dev', '.picard.replit.dev', '.csb.app']
+    allowedDevOrigins: ['.replit.dev', '.picard.replit.dev', '.csb.app', '*'], 
+    externalDir: true
   },
   // Handle cross-origin issues on Replit
   crossOrigin: 'anonymous',
+  // Properly generate assets
+  generateEtags: false,
+  poweredByHeader: false,
 };
 
 module.exports = nextConfig;
