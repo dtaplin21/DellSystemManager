@@ -1,0 +1,1029 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GeoQC - Panel Layout Tool</title>
+  <style>
+    :root {
+      --color-navy-50: #f0f4f8;
+      --color-navy-100: #d9e2ec;
+      --color-navy-200: #bcccdc;
+      --color-navy-300: #9fb3c8;
+      --color-navy-400: #829ab1;
+      --color-navy-500: #627d98;
+      --color-navy-600: #486581;
+      --color-navy-700: #334e68;
+      --color-navy-800: #243b53;
+      --color-navy-900: #102a43;
+      --color-navy-950: #0a2463;
+      
+      --color-orange-50: #fff8f1;
+      --color-orange-100: #feecdc;
+      --color-orange-200: #fcd9bd;
+      --color-orange-300: #fdba8c;
+      --color-orange-400: #ff8a4c;
+      --color-orange-500: #ff7f11;
+      --color-orange-600: #d03801;
+      --color-orange-700: #b43403;
+      --color-orange-800: #8a2c0d;
+      --color-orange-900: #73230d;
+    }
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--color-navy-50);
+      color: var(--color-navy-800);
+      line-height: 1.5;
+    }
+    
+    header {
+      background: white;
+      padding: 1rem 2rem;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .logo {
+      font-weight: bold;
+      font-size: 1.5rem;
+      color: var(--color-navy-950);
+    }
+    
+    nav {
+      display: flex;
+      gap: 1.5rem;
+    }
+    
+    nav a {
+      text-decoration: none;
+      color: var(--color-navy-600);
+      transition: color 0.2s;
+    }
+    
+    nav a:hover {
+      color: var(--color-orange-500);
+    }
+    
+    .active {
+      color: var(--color-navy-950);
+      font-weight: 500;
+    }
+    
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+    
+    .panel-layout-interface {
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      gap: 2rem;
+      min-height: calc(100vh - 200px);
+    }
+    
+    .panel-controls {
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+    
+    .control-section {
+      margin-bottom: 1.5rem;
+      border-bottom: 1px solid var(--color-navy-100);
+      padding-bottom: 1.5rem;
+    }
+    
+    .control-section:last-child {
+      border-bottom: none;
+      margin-bottom: 0;
+      padding-bottom: 0;
+    }
+    
+    .section-title {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      color: var(--color-navy-800);
+    }
+    
+    .form-group {
+      margin-bottom: 1rem;
+    }
+    
+    label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-size: 0.875rem;
+      color: var(--color-navy-700);
+    }
+    
+    input[type="text"],
+    input[type="number"],
+    select {
+      width: 100%;
+      padding: 0.5rem;
+      border: 1px solid var(--color-navy-200);
+      border-radius: 4px;
+      font-size: 0.875rem;
+    }
+    
+    .dimensions-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+    
+    .btn {
+      display: inline-block;
+      padding: 0.6rem 1rem;
+      border-radius: 4px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: none;
+      font-size: 0.875rem;
+      text-align: center;
+    }
+    
+    .btn-primary {
+      background: var(--color-navy-950);
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background: #041640;
+    }
+    
+    .btn-secondary {
+      background: white;
+      color: var(--color-navy-950);
+      border: 1px solid var(--color-navy-300);
+    }
+    
+    .btn-secondary:hover {
+      background: var(--color-navy-50);
+    }
+    
+    .btn-accent {
+      background: var(--color-orange-500);
+      color: white;
+    }
+    
+    .btn-accent:hover {
+      background: #e36a00;
+    }
+    
+    .btn-block {
+      display: block;
+      width: 100%;
+    }
+    
+    .btn-group {
+      display: flex;
+      gap: 0.5rem;
+    }
+    
+    .panel-canvas-container {
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+    
+    .canvas-toolbar {
+      margin-bottom: 1.5rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid var(--color-navy-100);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .toolbar-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--color-navy-800);
+    }
+    
+    .panel-canvas {
+      flex-grow: 1;
+      background-color: #f8fafc;
+      border: 1px dashed var(--color-navy-300);
+      border-radius: 4px;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .panel-canvas.grid-background {
+      background-image: linear-gradient(to right, rgba(0,0,0,0.05) 1px, transparent 1px),
+                        linear-gradient(to bottom, rgba(0,0,0,0.05) 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+    
+    .panel {
+      position: absolute;
+      background-color: rgba(10, 36, 99, 0.15);
+      border: 2px solid var(--color-navy-950);
+      cursor: move;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--color-navy-800);
+      user-select: none;
+    }
+    
+    .panel.selected {
+      background-color: rgba(255, 127, 17, 0.15);
+      border-color: var(--color-orange-500);
+      z-index: 10;
+    }
+    
+    .resize-handle {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      background-color: white;
+      border: 1px solid var(--color-navy-950);
+      z-index: 20;
+    }
+    
+    .resize-handle-nw { top: -5px; left: -5px; cursor: nwse-resize; }
+    .resize-handle-ne { top: -5px; right: -5px; cursor: nesw-resize; }
+    .resize-handle-se { bottom: -5px; right: -5px; cursor: nwse-resize; }
+    .resize-handle-sw { bottom: -5px; left: -5px; cursor: nesw-resize; }
+    
+    .rotate-handle {
+      position: absolute;
+      top: -25px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 20px;
+      height: 20px;
+      background-color: white;
+      border: 2px solid var(--color-orange-500);
+      border-radius: 50%;
+      cursor: alias;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .panel-properties {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      background: white;
+      border-radius: 4px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      padding: 1rem;
+      width: 250px;
+      z-index: 30;
+      border: 1px solid var(--color-navy-200);
+    }
+    
+    .property-title {
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      font-size: 0.875rem;
+      color: var(--color-navy-800);
+    }
+    
+    .property-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+    
+    .property-label {
+      font-size: 0.75rem;
+      color: var(--color-navy-600);
+    }
+    
+    .property-value {
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--color-navy-800);
+    }
+    
+    .workspace-scale {
+      position: absolute;
+      bottom: 1rem;
+      left: 1rem;
+      background: white;
+      border-radius: 4px;
+      padding: 0.5rem 0.75rem;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      border: 1px solid var(--color-navy-200);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.75rem;
+      color: var(--color-navy-700);
+    }
+    
+    .zoom-controls {
+      display: flex;
+      border: 1px solid var(--color-navy-200);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    
+    .zoom-btn {
+      background: white;
+      border: none;
+      padding: 0.25rem 0.5rem;
+      cursor: pointer;
+      font-size: 0.875rem;
+      transition: background 0.2s;
+    }
+    
+    .zoom-btn:hover {
+      background: var(--color-navy-50);
+    }
+    
+    .zoom-value {
+      padding: 0.25rem 0.5rem;
+      background: var(--color-navy-50);
+      display: inline-block;
+      min-width: 40px;
+      text-align: center;
+    }
+    
+    .material-info {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+    
+    .material-type {
+      display: inline-block;
+      padding: 0.35rem 0.65rem;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      background: var(--color-navy-100);
+      color: var(--color-navy-800);
+    }
+    
+    .panel-list {
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid var(--color-navy-200);
+      border-radius: 4px;
+      margin-bottom: 1rem;
+    }
+    
+    .panel-list-item {
+      padding: 0.5rem 0.75rem;
+      border-bottom: 1px solid var(--color-navy-100);
+      font-size: 0.875rem;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+    }
+    
+    .panel-list-item:last-child {
+      border-bottom: none;
+    }
+    
+    .panel-list-item:hover {
+      background: var(--color-navy-50);
+    }
+    
+    .panel-list-item.selected {
+      background: var(--color-navy-100);
+      font-weight: 500;
+    }
+    
+    .sidebar-footer {
+      margin-top: auto;
+      padding-top: 1rem;
+      border-top: 1px solid var(--color-navy-100);
+    }
+    
+    /* File export & import */
+    .export-section {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    
+    /* Optimization controls */
+    .optimization-toggle {
+      display: flex;
+      border: 1px solid var(--color-navy-200);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 1rem;
+    }
+    
+    .optimization-option {
+      flex: 1;
+      padding: 0.5rem;
+      text-align: center;
+      background: white;
+      font-size: 0.75rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .optimization-option.selected {
+      background: var(--color-navy-950);
+      color: white;
+    }
+    
+    /* Switch toggle */
+    .switch-container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+    
+    .switch-label {
+      font-size: 0.875rem;
+      color: var(--color-navy-700);
+    }
+    
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 36px;
+      height: 20px;
+    }
+    
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: var(--color-navy-200);
+      transition: .3s;
+      border-radius: 20px;
+    }
+    
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 16px;
+      width: 16px;
+      left: 2px;
+      bottom: 2px;
+      background-color: white;
+      transition: .3s;
+      border-radius: 50%;
+    }
+    
+    input:checked + .slider {
+      background-color: var(--color-orange-500);
+    }
+    
+    input:checked + .slider:before {
+      transform: translateX(16px);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">GeoQC</div>
+    <nav>
+      <a href="/dashboard">Dashboard</a>
+      <a href="/dashboard/projects">Projects</a>
+      <a href="/dashboard/panel-layout" class="active">Panel Layout</a>
+      <a href="/dashboard/qc-data">QC Data</a>
+      <a href="/dashboard/documents">Documents</a>
+    </nav>
+  </header>
+  
+  <div class="container">
+    <div class="panel-layout-interface">
+      <div class="panel-controls">
+        <div class="control-section">
+          <h2 class="section-title">Project Details</h2>
+          <div class="form-group">
+            <label for="project-name">Project</label>
+            <select id="project-name">
+              <option>Landfill Cell 4 Expansion</option>
+              <option>Industrial Retention Pond</option>
+              <option>Wastewater Treatment Lining</option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="control-section">
+          <h2 class="section-title">Workspace Setup</h2>
+          <div class="form-group">
+            <label>Workspace Dimensions</label>
+            <div class="dimensions-grid">
+              <div>
+                <label for="workspace-width">Width (ft)</label>
+                <input type="number" id="workspace-width" value="100" min="10" max="1000">
+              </div>
+              <div>
+                <label for="workspace-height">Length (ft)</label>
+                <input type="number" id="workspace-height" value="150" min="10" max="1000">
+              </div>
+            </div>
+          </div>
+          <div class="form-group">
+            <div class="switch-container">
+              <span class="switch-label">Show Grid</span>
+              <label class="switch">
+                <input type="checkbox" id="show-grid" checked>
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+          <div class="form-group">
+            <button id="reset-workspace" class="btn btn-secondary btn-block">Reset Workspace</button>
+          </div>
+        </div>
+        
+        <div class="control-section">
+          <h2 class="section-title">Panel Creation</h2>
+          <div class="form-group">
+            <label>Standard Panel Dimensions</label>
+            <div class="dimensions-grid">
+              <div>
+                <label for="panel-width">Width (ft)</label>
+                <input type="number" id="panel-width" value="15" min="1" max="100">
+              </div>
+              <div>
+                <label for="panel-length">Length (ft)</label>
+                <input type="number" id="panel-length" value="100" min="1" max="500">
+              </div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="panel-material">Material Type</label>
+            <select id="panel-material">
+              <option>HDPE 60 mil</option>
+              <option>HDPE 80 mil</option>
+              <option>LLDPE 40 mil</option>
+              <option>PVC 30 mil</option>
+              <option>GCL</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <button id="add-panel" class="btn btn-primary btn-block">Add Panel</button>
+          </div>
+        </div>
+        
+        <div class="control-section">
+          <h2 class="section-title">Panel Management</h2>
+          <div class="panel-list" id="panel-list">
+            <!-- Panels will be listed here dynamically -->
+            <div class="panel-list-item" data-panel-id="panel-1">Panel 1 <span>15' x 100'</span></div>
+            <div class="panel-list-item" data-panel-id="panel-2">Panel 2 <span>15' x 100'</span></div>
+            <div class="panel-list-item selected" data-panel-id="panel-3">Panel 3 <span>15' x 100'</span></div>
+          </div>
+          <div class="btn-group">
+            <button id="duplicate-panel" class="btn btn-secondary">Duplicate</button>
+            <button id="delete-panel" class="btn btn-secondary">Delete</button>
+          </div>
+        </div>
+        
+        <div class="control-section">
+          <h2 class="section-title">AI Optimization</h2>
+          <div class="optimization-toggle">
+            <div class="optimization-option" data-option="material">Material</div>
+            <div class="optimization-option" data-option="labor">Labor</div>
+            <div class="optimization-option selected" data-option="balanced">Balanced</div>
+          </div>
+          <div class="form-group">
+            <button id="ai-optimize" class="btn btn-accent btn-block">AI Optimize Layout</button>
+          </div>
+        </div>
+        
+        <div class="sidebar-footer">
+          <div class="export-section">
+            <div class="btn-group">
+              <button id="export-dxf" class="btn btn-secondary">Export DXF</button>
+              <button id="export-excel" class="btn btn-secondary">Export Excel</button>
+            </div>
+            <button id="save-layout" class="btn btn-primary btn-block">Save Layout</button>
+          </div>
+        </div>
+      </div>
+      
+      <div class="panel-canvas-container">
+        <div class="canvas-toolbar">
+          <h2 class="toolbar-title">Panel Layout: Landfill Cell 4 Expansion</h2>
+          <div class="zoom-controls">
+            <button class="zoom-btn" id="zoom-out">−</button>
+            <span class="zoom-value" id="zoom-level">100%</span>
+            <button class="zoom-btn" id="zoom-in">+</button>
+          </div>
+        </div>
+        
+        <div class="panel-canvas grid-background" id="panel-canvas">
+          <!-- Panels will be added here -->
+          <div class="panel" style="width: 150px; height: 400px; left: 100px; top: 100px;" data-panel-id="panel-1">
+            Panel 1
+          </div>
+          <div class="panel" style="width: 150px; height: 400px; left: 300px; top: 100px;" data-panel-id="panel-2">
+            Panel 2
+          </div>
+          <div class="panel selected" style="width: 150px; height: 400px; left: 500px; top: 100px;" data-panel-id="panel-3">
+            Panel 3
+            <div class="resize-handle resize-handle-nw"></div>
+            <div class="resize-handle resize-handle-ne"></div>
+            <div class="resize-handle resize-handle-se"></div>
+            <div class="resize-handle resize-handle-sw"></div>
+            <div class="rotate-handle">↻</div>
+          </div>
+          
+          <!-- Panel properties popup (shows when a panel is selected) -->
+          <div class="panel-properties">
+            <h3 class="property-title">Panel 3 Properties</h3>
+            <div class="property-grid">
+              <div class="property-label">Width:</div>
+              <div class="property-value">15 ft</div>
+              <div class="property-label">Length:</div>
+              <div class="property-value">100 ft</div>
+              <div class="property-label">Area:</div>
+              <div class="property-value">1,500 ft²</div>
+              <div class="property-label">Position:</div>
+              <div class="property-value">X: 50', Y: 10'</div>
+              <div class="property-label">Rotation:</div>
+              <div class="property-value">0°</div>
+            </div>
+            <div class="material-info">
+              <span class="material-type">HDPE 60 mil</span>
+            </div>
+          </div>
+          
+          <!-- Scale indicator -->
+          <div class="workspace-scale">
+            <span>Scale: 1" = 20'</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Panel Layout Tool JavaScript
+    document.addEventListener('DOMContentLoaded', function() {
+      // Elements
+      const panelCanvas = document.getElementById('panel-canvas');
+      const addPanelBtn = document.getElementById('add-panel');
+      const panelList = document.getElementById('panel-list');
+      const showGridCheckbox = document.getElementById('show-grid');
+      const resetWorkspaceBtn = document.getElementById('reset-workspace');
+      const zoomInBtn = document.getElementById('zoom-in');
+      const zoomOutBtn = document.getElementById('zoom-out');
+      const zoomLevelEl = document.getElementById('zoom-level');
+      const workspaceWidthInput = document.getElementById('workspace-width');
+      const workspaceHeightInput = document.getElementById('workspace-height');
+      const panelWidthInput = document.getElementById('panel-width');
+      const panelLengthInput = document.getElementById('panel-length');
+      const panelMaterialSelect = document.getElementById('panel-material');
+      const aiOptimizeBtn = document.getElementById('ai-optimize');
+      const optimizationOptions = document.querySelectorAll('.optimization-option');
+      
+      // Variables
+      let panelCounter = 4; // Start at 4 since we have 3 initial panels
+      let selectedPanelId = 'panel-3';
+      let currentZoom = 100;
+      let isDragging = false;
+      let dragStartX;
+      let dragStartY;
+      let draggedElement;
+      let dragOffsetX;
+      let dragOffsetY;
+      
+      // Event Listeners
+      
+      // Toggle grid
+      showGridCheckbox.addEventListener('change', function() {
+        panelCanvas.classList.toggle('grid-background', this.checked);
+      });
+      
+      // Reset workspace
+      resetWorkspaceBtn.addEventListener('click', function() {
+        if (confirm('Are you sure you want to reset the workspace? All panels will be removed.')) {
+          // Remove all panels except the properties popup and scale indicator
+          document.querySelectorAll('.panel').forEach(panel => panel.remove());
+          
+          // Clear panel list
+          while (panelList.firstChild) {
+            panelList.removeChild(panelList.firstChild);
+          }
+          
+          panelCounter = 1;
+          selectedPanelId = null;
+          
+          // Reset workspace dimensions
+          workspaceWidthInput.value = 100;
+          workspaceHeightInput.value = 150;
+          
+          // Hide panel properties
+          document.querySelector('.panel-properties').style.display = 'none';
+        }
+      });
+      
+      // Add new panel
+      addPanelBtn.addEventListener('click', function() {
+        const panelWidth = parseInt(panelWidthInput.value, 10);
+        const panelLength = parseInt(panelLengthInput.value, 10);
+        const materialType = panelMaterialSelect.value;
+        
+        // Create panel element
+        const panel = document.createElement('div');
+        panel.className = 'panel';
+        panel.dataset.panelId = `panel-${panelCounter}`;
+        panel.style.width = `${panelWidth * 10}px`; // Scale properly
+        panel.style.height = `${panelLength * 4}px`; // Scale properly
+        panel.style.left = '50px';
+        panel.style.top = '50px';
+        panel.textContent = `Panel ${panelCounter}`;
+        panel.dataset.material = materialType;
+        
+        // Add panel to canvas
+        panelCanvas.appendChild(panel);
+        
+        // Add panel to list
+        const listItem = document.createElement('div');
+        listItem.className = 'panel-list-item';
+        listItem.dataset.panelId = `panel-${panelCounter}`;
+        listItem.innerHTML = `Panel ${panelCounter} <span>${panelWidth}' x ${panelLength}'</span>`;
+        panelList.appendChild(listItem);
+        
+        // Attach click event to list item
+        listItem.addEventListener('click', function() {
+          selectPanel(this.dataset.panelId);
+        });
+        
+        // Select the new panel
+        selectPanel(`panel-${panelCounter}`);
+        
+        panelCounter++;
+      });
+      
+      // Panel selection in the list
+      document.querySelectorAll('.panel-list-item').forEach(item => {
+        item.addEventListener('click', function() {
+          selectPanel(this.dataset.panelId);
+        });
+      });
+      
+      // Make panels draggable
+      panelCanvas.addEventListener('mousedown', function(e) {
+        // Check if we clicked on a panel
+        if (e.target.classList.contains('panel')) {
+          isDragging = true;
+          draggedElement = e.target;
+          
+          // Select the panel
+          selectPanel(draggedElement.dataset.panelId);
+          
+          // Calculate the offset
+          const rect = draggedElement.getBoundingClientRect();
+          dragOffsetX = e.clientX - rect.left;
+          dragOffsetY = e.clientY - rect.top;
+          
+          dragStartX = e.clientX;
+          dragStartY = e.clientY;
+        }
+      });
+      
+      document.addEventListener('mousemove', function(e) {
+        if (isDragging) {
+          // Move the panel
+          const newLeft = e.clientX - dragOffsetX;
+          const newTop = e.clientY - dragOffsetY;
+          
+          draggedElement.style.left = `${newLeft}px`;
+          draggedElement.style.top = `${newTop}px`;
+          
+          // Update panel properties if showing
+          updatePanelProperties();
+        }
+      });
+      
+      document.addEventListener('mouseup', function() {
+        isDragging = false;
+        draggedElement = null;
+      });
+      
+      // Optimization option selection
+      optimizationOptions.forEach(option => {
+        option.addEventListener('click', function() {
+          // Remove selected class from all options
+          optimizationOptions.forEach(opt => opt.classList.remove('selected'));
+          
+          // Add selected class to clicked option
+          this.classList.add('selected');
+        });
+      });
+      
+      // AI optimize button
+      aiOptimizeBtn.addEventListener('click', function() {
+        const selectedOption = document.querySelector('.optimization-option.selected').dataset.option;
+        alert(`Optimizing layout with ${selectedOption} strategy...`);
+        
+        // In a real application, this would call the backend AI service
+        // For demo, we'll just show a fake optimization
+        setTimeout(() => {
+          redistributePanels();
+          alert('AI optimization complete! Panels have been repositioned for optimal layout.');
+        }, 1500);
+      });
+      
+      // Zoom controls
+      zoomInBtn.addEventListener('click', function() {
+        if (currentZoom < 200) {
+          currentZoom += 10;
+          updateZoom();
+        }
+      });
+      
+      zoomOutBtn.addEventListener('click', function() {
+        if (currentZoom > 50) {
+          currentZoom -= 10;
+          updateZoom();
+        }
+      });
+      
+      // Export buttons
+      document.getElementById('export-dxf').addEventListener('click', function() {
+        alert('Exporting to DXF format...');
+        // In a real app, this would trigger a download
+      });
+      
+      document.getElementById('export-excel').addEventListener('click', function() {
+        alert('Exporting to Excel format...');
+        // In a real app, this would trigger a download
+      });
+      
+      document.getElementById('save-layout').addEventListener('click', function() {
+        alert('Layout saved successfully!');
+      });
+      
+      // Helper Functions
+      
+      // Select a panel
+      function selectPanel(panelId) {
+        // Remove selected class from all panels and list items
+        document.querySelectorAll('.panel').forEach(panel => panel.classList.remove('selected'));
+        document.querySelectorAll('.panel-list-item').forEach(item => item.classList.remove('selected'));
+        
+        // Remove all resize handles and rotate handles
+        document.querySelectorAll('.resize-handle, .rotate-handle').forEach(handle => handle.remove());
+        
+        selectedPanelId = panelId;
+        
+        // Add selected class to the selected panel and list item
+        const panel = document.querySelector(`.panel[data-panel-id="${panelId}"]`);
+        const listItem = document.querySelector(`.panel-list-item[data-panel-id="${panelId}"]`);
+        
+        if (panel) {
+          panel.classList.add('selected');
+          
+          // Add resize handles
+          const nwHandle = document.createElement('div');
+          nwHandle.className = 'resize-handle resize-handle-nw';
+          panel.appendChild(nwHandle);
+          
+          const neHandle = document.createElement('div');
+          neHandle.className = 'resize-handle resize-handle-ne';
+          panel.appendChild(neHandle);
+          
+          const seHandle = document.createElement('div');
+          seHandle.className = 'resize-handle resize-handle-se';
+          panel.appendChild(seHandle);
+          
+          const swHandle = document.createElement('div');
+          swHandle.className = 'resize-handle resize-handle-sw';
+          panel.appendChild(swHandle);
+          
+          // Add rotate handle
+          const rotateHandle = document.createElement('div');
+          rotateHandle.className = 'rotate-handle';
+          rotateHandle.textContent = '↻';
+          panel.appendChild(rotateHandle);
+          
+          // Show panel properties
+          updatePanelProperties();
+          document.querySelector('.panel-properties').style.display = 'block';
+        }
+        
+        if (listItem) {
+          listItem.classList.add('selected');
+        }
+      }
+      
+      // Update panel properties display
+      function updatePanelProperties() {
+        const panel = document.querySelector(`.panel[data-panel-id="${selectedPanelId}"]`);
+        if (!panel) return;
+        
+        const props = document.querySelector('.panel-properties');
+        const rect = panel.getBoundingClientRect();
+        
+        // Calculate the real-world dimensions based on the current scale
+        const widthFt = Math.round(rect.width / 10);
+        const lengthFt = Math.round(rect.height / 4);
+        const areaFt = widthFt * lengthFt;
+        
+        // Calculate position in feet from pixels
+        const leftFt = Math.round(parseInt(panel.style.left, 10) / 10);
+        const topFt = Math.round(parseInt(panel.style.top, 10) / 10);
+        
+        // Update the properties
+        props.querySelector('.property-title').textContent = `${panel.textContent} Properties`;
+        props.querySelectorAll('.property-value')[0].textContent = `${widthFt} ft`;
+        props.querySelectorAll('.property-value')[1].textContent = `${lengthFt} ft`;
+        props.querySelectorAll('.property-value')[2].textContent = `${areaFt.toLocaleString()} ft²`;
+        props.querySelectorAll('.property-value')[3].textContent = `X: ${leftFt}', Y: ${topFt}'`;
+        
+        // Get rotation if any
+        const transform = panel.style.transform;
+        let rotation = '0°';
+        if (transform && transform.includes('rotate')) {
+          rotation = transform.split('rotate(')[1].split(')')[0];
+        }
+        props.querySelectorAll('.property-value')[4].textContent = rotation;
+        
+        // Update material type
+        const materialSpan = props.querySelector('.material-type');
+        materialSpan.textContent = panel.dataset.material || 'HDPE 60 mil';
+      }
+      
+      // Update the zoom level
+      function updateZoom() {
+        zoomLevelEl.textContent = `${currentZoom}%`;
+        
+        // Apply scale transform to the canvas content
+        const scale = currentZoom / 100;
+        panelCanvas.style.transform = `scale(${scale})`;
+        panelCanvas.style.transformOrigin = 'top left';
+      }
+      
+      // Fake redistribution of panels for AI optimization demo
+      function redistributePanels() {
+        const panels = document.querySelectorAll('.panel');
+        const canvasWidth = panelCanvas.clientWidth - 200; // Leave margin
+        const canvasHeight = panelCanvas.clientHeight - 200; // Leave margin
+        
+        // Position panels in a grid layout
+        let row = 0;
+        let col = 0;
+        const maxCols = 3;
+        
+        panels.forEach((panel, index) => {
+          col = index % maxCols;
+          row = Math.floor(index / maxCols);
+          
+          const spacing = 20;
+          const left = 50 + col * (parseInt(panel.style.width, 10) + spacing);
+          const top = 50 + row * (parseInt(panel.style.height, 10) + spacing);
+          
+          panel.style.left = `${left}px`;
+          panel.style.top = `${top}px`;
+        });
+        
+        // Update properties if a panel is selected
+        if (selectedPanelId) {
+          updatePanelProperties();
+        }
+      }
+      
+      // Initialize
+      selectPanel('panel-3');
+    });
+  </script>
+</body>
+</html>
