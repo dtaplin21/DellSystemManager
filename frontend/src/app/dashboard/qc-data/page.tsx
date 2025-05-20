@@ -84,7 +84,7 @@ export default function QCDataPage() {
     : qcData.filter(item => item.testType === selectedTestType);
 
   // Get unique test types for filter
-  const testTypes = ['All', ...new Set(qcData.map(item => item.testType))];
+  const testTypes = ['All', ...Array.from(new Set(qcData.map(item => item.testType)))];
 
   // Calculate statistics
   const stats = {

@@ -1,20 +1,17 @@
-// Simple gateway server with straightforward Next.js proxy
+// Gateway server for geosynthetic QC platform
 
 const express = require('express');
+const { createProxyMiddleware } = require('http-proxy-middleware');
 const path = require('path');
 const fs = require('fs');
-const { createProxyMiddleware } = require('http-proxy-middleware');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Basic request logging
-app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-  next();
-});
+// Public directory for static files
+const publicDir = process.env.REPLIT_DB_URL ? '/home/runner/workspace/public' : path.join(__dirname, 'public');
 
-// Body parsing
+// Basic middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -22,102 +19,78 @@ app.use(express.urlencoded({ extended: true }));
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-  
   if (req.method === 'OPTIONS') {
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE');
     return res.status(200).json({});
   }
-  
   next();
 });
 
-// Define the public directory path for static files
-const publicDir = process.env.REPLIT_DB_URL ? '/home/runner/workspace/public' : path.join(__dirname, 'public');
+// Request logging
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  next();
+});
 
-// Serve static assets
-app.use(express.static(publicDir));
+// Serve static files from public directory with no caching
+app.use(express.static(publicDir, {
+  maxAge: 0,
+  etag: false,
+  lastModified: false
+}));
 
-console.log('Static file directory path:', publicDir);
-
-// Home page route
+// Home page - landing page
 app.get('/', (req, res) => {
-  const indexPath = path.join(publicDir, 'index.html');
-  res.sendFile(indexPath, (err) => {
-    if (err) {
-      console.error('Error sending index.html:', err);
-      res.status(500).send('Error loading landing page');
-    }
-  });
+  res.sendFile(path.join(publicDir, 'index.html'));
 });
 
-// Login route - redirects to dashboard
-app.get('/login', (req, res) => {
+// Handle authentication routes - redirect to dashboard (no auth needed for demo)
+app.get(['/login', '/signup'], (req, res) => {
   res.redirect('/dashboard');
 });
 
-// Signup route - redirects to dashboard
-app.get('/signup', (req, res) => {
-  res.redirect('/dashboard');
-});
-
-// Free trial route
+// Free trial page route
 app.get('/free-trial', (req, res) => {
-  console.log('Serving functional dashboard with empty state UI');
-  const plan = req.query.plan || 'basic';
-  console.log('Selected plan:', plan);
-  
-  const freeTrial = fs.readFileSync(path.join(publicDir, 'free-trial.html'), 'utf8');
-  res.send(freeTrial);
+  console.log('Serving free trial page');
+  res.sendFile(path.join(publicDir, 'free-trial.html'));
 });
 
-// Simple Next.js proxy setup
-const nextJsProxy = createProxyMiddleware({
+// Configure Next.js proxy with very basic setup
+const nextJsConfig = {
   target: 'http://localhost:3000',
   changeOrigin: true,
   ws: true,
-  logLevel: 'silent',
-  onProxyReq: (proxyReq, req, res) => {
-    // Don't do anything special to the request
-  },
-  onError: (err, req, res) => {
-    console.error('Next.js proxy error:', err);
-    res.writeHead(500, { 'Content-Type': 'text/plain' });
-    res.end('Proxy error - The Next.js server may not be running');
-  }
-});
+  logLevel: 'error'
+};
 
-// Dashboard route
-app.use('/dashboard', nextJsProxy);
+// Add Next.js proxy routes
+app.use('/dashboard', createProxyMiddleware(nextJsConfig));
+app.use('/_next', createProxyMiddleware(nextJsConfig));
 
-// Next.js static assets
-app.use('/_next', nextJsProxy);
-
-// API requests to backend
+// API routes go to backend server
 app.use('/api', createProxyMiddleware({
   target: 'http://localhost:8000',
   changeOrigin: true
 }));
 
-// Contact form submission endpoint
+// Simple contact form endpoint - demo implementation
 app.post('/api/contact', (req, res) => {
-  res.json({ success: true, message: 'Thank you for contacting us!' });
+  console.log('Contact form submission:', req.body);
+  res.json({ success: true, message: 'Thank you for your message!' });
 });
 
-// Fallback handler
+// Fallback route handler - redirect HTML requests to home, 404 for others
 app.use((req, res) => {
   if (req.headers.accept && req.headers.accept.includes('text/html')) {
     res.redirect('/');
   } else {
-    res.status(404).send('Not found');
+    res.status(404).json({ error: 'Not found' });
   }
 });
 
-// Start the server
+// Start server
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`Gateway server running on port ${PORT}`);
   console.log(`- Main site: http://localhost:${PORT}/`);
-  console.log(`- Login page: http://localhost:${PORT}/login`);
-  console.log(`- Signup page: http://localhost:${PORT}/signup`);
-  console.log(`- Free trial dashboard: http://localhost:${PORT}/free-trial`);
-  console.log(`- Next.js Dashboard: http://localhost:${PORT}/dashboard`);
+  console.log(`- Dashboard: http://localhost:${PORT}/dashboard`);
 });
