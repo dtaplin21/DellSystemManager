@@ -933,19 +933,11 @@ const nextJsRoutes = [
   '/__nextjs'
 ];
 
-// Handle specific dashboard routes directly
+// Direct projects page requests to the Next.js frontend
 app.get('/dashboard/projects', (req, res) => {
-  // Serve a fully rendered project page directly
-  res.set('Content-Type', 'text/html');
-  res.send(`
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <title>Project Management - GeoQC</title>
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <style>
-        /* Base Styles */
-        :root {
+  console.log('Proxying to frontend server: dashboard/projects');
+  res.redirect('http://localhost:3000/dashboard/projects');
+});
           --primary: #003366;  /* Navy blue */
           --primary-dark: #002244;
           --secondary: #ff9933; /* Orange */
@@ -1595,7 +1587,7 @@ app.get('/dashboard/projects', (req, res) => {
           document.getElementById('editProjectModal').style.display = 'none';
         }
         
-        function saveProjectChanges() {
+ function saveProjectChanges() { {
           // Get form values
           const id = document.getElementById('projectId').value;
           const name = document.getElementById('projectName').value;
@@ -1675,7 +1667,7 @@ app.get('/dashboard/projects', (req, res) => {
           if (event.target === modal) {
             closeEditModal();
           }
-        };
+}
       </script>
     </body>
     </html>
