@@ -2,15 +2,22 @@
 const nextConfig = {
   reactStrictMode: true,
   serverExternalPackages: ['@prisma/client', 'bcrypt'],
-  // Resolve the 'canvas' module that react-konva depends on
+  // Resolve the 'canvas' module that react-konva depends on and handle native deps
   webpack: (config, { isServer }) => {
-    // This tells webpack to ignore 'canvas' module in browser environment
+    // This tells webpack to ignore problematic modules in browser environment
     if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,
         canvas: false,
       };
     }
+    
+    // Resolve native module issues
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      'lightningcss': false,
+    };
+    
     return config;
   },
   async rewrites() {
