@@ -924,15 +924,6 @@ app.post('/api/contact', (req, res) => {
 const nextJsRoutes = [
   '/dashboard', 
   '/projects',
-  '/dashboard/projects',
-  '/dashboard/panels',
-  '/dashboard/qc-data',
-  '/dashboard/documents',
-  '/dashboard/reports',
-  '/dashboard/team',
-  '/dashboard/settings',
-  '/dashboard/account',
-  '/dashboard/subscription',
   '/_next', 
   '/static', 
   '/subscription',
@@ -941,6 +932,24 @@ const nextJsRoutes = [
   '/app',
   '/__nextjs'
 ];
+
+// Configure direct routes to Next.js for dashboard and all sub-routes
+const nextJsProxy = createProxyMiddleware({
+  target: 'http://localhost:3000',
+  changeOrigin: true,
+  ws: true,
+  onProxyReq: (proxyReq, req, res) => {
+    console.log(`Gateway Server: Proxying to Next.js app: ${req.method} ${req.url}`);
+  },
+  onError: (err, req, res) => {
+    console.error('Next.js proxy error:', err);
+    res.status(500).send('Error connecting to Next.js app');
+  }
+});
+
+// Handle dashboard and all its sub-paths
+app.use('/dashboard', nextJsProxy);
+app.use('/dashboard/*', nextJsProxy);
 
 // Check if the URL path starts with any of the Next.js routes
 app.use((req, res, next) => {
