@@ -26,10 +26,10 @@ export const useToast = () => {
 
   // For now, this will just log the toast message to the console
   // In a production app, we would use a proper toast component
-  const toast = (props: ToastProps) => {
+  const toast = React.useCallback((props: ToastProps) => {
     console.log('Toast:', props);
     alert(`${props.title}: ${props.description}`);
-  };
+  }, []);
 
   return { toast };
 };
