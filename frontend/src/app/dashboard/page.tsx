@@ -9,6 +9,16 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { useAuth } from '../../hooks/use-auth';
 import { useToast } from '../../hooks/use-toast';
 
+// Define proper types for our projects
+interface Project {
+  id: string;
+  name: string;
+  client: string;
+  location: string;
+  lastUpdated: string;
+  progress: number;
+}
+
 // Mock project data for demonstration
 const DEMO_PROJECTS = [
   {
@@ -38,10 +48,10 @@ const DEMO_PROJECTS = [
 ];
 
 export default function Dashboard() {
-  const [projects, setProjects] = useState(DEMO_PROJECTS);
+  const [projects, setProjects] = useState<Project[]>(DEMO_PROJECTS);
   const [isLoading, setIsLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingProject, setEditingProject] = useState(null);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
   const { user, isLoading: authLoading, logout } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
@@ -71,7 +81,7 @@ export default function Dashboard() {
   };
   
   // Handle project editing
-  const handleProjectUpdate = (updatedProject) => {
+  const handleProjectUpdate = (updatedProject: Project): void => {
     setProjects(projects.map(p => 
       p.id === updatedProject.id ? updatedProject : p
     ));
@@ -240,38 +250,55 @@ export default function Dashboard() {
         
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {projects.map((project) => (
-            <Link href={`/projects/${project.id}`} key={project.id}>
-              <Card className="cursor-pointer hover:shadow-md transition-shadow border border-orange-200 bg-white p-1">
-                <CardHeader className="pb-2 border-b border-orange-100">
-                  <CardTitle className="text-lg text-navy-800">{project.name}</CardTitle>
-                  <CardDescription className="text-navy-600">{project.client}</CardDescription>
-                </CardHeader>
-                <CardContent className="p-4">
-                  <div className="space-y-3">
+            <Card key={project.id} className="hover:shadow-md transition-shadow border border-orange-200 bg-white p-1">
+              <CardHeader className="pb-2 border-b border-orange-100">
+                <CardTitle className="text-lg text-navy-800">{project.name}</CardTitle>
+                <CardDescription className="text-navy-600">{project.client}</CardDescription>
+              </CardHeader>
+              <CardContent className="p-4">
+                <div className="space-y-3">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-navy-500">Location:</span>
+                    <span className="font-medium text-navy-700">{project.location}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-navy-500">Last Updated:</span>
+                    <span className="font-medium text-navy-700">{project.lastUpdated}</span>
+                  </div>
+                  <div className="space-y-1">
                     <div className="flex justify-between text-sm">
-                      <span className="text-navy-500">Location:</span>
-                      <span className="font-medium text-navy-700">{project.location}</span>
+                      <span className="text-navy-500">Progress:</span>
+                      <span className="font-medium text-navy-700">{project.progress}%</span>
                     </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-navy-500">Last Updated:</span>
-                      <span className="font-medium text-navy-700">{project.lastUpdated}</span>
-                    </div>
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-navy-500">Progress:</span>
-                        <span className="font-medium text-navy-700">{project.progress}%</span>
-                      </div>
-                      <div className="w-full bg-navy-100 rounded-full h-2">
-                        <div 
-                          className="bg-orange-500 h-2 rounded-full" 
-                          style={{ width: `${project.progress}%` }}
-                        ></div>
-                      </div>
+                    <div className="w-full bg-navy-100 rounded-full h-2">
+                      <div 
+                        className="bg-orange-500 h-2 rounded-full" 
+                        style={{ width: `${project.progress}%` }}
+                      ></div>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            </Link>
+                  
+                  <div className="flex justify-between items-center pt-3 mt-2 border-t border-orange-100">
+                    <Link href={`/projects/${project.id}`} className="text-navy-600 hover:text-navy-800 font-medium text-sm">
+                      View Details
+                    </Link>
+                    <button 
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setEditingProject({...project});
+                        setDialogOpen(true);
+                      }}
+                      className="text-orange-600 hover:text-orange-800 text-sm font-medium flex items-center"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                      </svg>
+                      Edit
+                    </button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           ))}
           
           {/* Add New Project Card */}
