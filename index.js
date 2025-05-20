@@ -1403,10 +1403,10 @@ app.get('/dashboard/projects', (req, res) => {
                   <a href="/dashboard/projects/1" class="btn btn-primary">View</a>
                   <a href="/dashboard/projects/1/panel-layout" class="btn btn-secondary">Layout</a>
                 </div>
-                <a href="/dashboard/projects/1/edit" class="btn btn-outline">
+                <button onclick="openEditModal('1', 'Lakeview Containment Facility', 'Active', '35')" class="btn btn-outline">
                   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                   Edit
-                </a>
+                </button>
               </div>
             </div>
             
@@ -1445,10 +1445,10 @@ app.get('/dashboard/projects', (req, res) => {
                   <a href="/dashboard/projects/2" class="btn btn-primary">View</a>
                   <a href="/dashboard/projects/2/panel-layout" class="btn btn-secondary">Layout</a>
                 </div>
-                <a href="/dashboard/projects/2/edit" class="btn btn-outline">
+                <button onclick="openEditModal('2', 'Riverside Dam Liner', 'Completed', '100')" class="btn btn-outline">
                   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                   Edit
-                </a>
+                </button>
               </div>
             </div>
             
@@ -1487,10 +1487,10 @@ app.get('/dashboard/projects', (req, res) => {
                   <a href="/dashboard/projects/3" class="btn btn-primary">View</a>
                   <a href="/dashboard/projects/3/panel-layout" class="btn btn-secondary">Layout</a>
                 </div>
-                <a href="/dashboard/projects/3/edit" class="btn btn-outline">
+                <button onclick="openEditModal('3', 'Mountain Creek Landfill', 'On Hold', '68')" class="btn btn-outline">
                   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                   Edit
-                </a>
+                </button>
               </div>
             </div>
             
@@ -1529,15 +1529,154 @@ app.get('/dashboard/projects', (req, res) => {
                   <a href="/dashboard/projects/4" class="btn btn-primary">View</a>
                   <a href="/dashboard/projects/4/panel-layout" class="btn btn-secondary">Layout</a>
                 </div>
-                <a href="/dashboard/projects/4/edit" class="btn btn-outline">
+                <button onclick="openEditModal('4', 'Desert Solar Farm', 'Delayed', '22')" class="btn btn-outline">
                   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                   Edit
-                </a>
+                </button>
               </div>
             </div>
           </div>
         </div>
       </div>
+      
+      <!-- Edit Project Modal -->
+      <div id="editProjectModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 1000; overflow: auto;">
+        <div style="background-color: white; margin: 10% auto; padding: 20px; border-radius: 8px; width: 80%; max-width: 500px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+          <span onclick="closeEditModal()" style="color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer;">&times;</span>
+          <h2 style="margin-bottom: 20px; color: var(--primary);">Edit Project</h2>
+          
+          <div style="display: flex; flex-direction: column; gap: 16px;">
+            <input type="hidden" id="projectId">
+            
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <label style="font-weight: 500; color: var(--dark);">Project Name</label>
+              <input type="text" id="projectName" style="padding: 8px 12px; border-radius: 4px; border: 1px solid var(--border); font-size: 14px;">
+            </div>
+            
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <label style="font-weight: 500; color: var(--dark);">Status</label>
+              <select id="projectStatus" style="padding: 8px 12px; border-radius: 4px; border: 1px solid var(--border); font-size: 14px; background-color: white;">
+                <option value="Active">Active</option>
+                <option value="Completed">Completed</option>
+                <option value="On Hold">On Hold</option>
+                <option value="Delayed">Delayed</option>
+              </select>
+            </div>
+            
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <label style="font-weight: 500; color: var(--dark);">Progress (%)</label>
+              <input type="number" id="projectProgress" min="0" max="100" style="padding: 8px 12px; border-radius: 4px; border: 1px solid var(--border); font-size: 14px;">
+            </div>
+            
+            <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px;">
+              <button type="button" onclick="closeEditModal()" style="padding: 8px 16px; border-radius: 4px; border: 1px solid var(--border); background-color: white; cursor: pointer;">Cancel</button>
+              <button type="button" onclick="saveProjectChanges()" style="padding: 8px 16px; border-radius: 4px; border: none; background-color: var(--primary); color: white; cursor: pointer;">Save Changes</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Toast Notification -->
+      <div id="toast" style="visibility: hidden; position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background-color: #333; color: white; padding: 16px; border-radius: 4px; min-width: 250px; text-align: center; z-index: 1001; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+        Project updated successfully!
+      </div>
+      
+      <script>
+        // Modal Functionality
+        function openEditModal(id, name, status, progress) {
+          document.getElementById('projectId').value = id;
+          document.getElementById('projectName').value = name;
+          document.getElementById('projectStatus').value = status;
+          document.getElementById('projectProgress').value = progress;
+          document.getElementById('editProjectModal').style.display = 'block';
+        }
+        
+        function closeEditModal() {
+          document.getElementById('editProjectModal').style.display = 'none';
+        }
+        
+        function saveProjectChanges() {
+          // Get form values
+          const id = document.getElementById('projectId').value;
+          const name = document.getElementById('projectName').value;
+          const status = document.getElementById('projectStatus').value;
+          const progress = document.getElementById('projectProgress').value;
+          
+          // Find the project card containing the button that was clicked
+          let projectCard;
+          const allCards = document.querySelectorAll('.project-card');
+          
+          for (let i = 0; i < allCards.length; i++) {
+            const card = allCards[i];
+            if (card.querySelector('.btn-outline').getAttribute('onclick').includes(id)) {
+              projectCard = card;
+              break;
+            }
+          }
+          
+          if (!projectCard) return;
+          
+          // Update project card with new values
+          projectCard.querySelector('.project-title').textContent = name;
+          
+          // Update status badge
+          const statusBadge = projectCard.querySelector('.status-badge');
+          statusBadge.textContent = status;
+          
+          // Update status badge class
+          statusBadge.className = 'status-badge';
+          if (status === 'Active') {
+            statusBadge.classList.add('status-active');
+          } else if (status === 'Completed') {
+            statusBadge.classList.add('status-completed');
+          } else if (status === 'On Hold') {
+            statusBadge.classList.add('status-onhold');
+          } else if (status === 'Delayed') {
+            statusBadge.classList.add('status-delayed');
+          }
+          
+          // Update progress
+          const progressText = projectCard.querySelector('.progress-header span:last-child');
+          const progressBar = projectCard.querySelector('.progress-value');
+          
+          progressText.textContent = progress + '%';
+          progressBar.style.width = progress + '%';
+          
+          // Update progress bar color
+          progressBar.className = 'progress-value';
+          if (progress < 30) {
+            progressBar.classList.add('progress-low');
+          } else if (progress < 70) {
+            progressBar.classList.add('progress-medium');
+          } else {
+            progressBar.classList.add('progress-high');
+          }
+          
+          // Update the edit button onclick attribute
+          const editButton = projectCard.querySelector('.btn-outline');
+          editButton.setAttribute('onclick', `openEditModal('${id}', '${name}', '${status}', '${progress}')`);
+          
+          // Show success toast
+          const toast = document.getElementById('toast');
+          toast.style.visibility = 'visible';
+          
+          // Hide toast after 3 seconds
+          setTimeout(function() {
+            toast.style.visibility = 'hidden';
+          }, 3000);
+          
+          // Close modal
+          closeEditModal();
+        }
+        
+        // Close modal when clicking outside of it
+        window.onclick = function(event) {
+          const modal = document.getElementById('editProjectModal');
+          if (event.target === modal) {
+            closeEditModal();
+          }
+        };
+      </script>
     </body>
     </html>
   `);
