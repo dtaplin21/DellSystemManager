@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../components/ui/dialog';
+import EditProjectForm from '../../components/projects/edit-project-form';
 import { useAuth } from '../../hooks/use-auth';
 import { useToast } from '../../hooks/use-toast';
 
@@ -105,96 +105,17 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-navy-50 to-white">
-            {/* Edit Project Dialog */}
-      <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Edit Project</DialogTitle>
-            <DialogDescription>
-              Make changes to the project details. Click save when you're done.
-            </DialogDescription>
-          </DialogHeader>
-          
-          {selectedProject && (
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <label htmlFor="name" className="text-right font-medium">
-                  Name
-                </label>
-                <input
-                  id="name"
-                  className="col-span-3 h-10 rounded-md border border-gray-300 px-3"
-                  value={selectedProject.name}
-                  onChange={(e) => setSelectedProject({...selectedProject, name: e.target.value})}
-                />
-              </div>
-              
-              <div className="grid grid-cols-4 items-center gap-4">
-                <label htmlFor="client" className="text-right font-medium">
-                  Client
-                </label>
-                <input
-                  id="client"
-                  className="col-span-3 h-10 rounded-md border border-gray-300 px-3"
-                  value={selectedProject.client}
-                  onChange={(e) => setSelectedProject({...selectedProject, client: e.target.value})}
-                />
-              </div>
-              
-              <div className="grid grid-cols-4 items-center gap-4">
-                <label htmlFor="location" className="text-right font-medium">
-                  Location
-                </label>
-                <input
-                  id="location"
-                  className="col-span-3 h-10 rounded-md border border-gray-300 px-3"
-                  value={selectedProject.location}
-                  onChange={(e) => setSelectedProject({...selectedProject, location: e.target.value})}
-                />
-              </div>
-              
-              <div className="grid grid-cols-4 items-center gap-4">
-                <label htmlFor="progress" className="text-right font-medium">
-                  Progress (%)
-                </label>
-                <input
-                  id="progress"
-                  type="number"
-                  min="0"
-                  max="100"
-                  className="col-span-3 h-10 rounded-md border border-gray-300 px-3"
-                  value={selectedProject.progress}
-                  onChange={(e) => setSelectedProject({...selectedProject, progress: parseInt(e.target.value, 10) || 0})}
-                />
-              </div>
-            </div>
-          )}
-          
-          <div className="flex justify-end gap-2">
-            <button 
-              onClick={() => setShowEditModal(false)}
-              className="inline-flex items-center justify-center rounded-md text-sm font-medium px-4 py-2 bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
-            >
-              Cancel
-            </button>
-            <button 
-              onClick={() => {
-                if (selectedProject) {
-                  // Update the timestamp
-                  const updatedProject = {
-                    ...selectedProject,
-                    lastUpdated: new Date().toISOString().substring(0, 10)
-                  };
-                  handleProjectUpdate(updatedProject);
-                }
-              }}
-              className="inline-flex items-center justify-center rounded-md text-sm font-medium px-4 py-2 bg-navy-600 text-white hover:bg-navy-700"
-            >
-              Save Changes
-            </button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Simpler Edit Project Form */}
+      {showEditModal && selectedProject && (
+        <EditProjectForm 
+          project={selectedProject}
+          onUpdate={(updatedProject) => handleProjectUpdate(updatedProject as Project)}
+          onCancel={() => {
+            setShowEditModal(false);
+            setSelectedProject(null);
+          }}
+        />
+      )}
       
       <header className="py-6 border-b border-orange-200 bg-white shadow-sm">
         <div className="container mx-auto px-4">
