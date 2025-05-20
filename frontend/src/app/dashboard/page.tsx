@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import { useAuth } from '../../hooks/use-auth';
 import { useToast } from '../../hooks/use-toast';
 
@@ -39,6 +40,8 @@ const DEMO_PROJECTS = [
 export default function Dashboard() {
   const [projects, setProjects] = useState(DEMO_PROJECTS);
   const [isLoading, setIsLoading] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState(null);
   const { user, isLoading: authLoading, logout } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
@@ -66,6 +69,20 @@ export default function Dashboard() {
       });
     }
   };
+  
+  // Handle project editing
+  const handleProjectUpdate = (updatedProject) => {
+    setProjects(projects.map(p => 
+      p.id === updatedProject.id ? updatedProject : p
+    ));
+    setDialogOpen(false);
+    setEditingProject(null);
+    
+    toast({
+      title: 'Project Updated',
+      description: `${updatedProject.name} has been updated successfully.`,
+    });
+  };
 
   if (authLoading || isLoading) {
     return (
@@ -77,6 +94,97 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-navy-50 to-white">
+      {/* Edit Project Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Edit Project</DialogTitle>
+            <DialogDescription>
+              Make changes to the project details. Click save when you're done.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {editingProject && (
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <label htmlFor="name" className="text-right font-medium">
+                  Name
+                </label>
+                <input
+                  id="name"
+                  className="col-span-3 h-10 rounded-md border border-gray-300 px-3"
+                  value={editingProject.name}
+                  onChange={(e) => setEditingProject({...editingProject, name: e.target.value})}
+                />
+              </div>
+              
+              <div className="grid grid-cols-4 items-center gap-4">
+                <label htmlFor="client" className="text-right font-medium">
+                  Client
+                </label>
+                <input
+                  id="client"
+                  className="col-span-3 h-10 rounded-md border border-gray-300 px-3"
+                  value={editingProject.client}
+                  onChange={(e) => setEditingProject({...editingProject, client: e.target.value})}
+                />
+              </div>
+              
+              <div className="grid grid-cols-4 items-center gap-4">
+                <label htmlFor="location" className="text-right font-medium">
+                  Location
+                </label>
+                <input
+                  id="location"
+                  className="col-span-3 h-10 rounded-md border border-gray-300 px-3"
+                  value={editingProject.location}
+                  onChange={(e) => setEditingProject({...editingProject, location: e.target.value})}
+                />
+              </div>
+              
+              <div className="grid grid-cols-4 items-center gap-4">
+                <label htmlFor="progress" className="text-right font-medium">
+                  Progress (%)
+                </label>
+                <input
+                  id="progress"
+                  type="number"
+                  min="0"
+                  max="100"
+                  className="col-span-3 h-10 rounded-md border border-gray-300 px-3"
+                  value={editingProject.progress}
+                  onChange={(e) => setEditingProject({...editingProject, progress: parseInt(e.target.value, 10) || 0})}
+                />
+              </div>
+            </div>
+          )}
+          
+          <div className="flex justify-end gap-2">
+            <button 
+              onClick={() => setDialogOpen(false)}
+              className="inline-flex items-center justify-center rounded-md text-sm font-medium px-4 py-2 bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button 
+              onClick={() => {
+                if (editingProject) {
+                  // Update the timestamp
+                  const updatedProject = {
+                    ...editingProject,
+                    lastUpdated: new Date().toISOString().substring(0, 10)
+                  };
+                  handleProjectUpdate(updatedProject);
+                }
+              }}
+              className="inline-flex items-center justify-center rounded-md text-sm font-medium px-4 py-2 bg-navy-600 text-white hover:bg-navy-700"
+            >
+              Save Changes
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+      
       <header className="py-6 border-b border-orange-200 bg-white shadow-sm">
         <div className="container mx-auto px-4">
           <div className="flex justify-between items-center">
