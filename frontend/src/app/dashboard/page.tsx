@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../components/ui/dialog';
+import ProjectCard from '../../components/dashboard/project-card';
 import { useAuth } from '../../hooks/use-auth';
 import { useToast } from '../../hooks/use-toast';
 
@@ -17,6 +18,7 @@ interface Project {
   location: string;
   lastUpdated: string;
   progress: number;
+  status?: string;
 }
 
 // Mock project data for demonstration
@@ -50,8 +52,8 @@ const DEMO_PROJECTS = [
 export default function Dashboard() {
   const [projects, setProjects] = useState<Project[]>(DEMO_PROJECTS);
   const [isLoading, setIsLoading] = useState(true);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
   const { user, isLoading: authLoading, logout } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
@@ -104,96 +106,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-navy-50 to-white">
-      {/* Edit Project Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Edit Project</DialogTitle>
-            <DialogDescription>
-              Make changes to the project details. Click save when you're done.
-            </DialogDescription>
-          </DialogHeader>
-          
-          {editingProject && (
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <label htmlFor="name" className="text-right font-medium">
-                  Name
-                </label>
-                <input
-                  id="name"
-                  className="col-span-3 h-10 rounded-md border border-gray-300 px-3"
-                  value={editingProject.name}
-                  onChange={(e) => setEditingProject({...editingProject, name: e.target.value})}
-                />
-              </div>
-              
-              <div className="grid grid-cols-4 items-center gap-4">
-                <label htmlFor="client" className="text-right font-medium">
-                  Client
-                </label>
-                <input
-                  id="client"
-                  className="col-span-3 h-10 rounded-md border border-gray-300 px-3"
-                  value={editingProject.client}
-                  onChange={(e) => setEditingProject({...editingProject, client: e.target.value})}
-                />
-              </div>
-              
-              <div className="grid grid-cols-4 items-center gap-4">
-                <label htmlFor="location" className="text-right font-medium">
-                  Location
-                </label>
-                <input
-                  id="location"
-                  className="col-span-3 h-10 rounded-md border border-gray-300 px-3"
-                  value={editingProject.location}
-                  onChange={(e) => setEditingProject({...editingProject, location: e.target.value})}
-                />
-              </div>
-              
-              <div className="grid grid-cols-4 items-center gap-4">
-                <label htmlFor="progress" className="text-right font-medium">
-                  Progress (%)
-                </label>
-                <input
-                  id="progress"
-                  type="number"
-                  min="0"
-                  max="100"
-                  className="col-span-3 h-10 rounded-md border border-gray-300 px-3"
-                  value={editingProject.progress}
-                  onChange={(e) => setEditingProject({...editingProject, progress: parseInt(e.target.value, 10) || 0})}
-                />
-              </div>
-            </div>
-          )}
-          
-          <div className="flex justify-end gap-2">
-            <button 
-              onClick={() => setDialogOpen(false)}
-              className="inline-flex items-center justify-center rounded-md text-sm font-medium px-4 py-2 bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
-            >
-              Cancel
-            </button>
-            <button 
-              onClick={() => {
-                if (editingProject) {
-                  // Update the timestamp
-                  const updatedProject = {
-                    ...editingProject,
-                    lastUpdated: new Date().toISOString().substring(0, 10)
-                  };
-                  handleProjectUpdate(updatedProject);
-                }
-              }}
-              className="inline-flex items-center justify-center rounded-md text-sm font-medium px-4 py-2 bg-navy-600 text-white hover:bg-navy-700"
-            >
-              Save Changes
-            </button>
-          </div>
-        </DialogContent>
-      </Dialog>
+            {/* Edit dialog moved to ProjectCard component */}
       
       <header className="py-6 border-b border-orange-200 bg-white shadow-sm">
         <div className="container mx-auto px-4">
@@ -250,55 +163,11 @@ export default function Dashboard() {
         
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {projects.map((project) => (
-            <Card key={project.id} className="hover:shadow-md transition-shadow border border-orange-200 bg-white p-1">
-              <CardHeader className="pb-2 border-b border-orange-100">
-                <CardTitle className="text-lg text-navy-800">{project.name}</CardTitle>
-                <CardDescription className="text-navy-600">{project.client}</CardDescription>
-              </CardHeader>
-              <CardContent className="p-4">
-                <div className="space-y-3">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-navy-500">Location:</span>
-                    <span className="font-medium text-navy-700">{project.location}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-navy-500">Last Updated:</span>
-                    <span className="font-medium text-navy-700">{project.lastUpdated}</span>
-                  </div>
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-navy-500">Progress:</span>
-                      <span className="font-medium text-navy-700">{project.progress}%</span>
-                    </div>
-                    <div className="w-full bg-navy-100 rounded-full h-2">
-                      <div 
-                        className="bg-orange-500 h-2 rounded-full" 
-                        style={{ width: `${project.progress}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex justify-between items-center pt-3 mt-2 border-t border-orange-100">
-                    <Link href={`/projects/${project.id}`} className="text-navy-600 hover:text-navy-800 font-medium text-sm">
-                      View Details
-                    </Link>
-                    <button 
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setEditingProject({...project});
-                        setDialogOpen(true);
-                      }}
-                      className="text-orange-600 hover:text-orange-800 text-sm font-medium flex items-center"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                      </svg>
-                      Edit
-                    </button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <ProjectCard 
+              key={project.id} 
+              project={project} 
+              onUpdate={(updatedProject) => handleProjectUpdate(updatedProject as Project)} 
+            />
           ))}
           
           {/* Add New Project Card */}
