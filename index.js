@@ -933,14 +933,11 @@ const nextJsRoutes = [
   '/__nextjs'
 ];
 
-// Create a dedicated route for the dashboard/projects page
-app.get('/dashboard/projects', (req, res) => {
-  const indexPath = path.join(__dirname, 'frontend/src/app/dashboard/projects/page.tsx');
-  console.log('Serving dashboard projects page:', req.url);
-  res.setHeader('Content-Type', 'text/html');
-  
-  // Redirect to the Next.js app running at port 3000 handling the internal routing
-  res.redirect(302, '/?page=projects');
+// Create a direct proxy for the dashboard/projects page
+app.use('/dashboard/projects', (req, res) => {
+  console.log('Proxying to Next.js dashboard/projects:', req.url);
+  // Forward the request directly to the Next.js server
+  res.redirect(302, 'http://localhost:3000/dashboard/projects');
 });
 
 // Check if the URL path starts with any of the Next.js routes
