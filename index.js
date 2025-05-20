@@ -88,37 +88,23 @@ app.get('/free-trial', (req, res) => {
 const nextJsRoutes = [
   '/dashboard', 
   '/dashboard/projects',
-  '/dashboard/*',
   '/projects',
-  '/_next', 
   '/static', 
   '/account',
-  '/api',
-  '/app',
-  '/__nextjs'
+  '/app'
 ];
 
-// Proxy dashboard routes to the frontend Next.js app
-app.use('/dashboard', (req, res, next) => {
-  const fullPath = req.originalUrl;
-  console.log('Proxying dashboard route to Next.js:', fullPath);
-  
-  const target = 'http://localhost:3000';
-  const proxy = createProxyMiddleware({
-    target,
-    changeOrigin: true,
-    pathRewrite: { '^/dashboard': '/dashboard' },
-    ws: true,
-    logLevel: 'debug',
-    onError: (err, req, res) => {
-      console.error('Proxy error:', err);
-      res.writeHead(500, { 'Content-Type': 'text/plain' });
-      res.end('Proxy error - The Next.js server may not be running');
-    }
-  });
-  
-  return proxy(req, res, next);
-});
+// Direct proxy for the dashboard route
+app.use('/dashboard', createProxyMiddleware({
+  target: 'http://localhost:3000',
+  changeOrigin: true,
+  ws: true,
+  onError: (err, req, res) => {
+    console.error('Dashboard proxy error:', err);
+    res.writeHead(500, { 'Content-Type': 'text/plain' });
+    res.end('Proxy error - The Next.js server may not be running');
+  }
+}));
 
 // Proxy Next.js resources
 app.use('/_next', createProxyMiddleware({ 
