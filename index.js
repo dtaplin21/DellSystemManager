@@ -84,33 +84,23 @@ app.get('/free-trial', (req, res) => {
   res.send(freeTrial);
 });
 
-// Configure Next.js routes - ensure all dashboard paths are properly proxied
-const nextJsRoutes = [
-  '/dashboard', 
-  '/dashboard/projects',
-  '/projects',
-  '/static', 
-  '/account',
-  '/app'
-];
-
-// Direct proxy for the dashboard route
-app.use('/dashboard', createProxyMiddleware({
+// Proxy all Next.js routes and assets
+const nextJsProxy = createProxyMiddleware({
   target: 'http://localhost:3000',
   changeOrigin: true,
   ws: true,
+  logLevel: 'debug',
   onError: (err, req, res) => {
-    console.error('Dashboard proxy error:', err);
+    console.error('Next.js proxy error:', err);
     res.writeHead(500, { 'Content-Type': 'text/plain' });
     res.end('Proxy error - The Next.js server may not be running');
   }
-}));
+});
 
-// Proxy Next.js resources
-app.use('/_next', createProxyMiddleware({ 
-  target: 'http://localhost:3000',
-  changeOrigin: true
-}));
+// Apply the proxy to all dashboard and Next.js asset routes
+app.use(['/dashboard', '/_next', '/favicon.ico'], nextJsProxy);
+
+// No duplicate proxy needed since we consolidated above
 
 // Handle any API requests
 app.use('/api', createProxyMiddleware({

@@ -25,15 +25,7 @@ const nextConfig = {
       {
         source: '/api/:path*',
         destination: 'http://localhost:8000/api/:path*',
-      },
-      {
-        source: '/dashboard',
-        destination: '/dashboard',
-      },
-      {
-        source: '/dashboard/:path*',
-        destination: '/dashboard/:path*',
-      },
+      }
     ];
   },
   // Allow Replit domains for development
