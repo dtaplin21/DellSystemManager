@@ -693,6 +693,7 @@
     </div>
   </div>
 
+  <script src="/js/panel-optimizer.js"></script>
   <script>
     // Panel Layout Tool JavaScript
     document.addEventListener('DOMContentLoaded', function() {
@@ -712,6 +713,11 @@
       const panelMaterialSelect = document.getElementById('panel-material');
       const aiOptimizeBtn = document.getElementById('ai-optimize');
       const optimizationOptions = document.querySelectorAll('.optimization-option');
+      const duplicatePanelBtn = document.getElementById('duplicate-panel');
+      const deletePanelBtn = document.getElementById('delete-panel');
+      const exportDxfBtn = document.getElementById('export-dxf');
+      const exportExcelBtn = document.getElementById('export-excel');
+      const saveLayoutBtn = document.getElementById('save-layout');
       
       // Variables
       let panelCounter = 4; // Start at 4 since we have 3 initial panels
@@ -723,6 +729,64 @@
       let draggedElement;
       let dragOffsetX;
       let dragOffsetY;
+      let isResizing = false;
+      let resizeHandle = null;
+      let isRotating = false;
+      let panelDefs = []; // Panel definitions for optimizer
+      let elevationGrid = []; // Elevation data
+      
+      // Initialize panel definitions with starting panels
+      function initializePanelDefs() {
+        panelDefs = [];
+        
+        // Get all panels from the canvas
+        document.querySelectorAll('.panel').forEach(panel => {
+          const id = panel.dataset.panelId;
+          const width = parseInt(panel.style.width, 10) / 10; // Convert from pixels to feet
+          const height = parseInt(panel.style.height, 10) / 4; // Convert from pixels to feet
+          const material = panel.dataset.material || 'HDPE 60 mil';
+          
+          panelDefs.push({
+            id: id,
+            width: width,
+            length: height, // Using height as length
+            material: material
+          });
+        });
+        
+        return panelDefs;
+      }
+      
+      // Create sample elevation grid (5x5 grid for 25 acre site)
+      function createSampleElevationGrid() {
+        const gridSize = 5; // 5x5 grid
+        const cellWidth = parseInt(workspaceWidthInput.value, 10) / gridSize;
+        const cellHeight = parseInt(workspaceHeightInput.value, 10) / gridSize;
+        
+        elevationGrid = [];
+        
+        // Create a 5x5 grid with varying elevations
+        for (let row = 0; row < gridSize; row++) {
+          for (let col = 0; col < gridSize; col++) {
+            // Create some sample elevation changes
+            // Southwest corner is lowest, northeast is highest
+            const baseElevation = (row + col) * 2; // 0 to 16 ft elevation change
+            
+            // Add some random variation
+            const variation = Math.random() * 1.5 - 0.75; // -0.75 to +0.75 ft
+            
+            elevationGrid.push({
+              x: col * cellWidth,
+              y: row * cellHeight,
+              width: cellWidth,
+              height: cellHeight,
+              elevation: baseElevation + variation
+            });
+          }
+        }
+        
+        return elevationGrid;
+      }
       
       // Event Listeners
       
@@ -770,6 +834,7 @@
         panel.style.top = '50px';
         panel.textContent = `Panel ${panelCounter}`;
         panel.dataset.material = materialType;
+        panel.dataset.elevationAdjustment = '0'; // Default elevation adjustment
         
         // Add panel to canvas
         panelCanvas.appendChild(panel);
@@ -799,11 +864,13 @@
         });
       });
       
-      // Make panels draggable
+      // Make panels draggable, resizable and rotatable
       panelCanvas.addEventListener('mousedown', function(e) {
-        // Check if we clicked on a panel
         if (e.target.classList.contains('panel')) {
+          // Panel dragging
           isDragging = true;
+          isResizing = false;
+          isRotating = false;
           draggedElement = e.target;
           
           // Select the panel
@@ -816,6 +883,37 @@
           
           dragStartX = e.clientX;
           dragStartY = e.clientY;
+        } else if (e.target.classList.contains('resize-handle')) {
+          // Panel resizing
+          isDragging = false;
+          isResizing = true;
+          isRotating = false;
+          resizeHandle = e.target;
+          draggedElement = resizeHandle.parentElement;
+          
+          // Select the panel
+          selectPanel(draggedElement.dataset.panelId);
+          
+          dragStartX = e.clientX;
+          dragStartY = e.clientY;
+        } else if (e.target.classList.contains('rotate-handle')) {
+          // Panel rotation
+          isDragging = false;
+          isResizing = false;
+          isRotating = true;
+          draggedElement = e.target.parentElement;
+          
+          // Select the panel
+          selectPanel(draggedElement.dataset.panelId);
+          
+          // Get the panel center for rotation
+          const rect = draggedElement.getBoundingClientRect();
+          const centerX = rect.left + rect.width / 2;
+          const centerY = rect.top + rect.height / 2;
+          
+          // Calculate the initial angle
+          const angle = Math.atan2(e.clientY - centerY, e.clientX - centerX);
+          draggedElement.dataset.lastAngle = angle;
         }
       });
       
@@ -830,12 +928,168 @@
           
           // Update panel properties if showing
           updatePanelProperties();
+        } else if (isResizing && resizeHandle) {
+          // Resize the panel
+          const rect = draggedElement.getBoundingClientRect();
+          const currentWidth = rect.width;
+          const currentHeight = rect.height;
+          
+          let newWidth = currentWidth;
+          let newHeight = currentHeight;
+          
+          // Determine resize direction based on handle class
+          if (resizeHandle.classList.contains('resize-handle-se')) {
+            // Southeast - resize width and height
+            newWidth = currentWidth + (e.clientX - dragStartX);
+            newHeight = currentHeight + (e.clientY - dragStartY);
+          } else if (resizeHandle.classList.contains('resize-handle-sw')) {
+            // Southwest - resize width and height, adjust left
+            newWidth = currentWidth - (e.clientX - dragStartX);
+            newHeight = currentHeight + (e.clientY - dragStartY);
+            draggedElement.style.left = `${parseInt(draggedElement.style.left, 10) + (e.clientX - dragStartX)}px`;
+          } else if (resizeHandle.classList.contains('resize-handle-ne')) {
+            // Northeast - resize width and height, adjust top
+            newWidth = currentWidth + (e.clientX - dragStartX);
+            newHeight = currentHeight - (e.clientY - dragStartY);
+            draggedElement.style.top = `${parseInt(draggedElement.style.top, 10) + (e.clientY - dragStartY)}px`;
+          } else if (resizeHandle.classList.contains('resize-handle-nw')) {
+            // Northwest - resize width and height, adjust left and top
+            newWidth = currentWidth - (e.clientX - dragStartX);
+            newHeight = currentHeight - (e.clientY - dragStartY);
+            draggedElement.style.left = `${parseInt(draggedElement.style.left, 10) + (e.clientX - dragStartX)}px`;
+            draggedElement.style.top = `${parseInt(draggedElement.style.top, 10) + (e.clientY - dragStartY)}px`;
+          }
+          
+          // Ensure minimum size
+          newWidth = Math.max(50, newWidth);
+          newHeight = Math.max(50, newHeight);
+          
+          // Update panel size
+          draggedElement.style.width = `${newWidth}px`;
+          draggedElement.style.height = `${newHeight}px`;
+          
+          // Update drag start for next move
+          dragStartX = e.clientX;
+          dragStartY = e.clientY;
+          
+          // Update panel properties if showing
+          updatePanelProperties();
+          
+          // Update panel list item with new dimensions
+          updatePanelListItem(draggedElement.dataset.panelId, newWidth, newHeight);
+        } else if (isRotating) {
+          // Get the panel center for rotation
+          const rect = draggedElement.getBoundingClientRect();
+          const centerX = rect.left + rect.width / 2;
+          const centerY = rect.top + rect.height / 2;
+          
+          // Calculate the current angle
+          const angle = Math.atan2(e.clientY - centerY, e.clientX - centerX);
+          
+          // Calculate rotation change in radians
+          const lastAngle = parseFloat(draggedElement.dataset.lastAngle) || 0;
+          const deltaAngle = angle - lastAngle;
+          
+          // Get current rotation
+          const currentTransform = draggedElement.style.transform || '';
+          let currentRotation = 0;
+          
+          if (currentTransform.includes('rotate')) {
+            currentRotation = parseFloat(currentTransform.split('rotate(')[1].split('deg)')[0]) || 0;
+          }
+          
+          // Calculate new rotation (convert from radians to degrees)
+          const newRotation = currentRotation + deltaAngle * (180 / Math.PI);
+          
+          // Apply rotation (snap to nearest 45 degrees when close)
+          const snappedRotation = Math.round(newRotation / 45) * 45;
+          draggedElement.style.transform = `rotate(${snappedRotation}deg)`;
+          
+          // Save the current angle for next calculation
+          draggedElement.dataset.lastAngle = angle;
+          
+          // Update panel properties if showing
+          updatePanelProperties();
         }
       });
       
       document.addEventListener('mouseup', function() {
         isDragging = false;
+        isResizing = false;
+        isRotating = false;
         draggedElement = null;
+        resizeHandle = null;
+      });
+      
+      // Panel duplication
+      duplicatePanelBtn.addEventListener('click', function() {
+        if (!selectedPanelId) return;
+        
+        const panel = document.querySelector(`.panel[data-panel-id="${selectedPanelId}"]`);
+        if (!panel) return;
+        
+        // Copy panel properties
+        const width = parseInt(panel.style.width, 10);
+        const height = parseInt(panel.style.height, 10);
+        const left = parseInt(panel.style.left, 10) + 20; // Offset for visibility
+        const top = parseInt(panel.style.top, 10) + 20; // Offset for visibility
+        const material = panel.dataset.material;
+        const transform = panel.style.transform;
+        
+        // Create new panel
+        const newPanel = document.createElement('div');
+        newPanel.className = 'panel';
+        newPanel.dataset.panelId = `panel-${panelCounter}`;
+        newPanel.style.width = `${width}px`;
+        newPanel.style.height = `${height}px`;
+        newPanel.style.left = `${left}px`;
+        newPanel.style.top = `${top}px`;
+        newPanel.style.transform = transform;
+        newPanel.textContent = `Panel ${panelCounter}`;
+        newPanel.dataset.material = material;
+        newPanel.dataset.elevationAdjustment = panel.dataset.elevationAdjustment || '0';
+        
+        // Add panel to canvas
+        panelCanvas.appendChild(newPanel);
+        
+        // Add to panel list
+        const listItem = document.createElement('div');
+        listItem.className = 'panel-list-item';
+        listItem.dataset.panelId = `panel-${panelCounter}`;
+        listItem.innerHTML = `Panel ${panelCounter} <span>${Math.round(width/10)}' x ${Math.round(height/4)}'</span>`;
+        panelList.appendChild(listItem);
+        
+        // Attach click event to list item
+        listItem.addEventListener('click', function() {
+          selectPanel(this.dataset.panelId);
+        });
+        
+        // Select the new panel
+        selectPanel(`panel-${panelCounter}`);
+        
+        panelCounter++;
+      });
+      
+      // Panel deletion
+      deletePanelBtn.addEventListener('click', function() {
+        if (!selectedPanelId) return;
+        
+        // Remove panel from canvas
+        const panel = document.querySelector(`.panel[data-panel-id="${selectedPanelId}"]`);
+        if (panel) {
+          panel.remove();
+        }
+        
+        // Remove from panel list
+        const listItem = document.querySelector(`.panel-list-item[data-panel-id="${selectedPanelId}"]`);
+        if (listItem) {
+          listItem.remove();
+        }
+        
+        // Hide panel properties
+        document.querySelector('.panel-properties').style.display = 'none';
+        
+        selectedPanelId = null;
       });
       
       // Optimization option selection
@@ -849,18 +1103,169 @@
         });
       });
       
-      // AI optimize button
+      // AI optimize button with advanced features
       aiOptimizeBtn.addEventListener('click', function() {
         const selectedOption = document.querySelector('.optimization-option.selected').dataset.option;
-        alert(`Optimizing layout with ${selectedOption} strategy...`);
         
-        // In a real application, this would call the backend AI service
-        // For demo, we'll just show a fake optimization
+        // Show processing message
+        const optimizeMessage = document.createElement('div');
+        optimizeMessage.style.position = 'absolute';
+        optimizeMessage.style.top = '50%';
+        optimizeMessage.style.left = '50%';
+        optimizeMessage.style.transform = 'translate(-50%, -50%)';
+        optimizeMessage.style.padding = '15px 25px';
+        optimizeMessage.style.background = 'rgba(255, 255, 255, 0.9)';
+        optimizeMessage.style.borderRadius = '8px';
+        optimizeMessage.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.1)';
+        optimizeMessage.style.zIndex = '100';
+        optimizeMessage.innerHTML = `
+          <div style="font-weight: 600; margin-bottom: 10px;">Optimizing Panel Layout</div>
+          <div>Applying ${selectedOption} optimization strategy...</div>
+          <div style="font-size: 0.875rem; margin-top: 10px; color: #627d98;">
+            Processing site topography and constraints
+          </div>
+        `;
+        document.body.appendChild(optimizeMessage);
+        
+        // Initialize panel definitions
+        const panels = initializePanelDefs();
+        
+        // Create sample elevation grid
+        const elevations = createSampleElevationGrid();
+        
+        // Create the site configuration
+        const siteConfig = {
+          width: parseInt(workspaceWidthInput.value, 10),
+          length: parseInt(workspaceHeightInput.value, 10),
+          noGoZones: [], // Could be added in a more advanced implementation
+          elevationGrid: elevations
+        };
+        
+        // Create the optimizer
+        const optimizer = new PanelOptimizer(siteConfig, panels, selectedOption);
+        
+        // Use setTimeout to allow the UI to update
         setTimeout(() => {
-          redistributePanels();
-          alert('AI optimization complete! Panels have been repositioned for optimal layout.');
+          // Run the optimization
+          const result = optimizer.optimize();
+          
+          // Remove all current panels
+          document.querySelectorAll('.panel').forEach(panel => panel.remove());
+          
+          // Clear the panel list
+          while (panelList.firstChild) {
+            panelList.removeChild(panelList.firstChild);
+          }
+          
+          // Reset counter and add new panels based on the optimized layout
+          panelCounter = 1;
+          
+          // Add the optimized panels
+          result.placements.forEach(placement => {
+            const panel = panels.find(p => p.id === placement.id);
+            if (!panel) return;
+            
+            // Calculate dimensions based on rotation
+            const isRotated = placement.rotation === 90;
+            const width = isRotated ? panel.length : panel.width;
+            const height = isRotated ? panel.width : panel.length;
+            
+            // Create panel element
+            const panelElement = document.createElement('div');
+            panelElement.className = 'panel';
+            panelElement.dataset.panelId = `panel-${panelCounter}`;
+            panelElement.style.width = `${width * 10}px`; // Scale properly
+            panelElement.style.height = `${height * 4}px`; // Scale properly
+            panelElement.style.left = `${placement.x}px`;
+            panelElement.style.top = `${placement.y}px`;
+            panelElement.style.transform = `rotate(${placement.rotation}deg)`;
+            panelElement.textContent = `Panel ${panelCounter}`;
+            panelElement.dataset.material = panel.material;
+            panelElement.dataset.elevationAdjustment = placement.elevationAdjustment.toString();
+            
+            // Add panel to canvas
+            panelCanvas.appendChild(panelElement);
+            
+            // Add to panel list
+            const listItem = document.createElement('div');
+            listItem.className = 'panel-list-item';
+            listItem.dataset.panelId = `panel-${panelCounter}`;
+            listItem.innerHTML = `Panel ${panelCounter} <span>${width}' x ${height}'</span>`;
+            panelList.appendChild(listItem);
+            
+            // Attach click event to list item
+            listItem.addEventListener('click', function() {
+              selectPanel(this.dataset.panelId);
+            });
+            
+            panelCounter++;
+          });
+          
+          // Select the first panel if there is one
+          if (document.querySelector('.panel')) {
+            selectPanel(document.querySelector('.panel').dataset.panelId);
+          }
+          
+          // Remove the processing message
+          document.body.removeChild(optimizeMessage);
+          
+          // Show optimization summary
+          showOptimizationSummary(result.summary);
         }, 1500);
       });
+      
+      // Show optimization summary
+      function showOptimizationSummary(summary) {
+        const summaryPopup = document.createElement('div');
+        summaryPopup.style.position = 'fixed';
+        summaryPopup.style.top = '50%';
+        summaryPopup.style.left = '50%';
+        summaryPopup.style.transform = 'translate(-50%, -50%)';
+        summaryPopup.style.background = 'white';
+        summaryPopup.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.15)';
+        summaryPopup.style.borderRadius = '8px';
+        summaryPopup.style.padding = '24px';
+        summaryPopup.style.zIndex = '1000';
+        summaryPopup.style.maxWidth = '500px';
+        summaryPopup.style.width = '90%';
+        
+        summaryPopup.innerHTML = `
+          <div style="font-size: 1.25rem; font-weight: 600; color: var(--color-navy-950); margin-bottom: 16px;">
+            Optimization Results: ${summary.strategy.charAt(0).toUpperCase() + summary.strategy.slice(1)} Strategy
+          </div>
+          <div style="margin-bottom: 16px">
+            <div style="font-weight: 500; margin-bottom: 8px">Layout Statistics</div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+              <div>Total Panels:</div>
+              <div>${summary.totalPanels}</div>
+              <div>Site Utilization:</div>
+              <div>${summary.siteUtilization}</div>
+              <div>Panels with Elevation Adjustments:</div>
+              <div>${summary.elevatedPanels}</div>
+              <div>Average Elevation Adjustment:</div>
+              <div>${summary.averageElevationAdjustment} ft</div>
+            </div>
+          </div>
+          <div style="margin-bottom: 20px">
+            <div style="font-weight: 500; margin-bottom: 8px">Slope Impact Analysis</div>
+            <div style="padding: 12px; background: var(--color-navy-50); border-radius: 4px; font-size: 0.875rem;">
+              ${summary.slopeImpact}
+            </div>
+          </div>
+          <div style="text-align: right">
+            <button id="close-summary" style="padding: 8px 16px; background: var(--color-navy-950); color: white; border: none; border-radius: 4px; cursor: pointer;">
+              Close
+            </button>
+          </div>
+        `;
+        
+        document.body.appendChild(summaryPopup);
+        
+        // Close button event
+        document.getElementById('close-summary').addEventListener('click', function() {
+          document.body.removeChild(summaryPopup);
+        });
+      }
       
       // Zoom controls
       zoomInBtn.addEventListener('click', function() {
@@ -877,22 +1282,180 @@
         }
       });
       
-      // Export buttons
-      document.getElementById('export-dxf').addEventListener('click', function() {
-        alert('Exporting to DXF format...');
-        // In a real app, this would trigger a download
+      // Export buttons with enhanced functionality
+      exportDxfBtn.addEventListener('click', function() {
+        // Get all panels
+        const panels = initializePanelDefs();
+        
+        // Get panel placements
+        const placements = [];
+        document.querySelectorAll('.panel').forEach(panel => {
+          const id = panel.dataset.panelId;
+          const x = parseInt(panel.style.left, 10) / 10; // Convert from pixels to feet
+          const y = parseInt(panel.style.top, 10) / 10; // Convert from pixels to feet
+          
+          // Get rotation
+          const transform = panel.style.transform;
+          let rotation = 0;
+          if (transform && transform.includes('rotate')) {
+            rotation = parseInt(transform.split('rotate(')[1].split('deg)')[0]);
+          }
+          
+          // Get elevation adjustment
+          const elevationAdjustment = parseFloat(panel.dataset.elevationAdjustment || '0');
+          
+          placements.push({
+            id: id,
+            x: x,
+            y: y,
+            rotation: rotation,
+            elevationAdjustment: elevationAdjustment
+          });
+        });
+        
+        // Generate JSON output
+        const jsonOutput = JSON.stringify(placements, null, 2);
+        
+        // Create a downloadable file
+        const blob = new Blob([jsonOutput], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        
+        // Create a download link
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'panel-layout.json';
+        document.body.appendChild(a);
+        a.click();
+        
+        // Clean up
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        alert('Panel layout exported to JSON/DXF format.');
       });
       
-      document.getElementById('export-excel').addEventListener('click', function() {
-        alert('Exporting to Excel format...');
-        // In a real app, this would trigger a download
+      exportExcelBtn.addEventListener('click', function() {
+        // Get all panels
+        const panels = initializePanelDefs();
+        
+        // Get panel placements
+        const placements = [];
+        document.querySelectorAll('.panel').forEach(panel => {
+          const id = panel.dataset.panelId;
+          const x = parseInt(panel.style.left, 10) / 10; // Convert from pixels to feet
+          const y = parseInt(panel.style.top, 10) / 10; // Convert from pixels to feet
+          
+          // Get rotation
+          const transform = panel.style.transform;
+          let rotation = 0;
+          if (transform && transform.includes('rotate')) {
+            rotation = parseInt(transform.split('rotate(')[1].split('deg)')[0]);
+          }
+          
+          // Get elevation adjustment
+          const elevationAdjustment = parseFloat(panel.dataset.elevationAdjustment || '0');
+          
+          // Find the panel definition
+          const panelDef = panels.find(p => p.id === id);
+          if (panelDef) {
+            placements.push({
+              id: id,
+              x: x,
+              y: y,
+              rotation: rotation,
+              elevationAdjustment: elevationAdjustment,
+              width: panelDef.width,
+              length: panelDef.length,
+              material: panelDef.material
+            });
+          }
+        });
+        
+        // Generate CSV data
+        let csvContent = "ID,X,Y,Rotation,Elevation Adjustment,Width,Length,Material\n";
+        placements.forEach(p => {
+          csvContent += `${p.id},${p.x},${p.y},${p.rotation},${p.elevationAdjustment},${p.width},${p.length},${p.material}\n`;
+        });
+        
+        // Create a downloadable file
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        
+        // Create a download link
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'panel-layout.csv';
+        document.body.appendChild(a);
+        a.click();
+        
+        // Clean up
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        alert('Panel layout exported to Excel/CSV format.');
       });
       
-      document.getElementById('save-layout').addEventListener('click', function() {
+      saveLayoutBtn.addEventListener('click', function() {
+        // Get all panel data
+        const layoutData = {
+          project: document.querySelector('#project-name').value,
+          workspaceWidth: parseInt(workspaceWidthInput.value, 10),
+          workspaceHeight: parseInt(workspaceHeightInput.value, 10),
+          panels: []
+        };
+        
+        // Collect panel data
+        document.querySelectorAll('.panel').forEach(panel => {
+          const id = panel.dataset.panelId;
+          const x = parseInt(panel.style.left, 10);
+          const y = parseInt(panel.style.top, 10);
+          const width = parseInt(panel.style.width, 10);
+          const height = parseInt(panel.style.height, 10);
+          const material = panel.dataset.material;
+          
+          // Get rotation
+          const transform = panel.style.transform;
+          let rotation = 0;
+          if (transform && transform.includes('rotate')) {
+            rotation = parseInt(transform.split('rotate(')[1].split('deg)')[0]);
+          }
+          
+          // Get elevation adjustment
+          const elevationAdjustment = parseFloat(panel.dataset.elevationAdjustment || '0');
+          
+          layoutData.panels.push({
+            id: id,
+            x: x,
+            y: y,
+            width: width,
+            height: height,
+            rotation: rotation,
+            material: material,
+            elevationAdjustment: elevationAdjustment
+          });
+        });
+        
+        // Convert to JSON string
+        const layoutJSON = JSON.stringify(layoutData);
+        
+        // In a real application, this would save to server
+        // For now, we'll just save to localStorage
+        localStorage.setItem('geoqc-panel-layout', layoutJSON);
+        
         alert('Layout saved successfully!');
       });
       
       // Helper Functions
+      
+      // Update panel list item with new dimensions
+      function updatePanelListItem(panelId, width, height) {
+        const listItem = document.querySelector(`.panel-list-item[data-panel-id="${panelId}"]`);
+        if (listItem) {
+          const widthFt = Math.round(width / 10);
+          const heightFt = Math.round(height / 4);
+          listItem.innerHTML = `${listItem.textContent.split('<')[0]} <span>${widthFt}' x ${heightFt}'</span>`;
+        }
+      }
       
       // Select a panel
       function selectPanel(panelId) {
@@ -973,13 +1536,36 @@
         const transform = panel.style.transform;
         let rotation = '0°';
         if (transform && transform.includes('rotate')) {
-          rotation = transform.split('rotate(')[1].split(')')[0];
+          rotation = transform.split('rotate(')[1].split('deg)')[0] + '°';
         }
         props.querySelectorAll('.property-value')[4].textContent = rotation;
         
         // Update material type
         const materialSpan = props.querySelector('.material-type');
         materialSpan.textContent = panel.dataset.material || 'HDPE 60 mil';
+        
+        // Add elevation adjustment display if any
+        const elevationAdjustment = parseFloat(panel.dataset.elevationAdjustment || '0');
+        if (Math.abs(elevationAdjustment) > 0.1) {
+          // Add or update elevation badge
+          let elevationBadge = props.querySelector('.elevation-badge');
+          if (!elevationBadge) {
+            elevationBadge = document.createElement('span');
+            elevationBadge.className = 'material-type elevation-badge';
+            materialSpan.parentElement.appendChild(elevationBadge);
+          }
+          
+          elevationBadge.textContent = `Elev: ${elevationAdjustment.toFixed(1)}ft`;
+          elevationBadge.style.marginLeft = '8px';
+          elevationBadge.style.background = elevationAdjustment > 0 ? '#e3fcef' : '#fff7e6';
+          elevationBadge.style.color = elevationAdjustment > 0 ? '#36b37e' : '#ffab00';
+        } else {
+          // Remove elevation badge if exists
+          const elevationBadge = props.querySelector('.elevation-badge');
+          if (elevationBadge) {
+            elevationBadge.remove();
+          }
+        }
       }
       
       // Update the zoom level
@@ -992,37 +1578,97 @@
         panelCanvas.style.transformOrigin = 'top left';
       }
       
-      // Fake redistribution of panels for AI optimization demo
-      function redistributePanels() {
-        const panels = document.querySelectorAll('.panel');
-        const canvasWidth = panelCanvas.clientWidth - 200; // Leave margin
-        const canvasHeight = panelCanvas.clientHeight - 200; // Leave margin
-        
-        // Position panels in a grid layout
-        let row = 0;
-        let col = 0;
-        const maxCols = 3;
-        
-        panels.forEach((panel, index) => {
-          col = index % maxCols;
-          row = Math.floor(index / maxCols);
-          
-          const spacing = 20;
-          const left = 50 + col * (parseInt(panel.style.width, 10) + spacing);
-          const top = 50 + row * (parseInt(panel.style.height, 10) + spacing);
-          
-          panel.style.left = `${left}px`;
-          panel.style.top = `${top}px`;
-        });
-        
-        // Update properties if a panel is selected
-        if (selectedPanelId) {
-          updatePanelProperties();
+      // Load a saved layout if available
+      function loadSavedLayout() {
+        const savedLayout = localStorage.getItem('geoqc-panel-layout');
+        if (savedLayout) {
+          try {
+            const layoutData = JSON.parse(savedLayout);
+            
+            // Set workspace dimensions
+            workspaceWidthInput.value = layoutData.workspaceWidth;
+            workspaceHeightInput.value = layoutData.workspaceHeight;
+            
+            // Set project selection if available
+            if (layoutData.project) {
+              const projectSelect = document.querySelector('#project-name');
+              for (let i = 0; i < projectSelect.options.length; i++) {
+                if (projectSelect.options[i].value === layoutData.project) {
+                  projectSelect.selectedIndex = i;
+                  break;
+                }
+              }
+            }
+            
+            // Load panels
+            if (layoutData.panels && layoutData.panels.length > 0) {
+              // Clear existing panels
+              document.querySelectorAll('.panel').forEach(panel => panel.remove());
+              
+              // Clear panel list
+              while (panelList.firstChild) {
+                panelList.removeChild(panelList.firstChild);
+              }
+              
+              // Reset counter
+              panelCounter = 1;
+              
+              // Add panels
+              layoutData.panels.forEach((panelData, index) => {
+                // Create panel element
+                const panel = document.createElement('div');
+                panel.className = 'panel';
+                panel.dataset.panelId = `panel-${panelCounter}`;
+                panel.style.width = `${panelData.width}px`;
+                panel.style.height = `${panelData.height}px`;
+                panel.style.left = `${panelData.x}px`;
+                panel.style.top = `${panelData.y}px`;
+                
+                if (panelData.rotation) {
+                  panel.style.transform = `rotate(${panelData.rotation}deg)`;
+                }
+                
+                panel.textContent = `Panel ${panelCounter}`;
+                panel.dataset.material = panelData.material;
+                
+                if (panelData.elevationAdjustment) {
+                  panel.dataset.elevationAdjustment = panelData.elevationAdjustment.toString();
+                }
+                
+                // Add panel to canvas
+                panelCanvas.appendChild(panel);
+                
+                // Add to panel list
+                const listItem = document.createElement('div');
+                listItem.className = 'panel-list-item';
+                listItem.dataset.panelId = `panel-${panelCounter}`;
+                listItem.innerHTML = `Panel ${panelCounter} <span>${Math.round(panelData.width/10)}' x ${Math.round(panelData.height/4)}'</span>`;
+                panelList.appendChild(listItem);
+                
+                // Attach click event to list item
+                listItem.addEventListener('click', function() {
+                  selectPanel(this.dataset.panelId);
+                });
+                
+                panelCounter++;
+              });
+              
+              // Select the first panel
+              if (document.querySelector('.panel')) {
+                selectPanel(document.querySelector('.panel').dataset.panelId);
+              }
+            }
+          } catch (error) {
+            console.error('Error loading saved layout:', error);
+          }
         }
       }
       
       // Initialize
       selectPanel('panel-3');
+      
+      // Try to load saved layout
+      // loadSavedLayout();
     });
   </script>
 </body>
