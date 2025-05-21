@@ -1395,7 +1395,23 @@ app.get('/dashboard/qc-data', (req, res) => {
   `);
 });
 
-// For API requests going to the backend
+// Route panel optimizer API requests to the Python service
+app.use('/api/optimize-panels', createProxyMiddleware({
+  target: 'http://localhost:8001',
+  changeOrigin: true
+}));
+
+app.use('/api/generate-contours', createProxyMiddleware({
+  target: 'http://localhost:8001',
+  changeOrigin: true
+}));
+
+app.use('/api/export-layout', createProxyMiddleware({
+  target: 'http://localhost:8001',
+  changeOrigin: true
+}));
+
+// For other API requests going to the backend
 app.use('/api', createProxyMiddleware({
   target: 'http://localhost:8000',
   changeOrigin: true
