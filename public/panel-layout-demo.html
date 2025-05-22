@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GeoQC - Panel Layout Python Demo</title>
+  <style>
+    :root {
+      --color-navy-50: #f0f4f8;
+      --color-navy-100: #d9e2ec;
+      --color-navy-200: #bcccdc;
+      --color-navy-300: #9fb3c8;
+      --color-navy-400: #829ab1;
+      --color-navy-500: #627d98;
+      --color-navy-600: #486581;
+      --color-navy-700: #334e68;
+      --color-navy-800: #243b53;
+      --color-navy-900: #102a43;
+      --color-navy-950: #0a2463;
+      
+      --color-orange-50: #fff8f1;
+      --color-orange-100: #feecdc;
+      --color-orange-200: #fcd9bd;
+      --color-orange-300: #fdba8c;
+      --color-orange-400: #ff8a4c;
+      --color-orange-500: #ff7f11;
+      --color-orange-600: #d03801;
+      --color-orange-700: #b43403;
+      --color-orange-800: #8a2c0d;
+      --color-orange-900: #73230d;
+    }
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--color-navy-50);
+      color: var(--color-navy-800);
+      line-height: 1.5;
+    }
+    
+    header {
+      background: white;
+      padding: 1rem 2rem;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .logo {
+      font-weight: bold;
+      font-size: 1.5rem;
+      color: var(--color-navy-950);
+    }
+    
+    nav {
+      display: flex;
+      gap: 1.5rem;
+    }
+    
+    nav a {
+      text-decoration: none;
+      color: var(--color-navy-600);
+      transition: color 0.2s;
+    }
+    
+    nav a:hover {
+      color: var(--color-orange-500);
+    }
+    
+    .active {
+      color: var(--color-navy-950);
+      font-weight: 500;
+    }
+    
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+    
+    .panel-layout-interface {
+      display: grid;
+      grid-template-columns: 400px 1fr;
+      gap: 2rem;
+      min-height: calc(100vh - 200px);
+    }
+    
+    .panel-controls {
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      max-height: 800px;
+      overflow-y: auto;
+    }
+    
+    .control-section {
+      margin-bottom: 1.5rem;
+      border-bottom: 1px solid var(--color-navy-100);
+      padding-bottom: 1.5rem;
+    }
+    
+    .control-section:last-child {
+      border-bottom: none;
+      margin-bottom: 0;
+      padding-bottom: 0;
+    }
+    
+    .section-title {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      color: var(--color-navy-800);
+    }
+    
+    .form-group {
+      margin-bottom: 1rem;
+    }
+    
+    label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-size: 0.875rem;
+      color: var(--color-navy-700);
+    }
+    
+    input[type="text"],
+    input[type="number"],
+    select {
+      width: 100%;
+      padding: 0.5rem;
+      border: 1px solid var(--color-navy-200);
+      border-radius: 4px;
+      font-size: 0.875rem;
+    }
+    
+    .dimensions-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+    
+    .btn {
+      display: inline-block;
+      padding: 0.6rem 1rem;
+      border-radius: 4px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: none;
+      font-size: 0.875rem;
+      text-align: center;
+    }
+    
+    .btn-primary {
+      background: var(--color-navy-950);
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background: #041640;
+    }
+    
+    .btn-secondary {
+      background: white;
+      color: var(--color-navy-950);
+      border: 1px solid var(--color-navy-300);
+    }
+    
+    .btn-secondary:hover {
+      background: var(--color-navy-50);
+    }
+    
+    .btn-accent {
+      background: var(--color-orange-500);
+      color: white;
+    }
+    
+    .btn-accent:hover {
+      background: #e36a00;
+    }
+    
+    .btn-block {
+      display: block;
+      width: 100%;
+    }
+    
+    .btn-group {
+      display: flex;
+      gap: 0.5rem;
+    }
+    
+    .panel-viewer-container {
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+    
+    .viewer-toolbar {
+      margin-bottom: 1.5rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid var(--color-navy-100);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .toolbar-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--color-navy-800);
+    }
+    
+    .panel-viewer {
+      flex-grow: 1;
+      background-color: #f8fafc;
+      border: 1px dashed var(--color-navy-300);
+      border-radius: 4px;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .panel-viewer img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+    }
+    
+    .optimization-toggle {
+      display: flex;
+      border: 1px solid var(--color-navy-200);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 1rem;
+    }
+    
+    .optimization-option {
+      flex: 1;
+      padding: 0.5rem;
+      text-align: center;
+      background: white;
+      font-size: 0.75rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .optimization-option.selected {
+      background: var(--color-navy-950);
+      color: white;
+    }
+    
+    .panel-list {
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid var(--color-navy-200);
+      border-radius: 4px;
+      margin-bottom: 1rem;
+    }
+    
+    .panel-list-item {
+      padding: 0.5rem 0.75rem;
+      border-bottom: 1px solid var(--color-navy-100);
+      font-size: 0.875rem;
+      display: flex;
+      justify-content: space-between;
+    }
+    
+    .panel-list-item:last-child {
+      border-bottom: none;
+    }
+
+    /* Loading spinner */
+    .loading-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(255, 255, 255, 0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid rgba(0, 0, 0, 0.1);
+      border-left-color: var(--color-navy-950);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Results section */
+    .results-section {
+      margin-top: 1rem;
+      padding: 1rem;
+      background: var(--color-navy-50);
+      border-radius: 8px;
+      font-size: 0.875rem;
+    }
+
+    .results-title {
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+
+    .results-grid {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 0.5rem;
+    }
+
+    .results-label {
+      font-weight: 500;
+    }
+
+    /* Toast notification */
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      max-width: 350px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      padding: 1rem;
+      z-index: 1000;
+      transform: translateY(100px);
+      opacity: 0;
+      transition: transform 0.3s, opacity 0.3s;
+    }
+
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    .toast-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 0.5rem;
+    }
+
+    .toast-title {
+      font-weight: 600;
+    }
+
+    .toast-close {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 1.25rem;
+      line-height: 1;
+      color: var(--color-navy-500);
+    }
+
+    .toast-message {
+      color: var(--color-navy-600);
+    }
+
+    .export-section {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">GeoQC</div>
+    <nav>
+      <a href="/dashboard">Dashboard</a>
+      <a href="/dashboard/projects">Projects</a>
+      <a href="/panel-layout-demo" class="active">Python Panel Layout</a>
+      <a href="/dashboard/qc-data">QC Data</a>
+      <a href="/dashboard/documents">Documents</a>
+    </nav>
+  </header>
+  
+  <div class="container">
+    <div class="panel-layout-interface">
+      <div class="panel-controls">
+        <div class="control-section">
+          <h2 class="section-title">Site Configuration</h2>
+          <div class="form-group">
+            <label for="site-width">Site Width (ft)</label>
+            <input type="number" id="site-width" value="1000" min="500" max="2000">
+          </div>
+          <div class="form-group">
+            <label for="site-length">Site Length (ft)</label>
+            <input type="number" id="site-length" value="1000" min="500" max="2000">
+          </div>
+          <div class="form-group">
+            <button id="visualize-terrain" class="btn btn-secondary btn-block">Visualize Terrain</button>
+          </div>
+        </div>
+        
+        <div class="control-section">
+          <h2 class="section-title">Panel Management</h2>
+          <div class="form-group">
+            <label>Add New Panel</label>
+            <div class="dimensions-grid">
+              <div>
+                <label for="panel-width">Width (ft)</label>
+                <input type="number" id="panel-width" value="15" min="1" max="100">
+              </div>
+              <div>
+                <label for="panel-length">Length (ft)</label>
+                <input type="number" id="panel-length" value="100" min="1" max="500">
+              </div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="panel-material">Material Type</label>
+            <select id="panel-material">
+              <option>HDPE 60 mil</option>
+              <option>HDPE 80 mil</option>
+              <option>LLDPE 40 mil</option>
+              <option>PVC 30 mil</option>
+              <option>GCL</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <button id="add-panel" class="btn btn-primary btn-block">Add Panel</button>
+          </div>
+          
+          <div class="panel-list" id="panel-list">
+            <!-- Panels will be listed here dynamically -->
+          </div>
+          
+          <div class="btn-group">
+            <button id="clear-panels" class="btn btn-secondary">Clear All</button>
+          </div>
+        </div>
+        
+        <div class="control-section">
+          <h2 class="section-title">Python Optimization</h2>
+          <div class="optimization-toggle">
+            <div class="optimization-option" data-option="material">Material</div>
+            <div class="optimization-option" data-option="labor">Labor</div>
+            <div class="optimization-option selected" data-option="balanced">Balanced</div>
+          </div>
+          <div class="form-group">
+            <button id="run-optimization" class="btn btn-accent btn-block">Run Python Optimization</button>
+          </div>
+          
+          <div id="optimization-results" class="results-section" style="display: none;">
+            <div class="results-title">Optimization Results</div>
+            <div class="results-grid">
+              <div class="results-label">Strategy:</div>
+              <div id="result-strategy"></div>
+              <div class="results-label">Total Panels:</div>
+              <div id="result-total-panels"></div>
+              <div class="results-label">Utilization:</div>
+              <div id="result-utilization"></div>
+              <div class="results-label">Elevated Panels:</div>
+              <div id="result-elevated-panels"></div>
+            </div>
+            <div style="margin-top: 0.75rem;">
+              <div class="results-label">Slope Impact:</div>
+              <div id="result-slope-impact" style="margin-top: 0.25rem;"></div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="control-section">
+          <h2 class="section-title">Export Options</h2>
+          <div class="export-section">
+            <button id="export-dxf" class="btn btn-secondary">Export DXF</button>
+            <button id="export-csv" class="btn btn-secondary">Export CSV</button>
+            <button id="visualize-3d" class="btn btn-primary btn-block">3D Visualization</button>
+          </div>
+        </div>
+      </div>
+      
+      <div class="panel-viewer-container">
+        <div class="viewer-toolbar">
+          <h2 class="toolbar-title">Python-Powered Panel Layout</h2>
+          <div>
+            <button id="toggle-panel-view" class="btn btn-secondary">Toggle Panel View</button>
+          </div>
+        </div>
+        
+        <div class="panel-viewer" id="panel-viewer">
+          <!-- Contour visualization will be displayed here -->
+          <div class="loading-overlay" style="display: none;">
+            <div class="spinner"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Toast notification -->
+  <div class="toast" id="toast">
+    <div class="toast-header">
+      <div class="toast-title">Notification</div>
+      <button class="toast-close">&times;</button>
+    </div>
+    <div class="toast-message">This is a notification</div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Elements
+      const siteWidthInput = document.getElementById('site-width');
+      const siteLengthInput = document.getElementById('site-length');
+      const visualizeTerrainBtn = document.getElementById('visualize-terrain');
+      const panelWidthInput = document.getElementById('panel-width');
+      const panelLengthInput = document.getElementById('panel-length');
+      const panelMaterialSelect = document.getElementById('panel-material');
+      const addPanelBtn = document.getElementById('add-panel');
+      const panelList = document.getElementById('panel-list');
+      const clearPanelsBtn = document.getElementById('clear-panels');
+      const optimizationOptions = document.querySelectorAll('.optimization-option');
+      const runOptimizationBtn = document.getElementById('run-optimization');
+      const optimizationResults = document.getElementById('optimization-results');
+      const resultStrategy = document.getElementById('result-strategy');
+      const resultTotalPanels = document.getElementById('result-total-panels');
+      const resultUtilization = document.getElementById('result-utilization');
+      const resultElevatedPanels = document.getElementById('result-elevated-panels');
+      const resultSlopeImpact = document.getElementById('result-slope-impact');
+      const exportDxfBtn = document.getElementById('export-dxf');
+      const exportCsvBtn = document.getElementById('export-csv');
+      const visualize3dBtn = document.getElementById('visualize-3d');
+      const panelViewer = document.getElementById('panel-viewer');
+      const togglePanelViewBtn = document.getElementById('toggle-panel-view');
+      const loadingOverlay = document.querySelector('.loading-overlay');
+      const toast = document.getElementById('toast');
+      const toastClose = document.querySelector('.toast-close');
+      
+      // Variables
+      let panelCounter = 1;
+      let panels = []; // Array to store panel objects
+      let contourImageData = null;
+      let optimizationResults = null;
+      let showPanels = true;
+      
+      // Initialize optimization option selection
+      let selectedStrategy = 'balanced';
+      optimizationOptions.forEach(option => {
+        option.addEventListener('click', function() {
+          optimizationOptions.forEach(opt => opt.classList.remove('selected'));
+          this.classList.add('selected');
+          selectedStrategy = this.dataset.option;
+        });
+      });
+      
+      // Add new panel
+      addPanelBtn.addEventListener('click', function() {
+        const width = parseFloat(panelWidthInput.value);
+        const length = parseFloat(panelLengthInput.value);
+        const material = panelMaterialSelect.value;
+        
+        // Validate inputs
+        if (isNaN(width) || isNaN(length) || width <= 0 || length <= 0) {
+          showToast('Error', 'Please enter valid panel dimensions');
+          return;
+        }
+        
+        // Create new panel object
+        const panelId = `P${panelCounter}`;
+        const panel = {
+          id: panelId,
+          width: width,
+          length: length,
+          material: material
+        };
+        
+        // Add to panels array
+        panels.push(panel);
+        
+        // Add to panel list UI
+        addPanelToList(panel);
+        
+        // Increment counter
+        panelCounter++;
+        
+        showToast('Success', `Panel ${panelId} added`);
+      });
+      
+      // Add panel to list UI
+      function addPanelToList(panel) {
+        const listItem = document.createElement('div');
+        listItem.className = 'panel-list-item';
+        listItem.dataset.panelId = panel.id;
+        listItem.innerHTML = `${panel.id} <span>${panel.width}' x ${panel.length}' ${panel.material}</span>`;
+        panelList.appendChild(listItem);
+      }
+      
+      // Clear all panels
+      clearPanelsBtn.addEventListener('click', function() {
+        if (confirm('Are you sure you want to clear all panels?')) {
+          panels = [];
+          panelList.innerHTML = '';
+          showToast('Info', 'All panels cleared');
+        }
+      });
+      
+      // Visualize terrain
+      visualizeTerrainBtn.addEventListener('click', function() {
+        const siteWidth = parseFloat(siteWidthInput.value);
+        const siteLength = parseFloat(siteLengthInput.value);
+        
+        // Validate inputs
+        if (isNaN(siteWidth) || isNaN(siteLength) || siteWidth <= 0 || siteLength <= 0) {
+          showToast('Error', 'Please enter valid site dimensions');
+          return;
+        }
+        
+        // Show loading spinner
+        showLoading(true);
+        
+        // Call the Python API
+        fetch('/api/panel-layout/visualize-terrain', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            width: siteWidth,
+            length: siteLength,
+            noGoZones: []
+          })
+        })
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`HTTP error ${response.status}`);
+          }
+          return response.json();
+        })
+        .then(data => {
+          // Hide loading spinner
+          showLoading(false);
+          
+          // Display the contour image
+          contourImageData = data.imageData;
+          displayContourImage(contourImageData);
+          
+          showToast('Success', 'Terrain visualization generated');
+        })
+        .catch(error => {
+          // Hide loading spinner
+          showLoading(false);
+          
+          console.error('Error visualizing terrain:', error);
+          showToast('Error', 'Failed to visualize terrain');
+        });
+      });
+      
+      // Run optimization
+      runOptimizationBtn.addEventListener('click', function() {
+        const siteWidth = parseFloat(siteWidthInput.value);
+        const siteLength = parseFloat(siteLengthInput.value);
+        
+        // Validate inputs
+        if (isNaN(siteWidth) || isNaN(siteLength) || siteWidth <= 0 || siteLength <= 0) {
+          showToast('Error', 'Please enter valid site dimensions');
+          return;
+        }
+        
+        if (panels.length === 0) {
+          showToast('Error', 'Please add at least one panel');
+          return;
+        }
+        
+        // Show loading spinner
+        showLoading(true);
+        
+        // Call the Python API
+        fetch('/api/panel-layout/optimize', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            siteConfig: {
+              width: siteWidth,
+              length: siteLength,
+              noGoZones: []
+            },
+            panels: panels,
+            strategy: selectedStrategy
+          })
+        })
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`HTTP error ${response.status}`);
+          }
+          return response.json();
+        })
+        .then(data => {
+          // Hide loading spinner
+          showLoading(false);
+          
+          // Store optimization results
+          optimizationResults = data;
+          
+          // Update the panel viewer with the optimized layout
+          // For a real implementation, this would update a visual representation
+          // For now, we'll just display a success message
+          showToast('Success', `Optimized ${data.placements.length} panels with ${selectedStrategy} strategy`);
+          
+          // Display optimization summary
+          displayOptimizationResults(data.summary);
+          
+          // Call visualization with panels
+          visualizeWithPanels(data.placements);
+        })
+        .catch(error => {
+          // Hide loading spinner
+          showLoading(false);
+          
+          console.error('Error running optimization:', error);
+          showToast('Error', 'Failed to run optimization');
+        });
+      });
+      
+      // Export to DXF
+      exportDxfBtn.addEventListener('click', function() {
+        if (!optimizationResults || optimizationResults.placements.length === 0) {
+          showToast('Error', 'No optimized panels to export');
+          return;
+        }
+        
+        // Show loading spinner
+        showLoading(true);
+        
+        // Call the Python API
+        fetch('/api/panel-layout/export', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            format: 'dxf',
+            panels: optimizationResults.placements,
+            summary: optimizationResults.summary
+          })
+        })
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`HTTP error ${response.status}`);
+          }
+          return response.blob();
+        })
+        .then(blob => {
+          // Hide loading spinner
+          showLoading(false);
+          
+          // Create download link
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'panel_layout.dxf';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          
+          showToast('Success', 'DXF export generated');
+        })
+        .catch(error => {
+          // Hide loading spinner
+          showLoading(false);
+          
+          console.error('Error exporting to DXF:', error);
+          showToast('Error', 'Failed to export to DXF');
+        });
+      });
+      
+      // Export to CSV
+      exportCsvBtn.addEventListener('click', function() {
+        if (!optimizationResults || optimizationResults.placements.length === 0) {
+          showToast('Error', 'No optimized panels to export');
+          return;
+        }
+        
+        // Show loading spinner
+        showLoading(true);
+        
+        // Call the Python API
+        fetch('/api/panel-layout/export', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            format: 'csv',
+            panels: optimizationResults.placements,
+            summary: optimizationResults.summary
+          })
+        })
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`HTTP error ${response.status}`);
+          }
+          return response.blob();
+        })
+        .then(blob => {
+          // Hide loading spinner
+          showLoading(false);
+          
+          // Create download link
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'panel_layout.csv';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          
+          showToast('Success', 'CSV export generated');
+        })
+        .catch(error => {
+          // Hide loading spinner
+          showLoading(false);
+          
+          console.error('Error exporting to CSV:', error);
+          showToast('Error', 'Failed to export to CSV');
+        });
+      });
+      
+      // Visualize in 3D
+      visualize3dBtn.addEventListener('click', function() {
+        const siteWidth = parseFloat(siteWidthInput.value);
+        const siteLength = parseFloat(siteLengthInput.value);
+        
+        // Validate inputs
+        if (isNaN(siteWidth) || isNaN(siteLength) || siteWidth <= 0 || siteLength <= 0) {
+          showToast('Error', 'Please enter valid site dimensions');
+          return;
+        }
+        
+        // Show loading spinner
+        showLoading(true);
+        
+        // Call the Python API
+        fetch('/api/panel-layout/visualize-3d', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            siteConfig: {
+              width: siteWidth,
+              length: siteLength,
+              noGoZones: []
+            },
+            panels: optimizationResults ? optimizationResults.placements : null
+          })
+        })
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`HTTP error ${response.status}`);
+          }
+          return response.json();
+        })
+        .then(data => {
+          // Hide loading spinner
+          showLoading(false);
+          
+          // Display the 3D visualization
+          displayContourImage(data.imageData);
+          
+          showToast('Success', '3D visualization generated');
+        })
+        .catch(error => {
+          // Hide loading spinner
+          showLoading(false);
+          
+          console.error('Error generating 3D visualization:', error);
+          showToast('Error', 'Failed to generate 3D visualization');
+        });
+      });
+      
+      // Toggle panel view
+      togglePanelViewBtn.addEventListener('click', function() {
+        showPanels = !showPanels;
+        
+        if (optimizationResults) {
+          if (showPanels) {
+            visualizeWithPanels(optimizationResults.placements);
+            togglePanelViewBtn.textContent = 'Hide Panels';
+          } else {
+            if (contourImageData) {
+              displayContourImage(contourImageData);
+            }
+            togglePanelViewBtn.textContent = 'Show Panels';
+          }
+        }
+      });
+      
+      // Helper function to display contour image
+      function displayContourImage(imageData) {
+        panelViewer.innerHTML = '';
+        const img = document.createElement('img');
+        img.src = `data:image/png;base64,${imageData}`;
+        img.alt = 'Terrain Contour Map';
+        panelViewer.appendChild(img);
+      }
+      
+      // Helper function to visualize with panels
+      function visualizeWithPanels(placements) {
+        const siteWidth = parseFloat(siteWidthInput.value);
+        const siteLength = parseFloat(siteLengthInput.value);
+        
+        // Call the Python API to get a visualization with panels
+        showLoading(true);
+        
+        // Simplified version - in a real implementation, this would include the panels
+        // For demo purposes, we'll just re-request the terrain visualization
+        fetch('/api/panel-layout/visualize-terrain', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            width: siteWidth,
+            length: siteLength,
+            noGoZones: []
+          })
+        })
+        .then(response => response.json())
+        .then(data => {
+          showLoading(false);
+          displayContourImage(data.imageData);
+        })
+        .catch(error => {
+          showLoading(false);
+          console.error('Error visualizing with panels:', error);
+        });
+      }
+      
+      // Helper function to display optimization results
+      function displayOptimizationResults(summary) {
+        resultStrategy.textContent = summary.strategy.charAt(0).toUpperCase() + summary.strategy.slice(1);
+        resultTotalPanels.textContent = summary.totalPanels;
+        resultUtilization.textContent = summary.siteUtilization;
+        resultElevatedPanels.textContent = summary.elevatedPanels;
+        resultSlopeImpact.textContent = summary.slopeImpact;
+        
+        // Show results section
+        document.getElementById('optimization-results').style.display = 'block';
+      }
+      
+      // Helper function to show loading overlay
+      function showLoading(show) {
+        loadingOverlay.style.display = show ? 'flex' : 'none';
+      }
+      
+      // Helper function to show toast notification
+      function showToast(title, message) {
+        const toastTitle = document.querySelector('.toast-title');
+        const toastMessage = document.querySelector('.toast-message');
+        
+        toastTitle.textContent = title;
+        toastMessage.textContent = message;
+        
+        // Set color based on title
+        if (title === 'Error') {
+          toastTitle.style.color = '#e53e3e';
+        } else if (title === 'Success') {
+          toastTitle.style.color = '#38a169';
+        } else {
+          toastTitle.style.color = '#3182ce';
+        }
+        
+        // Show toast
+        toast.classList.add('show');
+        
+        // Hide toast after 3 seconds
+        setTimeout(() => {
+          toast.classList.remove('show');
+        }, 3000);
+      }
+      
+      // Close toast on click
+      toastClose.addEventListener('click', function() {
+        toast.classList.remove('show');
+      });
+      
+      // Initialize with a message
+      setTimeout(() => {
+        showToast('Info', 'Python Panel Layout system ready');
+      }, 500);
+    });
+  </script>
+</body>
+</html>
