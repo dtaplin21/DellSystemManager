@@ -29,12 +29,16 @@ class PanelDefinition(BaseModel):
     width: float
     length: float
     material: Optional[str] = "HDPE 60 mil"
+    corners: Optional[List[List[float]]] = None
+    x: Optional[float] = 0.0
+    y: Optional[float] = 0.0
+    rotation: Optional[float] = 0.0
 
 
 class SiteConfig(BaseModel):
     """Site configuration model"""
-    width: float
-    length: float
+    width: float | str  # Can be a number or "5acre"
+    length: float | str  # Can be a number or "5acre"
     noGoZones: Optional[List[Dict[str, Any]]] = []
 
 

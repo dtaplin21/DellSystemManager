@@ -22,7 +22,8 @@ class Panel:
                  length: float, 
                  material: str = "HDPE 60 mil",
                  position: Tuple[float, float] = (0, 0),
-                 rotation: float = 0):
+                 rotation: float = 0,
+                 corners: Optional[List[Tuple[float, float]]] = None):
         """
         Initialize a panel
         
@@ -33,6 +34,7 @@ class Panel:
             material: Material type
             position: (x, y) coordinates of the panel's bottom-left corner
             rotation: Rotation angle in degrees
+            corners: Optional list of corner coordinates for arbitrary polygons
         """
         self.id = panel_id
         self.width = float(width)
@@ -41,32 +43,54 @@ class Panel:
         self.position = position
         self.rotation_angle = rotation
         self.elevation_adjustment = 0.0  # Will be calculated based on terrain
+        self.custom_corners = corners is not None  # Flag to indicate custom shape
+        
+        # Store original corners if provided
+        self.original_corners = corners
         
         # Create the panel geometry
         self._update_geometry()
     
     def _update_geometry(self):
         """Update the panel's geometry based on position, size, and rotation"""
-        x, y = self.position
-        
-        # Create a rectangle representing the panel
-        self.corners = [
-            (x, y),  # Bottom left
-            (x + self.width, y),  # Bottom right
-            (x + self.width, y + self.length),  # Top right
-            (x, y + self.length)  # Top left
-        ]
-        
-        # Create a Shapely polygon
-        self.polygon = Polygon(self.corners)
+        if self.custom_corners and self.original_corners:
+            # Use custom polygon corners if provided
+            self.corners = self.original_corners
+            
+            # Create a Shapely polygon directly from corners
+            self.polygon = Polygon(self.corners)
+            
+            # If position is not (0,0), translate the polygon
+            if self.position != (0, 0):
+                x, y = self.position
+                self.polygon = translate(self.polygon, xoff=x, yoff=y)
+                # Update corners after translation
+                self.corners = [(p[0] + x, p[1] + y) for p in self.corners]
+        else:
+            # Create a rectangle for standard panels
+            x, y = self.position
+            
+            # Create a rectangle representing the panel
+            self.corners = [
+                (x, y),  # Bottom left
+                (x + self.width, y),  # Bottom right
+                (x + self.width, y + self.length),  # Top right
+                (x, y + self.length)  # Top left
+            ]
+            
+            # Create a Shapely polygon
+            self.polygon = Polygon(self.corners)
         
         # Apply rotation if needed
         if self.rotation_angle != 0:
+            # Calculate center for rotation
+            bounds = self.polygon.bounds
+            center_x = (bounds[0] + bounds[2]) / 2
+            center_y = (bounds[1] + bounds[3]) / 2
+            
             # Rotate around the panel's center
-            center_x = x + self.width / 2
-            center_y = y + self.length / 2
             self.polygon = rotate(self.polygon, self.rotation_angle, 
-                                  origin=(center_x, center_y))
+                                 origin=(center_x, center_y))
             
             # Update corners after rotation
             self.corners = list(self.polygon.exterior.coords)[:-1]  # Exclude the closing point
@@ -188,7 +212,7 @@ class Panel:
         Returns:
             Dictionary with panel properties
         """
-        return {
+        result = {
             'id': self.id,
             'width': self.width,
             'length': self.length,
@@ -199,6 +223,12 @@ class Panel:
             'elevationAdjustment': self.elevation_adjustment,
             'corners': self.corners
         }
+        
+        # Include original corners if this is a custom shape
+        if self.custom_corners and self.original_corners:
+            result['originalCorners'] = self.original_corners
+            
+        return result
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'Panel':
@@ -211,13 +241,23 @@ class Panel:
         Returns:
             Panel object
         """
+        # Check if corners are provided for custom shape
+        corners = None
+        if 'corners' in data and isinstance(data['corners'], list) and len(data['corners']) >= 3:
+            # Convert corners to tuples if they're lists
+            if isinstance(data['corners'][0], list):
+                corners = [(float(p[0]), float(p[1])) for p in data['corners']]
+            elif isinstance(data['corners'][0], tuple):
+                corners = data['corners']
+        
         panel = cls(
             panel_id=data['id'],
-            width=data['width'],
-            length=data['length'],
+            width=data.get('width', 10),
+            length=data.get('length', 10),
             material=data.get('material', 'HDPE 60 mil'),
-            position=(data['x'], data['y']),
-            rotation=data.get('rotation', 0)
+            position=(data.get('x', 0), data.get('y', 0)),
+            rotation=data.get('rotation', 0),
+            corners=corners
         )
         
         panel.elevation_adjustment = data.get('elevationAdjustment', 0.0)
@@ -238,13 +278,22 @@ class TerrainGrid:
             length: Length of the terrain in feet
             grid_size: Number of cells in each dimension
         """
-        self.width = width
-        self.length = length
+        # Check for "5acre" special value and convert to square feet
+        # 5 acres = 217,800 square feet, so each side ≈ 1,043.6 feet
+        import math
+        if width == "5acre" or length == "5acre":
+            # 1 acre = 43,560 square feet
+            acre_size = 5 * 43560
+            # Make it a square site
+            width = length = math.sqrt(acre_size)
+            
+        self.width = float(width)
+        self.length = float(length)
         self.grid_size = grid_size
         
         # Calculate cell size
-        self.cell_width = width / grid_size
-        self.cell_length = length / grid_size
+        self.cell_width = self.width / grid_size
+        self.cell_length = self.length / grid_size
         
         # Initialize elevation grid
         self.elevation_data = np.zeros((grid_size, grid_size))

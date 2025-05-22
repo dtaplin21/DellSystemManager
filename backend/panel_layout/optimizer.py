@@ -191,13 +191,39 @@ class PanelOptimizer:
             width = panel_dict.get('width', 15)
             length = panel_dict.get('length', 100)
             material = panel_dict.get('material', 'HDPE 60 mil')
+            position = (panel_dict.get('x', 0), panel_dict.get('y', 0))
+            rotation = panel_dict.get('rotation', 0)
             
-            panel = Panel(
-                panel_id=panel_id,
-                width=width,
-                length=length,
-                material=material
-            )
+            # Check if corners are provided for custom shape
+            corners = None
+            if 'corners' in panel_dict and isinstance(panel_dict['corners'], list) and len(panel_dict['corners']) >= 3:
+                # Convert corners to tuples if they're lists
+                if isinstance(panel_dict['corners'][0], list):
+                    corners = [(float(p[0]), float(p[1])) for p in panel_dict['corners']]
+                elif isinstance(panel_dict['corners'][0], tuple):
+                    corners = panel_dict['corners']
+            
+            # Create panel with or without custom corners
+            if corners:
+                panel = Panel(
+                    panel_id=panel_id,
+                    width=width,
+                    length=length,
+                    material=material,
+                    position=position,
+                    rotation=rotation,
+                    corners=corners
+                )
+            else:
+                panel = Panel(
+                    panel_id=panel_id,
+                    width=width,
+                    length=length,
+                    material=material,
+                    position=position,
+                    rotation=rotation
+                )
+            
             panel_objects.append(panel)
         
         # Reset layout
