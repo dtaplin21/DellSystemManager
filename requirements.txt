@@ -6,3 +6,6 @@ python-dotenv==1.0.0
 flask
 matplotlib
 numpy
+ezdxf
+matplotlib
+shapely
