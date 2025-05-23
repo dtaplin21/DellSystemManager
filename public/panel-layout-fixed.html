@@ -228,6 +228,33 @@
       overflow: hidden;
       min-height: 400px;
     }
+
+    .panel-item {
+      position: absolute;
+      background: rgba(10, 36, 99, 0.15);
+      border: 2px solid var(--color-navy-950);
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: move;
+      transition: all 0.2s;
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--color-navy-950);
+    }
+
+    .panel-item:hover {
+      background: rgba(255, 127, 17, 0.15);
+      border-color: var(--color-orange-500);
+      transform: scale(1.02);
+    }
+
+    .panel-item.selected {
+      background: rgba(255, 127, 17, 0.25);
+      border-color: var(--color-orange-500);
+      box-shadow: 0 0 0 2px rgba(255, 127, 17, 0.3);
+    }
     
     /* Shape toggle styles */
     .shape-toggle {
@@ -435,6 +462,7 @@
       let panelCounter = 1;
       let panels = [];
       let selectedShape = 'rectangle';
+      let selectedPanel = null;
       
       // Initialize shape selection
       shapeOptions.forEach(function(option) {
@@ -475,11 +503,14 @@
             width: width,
             length: length,
             material: material,
-            shape: 'rectangle'
+            shape: 'rectangle',
+            x: 50 + (panels.length * 20), // Offset each new panel
+            y: 50 + (panels.length * 15)
           };
           
           panels.push(panel);
           updatePanelList();
+          createVisualPanel(panel);
           showToast('Panel Added', 'Rectangular panel ' + panel.id + ' added successfully.');
           
         } else if (selectedShape === 'polygon') {
@@ -487,6 +518,78 @@
           showToast('Create Polygon', 'Click on the viewer area to start creating polygon points. Right-click when finished.');
         }
       });
+      
+      // Create visual panel on grid
+      function createVisualPanel(panel) {
+        const panelElement = document.createElement('div');
+        panelElement.className = 'panel-item';
+        panelElement.id = panel.id;
+        panelElement.textContent = panel.id;
+        
+        // Scale dimensions for display (1 foot = 2 pixels)
+        const displayWidth = panel.width * 2;
+        const displayHeight = panel.length * 2;
+        
+        panelElement.style.left = panel.x + 'px';
+        panelElement.style.top = panel.y + 'px';
+        panelElement.style.width = displayWidth + 'px';
+        panelElement.style.height = displayHeight + 'px';
+        
+        // Add click handler for selection
+        panelElement.addEventListener('click', function(e) {
+          e.stopPropagation();
+          selectPanel(panel.id);
+        });
+        
+        // Add drag functionality
+        makePanelDraggable(panelElement, panel);
+        
+        panelViewer.appendChild(panelElement);
+      }
+      
+      // Make panel draggable
+      function makePanelDraggable(element, panel) {
+        let isDragging = false;
+        let startX, startY;
+        
+        element.addEventListener('mousedown', function(e) {
+          isDragging = true;
+          startX = e.clientX - panel.x;
+          startY = e.clientY - panel.y;
+          element.style.zIndex = '1000';
+        });
+        
+        document.addEventListener('mousemove', function(e) {
+          if (isDragging) {
+            panel.x = e.clientX - startX;
+            panel.y = e.clientY - startY;
+            element.style.left = panel.x + 'px';
+            element.style.top = panel.y + 'px';
+          }
+        });
+        
+        document.addEventListener('mouseup', function() {
+          if (isDragging) {
+            isDragging = false;
+            element.style.zIndex = '';
+          }
+        });
+      }
+      
+      // Select panel
+      function selectPanel(panelId) {
+        // Remove selection from all panels
+        document.querySelectorAll('.panel-item').forEach(function(el) {
+          el.classList.remove('selected');
+        });
+        
+        // Add selection to clicked panel
+        const panelElement = document.getElementById(panelId);
+        if (panelElement) {
+          panelElement.classList.add('selected');
+          selectedPanel = panelId;
+        }
+      }
       
       // Update panel list
       function updatePanelList() {
@@ -506,6 +609,13 @@
         if (confirm('Are you sure you want to clear all panels?')) {
           panels = [];
           panelList.innerHTML = '';
+          
+          // Remove all visual panels from grid
+          document.querySelectorAll('.panel-item').forEach(function(panel) {
+            panel.remove();
+          });
+          
+          selectedPanel = null;
           showToast('Info', 'All panels cleared');
         }
       });
