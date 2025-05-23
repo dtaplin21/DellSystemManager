@@ -386,6 +386,80 @@
       flex-direction: column;
       gap: 0.75rem;
     }
+
+    /* Shape toggle styles */
+    .shape-toggle {
+      display: flex;
+      border: 1px solid var(--color-navy-200);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 1rem;
+    }
+
+    .shape-option {
+      flex: 1;
+      padding: 0.5rem;
+      text-align: center;
+      background: white;
+      font-size: 0.75rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .shape-option.selected {
+      background: var(--color-navy-950);
+      color: white;
+    }
+
+    /* Polygon creation styles */
+    .polygon-points {
+      max-height: 120px;
+      overflow-y: auto;
+      border: 1px solid var(--color-navy-200);
+      border-radius: 4px;
+      padding: 0.5rem;
+      background: var(--color-navy-50);
+      font-size: 0.75rem;
+    }
+
+    .polygon-point {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.25rem 0;
+      border-bottom: 1px solid var(--color-navy-100);
+    }
+
+    .polygon-point:last-child {
+      border-bottom: none;
+    }
+
+    .point-coords {
+      color: var(--color-navy-700);
+    }
+
+    .remove-point {
+      background: none;
+      border: none;
+      color: var(--color-orange-500);
+      cursor: pointer;
+      font-size: 0.75rem;
+      padding: 0;
+    }
+
+    .remove-point:hover {
+      color: var(--color-orange-600);
+    }
+
+    /* Panel viewer cursor states */
+    .panel-viewer.polygon-mode {
+      cursor: crosshair;
+    }
+
+    .panel-viewer.polygon-mode:hover {
+      background-color: #f1f5f9;
+    }
   </style>
 </head>
 <body>
@@ -421,18 +495,45 @@
         <div class="control-section">
           <h2 class="section-title">Panel Management</h2>
           <div class="form-group">
-            <label>Add New Panel</label>
-            <div class="dimensions-grid">
-              <div>
-                <label for="panel-width">Width (ft)</label>
-                <input type="number" id="panel-width" value="15" min="1" max="100">
-              </div>
-              <div>
-                <label for="panel-length">Length (ft)</label>
-                <input type="number" id="panel-length" value="100" min="1" max="500">
+            <label>Panel Shape</label>
+            <div class="shape-toggle">
+              <div class="shape-option selected" data-shape="rectangle">Rectangle</div>
+              <div class="shape-option" data-shape="polygon">Custom Polygon</div>
+            </div>
+          </div>
+          
+          <div id="rectangle-controls" class="shape-controls">
+            <div class="form-group">
+              <label>Add Rectangular Panel</label>
+              <div class="dimensions-grid">
+                <div>
+                  <label for="panel-width">Width (ft)</label>
+                  <input type="number" id="panel-width" value="15" min="1" max="100">
+                </div>
+                <div>
+                  <label for="panel-length">Length (ft)</label>
+                  <input type="number" id="panel-length" value="100" min="1" max="500">
+                </div>
               </div>
             </div>
           </div>
+          
+          <div id="polygon-controls" class="shape-controls" style="display: none;">
+            <div class="form-group">
+              <label>Create Custom Polygon</label>
+              <p style="font-size: 0.75rem; color: var(--color-navy-600); margin-bottom: 0.5rem;">
+                Click on the viewer to add polygon points. Right-click to finish.
+              </p>
+              <div id="polygon-points-list" class="polygon-points">
+                <!-- Points will be listed here -->
+              </div>
+              <div class="btn-group" style="margin-top: 0.5rem;">
+                <button id="clear-polygon" class="btn btn-secondary" style="font-size: 0.75rem;">Clear Points</button>
+                <button id="finish-polygon" class="btn btn-primary" style="font-size: 0.75rem;" disabled>Finish Polygon</button>
+              </div>
+            </div>
+          </div>
+          
           <div class="form-group">
             <label for="panel-material">Material Type</label>
             <select id="panel-material">
@@ -552,12 +653,23 @@
       const toast = document.getElementById('toast');
       const toastClose = document.querySelector('.toast-close');
       
+      // Shape selection elements
+      const shapeOptions = document.querySelectorAll('.shape-option');
+      const rectangleControls = document.getElementById('rectangle-controls');
+      const polygonControls = document.getElementById('polygon-controls');
+      const polygonPointsList = document.getElementById('polygon-points-list');
+      const clearPolygonBtn = document.getElementById('clear-polygon');
+      const finishPolygonBtn = document.getElementById('finish-polygon');
+      
       // Variables
       let panelCounter = 1;
       let panels = []; // Array to store panel objects
       let contourImageData = null;
       let optimizationResults = null;
       let showPanels = true;
+      let selectedShape = 'rectangle';
+      let polygonPoints = [];
+      let isCreatingPolygon = false;
       
       // Initialize optimization option selection
       let selectedStrategy = 'balanced';
@@ -569,8 +681,166 @@
         });
       });
       
+      // Initialize shape selection
+      shapeOptions.forEach(option => {
+        option.addEventListener('click', function() {
+          shapeOptions.forEach(opt => opt.classList.remove('selected'));
+          this.classList.add('selected');
+          selectedShape = this.dataset.shape;
+          
+          // Show/hide appropriate controls
+          if (selectedShape === 'rectangle') {
+            rectangleControls.style.display = 'block';
+            polygonControls.style.display = 'none';
+            panelViewer.classList.remove('polygon-mode');
+            isCreatingPolygon = false;
+          } else {
+            rectangleControls.style.display = 'none';
+            polygonControls.style.display = 'block';
+            panelViewer.classList.add('polygon-mode');
+          }
+          
+          // Clear any existing polygon points when switching modes
+          if (selectedShape !== 'polygon') {
+            clearPolygonPoints();
+          }
+        });
+      });
+      
+      // Polygon creation functionality
+      function clearPolygonPoints() {
+        polygonPoints = [];
+        updatePolygonPointsList();
+        finishPolygonBtn.disabled = true;
+        isCreatingPolygon = false;
+      }
+      
+      function updatePolygonPointsList() {
+        polygonPointsList.innerHTML = '';
+        polygonPoints.forEach((point, index) => {
+          const pointDiv = document.createElement('div');
+          pointDiv.className = 'polygon-point';
+          pointDiv.innerHTML = `
+            <span class="point-coords">Point ${index + 1}: (${point.x}, ${point.y})</span>
+            <button class="remove-point" onclick="removePolygonPoint(${index})">×</button>
+          `;
+          polygonPointsList.appendChild(pointDiv);
+        });
+        
+        finishPolygonBtn.disabled = polygonPoints.length < 3;
+      }
+      
+      function removePolygonPoint(index) {
+        polygonPoints.splice(index, 1);
+        updatePolygonPointsList();
+      }
+      
+      // Make removePolygonPoint available globally
+      window.removePolygonPoint = removePolygonPoint;
+      
+      // Panel viewer click handler for polygon creation
+      panelViewer.addEventListener('click', function(e) {
+        if (selectedShape === 'polygon' && !isCreatingPolygon) {
+          isCreatingPolygon = true;
+        }
+        
+        if (isCreatingPolygon && selectedShape === 'polygon') {
+          const rect = panelViewer.getBoundingClientRect();
+          const x = Math.round(e.clientX - rect.left);
+          const y = Math.round(e.clientY - rect.top);
+          
+          polygonPoints.push({ x, y });
+          updatePolygonPointsList();
+          
+          showToast('Point Added', `Added point at (${x}, ${y}). Right-click to finish or add more points.`);
+        }
+      });
+      
+      // Right-click to finish polygon
+      panelViewer.addEventListener('contextmenu', function(e) {
+        if (selectedShape === 'polygon' && isCreatingPolygon && polygonPoints.length >= 3) {
+          e.preventDefault();
+          finishPolygon();
+        }
+      });
+      
+      function finishPolygon() {
+        if (polygonPoints.length >= 3) {
+          // Convert viewer coordinates to actual panel coordinates
+          const material = panelMaterialSelect.value;
+          
+          // Calculate polygon bounds for width/height
+          const minX = Math.min(...polygonPoints.map(p => p.x));
+          const maxX = Math.max(...polygonPoints.map(p => p.x));
+          const minY = Math.min(...polygonPoints.map(p => p.y));
+          const maxY = Math.max(...polygonPoints.map(p => p.y));
+          
+          const width = maxX - minX;
+          const height = maxY - minY;
+          
+          // Create polygon panel
+          const panel = {
+            id: `panel-${panelCounter++}`,
+            width: width || 15,
+            length: height || 100,
+            material: material,
+            shape: 'polygon',
+            corners: polygonPoints.map(p => [p.x, p.y])
+          };
+          
+          panels.push(panel);
+          updatePanelList();
+          clearPolygonPoints();
+          
+          showToast('Polygon Created', `Custom polygon panel added with ${polygonPoints.length} points.`);
+        }
+      }
+      
+      // Button event listeners
+      clearPolygonBtn.addEventListener('click', clearPolygonPoints);
+      finishPolygonBtn.addEventListener('click', finishPolygon);
+      
       // Add new panel
       addPanelBtn.addEventListener('click', function() {
+        if (selectedShape === 'rectangle') {
+          // Add rectangular panel
+          const width = parseFloat(panelWidthInput.value);
+          const length = parseFloat(panelLengthInput.value);
+          const material = panelMaterialSelect.value;
+          
+          // Validate inputs
+          if (isNaN(width) || isNaN(length) || width <= 0 || length <= 0) {
+            showToast('Invalid Input', 'Please enter valid width and length values.');
+            return;
+          }
+          
+          const panel = {
+            id: `panel-${panelCounter++}`,
+            width: width,
+            length: length,
+            material: material,
+            shape: 'rectangle'
+          };
+          
+          panels.push(panel);
+          updatePanelList();
+          showToast('Panel Added', `Rectangular panel ${panel.id} added successfully.`);
+          
+        } else if (selectedShape === 'polygon') {
+          // For polygon, guide user to create using click interface
+          if (polygonPoints.length === 0) {
+            showToast('Create Polygon', 'Click on the viewer area to start creating polygon points. Right-click when finished.');
+            isCreatingPolygon = true;
+          } else if (polygonPoints.length >= 3) {
+            finishPolygon();
+          } else {
+            showToast('Need More Points', 'Add at least 3 points to create a polygon.');
+          }
+        }
+      });
+      
+      // Legacy panel addition (keeping for compatibility)
+      function addLegacyPanel() {
         const width = parseFloat(panelWidthInput.value);
         const length = parseFloat(panelLengthInput.value);
         const material = panelMaterialSelect.value;
