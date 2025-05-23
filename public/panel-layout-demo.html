@@ -677,18 +677,18 @@
       
       // Initialize optimization option selection
       let selectedStrategy = 'balanced';
-      optimizationOptions.forEach(option => {
+      optimizationOptions.forEach(function(option) {
         option.addEventListener('click', function() {
-          optimizationOptions.forEach(opt => opt.classList.remove('selected'));
+          optimizationOptions.forEach(function(opt) { opt.classList.remove('selected'); });
           this.classList.add('selected');
           selectedStrategy = this.dataset.option;
         });
       });
       
       // Initialize shape selection
-      shapeOptions.forEach(option => {
+      shapeOptions.forEach(function(option) {
         option.addEventListener('click', function() {
-          shapeOptions.forEach(opt => opt.classList.remove('selected'));
+          shapeOptions.forEach(function(opt) { opt.classList.remove('selected'); });
           this.classList.add('selected');
           selectedShape = this.dataset.shape;
           
@@ -721,7 +721,7 @@
       
       function updatePolygonPointsList() {
         polygonPointsList.innerHTML = '';
-        polygonPoints.forEach((point, index) => {
+        polygonPoints.forEach(function(point, index) {
           const pointDiv = document.createElement('div');
           pointDiv.className = 'polygon-point';
           pointDiv.innerHTML = 
@@ -773,22 +773,22 @@
           const material = panelMaterialSelect.value;
           
           // Calculate polygon bounds for width/height
-          const minX = Math.min(...polygonPoints.map(p => p.x));
-          const maxX = Math.max(...polygonPoints.map(p => p.x));
-          const minY = Math.min(...polygonPoints.map(p => p.y));
-          const maxY = Math.max(...polygonPoints.map(p => p.y));
+          const minX = Math.min.apply(Math, polygonPoints.map(function(p) { return p.x; }));
+          const maxX = Math.max.apply(Math, polygonPoints.map(function(p) { return p.x; }));
+          const minY = Math.min.apply(Math, polygonPoints.map(function(p) { return p.y; }));
+          const maxY = Math.max.apply(Math, polygonPoints.map(function(p) { return p.y; }));
           
           const width = maxX - minX;
           const height = maxY - minY;
           
           // Create polygon panel
           const panel = {
-            id: `panel-${panelCounter++}`,
+            id: 'panel-' + panelCounter++,
             width: width || 15,
             length: height || 100,
             material: material,
             shape: 'polygon',
-            corners: polygonPoints.map(p => [p.x, p.y])
+            corners: polygonPoints.map(function(p) { return [p.x, p.y]; })
           };
           
           panels.push(panel);
@@ -818,7 +818,7 @@
           }
           
           const panel = {
-            id: `panel-${panelCounter++}`,
+            id: 'panel-' + panelCounter++,
             width: width,
             length: length,
             material: material,
