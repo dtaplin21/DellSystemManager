@@ -43,6 +43,11 @@ app.get('/free-trial', (req, res) => {
   res.sendFile(path.join(publicDir, 'free-trial.html'));
 });
 
+// Panel layout demo page
+app.get('/panel-layout-demo', (req, res) => {
+  res.sendFile(path.join(publicDir, 'panel-layout-demo.html'));
+});
+
 // Authentication bypasses - redirect to dashboard
 app.get(['/login', '/signup'], (req, res) => {
   res.redirect('/dashboard');

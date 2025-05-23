@@ -665,7 +665,7 @@
       let panelCounter = 1;
       let panels = []; // Array to store panel objects
       let contourImageData = null;
-      let optimizationResults = null;
+      let optimizationResultsData = null;
       let showPanels = true;
       let selectedShape = 'rectangle';
       let polygonPoints = [];
@@ -987,7 +987,7 @@
           showLoading(false);
           
           // Store optimization results
-          optimizationResults = data;
+          optimizationResultsData = data;
           
           // Update the panel viewer with the optimized layout
           // For a real implementation, this would update a visual representation
