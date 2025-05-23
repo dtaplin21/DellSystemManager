@@ -227,6 +227,10 @@
     .panel-viewer {
       flex-grow: 1;
       background-color: #f8fafc;
+      background-image: 
+        linear-gradient(to right, #e2e8f0 1px, transparent 1px),
+        linear-gradient(to bottom, #e2e8f0 1px, transparent 1px);
+      background-size: 20px 20px;
       border: 1px dashed var(--color-navy-300);
       border-radius: 4px;
       position: relative;
@@ -720,10 +724,9 @@
         polygonPoints.forEach((point, index) => {
           const pointDiv = document.createElement('div');
           pointDiv.className = 'polygon-point';
-          pointDiv.innerHTML = `
-            <span class="point-coords">Point ${index + 1}: (${point.x}, ${point.y})</span>
-            <button class="remove-point" onclick="removePolygonPoint(${index})">×</button>
-          `;
+          pointDiv.innerHTML = 
+            '<span class="point-coords">Point ' + (index + 1) + ': (' + point.x + ', ' + point.y + ')</span>' +
+            '<button class="remove-point" onclick="removePolygonPoint(' + index + ')">×</button>';
           polygonPointsList.appendChild(pointDiv);
         });
         
