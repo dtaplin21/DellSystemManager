@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GeoQC - Panel Layout Tool</title>
+  <style>
+    :root {
+      --color-navy-50: #f0f4f8;
+      --color-navy-100: #d9e2ec;
+      --color-navy-200: #bcccdc;
+      --color-navy-300: #9fb3c8;
+      --color-navy-400: #829ab1;
+      --color-navy-500: #627d98;
+      --color-navy-600: #486581;
+      --color-navy-700: #334e68;
+      --color-navy-800: #243b53;
+      --color-navy-900: #102a43;
+      --color-navy-950: #0a2463;
+      
+      --color-orange-50: #fff8f1;
+      --color-orange-100: #feecdc;
+      --color-orange-200: #fcd9bd;
+      --color-orange-300: #fdba8c;
+      --color-orange-400: #ff8a4c;
+      --color-orange-500: #ff7f11;
+      --color-orange-600: #d03801;
+      --color-orange-700: #b43403;
+      --color-orange-800: #8a2c0d;
+      --color-orange-900: #73230d;
+    }
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--color-navy-50);
+      color: var(--color-navy-800);
+      line-height: 1.5;
+    }
+    
+    header {
+      background: white;
+      padding: 1rem 2rem;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .logo {
+      font-weight: bold;
+      font-size: 1.5rem;
+      color: var(--color-navy-950);
+    }
+    
+    nav {
+      display: flex;
+      gap: 1.5rem;
+    }
+    
+    nav a {
+      text-decoration: none;
+      color: var(--color-navy-600);
+      transition: color 0.2s;
+    }
+    
+    nav a:hover {
+      color: var(--color-orange-500);
+    }
+    
+    .active {
+      color: var(--color-navy-950);
+      font-weight: 500;
+    }
+    
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+    
+    .panel-layout-interface {
+      display: grid;
+      grid-template-columns: 400px 1fr;
+      gap: 2rem;
+      min-height: calc(100vh - 200px);
+    }
+    
+    .panel-controls {
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      max-height: 800px;
+      overflow-y: auto;
+    }
+    
+    .control-section {
+      margin-bottom: 1.5rem;
+      border-bottom: 1px solid var(--color-navy-100);
+      padding-bottom: 1.5rem;
+    }
+    
+    .control-section:last-child {
+      border-bottom: none;
+      margin-bottom: 0;
+      padding-bottom: 0;
+    }
+    
+    .section-title {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      color: var(--color-navy-800);
+    }
+    
+    .form-group {
+      margin-bottom: 1rem;
+    }
+    
+    label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-size: 0.875rem;
+      color: var(--color-navy-700);
+    }
+    
+    input[type="text"],
+    input[type="number"],
+    select {
+      width: 100%;
+      padding: 0.5rem;
+      border: 1px solid var(--color-navy-200);
+      border-radius: 4px;
+      font-size: 0.875rem;
+    }
+    
+    .dimensions-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+    
+    .btn {
+      display: inline-block;
+      padding: 0.6rem 1rem;
+      border-radius: 4px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: none;
+      font-size: 0.875rem;
+      text-align: center;
+    }
+    
+    .btn-primary {
+      background: var(--color-navy-950);
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background: #041640;
+    }
+    
+    .btn-secondary {
+      background: white;
+      color: var(--color-navy-950);
+      border: 1px solid var(--color-navy-300);
+    }
+    
+    .btn-secondary:hover {
+      background: var(--color-navy-50);
+    }
+    
+    .btn-block {
+      display: block;
+      width: 100%;
+    }
+    
+    .btn-group {
+      display: flex;
+      gap: 0.5rem;
+    }
+    
+    .panel-viewer-container {
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+    
+    .viewer-toolbar {
+      margin-bottom: 1.5rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid var(--color-navy-100);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .toolbar-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--color-navy-800);
+    }
+    
+    .panel-viewer {
+      flex-grow: 1;
+      background-color: #f8fafc;
+      background-image: 
+        linear-gradient(to right, #e2e8f0 1px, transparent 1px),
+        linear-gradient(to bottom, #e2e8f0 1px, transparent 1px);
+      background-size: 20px 20px;
+      border: 1px dashed var(--color-navy-300);
+      border-radius: 4px;
+      position: relative;
+      overflow: hidden;
+      min-height: 400px;
+    }
+    
+    /* Shape toggle styles */
+    .shape-toggle {
+      display: flex;
+      border: 1px solid var(--color-navy-200);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 1rem;
+    }
+    
+    .shape-option {
+      flex: 1;
+      padding: 0.5rem;
+      text-align: center;
+      background: white;
+      font-size: 0.75rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .shape-option.selected {
+      background: var(--color-navy-950);
+      color: white;
+    }
+    
+    .panel-list {
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid var(--color-navy-200);
+      border-radius: 4px;
+      margin-bottom: 1rem;
+      padding: 0.5rem;
+    }
+    
+    .panel-list-item {
+      padding: 0.5rem 0.75rem;
+      border-bottom: 1px solid var(--color-navy-100);
+      font-size: 0.875rem;
+      display: flex;
+      justify-content: space-between;
+    }
+    
+    .panel-list-item:last-child {
+      border-bottom: none;
+    }
+
+    /* Toast notification */
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      max-width: 350px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      padding: 1rem;
+      z-index: 1000;
+      transform: translateY(100px);
+      opacity: 0;
+      transition: transform 0.3s, opacity 0.3s;
+    }
+
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    .toast-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 0.5rem;
+    }
+
+    .toast-title {
+      font-weight: 600;
+    }
+
+    .toast-close {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 1.25rem;
+      line-height: 1;
+      color: var(--color-navy-500);
+    }
+
+    .toast-message {
+      color: var(--color-navy-600);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">GeoQC</div>
+    <nav>
+      <a href="/dashboard">Dashboard</a>
+      <a href="/dashboard/projects">Projects</a>
+      <a href="/panel-layout-fixed" class="active">Panel Layout</a>
+      <a href="/dashboard/qc-data">QC Data</a>
+      <a href="/dashboard/documents">Documents</a>
+    </nav>
+  </header>
+  
+  <div class="container">
+    <div class="panel-layout-interface">
+      <div class="panel-controls">
+        <div class="control-section">
+          <h2 class="section-title">Panel Management</h2>
+          <div class="form-group">
+            <label>Panel Shape</label>
+            <div class="shape-toggle">
+              <div class="shape-option selected" data-shape="rectangle">Rectangle</div>
+              <div class="shape-option" data-shape="polygon">Custom Polygon</div>
+            </div>
+          </div>
+          
+          <div id="rectangle-controls" class="shape-controls">
+            <div class="form-group">
+              <label>Add Rectangular Panel</label>
+              <div class="dimensions-grid">
+                <div>
+                  <label for="panel-width">Width (ft)</label>
+                  <input type="number" id="panel-width" value="15" min="1" max="100">
+                </div>
+                <div>
+                  <label for="panel-length">Length (ft)</label>
+                  <input type="number" id="panel-length" value="100" min="1" max="500">
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div id="polygon-controls" class="shape-controls" style="display: none;">
+            <div class="form-group">
+              <label>Create Custom Polygon</label>
+              <p style="font-size: 0.75rem; color: var(--color-navy-600); margin-bottom: 0.5rem;">
+                Click on the viewer to add polygon points. Right-click to finish.
+              </p>
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label for="panel-material">Material Type</label>
+            <select id="panel-material">
+              <option>HDPE 60 mil</option>
+              <option>HDPE 80 mil</option>
+              <option>LLDPE 40 mil</option>
+              <option>PVC 30 mil</option>
+              <option>GCL</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <button id="add-panel" class="btn btn-primary btn-block">Add Panel</button>
+          </div>
+          
+          <div class="panel-list" id="panel-list">
+            <!-- Panels will be listed here dynamically -->
+          </div>
+          
+          <div class="btn-group">
+            <button id="clear-panels" class="btn btn-secondary">Clear All</button>
+          </div>
+        </div>
+      </div>
+      
+      <div class="panel-viewer-container">
+        <div class="viewer-toolbar">
+          <h2 class="toolbar-title">Panel Layout Viewer</h2>
+        </div>
+        
+        <div class="panel-viewer" id="panel-viewer">
+          <!-- Panel layout will be displayed here -->
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Toast notification -->
+  <div class="toast" id="toast">
+    <div class="toast-header">
+      <div class="toast-title">Notification</div>
+      <button class="toast-close">&times;</button>
+    </div>
+    <div class="toast-message">This is a notification</div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Elements
+      const panelWidthInput = document.getElementById('panel-width');
+      const panelLengthInput = document.getElementById('panel-length');
+      const panelMaterialSelect = document.getElementById('panel-material');
+      const addPanelBtn = document.getElementById('add-panel');
+      const panelList = document.getElementById('panel-list');
+      const clearPanelsBtn = document.getElementById('clear-panels');
+      const shapeOptions = document.querySelectorAll('.shape-option');
+      const rectangleControls = document.getElementById('rectangle-controls');
+      const polygonControls = document.getElementById('polygon-controls');
+      const panelViewer = document.getElementById('panel-viewer');
+      const toast = document.getElementById('toast');
+      const toastClose = document.querySelector('.toast-close');
+      
+      // Variables
+      let panelCounter = 1;
+      let panels = [];
+      let selectedShape = 'rectangle';
+      
+      // Initialize shape selection
+      shapeOptions.forEach(function(option) {
+        option.addEventListener('click', function() {
+          shapeOptions.forEach(function(opt) { 
+            opt.classList.remove('selected'); 
+          });
+          this.classList.add('selected');
+          selectedShape = this.dataset.shape;
+          
+          // Show/hide appropriate controls
+          if (selectedShape === 'rectangle') {
+            rectangleControls.style.display = 'block';
+            polygonControls.style.display = 'none';
+          } else {
+            rectangleControls.style.display = 'none';
+            polygonControls.style.display = 'block';
+          }
+        });
+      });
+      
+      // Add new panel
+      addPanelBtn.addEventListener('click', function() {
+        if (selectedShape === 'rectangle') {
+          // Add rectangular panel
+          const width = parseFloat(panelWidthInput.value);
+          const length = parseFloat(panelLengthInput.value);
+          const material = panelMaterialSelect.value;
+          
+          // Validate inputs
+          if (isNaN(width) || isNaN(length) || width <= 0 || length <= 0) {
+            showToast('Invalid Input', 'Please enter valid width and length values.');
+            return;
+          }
+          
+          const panel = {
+            id: 'panel-' + panelCounter++,
+            width: width,
+            length: length,
+            material: material,
+            shape: 'rectangle'
+          };
+          
+          panels.push(panel);
+          updatePanelList();
+          showToast('Panel Added', 'Rectangular panel ' + panel.id + ' added successfully.');
+          
+        } else if (selectedShape === 'polygon') {
+          // For polygon, guide user to create using click interface
+          showToast('Create Polygon', 'Click on the viewer area to start creating polygon points. Right-click when finished.');
+        }
+      });
+      
+      // Update panel list
+      function updatePanelList() {
+        panelList.innerHTML = '';
+        panels.forEach(function(panel) {
+          const listItem = document.createElement('div');
+          listItem.className = 'panel-list-item';
+          listItem.innerHTML = 
+            '<span>' + panel.id + ' (' + panel.shape + ')</span>' +
+            '<span>' + panel.material + '</span>';
+          panelList.appendChild(listItem);
+        });
+      }
+      
+      // Clear all panels
+      clearPanelsBtn.addEventListener('click', function() {
+        if (confirm('Are you sure you want to clear all panels?')) {
+          panels = [];
+          panelList.innerHTML = '';
+          showToast('Info', 'All panels cleared');
+        }
+      });
+      
+      // Helper function to show toast notification
+      function showToast(title, message) {
+        const toastTitle = document.querySelector('.toast-title');
+        const toastMessage = document.querySelector('.toast-message');
+        
+        toastTitle.textContent = title;
+        toastMessage.textContent = message;
+        
+        toast.classList.add('show');
+        
+        setTimeout(function() {
+          toast.classList.remove('show');
+        }, 3000);
+      }
+      
+      // Toast close button
+      toastClose.addEventListener('click', function() {
+        toast.classList.remove('show');
+      });
+    });
+  </script>
+</body>
+</html>

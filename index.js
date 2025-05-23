@@ -48,6 +48,11 @@ app.get('/panel-layout-demo', (req, res) => {
   res.sendFile(path.join(publicDir, 'panel-layout-demo.html'));
 });
 
+// Panel layout fixed page
+app.get('/panel-layout-fixed', (req, res) => {
+  res.sendFile(path.join(publicDir, 'panel-layout-fixed.html'));
+});
+
 // Authentication bypasses - redirect to dashboard
 app.get(['/login', '/signup'], (req, res) => {
   res.redirect('/dashboard');
