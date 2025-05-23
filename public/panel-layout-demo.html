@@ -752,7 +752,7 @@
           polygonPoints.push({ x, y });
           updatePolygonPointsList();
           
-          showToast('Point Added', `Added point at (${x}, ${y}). Right-click to finish or add more points.`);
+          showToast('Point Added', 'Added point at (' + x + ', ' + y + '). Right-click to finish or add more points.');
         }
       });
       
@@ -792,7 +792,7 @@
           updatePanelList();
           clearPolygonPoints();
           
-          showToast('Polygon Created', `Custom polygon panel added with ${polygonPoints.length} points.`);
+          showToast('Polygon Created', 'Custom polygon panel added with ' + polygonPoints.length + ' points.');
         }
       }
       
@@ -824,7 +824,7 @@
           
           panels.push(panel);
           updatePanelList();
-          showToast('Panel Added', `Rectangular panel ${panel.id} added successfully.`);
+          showToast('Panel Added', 'Rectangular panel ' + panel.id + ' added successfully.');
           
         } else if (selectedShape === 'polygon') {
           // For polygon, guide user to create using click interface
