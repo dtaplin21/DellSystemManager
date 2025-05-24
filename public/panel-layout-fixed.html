@@ -405,6 +405,51 @@
     .toast-message {
       color: var(--color-navy-600);
     }
+
+    /* Modal styles */
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+    }
+
+    .modal-content {
+      background: white;
+      padding: 2rem;
+      border-radius: 8px;
+      max-width: 400px;
+      width: 90%;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .modal-content h2 {
+      margin-top: 0;
+      color: var(--color-navy-950);
+      margin-bottom: 1.5rem;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 1.5rem;
+    }
+
+    .btn-danger {
+      background: #dc2626;
+      color: white;
+      border: none;
+    }
+
+    .btn-danger:hover {
+      background: #b91c1c;
+    }
   </style>
 </head>
 <body>
@@ -547,6 +592,30 @@
       <button class="toast-close">&times;</button>
     </div>
     <div class="toast-message">This is a notification</div>
+  </div>
+
+  <!-- Edit Panel Modal -->
+  <div id="edit-panel-modal" class="modal" style="display:none;">
+    <div class="modal-content">
+      <h2>Edit Panel</h2>
+      <input type="hidden" id="edit-panel-id">
+
+      <div class="form-group">
+        <label for="edit-panel-roll">Roll Number</label>
+        <input type="text" id="edit-panel-roll">
+      </div>
+
+      <div class="form-group">
+        <label for="edit-panel-number">Panel Number</label>
+        <input type="text" id="edit-panel-number">
+      </div>
+
+      <div class="modal-actions">
+        <button id="save-panel-btn" class="btn btn-primary">Save</button>
+        <button id="delete-panel-btn" class="btn btn-danger">Delete</button>
+        <button id="cancel-edit-btn" class="btn">Cancel</button>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -907,10 +976,10 @@
         // Wire up rotation logic
         addRotateLogic(rotateHandle, panelElement, panel);
         
-        // Add click handler for selection
+        // Add click handler to open edit modal
         panelElement.addEventListener('click', function(e) {
           e.stopPropagation();
-          selectPanel(panel.id);
+          openEditModal(panel.id);
         });
         
         // Add drag functionality
