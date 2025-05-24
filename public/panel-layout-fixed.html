@@ -659,12 +659,39 @@
       const panelViewer = document.getElementById('panel-viewer');
       const toast = document.getElementById('toast');
       const toastClose = document.querySelector('.toast-close');
-      
-      // Variables
-      let panelCounter = 1;
-      let panels = [];
-      let selectedShape = 'rectangle';
-      let selectedPanel = null;
+
+      // Set up edit modal event listeners
+      document.getElementById('save-panel-btn').addEventListener('click', function() {
+        const id = document.getElementById('edit-panel-id').value;
+        const roll = document.getElementById('edit-panel-roll').value.trim();
+        const number = document.getElementById('edit-panel-number').value.trim();
+        const panelEl = document.getElementById(id);
+        const panelObj = panels.find(p => p.id === id);
+
+        if (roll && number && panelEl && panelObj) {
+          panelObj.rollNumber = roll;
+          panelObj.panelNumber = number;
+          panelObj.id = number;
+          panelEl.id = number;
+          const label = panelEl.querySelector('.panel-label');
+          label.textContent = `${roll} • ${number}`;
+          updatePanelList();
+          showToast('Panel Updated', 'Panel updated successfully!');
+        }
+        closeEditModal();
+      });
+
+      document.getElementById('delete-panel-btn').addEventListener('click', function() {
+        const id = document.getElementById('edit-panel-id').value;
+        const panelEl = document.getElementById(id);
+        if (panelEl) panelEl.remove();
+        panels = panels.filter(p => p.id !== id);
+        updatePanelList();
+        showToast('Panel Deleted', 'Panel removed successfully.');
+        closeEditModal();
+      });
+
+      document.getElementById('cancel-edit-btn').addEventListener('click', closeEditModal);
       
       // Initialize shape selection
       shapeOptions.forEach(function(option) {
