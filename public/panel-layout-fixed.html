@@ -731,10 +731,16 @@
         
         document.addEventListener('mousemove', function(e) {
           if (isDragging) {
-            panel.x = e.clientX - startX;
-            panel.y = e.clientY - startY;
-            element.style.left = panel.x + 'px';
-            element.style.top = panel.y + 'px';
+            const newX = e.clientX - startX;
+            const newY = e.clientY - startY;
+            
+            // Apply snapping to nearby panels
+            const snapped = snapPosition(element, newX, newY, 10);
+            
+            panel.x = snapped.x;
+            panel.y = snapped.y;
+            element.style.left = snapped.x + 'px';
+            element.style.top = snapped.y + 'px';
           }
         });
         
@@ -817,6 +823,61 @@
         document.addEventListener('mouseup', onMouseUp);
       }
       
+      // Snap position helper for edge alignment
+      function snapPosition(panelEl, proposedX, proposedY, threshold = 0.2) {
+        const w = panelEl.offsetWidth;
+        const h = panelEl.offsetHeight;
+
+        // Current edges of the moving panel
+        let edges = {
+          left: proposedX,
+          right: proposedX + w,
+          top: proposedY,
+          bottom: proposedY + h
+        };
+
+        document.querySelectorAll('.panel-item').forEach(function(otherEl) {
+          if (otherEl === panelEl) return; // Skip itself
+
+          const ox = otherEl.offsetLeft;
+          const oy = otherEl.offsetTop;
+          const ow = otherEl.offsetWidth;
+          const oh = otherEl.offsetHeight;
+
+          // Edges of the stationary panel
+          const other = {
+            left: ox,
+            right: ox + ow,
+            top: oy,
+            bottom: oy + oh
+          };
+
+          // Horizontal snapping
+          if (Math.abs(edges.left - other.right) <= threshold) {
+            proposedX = other.right;
+            edges.left = proposedX;
+            edges.right = proposedX + w;
+          } else if (Math.abs(edges.right - other.left) <= threshold) {
+            proposedX = other.left - w;
+            edges.left = proposedX;
+            edges.right = proposedX + w;
+          }
+
+          // Vertical snapping
+          if (Math.abs(edges.top - other.bottom) <= threshold) {
+            proposedY = other.bottom;
+            edges.top = proposedY;
+            edges.bottom = proposedY + h;
+          } else if (Math.abs(edges.bottom - other.top) <= threshold) {
+            proposedY = other.top - h;
+            edges.top = proposedY;
+            edges.bottom = proposedY + h;
+          }
+        });
+
+        return { x: proposedX, y: proposedY };
+      }
+
       // Add rotation logic
       function addRotateLogic(handle, panelEl, panelData) {
         let rotating = false;
