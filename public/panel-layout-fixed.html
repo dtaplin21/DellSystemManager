@@ -684,6 +684,43 @@
       });
 
       document.getElementById('cancel-edit-btn').addEventListener('click', closeEditModal);
+
+      // Rotation functionality
+      function addRotateLogic(handle, panelEl, panelData) {
+        let rotating = false;
+        let startAngle = 0;
+        let initialRot = panelData.rotation || 0;
+        let center = { x:0, y:0 };
+
+        handle.addEventListener('mousedown', e => {
+          e.stopPropagation();
+          rotating = true;
+          // compute center of element
+          const rect = panelEl.getBoundingClientRect();
+          center = {
+            x: rect.left + rect.width/2,
+            y: rect.top  + rect.height/2
+          };
+          startAngle = Math.atan2(e.clientY - center.y, e.clientX - center.x);
+          initialRot = panelData.rotation || 0;
+          document.body.style.cursor = 'grabbing';
+        });
+
+        document.addEventListener('mousemove', e => {
+          if (!rotating) return;
+          const current = Math.atan2(e.clientY - center.y, e.clientX - center.x);
+          const delta  = current - startAngle;
+          const deg    = initialRot + delta * (180/Math.PI);
+          panelData.rotation = deg;
+          panelEl.style.transform = `rotate(${deg}deg)`;
+        });
+
+        document.addEventListener('mouseup', e => {
+          if (!rotating) return;
+          rotating = false;
+          document.body.style.cursor = '';
+        });
+      }
       
       // Initialize shape selection
       shapeOptions.forEach(function(option) {
