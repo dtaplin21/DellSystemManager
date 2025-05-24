@@ -392,6 +392,8 @@
             <label>Panel Shape</label>
             <div class="shape-toggle">
               <div class="shape-option selected" data-shape="rectangle">Rectangle</div>
+              <div class="shape-option" data-shape="octagon">Octagon</div>
+              <div class="shape-option" data-shape="hexagon">Hexagon</div>
               <div class="shape-option" data-shape="polygon">Custom Polygon</div>
             </div>
           </div>
@@ -412,6 +414,34 @@
             </div>
           </div>
           
+          <div id="octagon-controls" class="shape-controls" style="display: none;">
+            <div class="form-group">
+              <label>Add Octagon Panel</label>
+              <div class="input-row">
+                <div class="input-wrapper">
+                  <label for="octagon-size">Side Length (ft)</label>
+                  <input type="number" id="octagon-size" value="10" min="1" max="50">
+                </div>
+              </div>
+              <button id="add-octagon" type="button" class="btn btn-primary">Add Octagon</button>
+              <small>Enter the side length for a regular octagon panel</small>
+            </div>
+          </div>
+
+          <div id="hexagon-controls" class="shape-controls" style="display: none;">
+            <div class="form-group">
+              <label>Add Hexagon Panel</label>
+              <div class="input-row">
+                <div class="input-wrapper">
+                  <label for="hexagon-size">Side Length (ft)</label>
+                  <input type="number" id="hexagon-size" value="10" min="1" max="50">
+                </div>
+              </div>
+              <button id="add-hexagon" type="button" class="btn btn-primary">Add Hexagon</button>
+              <small>Enter the side length for a regular hexagon panel</small>
+            </div>
+          </div>
+
           <div id="polygon-controls" class="shape-controls" style="display: none;">
             <div class="form-group">
               <label>Create Custom Polygon</label>
@@ -498,12 +528,18 @@
           selectedShape = this.dataset.shape;
           
           // Show/hide appropriate controls
+          document.querySelectorAll('.shape-controls').forEach(function(control) {
+            control.style.display = 'none';
+          });
+          
           if (selectedShape === 'rectangle') {
-            rectangleControls.style.display = 'block';
-            polygonControls.style.display = 'none';
-          } else {
-            rectangleControls.style.display = 'none';
-            polygonControls.style.display = 'block';
+            document.getElementById('rectangle-controls').style.display = 'block';
+          } else if (selectedShape === 'octagon') {
+            document.getElementById('octagon-controls').style.display = 'block';
+          } else if (selectedShape === 'hexagon') {
+            document.getElementById('hexagon-controls').style.display = 'block';
+          } else if (selectedShape === 'polygon') {
+            document.getElementById('polygon-controls').style.display = 'block';
           }
         });
       });
@@ -541,6 +577,60 @@
           // For polygon, guide user to create using click interface
           showToast('Create Polygon', 'Click on the viewer area to start creating polygon points. Right-click when finished.');
         }
+      });
+      
+      // Add octagon panel
+      document.getElementById('add-octagon').addEventListener('click', function() {
+        const sideLength = parseFloat(document.getElementById('octagon-size').value);
+        
+        if (isNaN(sideLength) || sideLength <= 0) {
+          showToast('Invalid Input', 'Please enter a valid side length for the octagon.');
+          return;
+        }
+        
+        const panel = {
+          id: 'panel-' + panelCounter++,
+          sideLength: sideLength,
+          shape: 'octagon',
+          material: document.getElementById('panel-material').value,
+          x: 50 + (panels.length * 20),
+          y: 50 + (panels.length * 15),
+          // Calculate approximate width/height for octagon (circumscribed rectangle)
+          width: sideLength * (1 + Math.sqrt(2)),
+          length: sideLength * (1 + Math.sqrt(2))
+        };
+        
+        panels.push(panel);
+        updatePanelList();
+        createVisualPanel(panel);
+        showToast('Panel Added', 'Octagon panel ' + panel.id + ' added successfully.');
+      });
+      
+      // Add hexagon panel
+      document.getElementById('add-hexagon').addEventListener('click', function() {
+        const sideLength = parseFloat(document.getElementById('hexagon-size').value);
+        
+        if (isNaN(sideLength) || sideLength <= 0) {
+          showToast('Invalid Input', 'Please enter a valid side length for the hexagon.');
+          return;
+        }
+        
+        const panel = {
+          id: 'panel-' + panelCounter++,
+          sideLength: sideLength,
+          shape: 'hexagon',
+          material: document.getElementById('panel-material').value,
+          x: 50 + (panels.length * 20),
+          y: 50 + (panels.length * 15),
+          // Calculate approximate width/height for hexagon
+          width: sideLength * 2,
+          length: sideLength * Math.sqrt(3)
+        };
+        
+        panels.push(panel);
+        updatePanelList();
+        createVisualPanel(panel);
+        showToast('Panel Added', 'Hexagon panel ' + panel.id + ' added successfully.');
       });
       
       // Create visual panel on grid
