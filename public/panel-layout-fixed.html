@@ -510,6 +510,8 @@
           </div>
           
           <div class="btn-group">
+            <button id="optimize-layout" class="btn btn-primary">Optimize Layout</button>
+            <button id="export-layout" class="btn btn-secondary">Export</button>
             <button id="clear-panels" class="btn btn-secondary">Clear All</button>
           </div>
         </div>
@@ -674,6 +676,133 @@
         createVisualPanel(panel);
         showToast('Panel Added', 'Hexagon panel ' + panel.id + ' added successfully.');
       });
+      
+      // Optimize layout using Python backend
+      document.getElementById('optimize-layout').addEventListener('click', function() {
+        if (panels.length === 0) {
+          showToast('No Panels', 'Please add some panels before optimizing.');
+          return;
+        }
+        
+        optimizeLayout();
+      });
+      
+      // Export layout functionality
+      document.getElementById('export-layout').addEventListener('click', function() {
+        if (panels.length === 0) {
+          showToast('No Panels', 'Please add some panels before exporting.');
+          return;
+        }
+        
+        exportLayout();
+      });
+      
+      // Optimize layout function
+      async function optimizeLayout() {
+        try {
+          showToast('Optimizing...', 'Running AI optimization on your panel layout.');
+          
+          const siteConfig = {
+            width: 500, // Default site dimensions - could be made configurable
+            length: 300,
+            noGoZones: []
+          };
+          
+          const optimizationData = {
+            siteConfig: siteConfig,
+            panels: panels.map(panel => ({
+              id: panel.id,
+              width: panel.width,
+              length: panel.length,
+              shape: panel.shape,
+              material: panel.material,
+              x: panel.x,
+              y: panel.y,
+              rotation: panel.rotation || 0
+            })),
+            strategy: 'balanced'
+          };
+          
+          const response = await fetch('http://localhost:8001/optimize', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(optimizationData)
+          });
+          
+          if (!response.ok) {
+            throw new Error('Optimization failed');
+          }
+          
+          const result = await response.json();
+          
+          // Update panels with optimized positions
+          if (result.panels) {
+            result.panels.forEach(optimizedPanel => {
+              const existingPanel = panels.find(p => p.id === optimizedPanel.id);
+              if (existingPanel) {
+                existingPanel.x = optimizedPanel.x;
+                existingPanel.y = optimizedPanel.y;
+                existingPanel.rotation = optimizedPanel.rotation || 0;
+              }
+            });
+            
+            // Refresh visual display
+            clearVisualPanels();
+            panels.forEach(panel => createVisualPanel(panel));
+            updatePanelList();
+            
+            showToast('Optimization Complete', `Layout optimized successfully! Coverage: ${result.summary?.coverage || 'N/A'}`);
+          }
+          
+        } catch (error) {
+          console.error('Optimization error:', error);
+          showToast('Optimization Failed', 'Could not connect to optimization service. Please check that the Python backend is running.');
+        }
+      }
+      
+      // Export layout function
+      async function exportLayout() {
+        try {
+          const exportData = {
+            format: 'excel', // Could be made configurable (dxf, excel)
+            panels: panels,
+            summary: {
+              totalPanels: panels.length,
+              totalArea: panels.reduce((sum, panel) => sum + (panel.width * panel.length), 0)
+            }
+          };
+          
+          const response = await fetch('http://localhost:8001/export', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(exportData)
+          });
+          
+          if (!response.ok) {
+            throw new Error('Export failed');
+          }
+          
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `panel-layout-${Date.now()}.xlsx`;
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
+          
+          showToast('Export Complete', 'Panel layout exported successfully!');
+          
+        } catch (error) {
+          console.error('Export error:', error);
+          showToast('Export Failed', 'Could not export layout. Please check that the Python backend is running.');
+        }
+      }
       
       // Create visual panel on grid
       function createVisualPanel(panel) {
