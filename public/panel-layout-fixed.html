@@ -245,34 +245,10 @@
     }
 
     .panel-item.triangle {
-      background: transparent;
-      border: none;
+      background: rgba(10, 36, 99, 0.15);
+      border: 2px solid var(--color-navy-950);
       border-radius: 0;
-    }
-
-    .panel-item.triangle::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 0;
-      height: 0;
-      border-style: solid;
-      border-width: 0 0 100% 100%;
-      border-color: transparent transparent rgba(10, 36, 99, 0.15) transparent;
-    }
-
-    .panel-item.triangle::after {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 0;
-      height: 0;
-      border-style: solid;
-      border-width: 0 0 100% 100%;
-      border-color: transparent transparent var(--color-navy-950) transparent;
-      border-bottom-width: 2px;
+      clip-path: polygon(0% 0%, 100% 0%, 0% 100%);
     }
 
     .panel-item:hover {
