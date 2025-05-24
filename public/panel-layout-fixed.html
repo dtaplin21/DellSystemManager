@@ -287,6 +287,25 @@
     .resize-handle.w-resize { cursor: w-resize; top: 50%; left: -4px; transform: translateY(-50%); }
     .resize-handle.e-resize { cursor: e-resize; top: 50%; right: -4px; transform: translateY(-50%); }
     
+    /* Rotation handle */
+    .rotate-handle {
+      position: absolute;
+      width: 12px;
+      height: 12px;
+      background: var(--color-navy-950);
+      right: -6px;
+      top: -6px;
+      border-radius: 50%;
+      cursor: grab;
+      z-index: 10;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .panel-item.selected .rotate-handle {
+      opacity: 1;
+    }
+    
     /* Shape toggle styles */
     .shape-toggle {
       display: flex;
@@ -667,8 +686,24 @@
         panelElement.style.width = displayWidth + 'px';
         panelElement.style.height = displayHeight + 'px';
         
+        // Ensure transforms happen around center
+        panelElement.style.transformOrigin = 'center center';
+        
+        // Apply existing rotation if any
+        if (panel.rotation) {
+          panelElement.style.transform = `rotate(${panel.rotation}deg)`;
+        }
+        
         // Add resize handles
         addResizeHandles(panelElement, panel);
+        
+        // Add rotate handle
+        const rotateHandle = document.createElement('div');
+        rotateHandle.className = 'rotate-handle';
+        panelElement.appendChild(rotateHandle);
+        
+        // Wire up rotation logic
+        addRotateLogic(rotateHandle, panelElement, panel);
         
         // Add click handler for selection
         panelElement.addEventListener('click', function(e) {
@@ -782,6 +817,44 @@
         document.addEventListener('mouseup', onMouseUp);
       }
       
+      // Add rotation logic
+      function addRotateLogic(handle, panelEl, panelData) {
+        let rotating = false;
+        let startAngle = 0;
+        let initialRot = panelData.rotation || 0;
+        let center = { x: 0, y: 0 };
+
+        handle.addEventListener('mousedown', function(e) {
+          e.stopPropagation();
+          rotating = true;
+          // Compute center of element
+          const rect = panelEl.getBoundingClientRect();
+          center = {
+            x: rect.left + rect.width / 2,
+            y: rect.top + rect.height / 2
+          };
+          startAngle = Math.atan2(e.clientY - center.y, e.clientX - center.x);
+          initialRot = panelData.rotation || 0;
+          document.body.style.cursor = 'grabbing';
+        });
+
+        document.addEventListener('mousemove', function(e) {
+          if (!rotating) return;
+          const current = Math.atan2(e.clientY - center.y, e.clientX - center.x);
+          const delta = current - startAngle;
+          const deg = initialRot + delta * (180 / Math.PI);
+          panelData.rotation = deg;
+          panelEl.style.transform = `rotate(${deg}deg)`;
+        });
+
+        document.addEventListener('mouseup', function(e) {
+          if (!rotating) return;
+          rotating = false;
+          document.body.style.cursor = '';
+          updatePanelList();
+        });
+      }
+
       // Update panel visual appearance
       function updatePanelVisual(panel) {
         const panelElement = document.getElementById(panel.id);
@@ -793,6 +866,11 @@
           panelElement.style.top = panel.y + 'px';
           panelElement.style.width = displayWidth + 'px';
           panelElement.style.height = displayHeight + 'px';
+          
+          // Apply rotation if it exists
+          if (panel.rotation) {
+            panelElement.style.transform = `rotate(${panel.rotation}deg)`;
+          }
         }
       }
       
