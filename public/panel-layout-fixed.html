@@ -242,6 +242,16 @@
       font-size: 0.75rem;
       font-weight: 500;
       color: var(--color-navy-950);
+      overflow: hidden;
+      box-sizing: border-box;
+      padding: 2px;
+    }
+
+    .panel-item .panel-label {
+      white-space: nowrap;
+      text-align: center;
+      width: 100%;
+      pointer-events: none;
     }
 
     .panel-item.triangle {
@@ -670,7 +680,15 @@
         const panelElement = document.createElement('div');
         panelElement.className = 'panel-item';
         panelElement.id = panel.id;
-        panelElement.textContent = panel.id;
+        
+        // Clear any existing children
+        panelElement.innerHTML = '';
+        
+        // Create and append the centered label
+        const label = document.createElement('span');
+        label.className = 'panel-label';
+        label.textContent = panel.id;
+        panelElement.appendChild(label);
         
         // Add shape-specific class
         if (panel.shape === 'triangle') {
@@ -685,6 +703,10 @@
         panelElement.style.top = panel.y + 'px';
         panelElement.style.width = displayWidth + 'px';
         panelElement.style.height = displayHeight + 'px';
+        
+        // Dynamically scale font size based on panel dimensions
+        const baseSize = Math.min(displayWidth, displayHeight);
+        label.style.fontSize = Math.max(8, Math.floor(baseSize * 0.3)) + 'px';
         
         // Ensure transforms happen around center
         panelElement.style.transformOrigin = 'center center';
