@@ -244,6 +244,37 @@
       color: var(--color-navy-950);
     }
 
+    .panel-item.triangle {
+      background: transparent;
+      border: none;
+      border-radius: 0;
+    }
+
+    .panel-item.triangle::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 0;
+      height: 0;
+      border-style: solid;
+      border-width: 0 0 100% 100%;
+      border-color: transparent transparent rgba(10, 36, 99, 0.15) transparent;
+    }
+
+    .panel-item.triangle::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 0;
+      height: 0;
+      border-style: solid;
+      border-width: 0 0 100% 100%;
+      border-color: transparent transparent var(--color-navy-950) transparent;
+      border-bottom-width: 2px;
+    }
+
     .panel-item:hover {
       background: rgba(255, 127, 17, 0.15);
       border-color: var(--color-orange-500);
@@ -392,7 +423,7 @@
             <label>Panel Shape</label>
             <div class="shape-toggle">
               <div class="shape-option selected" data-shape="rectangle">Rectangle</div>
-              <div class="shape-option" data-shape="octagon">Octagon</div>
+              <div class="shape-option" data-shape="triangle">Triangle</div>
               <div class="shape-option" data-shape="hexagon">Hexagon</div>
               <div class="shape-option" data-shape="polygon">Custom Polygon</div>
             </div>
@@ -414,17 +445,21 @@
             </div>
           </div>
           
-          <div id="octagon-controls" class="shape-controls" style="display: none;">
+          <div id="triangle-controls" class="shape-controls" style="display: none;">
             <div class="form-group">
-              <label>Add Octagon Panel</label>
+              <label>Add Triangle Panel</label>
               <div class="input-row">
                 <div class="input-wrapper">
-                  <label for="octagon-size">Side Length (ft)</label>
-                  <input type="number" id="octagon-size" value="10" min="1" max="50">
+                  <label for="triangle-base">Base (ft)</label>
+                  <input type="number" id="triangle-base" value="15" min="1" max="100">
+                </div>
+                <div class="input-wrapper">
+                  <label for="triangle-height">Height (ft)</label>
+                  <input type="number" id="triangle-height" value="12" min="1" max="100">
                 </div>
               </div>
-              <button id="add-octagon" type="button" class="btn btn-primary">Add Octagon</button>
-              <small>Enter the side length for a regular octagon panel</small>
+              <button id="add-triangle" type="button" class="btn btn-primary">Add Triangle</button>
+              <small>Enter base and height for triangle panel</small>
             </div>
           </div>
 
@@ -534,8 +569,8 @@
           
           if (selectedShape === 'rectangle') {
             document.getElementById('rectangle-controls').style.display = 'block';
-          } else if (selectedShape === 'octagon') {
-            document.getElementById('octagon-controls').style.display = 'block';
+          } else if (selectedShape === 'triangle') {
+            document.getElementById('triangle-controls').style.display = 'block';
           } else if (selectedShape === 'hexagon') {
             document.getElementById('hexagon-controls').style.display = 'block';
           } else if (selectedShape === 'polygon') {
@@ -579,31 +614,33 @@
         }
       });
       
-      // Add octagon panel
-      document.getElementById('add-octagon').addEventListener('click', function() {
-        const sideLength = parseFloat(document.getElementById('octagon-size').value);
+      // Add triangle panel
+      document.getElementById('add-triangle').addEventListener('click', function() {
+        const base = parseFloat(document.getElementById('triangle-base').value);
+        const height = parseFloat(document.getElementById('triangle-height').value);
         
-        if (isNaN(sideLength) || sideLength <= 0) {
-          showToast('Invalid Input', 'Please enter a valid side length for the octagon.');
+        if (isNaN(base) || isNaN(height) || base <= 0 || height <= 0) {
+          showToast('Invalid Input', 'Please enter valid base and height values for the triangle.');
           return;
         }
         
         const panel = {
           id: 'panel-' + panelCounter++,
-          sideLength: sideLength,
-          shape: 'octagon',
+          base: base,
+          height: height,
+          shape: 'triangle',
           material: document.getElementById('panel-material').value,
           x: 50 + (panels.length * 20),
           y: 50 + (panels.length * 15),
-          // Calculate approximate width/height for octagon (circumscribed rectangle)
-          width: sideLength * (1 + Math.sqrt(2)),
-          length: sideLength * (1 + Math.sqrt(2))
+          // Use base and height as width/length for bounding box
+          width: base,
+          length: height
         };
         
         panels.push(panel);
         updatePanelList();
         createVisualPanel(panel);
-        showToast('Panel Added', 'Octagon panel ' + panel.id + ' added successfully.');
+        showToast('Panel Added', 'Triangle panel ' + panel.id + ' added successfully.');
       });
       
       // Add hexagon panel
@@ -639,6 +676,11 @@
         panelElement.className = 'panel-item';
         panelElement.id = panel.id;
         panelElement.textContent = panel.id;
+        
+        // Add shape-specific class
+        if (panel.shape === 'triangle') {
+          panelElement.classList.add('triangle');
+        }
         
         // Scale dimensions for display (1 foot = 2 pixels)
         const displayWidth = panel.width * 2;
