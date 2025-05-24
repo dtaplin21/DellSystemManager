@@ -255,6 +255,30 @@
       border-color: var(--color-orange-500);
       box-shadow: 0 0 0 2px rgba(255, 127, 17, 0.3);
     }
+
+    .resize-handle {
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      background: var(--color-orange-500);
+      border: 1px solid white;
+      border-radius: 2px;
+      cursor: pointer;
+      z-index: 1001;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .panel-item.selected .resize-handle {
+      opacity: 1;
+    }
+
+    .resize-handle.nw-resize { cursor: nw-resize; top: -4px; left: -4px; }
+    .resize-handle.ne-resize { cursor: ne-resize; top: -4px; right: -4px; }
+    .resize-handle.sw-resize { cursor: sw-resize; bottom: -4px; left: -4px; }
+    .resize-handle.se-resize { cursor: se-resize; bottom: -4px; right: -4px; }
+    .resize-handle.w-resize { cursor: w-resize; top: 50%; left: -4px; transform: translateY(-50%); }
+    .resize-handle.e-resize { cursor: e-resize; top: 50%; right: -4px; transform: translateY(-50%); }
     
     /* Shape toggle styles */
     .shape-toggle {
@@ -535,6 +559,9 @@
         panelElement.style.width = displayWidth + 'px';
         panelElement.style.height = displayHeight + 'px';
         
+        // Add resize handles
+        addResizeHandles(panelElement, panel);
+        
         // Add click handler for selection
         panelElement.addEventListener('click', function(e) {
           e.stopPropagation();
@@ -574,6 +601,91 @@
             element.style.zIndex = '';
           }
         });
+      }
+      
+      // Add resize handles to panel
+      function addResizeHandles(panelElement, panel) {
+        const handles = ['nw-resize', 'ne-resize', 'sw-resize', 'se-resize', 'w-resize', 'e-resize'];
+        
+        handles.forEach(function(handleType) {
+          const handle = document.createElement('div');
+          handle.className = 'resize-handle ' + handleType;
+          handle.addEventListener('mousedown', function(e) {
+            e.stopPropagation();
+            startResize(e, panel, handleType);
+          });
+          panelElement.appendChild(handle);
+        });
+      }
+      
+      // Start resize operation
+      function startResize(e, panel, resizeType) {
+        e.preventDefault();
+        
+        const startX = e.clientX;
+        const startY = e.clientY;
+        const startWidth = panel.width;
+        const startHeight = panel.length;
+        const startPosX = panel.x;
+        const startPosY = panel.y;
+        
+        function onMouseMove(e) {
+          const deltaX = e.clientX - startX;
+          const deltaY = e.clientY - startY;
+          
+          let newWidth = startWidth;
+          let newHeight = startHeight;
+          let newX = startPosX;
+          let newY = startPosY;
+          
+          // Calculate new dimensions based on resize handle type
+          if (resizeType.includes('e')) {
+            newWidth = Math.max(5, startWidth + (deltaX / 2)); // Minimum 5 feet
+          }
+          if (resizeType.includes('w')) {
+            newWidth = Math.max(5, startWidth - (deltaX / 2));
+            newX = startPosX + (startWidth - newWidth) * 2;
+          }
+          if (resizeType.includes('s')) {
+            newHeight = Math.max(5, startHeight + (deltaY / 2));
+          }
+          if (resizeType.includes('n')) {
+            newHeight = Math.max(5, startHeight - (deltaY / 2));
+            newY = startPosY + (startHeight - newHeight) * 2;
+          }
+          
+          // Update panel object
+          panel.width = newWidth;
+          panel.length = newHeight;
+          panel.x = newX;
+          panel.y = newY;
+          
+          // Update visual element
+          updatePanelVisual(panel);
+          updatePanelList();
+        }
+        
+        function onMouseUp() {
+          document.removeEventListener('mousemove', onMouseMove);
+          document.removeEventListener('mouseup', onMouseUp);
+        }
+        
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+      }
+      
+      // Update panel visual appearance
+      function updatePanelVisual(panel) {
+        const panelElement = document.getElementById(panel.id);
+        if (panelElement) {
+          const displayWidth = panel.width * 2;
+          const displayHeight = panel.length * 2;
+          
+          panelElement.style.left = panel.x + 'px';
+          panelElement.style.top = panel.y + 'px';
+          panelElement.style.width = displayWidth + 'px';
+          panelElement.style.height = displayHeight + 'px';
+        }
       }
       
       // Select panel
