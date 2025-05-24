@@ -434,6 +434,17 @@
             </div>
           </div>
           
+          <!-- Panel Identification -->
+          <div class="form-group">
+            <label for="panel-roll">Roll Number</label>
+            <input type="text" id="panel-roll" placeholder="e.g. R-102" required>
+          </div>
+
+          <div class="form-group">
+            <label for="panel-number">Panel Number</label>
+            <input type="text" id="panel-number" placeholder="e.g. P-001" required>
+          </div>
+
           <div id="rectangle-controls" class="shape-controls">
             <div class="form-group">
               <label>Add Rectangular Panel</label>
@@ -588,6 +599,14 @@
       
       // Add new panel
       addPanelBtn.addEventListener('click', function() {
+        const roll = document.getElementById('panel-roll').value.trim();
+        const number = document.getElementById('panel-number').value.trim();
+
+        if (!roll || !number) {
+          showToast('Missing Data', 'Please enter both roll number and panel number.');
+          return;
+        }
+
         if (selectedShape === 'rectangle') {
           // Add rectangular panel
           const width = parseFloat(panelWidthInput.value);
@@ -601,19 +620,25 @@
           }
           
           const panel = {
-            id: 'panel-' + panelCounter++,
+            id: number,
+            rollNumber: roll,
+            panelNumber: number,
             width: width,
             length: length,
             material: material,
             shape: 'rectangle',
-            x: 50 + (panels.length * 20), // Offset each new panel
+            x: 50 + (panels.length * 20),
             y: 50 + (panels.length * 15)
           };
           
           panels.push(panel);
           updatePanelList();
           createVisualPanel(panel);
-          showToast('Panel Added', 'Rectangular panel ' + panel.id + ' added successfully.');
+          showToast('Panel Added', `Roll ${roll}, Panel ${number} added successfully.`);
+          
+          // Clear the roll and panel number fields for next entry
+          document.getElementById('panel-roll').value = '';
+          document.getElementById('panel-number').value = '';
           
         } else if (selectedShape === 'polygon') {
           // For polygon, guide user to create using click interface
@@ -623,6 +648,14 @@
       
       // Add triangle panel
       document.getElementById('add-triangle').addEventListener('click', function() {
+        const roll = document.getElementById('panel-roll').value.trim();
+        const number = document.getElementById('panel-number').value.trim();
+
+        if (!roll || !number) {
+          showToast('Missing Data', 'Please enter both roll number and panel number.');
+          return;
+        }
+
         const base = parseFloat(document.getElementById('triangle-base').value);
         const height = parseFloat(document.getElementById('triangle-height').value);
         
@@ -632,14 +665,15 @@
         }
         
         const panel = {
-          id: 'panel-' + panelCounter++,
+          id: number,
+          rollNumber: roll,
+          panelNumber: number,
           base: base,
           height: height,
           shape: 'triangle',
           material: document.getElementById('panel-material').value,
           x: 50 + (panels.length * 20),
           y: 50 + (panels.length * 15),
-          // Use base and height as width/length for bounding box
           width: base,
           length: height
         };
@@ -647,11 +681,23 @@
         panels.push(panel);
         updatePanelList();
         createVisualPanel(panel);
-        showToast('Panel Added', 'Triangle panel ' + panel.id + ' added successfully.');
+        showToast('Panel Added', `Roll ${roll}, Panel ${number} added successfully.`);
+        
+        // Clear the roll and panel number fields for next entry
+        document.getElementById('panel-roll').value = '';
+        document.getElementById('panel-number').value = '';
       });
       
       // Add hexagon panel
       document.getElementById('add-hexagon').addEventListener('click', function() {
+        const roll = document.getElementById('panel-roll').value.trim();
+        const number = document.getElementById('panel-number').value.trim();
+
+        if (!roll || !number) {
+          showToast('Missing Data', 'Please enter both roll number and panel number.');
+          return;
+        }
+
         const sideLength = parseFloat(document.getElementById('hexagon-size').value);
         
         if (isNaN(sideLength) || sideLength <= 0) {
@@ -660,13 +706,14 @@
         }
         
         const panel = {
-          id: 'panel-' + panelCounter++,
+          id: number,
+          rollNumber: roll,
+          panelNumber: number,
           sideLength: sideLength,
           shape: 'hexagon',
           material: document.getElementById('panel-material').value,
           x: 50 + (panels.length * 20),
           y: 50 + (panels.length * 15),
-          // Calculate approximate width/height for hexagon
           width: sideLength * 2,
           length: sideLength * Math.sqrt(3)
         };
@@ -674,7 +721,11 @@
         panels.push(panel);
         updatePanelList();
         createVisualPanel(panel);
-        showToast('Panel Added', 'Hexagon panel ' + panel.id + ' added successfully.');
+        showToast('Panel Added', `Roll ${roll}, Panel ${number} added successfully.`);
+        
+        // Clear the roll and panel number fields for next entry
+        document.getElementById('panel-roll').value = '';
+        document.getElementById('panel-number').value = '';
       });
       
       // Optimize layout using Python backend
@@ -723,7 +774,7 @@
             strategy: 'balanced'
           };
           
-          const response = await fetch('http://localhost:8001/optimize', {
+          const response = await fetch('http://localhost:8001/api/panel-layout/optimize', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json'
@@ -816,7 +867,7 @@
         // Create and append the centered label
         const label = document.createElement('span');
         label.className = 'panel-label';
-        label.textContent = panel.id;
+        label.textContent = `${panel.rollNumber} • ${panel.panelNumber}`;
         panelElement.appendChild(label);
         
         // Add shape-specific class
