@@ -619,6 +619,32 @@
   </div>
 
   <script>
+    // Global variables and functions
+    let panels = [];
+    let selectedPanel = null;
+    let panelCounter = 1;
+    let selectedShape = 'rectangle';
+
+    // Edit Panel Modal Functions (must be global)
+    function openEditModal(panelId) {
+      const panel = panels.find(p => p.id === panelId);
+      if (!panel) return;
+
+      const editModal = document.getElementById('edit-panel-modal');
+      const rollInput = document.getElementById('edit-panel-roll');
+      const numberInput = document.getElementById('edit-panel-number');
+      const idInput = document.getElementById('edit-panel-id');
+
+      idInput.value = panel.id;
+      rollInput.value = panel.rollNumber;
+      numberInput.value = panel.panelNumber;
+      editModal.style.display = 'block';
+    }
+
+    function closeEditModal() {
+      document.getElementById('edit-panel-modal').style.display = 'none';
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
       // Elements
       const panelWidthInput = document.getElementById('panel-width');
