@@ -685,6 +685,61 @@
 
       document.getElementById('cancel-edit-btn').addEventListener('click', closeEditModal);
 
+      // Snap-to-neighbors functionality
+      function snapPosition(panelEl, proposedX, proposedY, threshold = 5) {
+        const w = panelEl.offsetWidth;
+        const h = panelEl.offsetHeight;
+
+        // current edges of the moving panel
+        let edges = {
+          left:   proposedX,
+          right:  proposedX + w,
+          top:    proposedY,
+          bottom: proposedY + h
+        };
+
+        document.querySelectorAll('.panel-item').forEach(otherEl => {
+          if (otherEl === panelEl) return;       // skip itself
+
+          const ox = otherEl.offsetLeft;
+          const oy = otherEl.offsetTop;
+          const ow = otherEl.offsetWidth;
+          const oh = otherEl.offsetHeight;
+
+          // edges of the stationary panel
+          const other = {
+            left:   ox,
+            right:  ox + ow,
+            top:    oy,
+            bottom: oy + oh
+          };
+
+          // Horizontal snapping
+          if (Math.abs(edges.left  - other.right) <= threshold) {
+            proposedX = other.right;
+            edges.left  = proposedX;
+            edges.right = proposedX + w;
+          } else if (Math.abs(edges.right - other.left) <= threshold) {
+            proposedX = other.left - w;
+            edges.left  = proposedX;
+            edges.right = proposedX + w;
+          }
+
+          // Vertical snapping
+          if (Math.abs(edges.top    - other.bottom) <= threshold) {
+            proposedY = other.bottom;
+            edges.top    = proposedY;
+            edges.bottom = proposedY + h;
+          } else if (Math.abs(edges.bottom - other.top) <= threshold) {
+            proposedY = other.top - h;
+            edges.top    = proposedY;
+            edges.bottom = proposedY + h;
+          }
+        });
+
+        return { x: proposedX, y: proposedY };
+      }
+
       // Rotation functionality
       function addRotateLogic(handle, panelEl, panelData) {
         let rotating = false;
