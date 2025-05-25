@@ -276,10 +276,16 @@
     }
 
     .panel-item.triangle {
+      clip-path: polygon(0% 0%, 100% 0%, 0% 100%);
       background: rgba(10, 36, 99, 0.15);
       border: 2px solid var(--color-navy-950);
       border-radius: 0;
-      clip-path: polygon(0% 0%, 100% 0%, 0% 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      transition: all 0.2s;
     }
 
     .panel-item:hover {
@@ -1116,7 +1122,10 @@
         
         // Dynamically scale font size based on panel dimensions
         const baseSize = Math.min(displayWidth, displayHeight);
-        label.style.fontSize = Math.max(8, Math.floor(baseSize * 0.3)) + 'px';
+        const fontSize = Math.max(8, Math.floor(baseSize * 0.3)) + 'px';
+        label.querySelectorAll('div').forEach(el => {
+          el.style.fontSize = fontSize;
+        });
         
         // Ensure transforms happen around center
         panelElement.style.transformOrigin = 'center center';
