@@ -342,6 +342,23 @@
     .panel-item.selected .rotate-handle {
       opacity: 1;
     }
+
+    /* Real-time dimension display */
+    .panel-dimensions {
+      position: absolute;
+      bottom: 4px;
+      right: 4px;
+      background: rgba(255, 255, 255, 0.9);
+      padding: 2px 4px;
+      font-size: 0.6em;
+      line-height: 1;
+      border-radius: 3px;
+      pointer-events: none;
+      color: var(--color-navy-950);
+      font-weight: 600;
+      border: 1px solid rgba(10, 36, 99, 0.2);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    }
     
     /* Shape toggle styles */
     .shape-toggle {
@@ -1105,6 +1122,13 @@
           <div class="panel-text">${panel.panelNumber}</div>
         `;
         panelElement.appendChild(label);
+
+        // Add dimension badge showing real-time size
+        const dimLabel = document.createElement('span');
+        dimLabel.className = 'panel-dimensions';
+        dimLabel.textContent = `${panel.width.toFixed(1)}ft × ${panel.length.toFixed(1)}ft`;
+        panelElement.appendChild(dimLabel);
+        panelElement._dimLabel = dimLabel;
         
         // Add shape-specific class
         if (panel.shape === 'triangle') {
@@ -1249,6 +1273,16 @@
           panel.length = newHeight;
           panel.x = newX;
           panel.y = newY;
+          
+          // Update the dimension badge with real-time measurements
+          const panelEl = document.getElementById(panel.id);
+          const dimBadge = panelEl._dimLabel;
+          if (dimBadge) {
+            dimBadge.textContent = `${newWidth.toFixed(1)}ft × ${newHeight.toFixed(1)}ft`;
+            // Scale the badge text based on panel size
+            const baseSize = Math.min(newWidth * 2, newHeight * 2);
+            dimBadge.style.fontSize = Math.max(8, Math.floor(baseSize * 0.08)) + 'px';
+          }
           
           // Update visual element
           updatePanelVisual(panel);
