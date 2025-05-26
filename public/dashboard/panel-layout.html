@@ -1565,74 +1565,12 @@
         });
       });
       
-      // Make panels draggable, resizable and rotatable
-      panelCanvas.addEventListener('mousedown', function(e) {
-        if (e.target.classList.contains('panel')) {
-          // Panel dragging
-          isDragging = true;
-          isResizing = false;
-          isRotating = false;
-          draggedElement = e.target;
-          
-          // Select the panel
-          selectPanel(draggedElement.dataset.panelId);
-          
-          // Calculate the offset
-          const rect = draggedElement.getBoundingClientRect();
-          dragOffsetX = e.clientX - rect.left;
-          dragOffsetY = e.clientY - rect.top;
-          
-          dragStartX = e.clientX;
-          dragStartY = e.clientY;
-        } else if (e.target.classList.contains('resize-handle')) {
-          // Panel resizing
-          isDragging = false;
-          isResizing = true;
-          isRotating = false;
-          resizeHandle = e.target;
-          draggedElement = resizeHandle.parentElement;
-          
-          // Select the panel
-          selectPanel(draggedElement.dataset.panelId);
-          
-          dragStartX = e.clientX;
-          dragStartY = e.clientY;
-        } else if (e.target.classList.contains('rotate-handle')) {
-          // Panel rotation
-          isDragging = false;
-          isResizing = false;
-          isRotating = true;
-          draggedElement = e.target.parentElement;
-          
-          // Select the panel
-          selectPanel(draggedElement.dataset.panelId);
-          
-          // Get the panel center for rotation
-          const rect = draggedElement.getBoundingClientRect();
-          const centerX = rect.left + rect.width / 2;
-          const centerY = rect.top + rect.height / 2;
-          
-          // Calculate the initial angle
-          const angle = Math.atan2(e.clientY - centerY, e.clientX - centerX);
-          draggedElement.dataset.lastAngle = angle;
-        }
-      });
+      // Old drag handler removed - using new makePanelDraggable function with snap functionality
+      
+      // Old mousemove handler removed - snap functionality now handled by makePanelDraggable function
       
       document.addEventListener('mousemove', function(e) {
-        if (isDragging) {
-          // Move the panel with snap-to-neighbors
-          const newLeft = e.clientX - dragOffsetX;
-          const newTop = e.clientY - dragOffsetY;
-          
-          // Apply snap-to-neighbors functionality
-          const { x: snapX, y: snapY } = snapPosition(draggedElement, newLeft, newTop, 20);
-          
-          draggedElement.style.left = `${snapX}px`;
-          draggedElement.style.top = `${snapY}px`;
-          
-          // Update panel properties if showing
-          updatePanelProperties();
-        } else if (isResizing && resizeHandle) {
+        if (isResizing && resizeHandle) {
           // Resize the panel
           const rect = draggedElement.getBoundingClientRect();
           const currentWidth = rect.width;
