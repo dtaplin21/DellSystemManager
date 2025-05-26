@@ -324,6 +324,31 @@
       border-color: #bd2130;
     }
 
+    /* Rotation Handle Styles */
+    .rotate-handle {
+      position: absolute;
+      width: 12px;
+      height: 12px;
+      background: var(--color-navy-950);
+      right: -6px;
+      top: -6px;
+      border-radius: 50%;
+      cursor: grab;
+      z-index: 10;
+      border: 2px solid white;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    }
+
+    .rotate-handle:hover {
+      background: var(--color-orange-500);
+      transform: scale(1.2);
+      transition: all 0.2s ease;
+    }
+
+    .rotate-handle:active {
+      cursor: grabbing;
+    }
+
     /* Hexagon Panel Styles */
     .panel-item.hexagon {
       background: linear-gradient(135deg, var(--color-orange-100) 0%, var(--color-orange-200) 100%);
@@ -1093,6 +1118,8 @@
         panel.style.top = '50px';
         panel.dataset.material = materialType;
         panel.dataset.elevationAdjustment = '0'; // Default elevation adjustment
+        panel.dataset.rotation = '0'; // Initialize rotation
+        panel.style.transformOrigin = 'center center'; // Ensure transforms happen around center
         
         // Create panel label with improved two-line layout
         const label = document.createElement('div');
@@ -1103,10 +1130,20 @@
         `;
         panel.appendChild(label);
 
-        // Add click event to open edit modal
+        // Add rotation handle
+        const rotateHandle = document.createElement('div');
+        rotateHandle.className = 'rotate-handle';
+        panel.appendChild(rotateHandle);
+
+        // Add rotation logic
+        addRotateLogic(rotateHandle, panel);
+
+        // Add click event to open edit modal (but not when clicking rotate handle)
         panel.addEventListener('click', function(e) {
-          e.stopPropagation();
-          openEditModal(panel.dataset.panelId);
+          if (!e.target.classList.contains('rotate-handle')) {
+            e.stopPropagation();
+            openEditModal(panel.dataset.panelId);
+          }
         });
         
         // Add panel to canvas
@@ -1213,6 +1250,51 @@
           closeEditModal();
         }
       });
+
+      // Rotation Logic Function
+      function addRotateLogic(handle, panelEl) {
+        let rotating = false;
+        let startAngle = 0;
+        let initialRot = 0;
+        let center = { x: 0, y: 0 };
+
+        handle.addEventListener('mousedown', function(e) {
+          e.stopPropagation();
+          rotating = true;
+          
+          // Compute center of element
+          const rect = panelEl.getBoundingClientRect();
+          center = {
+            x: rect.left + rect.width / 2,
+            y: rect.top + rect.height / 2
+          };
+          
+          startAngle = Math.atan2(e.clientY - center.y, e.clientX - center.x);
+          initialRot = parseFloat(panelEl.dataset.rotation) || 0;
+          document.body.style.cursor = 'grabbing';
+        });
+
+        document.addEventListener('mousemove', function(e) {
+          if (!rotating) return;
+          
+          const current = Math.atan2(e.clientY - center.y, e.clientX - center.x);
+          const delta = current - startAngle;
+          const deg = initialRot + delta * (180 / Math.PI);
+          
+          // Snap to 15-degree increments when close
+          const snappedDeg = Math.round(deg / 15) * 15;
+          const finalDeg = Math.abs(deg - snappedDeg) < 5 ? snappedDeg : deg;
+          
+          panelEl.dataset.rotation = finalDeg;
+          panelEl.style.transform = `rotate(${finalDeg}deg)`;
+        });
+
+        document.addEventListener('mouseup', function(e) {
+          if (!rotating) return;
+          rotating = false;
+          document.body.style.cursor = '';
+        });
+      }
       
       // Panel selection in the list
       document.querySelectorAll('.panel-list-item').forEach(item => {
