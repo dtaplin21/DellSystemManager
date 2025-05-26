@@ -55,7 +55,14 @@ app.get('/panel-layout-fixed', (req, res) => {
 
 // Dashboard panel layout page
 app.get('/dashboard/panel-layout', (req, res) => {
-  res.sendFile(path.join(publicDir, 'dashboard', 'panel-layout.html'));
+  const filePath = path.join(publicDir, 'dashboard', 'panel-layout.html');
+  console.log('Attempting to serve:', filePath);
+  res.sendFile(filePath, (err) => {
+    if (err) {
+      console.error('Error serving panel-layout.html:', err);
+      res.status(404).send('Panel layout page not found');
+    }
+  });
 });
 
 // Authentication bypasses - redirect to dashboard

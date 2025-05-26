@@ -974,7 +974,7 @@
       });
       
       // Variables
-      let panelCounter = 4; // Start at 4 since we have 3 initial panels
+      let panelCounter = 1; // Start at 1 for clean numbering
       let selectedPanelId = 'panel-3';
       let currentZoom = 100;
       let isDragging = false;
@@ -1079,6 +1079,9 @@
 
       // Wire the Add Panel click
       addPanelBtn.addEventListener('click', function() {
+        console.log('Add Panel clicked!');
+        console.log('Selected shape:', selectedShape);
+        
         // Generate automatic roll and panel numbers
         const rollValue = `R-${panelCounter.toString().padStart(3, '0')}`;
         const numberValue = `P-${panelCounter.toString().padStart(3, '0')}`;
@@ -1113,8 +1116,10 @@
           rotation: 0
         };
         
+        console.log('Panel data created:', panelData);
         panels.push(panelData);
         createVisualPanel(panelData);
+        console.log('createVisualPanel called');
         
         // Add panel to list
         const listItem = document.createElement('div');
@@ -1133,11 +1138,13 @@
 
       // Create visual panel function
       function createVisualPanel(panel) {
+        console.log('createVisualPanel started with:', panel);
         const panelEl = document.createElement('div');
         panelEl.className = `panel-item ${panel.shape}`;
         panelEl.id = panel.id;
         panelEl.dataset.panelId = panel.id;
         panelEl.dataset.shape = panel.shape;
+        console.log('Panel element created:', panelEl);
         
         // Create panel label
         panelEl.innerHTML = `
@@ -1178,7 +1185,9 @@
           }
         });
 
+        console.log('About to append panel to viewer:', panelViewer);
         panelViewer.appendChild(panelEl);
+        console.log('Panel appended successfully!');
       }
 
       // Edit Panel Modal System
