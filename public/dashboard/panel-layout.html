@@ -1402,50 +1402,52 @@
       }
 
       // Snap to Neighbors Function
-      function snapToNeighbors(currentPanel, proposedX, proposedY, threshold = 15) {
+      function snapToNeighbors(currentPanel, proposedX, proposedY, threshold = 0.2) {
         const allPanels = document.querySelectorAll('.panel-item');
         let bestX = proposedX;
         let bestY = proposedY;
         
+        console.log('Snap function called with threshold:', threshold, 'Found panels:', allPanels.length);
+        
         // Get current panel dimensions
-        const currentRect = currentPanel.getBoundingClientRect();
-        const currentWidth = currentRect.width;
-        const currentHeight = currentRect.height;
+        const currentWidth = parseFloat(currentPanel.style.width) || 0;
+        const currentHeight = parseFloat(currentPanel.style.height) || 0;
         
         for (let otherPanel of allPanels) {
           if (otherPanel === currentPanel) continue;
           
-          const otherRect = otherPanel.getBoundingClientRect();
-          const containerRect = panelViewer.getBoundingClientRect();
-          
-          // Convert to local coordinates
-          const otherX = otherRect.left - containerRect.left;
-          const otherY = otherRect.top - containerRect.top;
-          const otherWidth = otherRect.width;
-          const otherHeight = otherRect.height;
+          // Get other panel position and dimensions from style
+          const otherX = parseFloat(otherPanel.style.left) || 0;
+          const otherY = parseFloat(otherPanel.style.top) || 0;
+          const otherWidth = parseFloat(otherPanel.style.width) || 0;
+          const otherHeight = parseFloat(otherPanel.style.height) || 0;
           
           // Check for horizontal alignment (snap to right edge)
           const rightEdgeDistance = Math.abs((otherX + otherWidth) - proposedX);
           if (rightEdgeDistance < threshold) {
             bestX = otherX + otherWidth;
+            console.log('Snapped to right edge, distance:', rightEdgeDistance);
           }
           
           // Check for horizontal alignment (snap to left edge)
           const leftEdgeDistance = Math.abs(otherX - (proposedX + currentWidth));
           if (leftEdgeDistance < threshold) {
             bestX = otherX - currentWidth;
+            console.log('Snapped to left edge, distance:', leftEdgeDistance);
           }
           
           // Check for vertical alignment (snap to bottom edge)
           const bottomEdgeDistance = Math.abs((otherY + otherHeight) - proposedY);
           if (bottomEdgeDistance < threshold) {
             bestY = otherY + otherHeight;
+            console.log('Snapped to bottom edge, distance:', bottomEdgeDistance);
           }
           
           // Check for vertical alignment (snap to top edge)
           const topEdgeDistance = Math.abs(otherY - (proposedY + currentHeight));
           if (topEdgeDistance < threshold) {
             bestY = otherY - currentHeight;
+            console.log('Snapped to top edge, distance:', topEdgeDistance);
           }
         }
         
