@@ -867,21 +867,7 @@
         </div>
         
         <div class="panel-canvas grid-background" id="panel-canvas">
-          <!-- Panels will be added here -->
-          <div class="panel" style="width: 150px; height: 400px; left: 100px; top: 100px;" data-panel-id="panel-1">
-            Panel 1
-          </div>
-          <div class="panel" style="width: 150px; height: 400px; left: 300px; top: 100px;" data-panel-id="panel-2">
-            Panel 2
-          </div>
-          <div class="panel selected" style="width: 150px; height: 400px; left: 500px; top: 100px;" data-panel-id="panel-3">
-            Panel 3
-            <div class="resize-handle resize-handle-nw"></div>
-            <div class="resize-handle resize-handle-ne"></div>
-            <div class="resize-handle resize-handle-se"></div>
-            <div class="resize-handle resize-handle-sw"></div>
-            <div class="rotate-handle">↻</div>
-          </div>
+          <!-- Panels will be added dynamically here -->
           
           <!-- Panel properties popup (shows when a panel is selected) -->
           <div class="panel-properties">
@@ -1138,20 +1124,22 @@
         // Add rotation logic
         addRotateLogic(rotateHandle, panel);
 
-        // Add enhanced drag and resize functionality
-        makePanelDraggable(panel, {
+        // Store panel data for drag functionality
+        const panelData = {
           x: 50 + (panelCounter * 20),
           y: 50 + (panelCounter * 15),
           width: panelWidth,
           height: panelHeight,
           shape: selectedShape
-        });
+        };
         
-        addResizeHandles(panel, {
-          width: panelWidth,
-          height: panelHeight,
-          shape: selectedShape
-        });
+        // Set initial position
+        panel.style.left = panelData.x + 'px';
+        panel.style.top = panelData.y + 'px';
+        
+        // Add enhanced drag and resize functionality
+        makePanelDraggable(panel, panelData);
+        addResizeHandles(panel, panelData);
 
         // Add click event to open edit modal (but not when clicking handles)
         panel.addEventListener('click', function(e) {
