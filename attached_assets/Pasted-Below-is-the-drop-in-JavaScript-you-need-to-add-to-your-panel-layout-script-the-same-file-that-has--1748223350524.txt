@@ -1,0 +1,117 @@
+Below is the drop-in JavaScript you need to add to your panel-layout script (the same file that has createVisualPanel). It implements both drag-and-drop and live manual resizing on every panel:
+
+js
+Copy
+Edit
+// --- DRAG & DROP LOGIC ---
+function makePanelDraggable(panelEl, panelData) {
+  const viewer = document.getElementById('panel-canvas');
+  let dragging = false;
+  let startX, startY, offsetX, offsetY;
+
+  panelEl.addEventListener('mousedown', e => {
+    // only start drag if not clicking on a handle
+    if (e.target.classList.contains('resize-handle') ||
+        e.target.classList.contains('rotate-handle')) return;
+    e.stopPropagation();
+    dragging = true;
+    // compute mouse pos in grid coords
+    const rect  = viewer.getBoundingClientRect();
+    const zoom  = parseFloat(viewer.style.transform.replace(/scale\((.+)\)/,'$1')) || 1;
+    const localX = (e.clientX - rect.left) / zoom;
+    const localY = (e.clientY - rect.top ) / zoom;
+    // record offsets
+    offsetX = localX - panelData.x;
+    offsetY = localY - panelData.y;
+    document.body.style.cursor = 'move';
+  });
+
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const rect  = viewer.getBoundingClientRect();
+    const zoom  = parseFloat(viewer.style.transform.replace(/scale\((.+)\)/,'$1')) || 1;
+    const localX = (e.clientX - rect.left) / zoom;
+    const localY = (e.clientY - rect.top ) / zoom;
+    // new positions
+    const newX = localX - offsetX;
+    const newY = localY - offsetY;
+    // apply immediately
+    panelEl.style.left = newX + 'px';
+    panelEl.style.top  = newY + 'px';
+    // update data model
+    panelData.x = newX;
+    panelData.y = newY;
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (dragging) {
+      dragging = false;
+      document.body.style.cursor = '';
+    }
+  });
+}
+js
+Copy
+Edit
+// --- LIVE RESIZE LOGIC ---
+function addResizeHandles(panelEl, panelData) {
+  // create corner grip
+  const grip = document.createElement('div');
+  grip.className = 'resize-handle';
+  panelEl.appendChild(grip);
+
+  let resizing = false;
+  let startX, startY, startW, startH;
+
+  grip.addEventListener('mousedown', e => {
+    e.stopPropagation();
+    resizing = true;
+    const rect = panelEl.getBoundingClientRect();
+    startX = e.clientX;
+    startY = e.clientY;
+    startW = rect.width;
+    startH = rect.height;
+    document.body.style.cursor = 'se-resize';
+  });
+
+  document.addEventListener('mousemove', e => {
+    if (!resizing) return;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    // calculate new px dimensions
+    const newW = Math.max(20, startW + dx);
+    const newH = Math.max(20, startH + dy);
+    // apply immediately
+    panelEl.style.width  = newW + 'px';
+    panelEl.style.height = newH + 'px';
+    // update data in feet (assuming PIXELS_PER_FOOT constant)
+    panelData.width  = newW / PIXELS_PER_FOOT;
+    panelData.length = newH / PIXELS_PER_FOOT;
+    // update on-panel size badge if you have one
+    if (panelEl._dimLabel) {
+      panelEl._dimLabel.textContent =
+        `${panelData.width.toFixed(1)}ft × ${panelData.length.toFixed(1)}ft`;
+    }
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (resizing) {
+      resizing = false;
+      document.body.style.cursor = '';
+    }
+  });
+}
+Where to put it:
+
+At the bottom of your main panel-layout JS file (e.g. panel-layout.js).
+
+Make sure both functions are defined after createVisualPanel.
+
+Confirm that inside createVisualPanel(panel) you still have:
+
+js
+Copy
+Edit
+addResizeHandles(panelElement, panel);
+makePanelDraggable(panelElement, panel);
+With this in place, any panel you click and drag moves smoothly, and dragging its bottom-right grip will live-resize it — updating both its visual size and your underlying panelData in real time.

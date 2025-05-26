@@ -1138,9 +1138,25 @@
         // Add rotation logic
         addRotateLogic(rotateHandle, panel);
 
-        // Add click event to open edit modal (but not when clicking rotate handle)
+        // Add enhanced drag and resize functionality
+        makePanelDraggable(panel, {
+          x: 50 + (panelCounter * 20),
+          y: 50 + (panelCounter * 15),
+          width: panelWidth,
+          height: panelHeight,
+          shape: selectedShape
+        });
+        
+        addResizeHandles(panel, {
+          width: panelWidth,
+          height: panelHeight,
+          shape: selectedShape
+        });
+
+        // Add click event to open edit modal (but not when clicking handles)
         panel.addEventListener('click', function(e) {
-          if (!e.target.classList.contains('rotate-handle')) {
+          if (!e.target.classList.contains('rotate-handle') && 
+              !e.target.classList.contains('resize-handle')) {
             e.stopPropagation();
             openEditModal(panel.dataset.panelId);
           }
@@ -1365,6 +1381,120 @@
         });
 
         return { x: proposedX, y: proposedY };
+      }
+
+      // Enhanced Drag & Drop Logic
+      function makePanelDraggable(panelEl, panelData) {
+        const viewer = document.getElementById('panel-canvas');
+        let dragging = false;
+        let startX, startY, offsetX, offsetY;
+
+        panelEl.addEventListener('mousedown', function(e) {
+          // Only start drag if not clicking on a handle
+          if (e.target.classList.contains('resize-handle') ||
+              e.target.classList.contains('rotate-handle')) return;
+          e.stopPropagation();
+          dragging = true;
+          
+          // Compute mouse position in grid coordinates
+          const rect = viewer.getBoundingClientRect();
+          const zoom = 1; // Assuming no zoom transform for now
+          const localX = (e.clientX - rect.left) / zoom;
+          const localY = (e.clientY - rect.top) / zoom;
+          
+          // Record offsets
+          offsetX = localX - panelData.x;
+          offsetY = localY - panelData.y;
+          document.body.style.cursor = 'move';
+        });
+
+        document.addEventListener('mousemove', function(e) {
+          if (!dragging) return;
+          const rect = viewer.getBoundingClientRect();
+          const zoom = 1; // Assuming no zoom transform for now
+          const localX = (e.clientX - rect.left) / zoom;
+          const localY = (e.clientY - rect.top) / zoom;
+          
+          // Calculate new positions
+          const newX = localX - offsetX;
+          const newY = localY - offsetY;
+          
+          // Apply snap-to-neighbors functionality
+          const { x: snapX, y: snapY } = snapPosition(panelEl, newX, newY, 20);
+          
+          // Apply immediately
+          panelEl.style.left = snapX + 'px';
+          panelEl.style.top = snapY + 'px';
+          
+          // Update data model
+          panelData.x = snapX;
+          panelData.y = snapY;
+        });
+
+        document.addEventListener('mouseup', function() {
+          if (dragging) {
+            dragging = false;
+            document.body.style.cursor = '';
+          }
+        });
+      }
+
+      // Live Resize Logic
+      function addResizeHandles(panelEl, panelData) {
+        const PIXELS_PER_FOOT = 10; // Scale factor for display
+        
+        // Create corner grip
+        const grip = document.createElement('div');
+        grip.className = 'resize-handle resize-handle-se';
+        panelEl.appendChild(grip);
+
+        let resizing = false;
+        let startX, startY, startW, startH;
+
+        grip.addEventListener('mousedown', function(e) {
+          e.stopPropagation();
+          resizing = true;
+          const rect = panelEl.getBoundingClientRect();
+          startX = e.clientX;
+          startY = e.clientY;
+          startW = rect.width;
+          startH = rect.height;
+          document.body.style.cursor = 'se-resize';
+        });
+
+        document.addEventListener('mousemove', function(e) {
+          if (!resizing) return;
+          const dx = e.clientX - startX;
+          const dy = e.clientY - startY;
+          
+          // Calculate new pixel dimensions
+          const newW = Math.max(50, startW + dx);
+          const newH = Math.max(50, startH + dy);
+          
+          // Apply immediately
+          panelEl.style.width = newW + 'px';
+          panelEl.style.height = newH + 'px';
+          
+          // Update data in feet
+          panelData.width = newW / PIXELS_PER_FOOT;
+          panelData.height = newH / PIXELS_PER_FOOT;
+          
+          // Update panel label with new dimensions
+          const rollText = panelEl.querySelector('.roll-text');
+          const panelText = panelEl.querySelector('.panel-text');
+          if (rollText && panelText) {
+            const shapeSymbol = panelData.shape === 'triangle' ? ' △' : 
+                              panelData.shape === 'hexagon' ? ' ⬢' : '';
+            panelText.textContent = `${panelData.width.toFixed(0)}' × ${panelData.height.toFixed(0)}'${shapeSymbol}`;
+          }
+        });
+
+        document.addEventListener('mouseup', function() {
+          if (resizing) {
+            resizing = false;
+            document.body.style.cursor = '';
+          }
+        });
       }
       
       // Panel selection in the list
