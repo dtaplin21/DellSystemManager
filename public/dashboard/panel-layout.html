@@ -250,7 +250,6 @@
       color: var(--color-navy-900);
       font-weight: 600;
       text-align: center;
-      line-height: 1.2;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -258,6 +257,24 @@
       width: 100%;
       height: 100%;
       transform: translateY(-10%);
+      padding: 2px;
+    }
+
+    .panel-label .roll-text,
+    .panel-label .panel-text {
+      width: 100%;
+      text-align: center;
+      line-height: 1;
+    }
+
+    .panel-label .roll-text {
+      font-size: 0.8em;
+      font-weight: 700;
+    }
+
+    .panel-label .panel-text {
+      font-size: 1em;
+      font-weight: 600;
     }
 
     /* Hexagon Panel Styles */
@@ -275,13 +292,13 @@
       color: var(--color-orange-900);
       font-weight: 600;
       text-align: center;
-      line-height: 1.2;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       width: 100%;
       height: 100%;
+      padding: 2px;
     }
     
     .panel-canvas-container {
@@ -1006,10 +1023,13 @@
         panel.dataset.material = materialType;
         panel.dataset.elevationAdjustment = '0'; // Default elevation adjustment
         
-        // Create panel label with two lines
+        // Create panel label with improved two-line layout
         const label = document.createElement('div');
         label.className = 'panel-label';
-        label.innerHTML = `<div>P-${panelCounter.toString().padStart(3, '0')}</div><div>${displayText}</div>`;
+        label.innerHTML = `
+          <div class="roll-text">R-${panelCounter.toString().padStart(3, '0')}</div>
+          <div class="panel-text">P-${panelCounter.toString().padStart(3, '0')}</div>
+        `;
         panel.appendChild(label);
         
         // Add panel to canvas
