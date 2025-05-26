@@ -277,6 +277,53 @@
       font-weight: 600;
     }
 
+    /* Modal Styles */
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-content {
+      background: white;
+      padding: 2rem;
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      min-width: 400px;
+      max-width: 500px;
+    }
+
+    .modal h2 {
+      margin: 0 0 1.5rem 0;
+      color: var(--color-navy-950);
+      font-size: 1.5rem;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 0.75rem;
+      margin-top: 1.5rem;
+      justify-content: flex-end;
+    }
+
+    .btn-danger {
+      background: #dc3545;
+      color: white;
+      border: 1px solid #dc3545;
+    }
+
+    .btn-danger:hover {
+      background: #c82333;
+      border-color: #bd2130;
+    }
+
     /* Hexagon Panel Styles */
     .panel-item.hexagon {
       background: linear-gradient(135deg, var(--color-orange-100) 0%, var(--color-orange-200) 100%);
@@ -840,6 +887,30 @@
     </div>
   </div>
 
+  <!-- Edit Panel Modal -->
+  <div id="edit-panel-modal" class="modal" style="display:none;">
+    <div class="modal-content">
+      <h2>Edit Panel</h2>
+      <input type="hidden" id="edit-panel-id">
+
+      <div class="form-group">
+        <label for="edit-panel-roll">Roll Number</label>
+        <input type="text" id="edit-panel-roll" placeholder="e.g. R-102">
+      </div>
+
+      <div class="form-group">
+        <label for="edit-panel-number">Panel Number</label>
+        <input type="text" id="edit-panel-number" placeholder="e.g. P-001">
+      </div>
+
+      <div class="modal-actions">
+        <button id="save-panel-btn" class="btn btn-primary">Save Changes</button>
+        <button id="delete-panel-btn" class="btn btn-danger">Delete Panel</button>
+        <button id="cancel-edit-btn" class="btn btn-secondary">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <script src="/js/panel-optimizer.js"></script>
   <script>
     // Panel Layout Tool JavaScript
@@ -1031,6 +1102,12 @@
           <div class="panel-text">P-${panelCounter.toString().padStart(3, '0')}</div>
         `;
         panel.appendChild(label);
+
+        // Add click event to open edit modal
+        panel.addEventListener('click', function(e) {
+          e.stopPropagation();
+          openEditModal(panel.dataset.panelId);
+        });
         
         // Add panel to canvas
         panelCanvas.appendChild(panel);
@@ -1051,6 +1128,90 @@
         selectPanel(`panel-${panelCounter}`);
         
         panelCounter++;
+      });
+
+      // Edit Panel Modal System
+      const editModal = document.getElementById('edit-panel-modal');
+      const rollInput = document.getElementById('edit-panel-roll');
+      const numberInput = document.getElementById('edit-panel-number');
+      const idInput = document.getElementById('edit-panel-id');
+      const saveBtn = document.getElementById('save-panel-btn');
+      const deleteBtn = document.getElementById('delete-panel-btn');
+      const cancelBtn = document.getElementById('cancel-edit-btn');
+
+      function openEditModal(panelId) {
+        const panelEl = document.querySelector(`[data-panel-id="${panelId}"]`);
+        if (!panelEl) return;
+
+        // Extract current roll and panel numbers from the label
+        const rollText = panelEl.querySelector('.roll-text');
+        const panelText = panelEl.querySelector('.panel-text');
+        
+        idInput.value = panelId;
+        rollInput.value = rollText ? rollText.textContent : `R-${panelId.split('-')[1]}`;
+        numberInput.value = panelText ? panelText.textContent : `P-${panelId.split('-')[1]}`;
+
+        editModal.style.display = 'flex';
+      }
+
+      function closeEditModal() {
+        editModal.style.display = 'none';
+      }
+
+      // Save changes
+      saveBtn.addEventListener('click', function() {
+        const id = idInput.value;
+        const roll = rollInput.value.trim();
+        const number = numberInput.value.trim();
+        const panelEl = document.querySelector(`[data-panel-id="${id}"]`);
+
+        if (roll && number && panelEl) {
+          // Update panel label
+          const rollText = panelEl.querySelector('.roll-text');
+          const panelText = panelEl.querySelector('.panel-text');
+          
+          if (rollText) rollText.textContent = roll;
+          if (panelText) panelText.textContent = number;
+
+          // Update panel list item
+          const listItem = document.querySelector(`.panel-list-item[data-panel-id="${id}"]`);
+          if (listItem) {
+            const panelName = id.replace('panel-', 'Panel ');
+            const sizeSpan = listItem.querySelector('span');
+            const sizeText = sizeSpan ? sizeSpan.textContent : '';
+            listItem.innerHTML = `${roll} • ${number} <span>${sizeText}</span>`;
+          }
+        }
+
+        closeEditModal();
+      });
+
+      // Delete panel
+      deleteBtn.addEventListener('click', function() {
+        const id = idInput.value;
+        const panelEl = document.querySelector(`[data-panel-id="${id}"]`);
+        const listItem = document.querySelector(`.panel-list-item[data-panel-id="${id}"]`);
+
+        if (panelEl) panelEl.remove();
+        if (listItem) listItem.remove();
+
+        // Hide panel properties if this was the selected panel
+        if (selectedPanelId === id) {
+          document.querySelector('.panel-properties').style.display = 'none';
+          selectedPanelId = null;
+        }
+
+        closeEditModal();
+      });
+
+      // Cancel
+      cancelBtn.addEventListener('click', closeEditModal);
+
+      // Close modal when clicking outside
+      editModal.addEventListener('click', function(e) {
+        if (e.target === editModal) {
+          closeEditModal();
+        }
       });
       
       // Panel selection in the list

@@ -1,0 +1,131 @@
+Here’s one way to give each panel an edit/delete UI:
+
+1) Add an “Edit Panel” Modal
+Place this somewhere near your other modals in your HTML:
+
+html
+Copy
+Edit
+<div id="edit-panel-modal" class="modal" style="display:none;">
+  <div class="modal-content">
+    <h2>Edit Panel</h2>
+    <input type="hidden" id="edit-panel-id">
+
+    <div class="form-group">
+      <label for="edit-panel-roll">Roll Number</label>
+      <input type="text" id="edit-panel-roll">
+    </div>
+
+    <div class="form-group">
+      <label for="edit-panel-number">Panel Number</label>
+      <input type="text" id="edit-panel-number">
+    </div>
+
+    <div class="modal-actions">
+      <button id="save-panel-btn" class="btn btn-primary">Save</button>
+      <button id="delete-panel-btn" class="btn btn-danger">Delete</button>
+      <button id="cancel-edit-btn" class="btn">Cancel</button>
+    </div>
+  </div>
+</div>
+2) Hook up each panel to open that modal
+In your createVisualPanel(panel):
+
+js
+Copy
+Edit
+function createVisualPanel(panel) {
+  // …existing code to build panelElement…
+
+  // when you click the panel, open the edit modal
+  panelElement.addEventListener('click', e => {
+    e.stopPropagation();
+    openEditModal(panel.id);
+  });
+
+  panelViewer.appendChild(panelElement);
+}
+3) Implement openEditModal + button handlers
+Add this to your script (after your modal HTML is loaded):
+
+js
+Copy
+Edit
+const editModal      = document.getElementById('edit-panel-modal');
+const rollInput      = document.getElementById('edit-panel-roll');
+const numberInput    = document.getElementById('edit-panel-number');
+const idInput        = document.getElementById('edit-panel-id');
+const saveBtn        = document.getElementById('save-panel-btn');
+const deleteBtn      = document.getElementById('delete-panel-btn');
+const cancelBtn      = document.getElementById('cancel-edit-btn');
+
+function openEditModal(panelId) {
+  const panel = panels.find(p => p.id === panelId);
+  if (!panel) return;
+
+  idInput.value     = panel.id;
+  rollInput.value   = panel.rollNumber;
+  numberInput.value = panel.panelNumber;
+
+  editModal.style.display = 'block';
+}
+
+// Save changes
+saveBtn.addEventListener('click', () => {
+  const id       = idInput.value;
+  const roll     = rollInput.value.trim();
+  const number   = numberInput.value.trim();
+  const panelEl  = document.getElementById(id);
+  const panelObj = panels.find(p => p.id === id);
+
+  if (roll && number && panelEl && panelObj) {
+    // update data
+    panelObj.rollNumber   = roll;
+    panelObj.panelNumber  = number;
+    panelObj.id           = number;            // if you want panel.id to update too
+
+    // update DOM: change its id and its label
+    panelEl.id            = number;
+    const label           = panelEl.querySelector('.panel-label');
+    label.textContent     = `${roll} • ${number}`;
+  }
+
+  closeEditModal();
+});
+
+// Delete panel
+deleteBtn.addEventListener('click', () => {
+  const id = idInput.value;
+  // remove from DOM
+  const panelEl = document.getElementById(id);
+  if (panelEl) panelEl.remove();
+  // remove from data
+  panels = panels.filter(p => p.id !== id);
+  closeEditModal();
+});
+
+// Cancel
+cancelBtn.addEventListener('click', closeEditModal);
+
+function closeEditModal() {
+  editModal.style.display = 'none';
+}
+Summary of flow
+Click any panel → openEditModal(panelId)
+
+The modal pre-loads its roll & panel numbers.
+
+Save → updates the JS panels[] entry, the DOM element’s id, and the centered label.
+
+Delete → removes the DOM element and the data entry.
+
+Cancel → just closes the modal.
+
+This gives you full per-panel edit/delete control while keeping everything in sync.
+
+
+
+
+
+
+
