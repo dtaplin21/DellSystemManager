@@ -437,6 +437,7 @@
       display: flex;
       flex-direction: column;
       height: 100%;
+      overflow: auto; /* Enable scrolling for large workspace */
     }
     
     .canvas-toolbar {
@@ -466,7 +467,7 @@
     .panel-canvas.grid-background {
       background-image: linear-gradient(to right, rgba(0,0,0,0.05) 1px, transparent 1px),
                         linear-gradient(to bottom, rgba(0,0,0,0.05) 1px, transparent 1px);
-      background-size: 20px 20px;
+      background-size: 1000px 1000px;
     }
     
     .panel {
@@ -1087,6 +1088,17 @@
       const panelViewer = document.getElementById('panel-canvas');
       let panels = [];
       const PIXELS_PER_FOOT = 10;
+      
+      // Workspace Configuration - 4,000 ft × 4,000 ft professional workspace
+      const SITE_SIZE_FT = 4000;
+      const sitePx = SITE_SIZE_FT * PIXELS_PER_FOOT; // 40,000 pixels total
+      
+      // Configure the workspace size for large-scale layouts
+      panelViewer.style.width = sitePx + 'px';
+      panelViewer.style.height = sitePx + 'px';
+      panelViewer.style.position = 'relative';
+      
+      console.log(`Workspace configured: ${SITE_SIZE_FT}ft × ${SITE_SIZE_FT}ft (${sitePx}px × ${sitePx}px)`);
 
       // Wire the Add Panel click
       addPanelBtn.addEventListener('click', function() {

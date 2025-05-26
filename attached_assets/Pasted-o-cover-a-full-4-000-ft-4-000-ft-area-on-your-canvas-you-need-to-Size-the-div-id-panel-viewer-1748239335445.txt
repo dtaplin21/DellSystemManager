@@ -1,0 +1,66 @@
+o cover a full 4 000 ft × 4 000 ft area on your canvas, you need to:
+
+Size the <div id="panel-viewer"> so it spans 4 000 ft at your chosen scale (pixels-per-foot).
+
+Keep your existing zoom/transform logic so you can zoom in/out on that large area.
+
+Ensure the grid‐background still tiles correctly over the new size.
+
+1) In your JS, after you grab panelViewer and define PIXELS_PER_FOOT, add:
+js
+Copy
+Edit
+// Desired site extents in feet:
+const SITE_SIZE_FT = 4000;
+
+// 1) Compute pixel size of the full site:
+const sitePx = SITE_SIZE_FT * PIXELS_PER_FOOT;
+
+// 2) Apply to the viewer container:
+const panelViewer = document.getElementById('panel-viewer');
+panelViewer.style.width  = sitePx + 'px';
+panelViewer.style.height = sitePx + 'px';
+Place that inside your DOMContentLoaded init block (after you’ve defined PIXELS_PER_FOOT and fetched panelViewer), so as soon as the page loads the container spans 4 000 ft in both dimensions.
+
+2) Keep overflow for scrolling
+In your CSS, make sure your viewer’s parent can scroll:
+
+css
+Copy
+Edit
+/* Your existing, but ensure overflow */
+.panel-viewer-container {
+  overflow: auto;    /* scrollbars appear when content > viewport */
+}
+That way you can pan around the 4 000 ft × 4 000 ft workspace.
+
+3) Your grid still tiles
+Your CSS:
+
+css
+Copy
+Edit
+.panel-viewer {
+  background-image:
+    linear-gradient(to right, rgba(0,0,0,0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0,0,0,0.05) 1px, transparent 1px);
+  /* background-size is driven by your JS / dynamic logic */
+}
+If you’re using the static background-size: 100px 100px;, you can leave it there—or call your updateGridToSixtieth() (or updateGridBackground()) after resizing to keep it in sync.
+
+4) Zoom still works
+Your existing zoom code:
+
+js
+Copy
+Edit
+zoomInBtn.addEventListener('click', () => {
+  zoomLevel = Math.min(MAX_ZOOM, zoomLevel + ZOOM_STEP);
+  updateZoom();
+  updateGridToSixtieth();  // if you’re doing dynamic grid sizes
+});
+zoomOutBtn.addEventListener('click', () => {
+  zoomLevel = Math.max(MIN_ZOOM, zoomLevel - ZOOM_STEP);
+  updateZoom();
+  updateGridToSixtieth();
+});
