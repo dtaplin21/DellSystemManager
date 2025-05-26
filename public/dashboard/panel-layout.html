@@ -1053,7 +1053,7 @@
       resetWorkspaceBtn.addEventListener('click', function() {
         if (confirm('Are you sure you want to reset the workspace? All panels will be removed.')) {
           // Remove all panels except the properties popup and scale indicator
-          document.querySelectorAll('.panel').forEach(panel => panel.remove());
+          document.querySelectorAll('.panel-item').forEach(panel => panel.remove());
           
           // Clear panel list
           while (panelList.firstChild) {
@@ -1373,44 +1373,42 @@
 
       // Enhanced Drag & Drop Logic
       function makePanelDraggable(panelEl, panelData) {
-        const viewer = document.getElementById('panel-canvas');
-        let dragging = false;
-        let startX, startY, offsetX, offsetY;
+        let isDragging = false;
+        let dragStartX, dragStartY, elementStartX, elementStartY;
 
         panelEl.addEventListener('mousedown', function(e) {
           // Only start drag if not clicking on a handle
           if (e.target.classList.contains('resize-handle') ||
               e.target.classList.contains('rotate-handle')) return;
+          
+          e.preventDefault();
           e.stopPropagation();
-          dragging = true;
           
-          // Compute mouse position in grid coordinates
-          const rect = viewer.getBoundingClientRect();
-          const zoom = 1; // Assuming no zoom transform for now
-          const localX = (e.clientX - rect.left) / zoom;
-          const localY = (e.clientY - rect.top) / zoom;
+          isDragging = true;
+          dragStartX = e.clientX;
+          dragStartY = e.clientY;
+          elementStartX = parseInt(panelEl.style.left) || 0;
+          elementStartY = parseInt(panelEl.style.top) || 0;
           
-          // Record offsets
-          offsetX = localX - panelData.x;
-          offsetY = localY - panelData.y;
           document.body.style.cursor = 'move';
+          panelEl.style.zIndex = '1000';
         });
 
         document.addEventListener('mousemove', function(e) {
-          if (!dragging) return;
-          const rect = viewer.getBoundingClientRect();
-          const zoom = 1; // Assuming no zoom transform for now
-          const localX = (e.clientX - rect.left) / zoom;
-          const localY = (e.clientY - rect.top) / zoom;
+          if (!isDragging) return;
           
-          // Calculate new positions
-          const newX = localX - offsetX;
-          const newY = localY - offsetY;
+          e.preventDefault();
+          
+          const deltaX = e.clientX - dragStartX;
+          const deltaY = e.clientY - dragStartY;
+          
+          const newX = elementStartX + deltaX;
+          const newY = elementStartY + deltaY;
           
           // Apply snap-to-neighbors functionality
           const { x: snapX, y: snapY } = snapPosition(panelEl, newX, newY, 20);
           
-          // Apply immediately
+          // Update position
           panelEl.style.left = snapX + 'px';
           panelEl.style.top = snapY + 'px';
           
@@ -1419,10 +1417,11 @@
           panelData.y = snapY;
         });
 
-        document.addEventListener('mouseup', function() {
-          if (dragging) {
-            dragging = false;
+        document.addEventListener('mouseup', function(e) {
+          if (isDragging) {
+            isDragging = false;
             document.body.style.cursor = '';
+            panelEl.style.zIndex = '';
           }
         });
       }
