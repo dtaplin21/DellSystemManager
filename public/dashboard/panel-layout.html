@@ -975,21 +975,42 @@
       
       // Add new panel
       addPanelBtn.addEventListener('click', function() {
-        const panelWidth = parseInt(panelWidthInput.value, 10);
-        const panelLength = parseInt(panelLengthInput.value, 10);
-        const materialType = panelMaterialSelect.value;
+        let panelWidth, panelHeight, materialType, displayText;
+        
+        // Get dimensions based on selected shape
+        if (selectedShape === 'rectangle') {
+          panelWidth = parseInt(panelWidthInput.value, 10);
+          panelHeight = parseInt(panelLengthInput.value, 10);
+          displayText = `${panelWidth}' x ${panelHeight}'`;
+        } else if (selectedShape === 'triangle') {
+          panelWidth = parseInt(document.getElementById('triangle-base').value, 10);
+          panelHeight = parseInt(document.getElementById('triangle-height').value, 10);
+          displayText = `${panelWidth}' × ${panelHeight}' △`;
+        } else if (selectedShape === 'hexagon') {
+          panelWidth = parseInt(document.getElementById('hexagon-width').value, 10);
+          panelHeight = parseInt(document.getElementById('hexagon-height').value, 10);
+          displayText = `${panelWidth}' × ${panelHeight}' ⬢`;
+        }
+        
+        materialType = panelMaterialSelect.value;
         
         // Create panel element
         const panel = document.createElement('div');
-        panel.className = 'panel';
+        panel.className = `panel-item ${selectedShape}`;
         panel.dataset.panelId = `panel-${panelCounter}`;
+        panel.dataset.shape = selectedShape;
         panel.style.width = `${panelWidth * 10}px`; // Scale properly
-        panel.style.height = `${panelLength * 4}px`; // Scale properly
+        panel.style.height = `${panelHeight * 4}px`; // Scale properly
         panel.style.left = '50px';
         panel.style.top = '50px';
-        panel.textContent = `Panel ${panelCounter}`;
         panel.dataset.material = materialType;
         panel.dataset.elevationAdjustment = '0'; // Default elevation adjustment
+        
+        // Create panel label with two lines
+        const label = document.createElement('div');
+        label.className = 'panel-label';
+        label.innerHTML = `<div>P-${panelCounter.toString().padStart(3, '0')}</div><div>${displayText}</div>`;
+        panel.appendChild(label);
         
         // Add panel to canvas
         panelCanvas.appendChild(panel);
@@ -998,7 +1019,7 @@
         const listItem = document.createElement('div');
         listItem.className = 'panel-list-item';
         listItem.dataset.panelId = `panel-${panelCounter}`;
-        listItem.innerHTML = `Panel ${panelCounter} <span>${panelWidth}' x ${panelLength}'</span>`;
+        listItem.innerHTML = `Panel ${panelCounter} <span>${displayText}</span>`;
         panelList.appendChild(listItem);
         
         // Attach click event to list item
