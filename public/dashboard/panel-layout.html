@@ -273,6 +273,14 @@
       background: linear-gradient(135deg, var(--color-navy-100) 0%, var(--color-navy-200) 100%);
       border: 2px solid var(--color-navy-500);
       clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+      overflow: visible; /* Allow rotation handle to show outside clipped area */
+    }
+
+    /* Position rotation handle properly for hexagons */
+    .panel-item.hexagon .rotate-handle {
+      top: 8px !important; /* Inside the hexagon shape */
+      left: calc(50% - 10px) !important; /* Center the 20px handle */
+      right: auto !important;
     }
 
     /* Triangle Panel Styles */
@@ -284,6 +292,14 @@
       align-items: center;
       justify-content: center;
       flex-direction: column;
+      overflow: visible; /* Allow rotation handle to show outside clipped area */
+    }
+
+    /* Position rotation handle properly for triangles */
+    .panel-item.triangle .rotate-handle {
+      top: 4px !important; /* Inside the triangle shape */
+      left: calc(50% - 10px) !important; /* Center the 20px handle */
+      right: auto !important;
     }
 
     .panel-item.triangle .panel-label {
