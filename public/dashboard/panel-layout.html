@@ -902,13 +902,9 @@
       const panelCanvas = document.getElementById('panel-canvas');
       const addPanelBtn = document.getElementById('add-panel');
       const panelList = document.getElementById('panel-list');
-      const showGridCheckbox = document.getElementById('show-grid');
-      const resetWorkspaceBtn = document.getElementById('reset-workspace');
       const zoomInBtn = document.getElementById('zoom-in');
       const zoomOutBtn = document.getElementById('zoom-out');
       const zoomLevelEl = document.getElementById('zoom-level');
-      const workspaceWidthInput = document.getElementById('workspace-width');
-      const workspaceHeightInput = document.getElementById('workspace-height');
       const panelWidthInput = document.getElementById('panel-width');
       const panelLengthInput = document.getElementById('panel-length');
       const panelMaterialSelect = document.getElementById('panel-material');
@@ -1016,33 +1012,9 @@
       
       // Event Listeners
       
-      // Toggle grid
-      showGridCheckbox.addEventListener('change', function() {
-        panelCanvas.classList.toggle('grid-background', this.checked);
-      });
+      // Grid toggle functionality removed since workspace setup section was removed
       
-      // Reset workspace
-      resetWorkspaceBtn.addEventListener('click', function() {
-        if (confirm('Are you sure you want to reset the workspace? All panels will be removed.')) {
-          // Remove all panels except the properties popup and scale indicator
-          document.querySelectorAll('.panel-item').forEach(panel => panel.remove());
-          
-          // Clear panel list
-          while (panelList.firstChild) {
-            panelList.removeChild(panelList.firstChild);
-          }
-          
-          panelCounter = 1;
-          selectedPanelId = null;
-          
-          // Reset workspace dimensions
-          workspaceWidthInput.value = 100;
-          workspaceHeightInput.value = 150;
-          
-          // Hide panel properties
-          document.querySelector('.panel-properties').style.display = 'none';
-        }
-      });
+      // Reset workspace functionality removed since workspace setup section was removed
       
       // Top-level state & container
       const panelViewer = document.getElementById('panel-canvas');
