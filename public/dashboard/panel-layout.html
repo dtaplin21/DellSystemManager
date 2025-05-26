@@ -196,6 +196,93 @@
       display: flex;
       gap: 0.5rem;
     }
+
+    /* Shape Toggle Styles */
+    .shape-toggle {
+      display: flex;
+      border: 1px solid var(--color-navy-200);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 1rem;
+    }
+
+    .shape-option {
+      flex: 1;
+      padding: 0.5rem;
+      text-align: center;
+      background: white;
+      font-size: 0.75rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      border-right: 1px solid var(--color-navy-200);
+    }
+
+    .shape-option:last-child {
+      border-right: none;
+    }
+
+    .shape-option:hover {
+      background: var(--color-navy-50);
+    }
+
+    .shape-option.selected {
+      background: var(--color-navy-950);
+      color: white;
+    }
+
+    .shape-controls {
+      transition: all 0.3s ease;
+    }
+
+    /* Triangle Panel Styles */
+    .panel-item.triangle {
+      background: linear-gradient(135deg, var(--color-navy-100) 0%, var(--color-navy-200) 100%);
+      border: 2px solid var(--color-navy-500);
+      clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+    }
+
+    .panel-item.triangle .panel-label {
+      color: var(--color-navy-900);
+      font-weight: 600;
+      text-align: center;
+      line-height: 1.2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+      transform: translateY(-10%);
+    }
+
+    /* Hexagon Panel Styles */
+    .panel-item.hexagon {
+      background: linear-gradient(135deg, var(--color-orange-100) 0%, var(--color-orange-200) 100%);
+      border: 2px solid var(--color-orange-500);
+      clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+    }
+
+    .panel-item.hexagon .panel-label {
+      color: var(--color-orange-900);
+      font-weight: 600;
+      text-align: center;
+      line-height: 1.2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+    }
     
     .panel-canvas-container {
       background: white;
@@ -573,15 +660,58 @@
         <div class="control-section">
           <h2 class="section-title">Panel Creation</h2>
           <div class="form-group">
-            <label>Standard Panel Dimensions</label>
-            <div class="dimensions-grid">
-              <div>
-                <label for="panel-width">Width (ft)</label>
-                <input type="number" id="panel-width" value="15" min="1" max="100">
+            <label>Panel Shape</label>
+            <div class="shape-toggle">
+              <div class="shape-option selected" data-shape="rectangle">Rectangle</div>
+              <div class="shape-option" data-shape="triangle">Triangle</div>
+              <div class="shape-option" data-shape="hexagon">Hexagon</div>
+            </div>
+          </div>
+          
+          <div id="rectangle-controls" class="shape-controls">
+            <div class="form-group">
+              <label>Standard Panel Dimensions</label>
+              <div class="dimensions-grid">
+                <div>
+                  <label for="panel-width">Width (ft)</label>
+                  <input type="number" id="panel-width" value="15" min="1" max="100">
+                </div>
+                <div>
+                  <label for="panel-length">Length (ft)</label>
+                  <input type="number" id="panel-length" value="100" min="1" max="500">
+                </div>
               </div>
-              <div>
-                <label for="panel-length">Length (ft)</label>
-                <input type="number" id="panel-length" value="100" min="1" max="500">
+            </div>
+          </div>
+          
+          <div id="triangle-controls" class="shape-controls" style="display: none;">
+            <div class="form-group">
+              <label>Triangle Panel Dimensions</label>
+              <div class="dimensions-grid">
+                <div>
+                  <label for="triangle-base">Base (ft)</label>
+                  <input type="number" id="triangle-base" value="15" min="1" max="100">
+                </div>
+                <div>
+                  <label for="triangle-height">Height (ft)</label>
+                  <input type="number" id="triangle-height" value="12" min="1" max="100">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div id="hexagon-controls" class="shape-controls" style="display: none;">
+            <div class="form-group">
+              <label>Hexagon Panel Dimensions</label>
+              <div class="dimensions-grid">
+                <div>
+                  <label for="hexagon-width">Width (ft)</label>
+                  <input type="number" id="hexagon-width" value="20" min="1" max="100">
+                </div>
+                <div>
+                  <label for="hexagon-height">Height (ft)</label>
+                  <input type="number" id="hexagon-height" value="17" min="1" max="100">
+                </div>
               </div>
             </div>
           </div>
@@ -718,6 +848,31 @@
       const exportDxfBtn = document.getElementById('export-dxf');
       const exportExcelBtn = document.getElementById('export-excel');
       const saveLayoutBtn = document.getElementById('save-layout');
+
+      // Shape selection variables
+      let selectedShape = 'rectangle';
+
+      // Shape selection handling
+      document.querySelectorAll('.shape-option').forEach(option => {
+        option.addEventListener('click', function() {
+          document.querySelectorAll('.shape-option').forEach(opt => opt.classList.remove('selected'));
+          this.classList.add('selected');
+          selectedShape = this.dataset.shape;
+          
+          // Show/hide appropriate controls
+          document.querySelectorAll('.shape-controls').forEach(control => {
+            control.style.display = 'none';
+          });
+          
+          if (selectedShape === 'rectangle') {
+            document.getElementById('rectangle-controls').style.display = 'block';
+          } else if (selectedShape === 'triangle') {
+            document.getElementById('triangle-controls').style.display = 'block';
+          } else if (selectedShape === 'hexagon') {
+            document.getElementById('hexagon-controls').style.display = 'block';
+          }
+        });
+      });
       
       // Variables
       let panelCounter = 4; // Start at 4 since we have 3 initial panels
