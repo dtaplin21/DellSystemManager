@@ -235,6 +235,46 @@
       transition: all 0.3s ease;
     }
 
+    /* Base Panel Styles */
+    .panel-item {
+      position: absolute;
+      background: linear-gradient(135deg, var(--color-navy-100) 0%, var(--color-navy-200) 100%);
+      border: 2px solid var(--color-navy-500);
+      border-radius: 4px;
+      cursor: move;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      transition: all 0.2s ease;
+      min-width: 50px;
+      min-height: 50px;
+    }
+
+    .panel-item:hover {
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      transform: translateY(-1px);
+    }
+
+    .panel-item.selected {
+      border-color: var(--color-orange-500);
+      box-shadow: 0 0 0 3px rgba(255, 127, 17, 0.2);
+    }
+
+    /* Rectangle Panel Styles */
+    .panel-item.rectangle {
+      background: linear-gradient(135deg, var(--color-navy-100) 0%, var(--color-navy-200) 100%);
+      border: 2px solid var(--color-navy-500);
+    }
+
+    /* Hexagon Panel Styles */
+    .panel-item.hexagon {
+      background: linear-gradient(135deg, var(--color-navy-100) 0%, var(--color-navy-200) 100%);
+      border: 2px solid var(--color-navy-500);
+      clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+    }
+
     /* Triangle Panel Styles */
     .panel-item.triangle {
       background: linear-gradient(135deg, var(--color-navy-100) 0%, var(--color-navy-200) 100%);
