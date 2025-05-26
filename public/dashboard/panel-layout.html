@@ -1072,9 +1072,23 @@
         }
       });
       
-      // Add new panel
+      // Top-level state & container
+      const panelViewer = document.getElementById('panel-canvas');
+      let panels = [];
+      const PIXELS_PER_FOOT = 10;
+
+      // Wire the Add Panel click
       addPanelBtn.addEventListener('click', function() {
-        let panelWidth, panelHeight, materialType, displayText;
+        // Get roll and panel numbers
+        const rollValue = panelRollInput.value.trim();
+        const numberValue = panelNumberInput.value.trim();
+        
+        if (!rollValue || !numberValue) {
+          alert('Please enter both Roll Number and Panel Number');
+          return;
+        }
+
+        let panelWidth, panelHeight, displayText;
         
         // Get dimensions based on selected shape
         if (selectedShape === 'rectangle') {
@@ -1090,73 +1104,27 @@
           panelHeight = parseInt(document.getElementById('hexagon-height').value, 10);
           displayText = `${panelWidth}' × ${panelHeight}' ⬢`;
         }
-        
-        materialType = panelMaterialSelect.value;
-        
-        // Create panel element
-        const panel = document.createElement('div');
-        panel.className = `panel-item ${selectedShape}`;
-        panel.dataset.panelId = `panel-${panelCounter}`;
-        panel.dataset.shape = selectedShape;
-        panel.style.width = `${panelWidth * 10}px`; // Scale properly
-        panel.style.height = `${panelHeight * 4}px`; // Scale properly
-        panel.style.left = '50px';
-        panel.style.top = '50px';
-        panel.dataset.material = materialType;
-        panel.dataset.elevationAdjustment = '0'; // Default elevation adjustment
-        panel.dataset.rotation = '0'; // Initialize rotation
-        panel.style.transformOrigin = 'center center'; // Ensure transforms happen around center
-        
-        // Create panel label with improved two-line layout
-        const label = document.createElement('div');
-        label.className = 'panel-label';
-        label.innerHTML = `
-          <div class="roll-text">R-${panelCounter.toString().padStart(3, '0')}</div>
-          <div class="panel-text">P-${panelCounter.toString().padStart(3, '0')}</div>
-        `;
-        panel.appendChild(label);
 
-        // Add rotation handle
-        const rotateHandle = document.createElement('div');
-        rotateHandle.className = 'rotate-handle';
-        panel.appendChild(rotateHandle);
-
-        // Add rotation logic
-        addRotateLogic(rotateHandle, panel);
-
-        // Store panel data for drag functionality
+        // Build the panel data object
         const panelData = {
-          x: 50 + (panelCounter * 20),
-          y: 50 + (panelCounter * 15),
+          id: `panel-${panelCounter}`,
+          rollNumber: rollValue,
+          panelNumber: numberValue,
+          shape: selectedShape,
           width: panelWidth,
           height: panelHeight,
-          shape: selectedShape
+          x: 50 + (panelCounter * 20),
+          y: 50 + (panelCounter * 15),
+          rotation: 0
         };
         
-        // Set initial position
-        panel.style.left = panelData.x + 'px';
-        panel.style.top = panelData.y + 'px';
-        
-        // Add enhanced drag and resize functionality
-        makePanelDraggable(panel, panelData);
-        addResizeHandles(panel, panelData);
-
-        // Add click event to open edit modal (but not when clicking handles)
-        panel.addEventListener('click', function(e) {
-          if (!e.target.classList.contains('rotate-handle') && 
-              !e.target.classList.contains('resize-handle')) {
-            e.stopPropagation();
-            openEditModal(panel.dataset.panelId);
-          }
-        });
-        
-        // Add panel to canvas
-        panelCanvas.appendChild(panel);
+        panels.push(panelData);
+        createVisualPanel(panelData);
         
         // Add panel to list
         const listItem = document.createElement('div');
         listItem.className = 'panel-list-item';
-        listItem.dataset.panelId = `panel-${panelCounter}`;
+        listItem.dataset.panelId = panelData.id;
         listItem.innerHTML = `Panel ${panelCounter} <span>${displayText}</span>`;
         panelList.appendChild(listItem);
         
@@ -1165,11 +1133,58 @@
           selectPanel(this.dataset.panelId);
         });
         
-        // Select the new panel
-        selectPanel(`panel-${panelCounter}`);
-        
         panelCounter++;
       });
+
+      // Create visual panel function
+      function createVisualPanel(panel) {
+        const panelEl = document.createElement('div');
+        panelEl.className = `panel-item ${panel.shape}`;
+        panelEl.id = panel.id;
+        panelEl.dataset.panelId = panel.id;
+        panelEl.dataset.shape = panel.shape;
+        
+        // Create panel label
+        panelEl.innerHTML = `
+          <div class="panel-label">
+            <div class="roll-text">${panel.rollNumber}</div>
+            <div class="panel-text">${panel.panelNumber}</div>
+          </div>
+        `;
+        
+        // Set sizing and position
+        const pw = panel.width * PIXELS_PER_FOOT;
+        const ph = panel.height * PIXELS_PER_FOOT;
+        panelEl.style.left = panel.x + 'px';
+        panelEl.style.top = panel.y + 'px';
+        panelEl.style.width = pw + 'px';
+        panelEl.style.height = ph + 'px';
+        panelEl.style.transformOrigin = 'center center';
+        if (panel.rotation) panelEl.style.transform = `rotate(${panel.rotation}deg)`;
+
+        // Add resize handles
+        addResizeHandles(panelEl, panel);
+        
+        // Add rotation handle
+        const rotateHandle = document.createElement('div');
+        rotateHandle.className = 'rotate-handle';
+        panelEl.appendChild(rotateHandle);
+        addRotateLogic(rotateHandle, panelEl, panel);
+        
+        // Make draggable
+        makePanelDraggable(panelEl, panel);
+
+        // Add click event to open edit modal
+        panelEl.addEventListener('click', function(e) {
+          if (!e.target.classList.contains('rotate-handle') && 
+              !e.target.classList.contains('resize-handle')) {
+            e.stopPropagation();
+            openEditModal(panel.id);
+          }
+        });
+
+        panelViewer.appendChild(panelEl);
+      }
 
       // Edit Panel Modal System
       const editModal = document.getElementById('edit-panel-modal');
@@ -1371,57 +1386,47 @@
         return { x: proposedX, y: proposedY };
       }
 
-      // Enhanced Drag & Drop Logic
+      // Enhanced Drag & Drop Logic with proper container reference
       function makePanelDraggable(panelEl, panelData) {
-        let isDragging = false;
-        let dragStartX, dragStartY, elementStartX, elementStartY;
-
+        let dragging = false;
+        let startX, startY, offX, offY;
+        
         panelEl.addEventListener('mousedown', function(e) {
-          // Only start drag if not clicking on a handle
-          if (e.target.classList.contains('resize-handle') ||
-              e.target.classList.contains('rotate-handle')) return;
-          
-          e.preventDefault();
+          if (e.target.matches('.resize-handle, .rotate-handle')) return;
           e.stopPropagation();
+          dragging = true;
           
-          isDragging = true;
-          dragStartX = e.clientX;
-          dragStartY = e.clientY;
-          elementStartX = parseInt(panelEl.style.left) || 0;
-          elementStartY = parseInt(panelEl.style.top) || 0;
+          const rect = panelViewer.getBoundingClientRect();
+          const zoom = parseFloat(panelViewer.style.transform.replace(/scale\((.+)\)/, '$1')) || 1;
+          const localX = (e.clientX - rect.left) / zoom;
+          const localY = (e.clientY - rect.top) / zoom;
           
+          offX = localX - panelData.x;
+          offY = localY - panelData.y;
           document.body.style.cursor = 'move';
-          panelEl.style.zIndex = '1000';
         });
-
+        
         document.addEventListener('mousemove', function(e) {
-          if (!isDragging) return;
+          if (!dragging) return;
           
-          e.preventDefault();
+          const rect = panelViewer.getBoundingClientRect();
+          const zoom = parseFloat(panelViewer.style.transform.replace(/scale\((.+)\)/, '$1')) || 1;
+          const localX = (e.clientX - rect.left) / zoom;
+          const localY = (e.clientY - rect.top) / zoom;
           
-          const deltaX = e.clientX - dragStartX;
-          const deltaY = e.clientY - dragStartY;
+          const nx = localX - offX;
+          const ny = localY - offY;
           
-          const newX = elementStartX + deltaX;
-          const newY = elementStartY + deltaY;
-          
-          // Apply snap-to-neighbors functionality
-          const { x: snapX, y: snapY } = snapPosition(panelEl, newX, newY, 20);
-          
-          // Update position
-          panelEl.style.left = snapX + 'px';
-          panelEl.style.top = snapY + 'px';
-          
-          // Update data model
-          panelData.x = snapX;
-          panelData.y = snapY;
+          panelEl.style.left = nx + 'px';
+          panelEl.style.top = ny + 'px';
+          panelData.x = nx;
+          panelData.y = ny;
         });
-
-        document.addEventListener('mouseup', function(e) {
-          if (isDragging) {
-            isDragging = false;
+        
+        document.addEventListener('mouseup', function() {
+          if (dragging) {
+            dragging = false;
             document.body.style.cursor = '';
-            panelEl.style.zIndex = '';
           }
         });
       }
