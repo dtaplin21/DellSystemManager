@@ -1403,7 +1403,7 @@
 
       // Snap to Neighbors Function
       function snapToNeighbors(currentPanel, proposedX, proposedY, threshold = 15) {
-        const allPanels = document.querySelectorAll('.panel');
+        const allPanels = document.querySelectorAll('.panel-item');
         let bestX = proposedX;
         let bestY = proposedY;
         
@@ -1484,7 +1484,7 @@
           const proposedY = localY - offY;
           
           // Apply snap-to-neighbors logic
-          const snapped = snapToNeighbors(panelEl, proposedX, proposedY, 15); // 15px snap threshold
+          const snapped = snapToNeighbors(panelEl, proposedX, proposedY, 0.2); // 0.2px snap threshold
           
           panelEl.style.left = snapped.x + 'px';
           panelEl.style.top = snapped.y + 'px';
