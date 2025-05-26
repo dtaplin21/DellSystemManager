@@ -1401,6 +1401,57 @@
         return { x: proposedX, y: proposedY };
       }
 
+      // Snap to Neighbors Function
+      function snapToNeighbors(currentPanel, proposedX, proposedY, threshold = 15) {
+        const allPanels = document.querySelectorAll('.panel');
+        let bestX = proposedX;
+        let bestY = proposedY;
+        
+        // Get current panel dimensions
+        const currentRect = currentPanel.getBoundingClientRect();
+        const currentWidth = currentRect.width;
+        const currentHeight = currentRect.height;
+        
+        for (let otherPanel of allPanels) {
+          if (otherPanel === currentPanel) continue;
+          
+          const otherRect = otherPanel.getBoundingClientRect();
+          const containerRect = panelViewer.getBoundingClientRect();
+          
+          // Convert to local coordinates
+          const otherX = otherRect.left - containerRect.left;
+          const otherY = otherRect.top - containerRect.top;
+          const otherWidth = otherRect.width;
+          const otherHeight = otherRect.height;
+          
+          // Check for horizontal alignment (snap to right edge)
+          const rightEdgeDistance = Math.abs((otherX + otherWidth) - proposedX);
+          if (rightEdgeDistance < threshold) {
+            bestX = otherX + otherWidth;
+          }
+          
+          // Check for horizontal alignment (snap to left edge)
+          const leftEdgeDistance = Math.abs(otherX - (proposedX + currentWidth));
+          if (leftEdgeDistance < threshold) {
+            bestX = otherX - currentWidth;
+          }
+          
+          // Check for vertical alignment (snap to bottom edge)
+          const bottomEdgeDistance = Math.abs((otherY + otherHeight) - proposedY);
+          if (bottomEdgeDistance < threshold) {
+            bestY = otherY + otherHeight;
+          }
+          
+          // Check for vertical alignment (snap to top edge)
+          const topEdgeDistance = Math.abs(otherY - (proposedY + currentHeight));
+          if (topEdgeDistance < threshold) {
+            bestY = otherY - currentHeight;
+          }
+        }
+        
+        return { x: bestX, y: bestY };
+      }
+
       // Enhanced Drag & Drop Logic with proper container reference
       function makePanelDraggable(panelEl, panelData) {
         let dragging = false;
@@ -1429,13 +1480,16 @@
           const localX = (e.clientX - rect.left) / zoom;
           const localY = (e.clientY - rect.top) / zoom;
           
-          const nx = localX - offX;
-          const ny = localY - offY;
+          const proposedX = localX - offX;
+          const proposedY = localY - offY;
           
-          panelEl.style.left = nx + 'px';
-          panelEl.style.top = ny + 'px';
-          panelData.x = nx;
-          panelData.y = ny;
+          // Apply snap-to-neighbors logic
+          const snapped = snapToNeighbors(panelEl, proposedX, proposedY, 15); // 15px snap threshold
+          
+          panelEl.style.left = snapped.x + 'px';
+          panelEl.style.top = snapped.y + 'px';
+          panelData.x = snapped.x;
+          panelData.y = snapped.y;
         });
         
         document.addEventListener('mouseup', function() {
