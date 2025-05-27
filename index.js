@@ -65,6 +65,11 @@ app.get('/dashboard/panel-layout', (req, res) => {
   });
 });
 
+// Projects page route - proxy to Frontend Server
+app.get('/projects', (req, res) => {
+  res.redirect('http://localhost:3000/projects');
+});
+
 // Authentication bypasses - redirect to dashboard
 app.get(['/login', '/signup'], (req, res) => {
   res.redirect('/dashboard');
