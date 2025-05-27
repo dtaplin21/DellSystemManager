@@ -488,6 +488,124 @@ app.get('/dashboard/projects/:id', (req, res) => {
           color: #0a2463;
           font-weight: 500;
         }
+        
+        /* Edit Modal Styles */
+        .modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: rgba(0, 0, 0, 0.5);
+          display: none;
+          justify-content: center;
+          align-items: center;
+          z-index: 1000;
+        }
+        
+        .modal-overlay.active {
+          display: flex;
+        }
+        
+        .modal-content {
+          background: white;
+          border-radius: 8px;
+          padding: 2rem;
+          width: 90%;
+          max-width: 600px;
+          max-height: 80vh;
+          overflow-y: auto;
+        }
+        
+        .modal-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 1.5rem;
+          padding-bottom: 1rem;
+          border-bottom: 1px solid #e9ecef;
+        }
+        
+        .modal-title {
+          font-size: 1.5rem;
+          font-weight: 600;
+          color: #0a2463;
+          margin: 0;
+        }
+        
+        .close-button {
+          background: none;
+          border: none;
+          font-size: 1.5rem;
+          cursor: pointer;
+          color: #627d98;
+          padding: 0;
+          width: 30px;
+          height: 30px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        
+        .close-button:hover {
+          color: #0a2463;
+        }
+        
+        .form-group {
+          margin-bottom: 1.5rem;
+        }
+        
+        .form-label {
+          display: block;
+          margin-bottom: 0.5rem;
+          font-weight: 500;
+          color: #334e68;
+        }
+        
+        .form-input, .form-select, .form-textarea {
+          width: 100%;
+          padding: 0.75rem;
+          border: 1px solid #e9ecef;
+          border-radius: 4px;
+          font-size: 1rem;
+          transition: border-color 0.2s;
+        }
+        
+        .form-input:focus, .form-select:focus, .form-textarea:focus {
+          outline: none;
+          border-color: #0a2463;
+          box-shadow: 0 0 0 2px rgba(10, 36, 99, 0.1);
+        }
+        
+        .form-textarea {
+          min-height: 100px;
+          resize: vertical;
+        }
+        
+        .form-row {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 1rem;
+        }
+        
+        .modal-footer {
+          display: flex;
+          justify-content: flex-end;
+          gap: 1rem;
+          margin-top: 2rem;
+          padding-top: 1rem;
+          border-top: 1px solid #e9ecef;
+        }
+        
+        .button-secondary {
+          background: #f8f9fa;
+          color: #627d98;
+          border: 1px solid #e9ecef;
+        }
+        
+        .button-secondary:hover {
+          background: #e9ecef;
+        }
       </style>
     </head>
     <body>
@@ -515,7 +633,7 @@ app.get('/dashboard/projects/:id', (req, res) => {
             </div>
           </div>
           <div>
-            <button class="button button-primary">Edit Project</button>
+            <button class="button button-primary" id="edit-project-btn">Edit Project</button>
           </div>
         </div>
         
@@ -606,7 +724,187 @@ app.get('/dashboard/projects/:id', (req, res) => {
             </div>
           </div>
         </div>
+        
+        <!-- Edit Project Modal -->
+        <div class="modal-overlay" id="edit-modal">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h2 class="modal-title">Edit Project</h2>
+              <button class="close-button" id="close-modal">&times;</button>
+            </div>
+            
+            <form id="edit-project-form">
+              <div class="form-group">
+                <label class="form-label" for="project-name">Project Name</label>
+                <input type="text" class="form-input" id="project-name" value="Project #${projectId}" required>
+              </div>
+              
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label" for="client-name">Client</label>
+                  <input type="text" class="form-input" id="client-name" value="Example Client" required>
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="project-manager">Project Manager</label>
+                  <input type="text" class="form-input" id="project-manager" value="John Smith" required>
+                </div>
+              </div>
+              
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label" for="start-date">Start Date</label>
+                  <input type="date" class="form-input" id="start-date" value="2025-05-01" required>
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="end-date">End Date (Est.)</label>
+                  <input type="date" class="form-input" id="end-date" value="2025-08-15" required>
+                </div>
+              </div>
+              
+              <div class="form-group">
+                <label class="form-label" for="location">Location</label>
+                <input type="text" class="form-input" id="location" value="Example Location" required>
+              </div>
+              
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label" for="status">Status</label>
+                  <select class="form-select" id="status" required>
+                    <option value="Active" selected>Active</option>
+                    <option value="In Progress">In Progress</option>
+                    <option value="On Hold">On Hold</option>
+                    <option value="Completed">Completed</option>
+                    <option value="Delayed">Delayed</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="progress">Progress (%)</label>
+                  <input type="number" class="form-input" id="progress" value="50" min="0" max="100" required>
+                </div>
+              </div>
+              
+              <div class="form-group">
+                <label class="form-label" for="description">Project Description</label>
+                <textarea class="form-textarea" id="description" required>This is a detailed overview of project #${projectId}. The project involves geosynthetic liner installation for environmental containment purposes.</textarea>
+              </div>
+              
+              <div class="modal-footer">
+                <button type="button" class="button button-secondary" id="cancel-edit">Cancel</button>
+                <button type="submit" class="button button-primary">Save Changes</button>
+              </div>
+            </form>
+          </div>
+        </div>
       </main>
+      
+      <script>
+        // Edit Project Modal Functionality
+        const editBtn = document.getElementById('edit-project-btn');
+        const modal = document.getElementById('edit-modal');
+        const closeBtn = document.getElementById('close-modal');
+        const cancelBtn = document.getElementById('cancel-edit');
+        const form = document.getElementById('edit-project-form');
+        
+        // Open modal
+        editBtn.addEventListener('click', () => {
+          modal.classList.add('active');
+        });
+        
+        // Close modal functions
+        const closeModal = () => {
+          modal.classList.remove('active');
+        };
+        
+        closeBtn.addEventListener('click', closeModal);
+        cancelBtn.addEventListener('click', closeModal);
+        
+        // Close modal when clicking outside
+        modal.addEventListener('click', (e) => {
+          if (e.target === modal) {
+            closeModal();
+          }
+        });
+        
+        // Handle form submission
+        form.addEventListener('submit', (e) => {
+          e.preventDefault();
+          
+          // Get form data
+          const formData = {
+            name: document.getElementById('project-name').value,
+            client: document.getElementById('client-name').value,
+            manager: document.getElementById('project-manager').value,
+            startDate: document.getElementById('start-date').value,
+            endDate: document.getElementById('end-date').value,
+            location: document.getElementById('location').value,
+            status: document.getElementById('status').value,
+            progress: document.getElementById('progress').value,
+            description: document.getElementById('description').value
+          };
+          
+          // Show success message
+          alert('Project updated successfully!');
+          
+          // Update page content with new data
+          updatePageContent(formData);
+          
+          // Close modal
+          closeModal();
+        });
+        
+        // Update page content function
+        function updatePageContent(data) {
+          // Update project details on the page
+          const detailValues = document.querySelectorAll('.detail-value');
+          if (detailValues.length >= 6) {
+            detailValues[0].textContent = data.name;
+            detailValues[1].textContent = data.client;
+            detailValues[2].textContent = new Date(data.startDate).toLocaleDateString();
+            detailValues[3].textContent = data.location;
+            detailValues[4].textContent = data.manager;
+            detailValues[5].textContent = new Date(data.endDate).toLocaleDateString();
+          }
+          
+          // Update progress bar and percentage
+          const progressFill = document.querySelector('.progress-fill');
+          if (progressFill) {
+            progressFill.style.width = data.progress + '%';
+            // Update progress text
+            const progressContainer = progressFill.parentElement.previousElementSibling;
+            if (progressContainer) {
+              progressContainer.innerHTML = '<span>' + data.progress + '%</span>';
+            }
+          }
+          
+          // Update status badge
+          const statusBadge = document.querySelector('.page-header span[style*="background"]');
+          if (statusBadge) {
+            statusBadge.textContent = data.status;
+            // Update badge color based on status
+            let bgColor = '#ff7f11'; // default orange
+            switch(data.status) {
+              case 'Active': bgColor = '#ff7f11'; break;
+              case 'Completed': bgColor = '#36b37e'; break;
+              case 'In Progress': bgColor = '#627d98'; break;
+              case 'On Hold': bgColor = '#f39c12'; break;
+              case 'Delayed': bgColor = '#e74c3c'; break;
+            }
+            statusBadge.style.background = bgColor;
+          }
+          
+          // Update description
+          const descriptionEl = document.querySelector('main p');
+          if (descriptionEl) {
+            descriptionEl.textContent = data.description;
+          }
+          
+          // Update last updated date
+          const lastUpdatedEl = document.querySelector('.detail-value:last-child');
+          if (lastUpdatedEl) {
+            lastUpdatedEl.textContent = new Date().toLocaleDateString();
+          }
+        }
+      </script>
     </body>
     </html>
   `);
