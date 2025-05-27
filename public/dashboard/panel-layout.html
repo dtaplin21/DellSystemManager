@@ -1014,6 +1014,38 @@
         openEditModal(selectedPanel);
       });
 
+      // Add Panel button validation
+      function toggleAddPanelButton() {
+        let isValid = false;
+        
+        if (selectedShape === 'rectangle') {
+          const width = parseInt(panelWidthInput.value, 10);
+          const height = parseInt(panelLengthInput.value, 10);
+          isValid = width > 0 && height > 0;
+        } else if (selectedShape === 'triangle') {
+          const base = parseInt(document.getElementById('triangle-base').value, 10);
+          const height = parseInt(document.getElementById('triangle-height').value, 10);
+          isValid = base > 0 && height > 0;
+        } else if (selectedShape === 'hexagon') {
+          const width = parseInt(document.getElementById('hexagon-width').value, 10);
+          const height = parseInt(document.getElementById('hexagon-height').value, 10);
+          isValid = width > 0 && height > 0;
+        }
+        
+        addPanelBtn.disabled = !isValid;
+      }
+
+      // Start with button disabled
+      addPanelBtn.disabled = true;
+
+      // Watch dimension inputs for all shapes
+      panelWidthInput.addEventListener('input', toggleAddPanelButton);
+      panelLengthInput.addEventListener('input', toggleAddPanelButton);
+      document.getElementById('triangle-base').addEventListener('input', toggleAddPanelButton);
+      document.getElementById('triangle-height').addEventListener('input', toggleAddPanelButton);
+      document.getElementById('hexagon-width').addEventListener('input', toggleAddPanelButton);
+      document.getElementById('hexagon-height').addEventListener('input', toggleAddPanelButton);
+
       // Shape selection variables
       let selectedShape = 'rectangle';
 
@@ -1036,6 +1068,9 @@
           } else if (selectedShape === 'hexagon') {
             document.getElementById('hexagon-controls').style.display = 'block';
           }
+          
+          // Revalidate button when shape changes
+          toggleAddPanelButton();
         });
       });
       
