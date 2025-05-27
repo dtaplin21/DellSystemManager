@@ -1014,6 +1014,9 @@
         openEditModal(selectedPanel);
       });
 
+      // Shape selection variables
+      let selectedShape = 'rectangle';
+
       // Add Panel button validation
       function toggleAddPanelButton() {
         let isValid = false;
@@ -1021,15 +1024,15 @@
         if (selectedShape === 'rectangle') {
           const width = parseInt(panelWidthInput.value, 10);
           const height = parseInt(panelLengthInput.value, 10);
-          isValid = width > 0 && height > 0;
+          isValid = width > 0 && height > 0 && !isNaN(width) && !isNaN(height);
         } else if (selectedShape === 'triangle') {
           const base = parseInt(document.getElementById('triangle-base').value, 10);
           const height = parseInt(document.getElementById('triangle-height').value, 10);
-          isValid = base > 0 && height > 0;
+          isValid = base > 0 && height > 0 && !isNaN(base) && !isNaN(height);
         } else if (selectedShape === 'hexagon') {
           const width = parseInt(document.getElementById('hexagon-width').value, 10);
           const height = parseInt(document.getElementById('hexagon-height').value, 10);
-          isValid = width > 0 && height > 0;
+          isValid = width > 0 && height > 0 && !isNaN(width) && !isNaN(height);
         }
         
         addPanelBtn.disabled = !isValid;
@@ -1045,9 +1048,6 @@
       document.getElementById('triangle-height').addEventListener('input', toggleAddPanelButton);
       document.getElementById('hexagon-width').addEventListener('input', toggleAddPanelButton);
       document.getElementById('hexagon-height').addEventListener('input', toggleAddPanelButton);
-
-      // Shape selection variables
-      let selectedShape = 'rectangle';
 
       // Shape selection handling
       document.querySelectorAll('.shape-option').forEach(option => {
