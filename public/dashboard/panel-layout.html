@@ -871,6 +871,9 @@
             <button id="duplicate-panel" class="btn btn-secondary">Duplicate</button>
             <button id="delete-panel" class="btn btn-secondary">Delete</button>
           </div>
+          <button id="edit-panel-btn" class="btn btn-secondary btn-block" disabled>
+            Edit Selected Panel
+          </button>
         </div>
         
         <div class="control-section">
@@ -980,6 +983,7 @@
       const optimizationOptions = document.querySelectorAll('.optimization-option');
       const duplicatePanelBtn = document.getElementById('duplicate-panel');
       const deletePanelBtn = document.getElementById('delete-panel');
+      const editPanelBtn = document.getElementById('edit-panel-btn');
       const exportDxfBtn = document.getElementById('export-dxf');
       const exportExcelBtn = document.getElementById('export-excel');
       const saveLayoutBtn = document.getElementById('save-layout');
@@ -1199,12 +1203,13 @@
         // Make draggable
         makePanelDraggable(panelEl, panel);
 
-        // Add click event to open edit modal
+        // Add click event to select panel and enable Edit button
         panelEl.addEventListener('click', function(e) {
           if (!e.target.classList.contains('rotate-handle') && 
               !e.target.classList.contains('resize-handle')) {
             e.stopPropagation();
-            openEditModal(panel.id);
+            selectPanel(panel.id);
+            document.getElementById('edit-panel-btn').disabled = false;
           }
         });
 
@@ -1230,9 +1235,24 @@
         const rollText = panelEl.querySelector('.roll-text');
         const panelText = panelEl.querySelector('.panel-text');
         
+        // Helper function for localStorage keys
+        const storageKey = (key) => `panelEdit-${panelId}-${key}`;
+        
         idInput.value = panelId;
-        rollInput.value = rollText ? rollText.textContent : `R-${panelId.split('-')[1]}`;
-        numberInput.value = panelText ? panelText.textContent : `P-${panelId.split('-')[1]}`;
+        
+        // Load saved draft or fallback to panel's current data
+        rollInput.value = localStorage.getItem(storageKey('roll')) || 
+          (rollText ? rollText.textContent : `R-${panelId.split('-')[1]}`);
+        numberInput.value = localStorage.getItem(storageKey('number')) || 
+          (panelText ? panelText.textContent : `P-${panelId.split('-')[1]}`);
+
+        // Set up draft saving listeners
+        rollInput.addEventListener('input', () => {
+          localStorage.setItem(storageKey('roll'), rollInput.value);
+        });
+        numberInput.addEventListener('input', () => {
+          localStorage.setItem(storageKey('number'), numberInput.value);
+        });
 
         editModal.style.display = 'flex';
       }
@@ -1264,6 +1284,14 @@
             const sizeText = sizeSpan ? sizeSpan.textContent : '';
             listItem.innerHTML = `${roll} • ${number} <span>${sizeText}</span>`;
           }
+
+          // Clear the draft storage after successful save
+          const prefix = `panelEdit-${id}-`;
+          localStorage.removeItem(prefix + 'roll');
+          localStorage.removeItem(prefix + 'number');
+
+          // Show success feedback
+          console.log('Panel Updated: All changes saved.');
         }
 
         closeEditModal();
@@ -1935,6 +1963,13 @@
         if (currentZoom > 1) {
           currentZoom -= 10;
           updateZoom();
+        }
+      });
+      
+      // Edit Selected Panel button functionality
+      editPanelBtn.addEventListener('click', function() {
+        if (selectedPanelId) {
+          openEditModal(selectedPanelId);
         }
       });
       
