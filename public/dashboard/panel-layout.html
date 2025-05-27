@@ -788,6 +788,21 @@
 
         <div class="control-section">
           <h2 class="section-title">Panel Creation</h2>
+          
+          <div class="form-group">
+            <label>Panel Identification</label>
+            <div class="dimensions-grid">
+              <div>
+                <label for="panel-roll">Roll Number</label>
+                <input type="text" id="panel-roll" placeholder="R-001" maxlength="10">
+              </div>
+              <div>
+                <label for="panel-number">Panel Number</label>
+                <input type="text" id="panel-number" placeholder="P-001" maxlength="10">
+              </div>
+            </div>
+          </div>
+          
           <div class="form-group">
             <label>Panel Shape</label>
             <div class="shape-toggle">
@@ -1019,28 +1034,38 @@
 
       // Add Panel button validation
       function toggleAddPanelButton() {
-        let isValid = false;
+        // Check if roll and panel numbers are filled
+        const rollInput = document.getElementById('panel-roll');
+        const numberInput = document.getElementById('panel-number');
+        const hasRoll = rollInput.value.trim().length > 0;
+        const hasNumber = numberInput.value.trim().length > 0;
+        
+        let dimensionsValid = false;
         
         if (selectedShape === 'rectangle') {
           const width = parseInt(panelWidthInput.value, 10);
           const height = parseInt(panelLengthInput.value, 10);
-          isValid = width > 0 && height > 0 && !isNaN(width) && !isNaN(height);
+          dimensionsValid = width > 0 && height > 0 && !isNaN(width) && !isNaN(height);
         } else if (selectedShape === 'triangle') {
           const base = parseInt(document.getElementById('triangle-base').value, 10);
           const height = parseInt(document.getElementById('triangle-height').value, 10);
-          isValid = base > 0 && height > 0 && !isNaN(base) && !isNaN(height);
+          dimensionsValid = base > 0 && height > 0 && !isNaN(base) && !isNaN(height);
         } else if (selectedShape === 'hexagon') {
           const width = parseInt(document.getElementById('hexagon-width').value, 10);
           const height = parseInt(document.getElementById('hexagon-height').value, 10);
-          isValid = width > 0 && height > 0 && !isNaN(width) && !isNaN(height);
+          dimensionsValid = width > 0 && height > 0 && !isNaN(width) && !isNaN(height);
         }
         
-        addPanelBtn.disabled = !isValid;
+        addPanelBtn.disabled = !(hasRoll && hasNumber && dimensionsValid);
       }
 
       // Start with button disabled
       addPanelBtn.disabled = true;
 
+      // Watch roll and panel number inputs
+      document.getElementById('panel-roll').addEventListener('input', toggleAddPanelButton);
+      document.getElementById('panel-number').addEventListener('input', toggleAddPanelButton);
+      
       // Watch dimension inputs for all shapes
       panelWidthInput.addEventListener('input', toggleAddPanelButton);
       panelLengthInput.addEventListener('input', toggleAddPanelButton);
@@ -1170,9 +1195,9 @@
         console.log('Add Panel clicked!');
         console.log('Selected shape:', selectedShape);
         
-        // Generate automatic roll and panel numbers
-        const rollValue = `R-${panelCounter.toString().padStart(3, '0')}`;
-        const numberValue = `P-${panelCounter.toString().padStart(3, '0')}`;
+        // Get manual roll and panel numbers from inputs
+        const rollValue = document.getElementById('panel-roll').value.trim();
+        const numberValue = document.getElementById('panel-number').value.trim();
 
         let panelWidth, panelHeight, displayText;
         
@@ -1220,6 +1245,13 @@
         listItem.addEventListener('click', function() {
           selectPanel(this.dataset.panelId);
         });
+        
+        // Clear the input fields for next panel
+        document.getElementById('panel-roll').value = '';
+        document.getElementById('panel-number').value = '';
+        
+        // Disable the button until new inputs are provided
+        toggleAddPanelButton();
         
         panelCounter++;
       });
