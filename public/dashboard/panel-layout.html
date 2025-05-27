@@ -886,9 +886,6 @@
             <button id="duplicate-panel" class="btn btn-secondary">Duplicate</button>
             <button id="delete-panel" class="btn btn-secondary">Delete</button>
           </div>
-          <button id="edit-panel-btn" class="btn btn-secondary btn-block" disabled>
-            Edit Selected Panel
-          </button>
         </div>
         
         <div class="control-section">
@@ -998,7 +995,7 @@
       const optimizationOptions = document.querySelectorAll('.optimization-option');
       const duplicatePanelBtn = document.getElementById('duplicate-panel');
       const deletePanelBtn = document.getElementById('delete-panel');
-      const editPanelBtn = document.getElementById('edit-panel-btn');
+
       const exportDxfBtn = document.getElementById('export-dxf');
       const exportExcelBtn = document.getElementById('export-excel');
       const saveLayoutBtn = document.getElementById('save-layout');
@@ -1018,16 +1015,11 @@
         const panelEl = document.querySelector(`[data-panel-id="${panelId}"]`);
         if (panelEl) panelEl.classList.add('selected');
         
-        // Store ID and enable button
+        // Store ID for other operations
         selectedPanel = panelId;
-        editPanelBtn.disabled = false;
       }
 
-      // Wire the Edit button to open modal
-      editPanelBtn.addEventListener('click', () => {
-        if (!selectedPanel) return;
-        openEditModal(selectedPanel);
-      });
+
 
       // Shape selection variables
       let selectedShape = 'rectangle';
