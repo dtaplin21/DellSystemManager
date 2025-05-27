@@ -1261,38 +1261,54 @@
         editModal.style.display = 'none';
       }
 
-      // Save changes
+      // Enhanced Save changes with complete data synchronization
       saveBtn.addEventListener('click', function() {
-        const id = idInput.value;
-        const roll = rollInput.value.trim();
-        const number = numberInput.value.trim();
-        const panelEl = document.querySelector(`[data-panel-id="${id}"]`);
-
-        if (roll && number && panelEl) {
-          // Update panel label
-          const rollText = panelEl.querySelector('.roll-text');
-          const panelText = panelEl.querySelector('.panel-text');
-          
-          if (rollText) rollText.textContent = roll;
-          if (panelText) panelText.textContent = number;
-
-          // Update panel list item
-          const listItem = document.querySelector(`.panel-list-item[data-panel-id="${id}"]`);
-          if (listItem) {
-            const panelName = id.replace('panel-', 'Panel ');
-            const sizeSpan = listItem.querySelector('span');
-            const sizeText = sizeSpan ? sizeSpan.textContent : '';
-            listItem.innerHTML = `${roll} • ${number} <span>${sizeText}</span>`;
-          }
-
-          // Clear the draft storage after successful save
-          const prefix = `panelEdit-${id}-`;
-          localStorage.removeItem(prefix + 'roll');
-          localStorage.removeItem(prefix + 'number');
-
-          // Show success feedback
-          console.log('Panel Updated: All changes saved.');
+        // 1) Grab the form values
+        const oldId = idInput.value;
+        const newRoll = rollInput.value.trim();
+        const newNumber = numberInput.value.trim();
+        
+        if (!newRoll || !newNumber) {
+          console.log('Missing Data: Please enter both Roll Number and Panel Number.');
+          return;
         }
+
+        // 2) Find your data object and live element
+        const panelObj = panels.find(p => p.id === oldId);
+        const panelEl = document.querySelector(`[data-panel-id="${oldId}"]`);
+        
+        if (!panelObj || !panelEl) {
+          console.log('Error: Could not find the panel to update.');
+          closeEditModal();
+          return;
+        }
+
+        // 3) Update your JS model
+        panelObj.rollNumber = newRoll;
+        panelObj.panelNumber = newNumber;
+
+        // 4) Update the live panel DOM
+        const rollText = panelEl.querySelector('.roll-text');
+        const panelText = panelEl.querySelector('.panel-text');
+        
+        if (rollText) rollText.textContent = newRoll;
+        if (panelText) panelText.textContent = newNumber;
+
+        // 5) Update panel list item with synchronized data
+        const listItem = document.querySelector(`.panel-list-item[data-panel-id="${oldId}"]`);
+        if (listItem) {
+          const sizeSpan = listItem.querySelector('span');
+          const sizeText = sizeSpan ? sizeSpan.textContent : '';
+          listItem.innerHTML = `${newRoll} • ${newNumber} <span>${sizeText}</span>`;
+        }
+
+        // 6) Clear the draft storage after successful save
+        const prefix = `panelEdit-${oldId}-`;
+        localStorage.removeItem(prefix + 'roll');
+        localStorage.removeItem(prefix + 'number');
+
+        // 7) Show success feedback
+        console.log('Panel Updated: All changes saved across all data locations.');
 
         closeEditModal();
       });
