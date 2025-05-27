@@ -871,9 +871,6 @@
             <button id="duplicate-panel" class="btn btn-secondary">Duplicate</button>
             <button id="delete-panel" class="btn btn-secondary">Delete</button>
           </div>
-          <button id="edit-panel-btn" class="btn btn-secondary btn-block" disabled>
-            Edit Selected Panel
-          </button>
         </div>
         
         <div class="control-section">
@@ -983,7 +980,6 @@
       const optimizationOptions = document.querySelectorAll('.optimization-option');
       const duplicatePanelBtn = document.getElementById('duplicate-panel');
       const deletePanelBtn = document.getElementById('delete-panel');
-      const editPanelBtn = document.getElementById('edit-panel-btn');
       const exportDxfBtn = document.getElementById('export-dxf');
       const exportExcelBtn = document.getElementById('export-excel');
       const saveLayoutBtn = document.getElementById('save-layout');
@@ -1234,13 +1230,12 @@
         // Make draggable
         makePanelDraggable(panelEl, panel);
 
-        // Add click event to select panel and enable Edit button
+        // Add click event to open edit modal
         panelEl.addEventListener('click', function(e) {
           if (!e.target.classList.contains('rotate-handle') && 
               !e.target.classList.contains('resize-handle')) {
             e.stopPropagation();
-            selectPanel(panel.id);
-            document.getElementById('edit-panel-btn').disabled = false;
+            openEditModal(panel.id);
           }
         });
 
@@ -2009,13 +2004,6 @@
         if (currentZoom > 1) {
           currentZoom -= 10;
           updateZoom();
-        }
-      });
-      
-      // Edit Selected Panel button functionality
-      editPanelBtn.addEventListener('click', function() {
-        if (selectedPanelId) {
-          openEditModal(selectedPanelId);
         }
       });
       
