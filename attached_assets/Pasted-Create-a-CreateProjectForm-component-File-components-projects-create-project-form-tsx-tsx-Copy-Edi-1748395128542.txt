@@ -1,0 +1,157 @@
+Create a CreateProjectForm component
+File: components/projects/create-project-form.tsx
+
+tsx
+Copy
+Edit
+'use client';
+
+import { useState, FormEvent } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+
+export interface NewProjectData {
+  name: string;
+  client: string;
+  location: string;
+  startDate: string;
+  endDate?: string;
+}
+
+export interface CreateProjectFormProps {
+  open: boolean;
+  onClose: () => void;
+  onCreate: (data: NewProjectData) => void;
+}
+
+export default function CreateProjectForm({ open, onClose, onCreate }: CreateProjectFormProps) {
+  const [form, setForm] = useState<NewProjectData>({
+    name: '',
+    client: '',
+    location: '',
+    startDate: '',
+    endDate: '',
+  });
+
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setForm({ ...form, [e.target.id]: e.target.value });
+  }
+
+  function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (!form.name || !form.client || !form.startDate) {
+      return; // you could show an error toast here
+    }
+    onCreate(form);
+    onClose();
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={val => val || onClose()}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Create New Project</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <Label htmlFor="name">Project Name*</Label>
+            <Input id="name" value={form.name} onChange={handleChange} required />
+          </div>
+          <div>
+            <Label htmlFor="client">Client*</Label>
+            <Input id="client" value={form.client} onChange={handleChange} required />
+          </div>
+          <div>
+            <Label htmlFor="location">Location</Label>
+            <Input id="location" value={form.location} onChange={handleChange} />
+          </div>
+          <div>
+            <Label htmlFor="startDate">Start Date*</Label>
+            <Input id="startDate" type="date" value={form.startDate} onChange={handleChange} required />
+          </div>
+          <div>
+            <Label htmlFor="endDate">End Date</Label>
+            <Input id="endDate" type="date" value={form.endDate} onChange={handleChange} />
+          </div>
+          <div className="flex justify-end space-x-2 pt-4">
+            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="submit">Create</Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+What this does:
+
+Exposes a controlled form in a Radix-style Dialog (you can swap to any modal of your choice)
+
+Calls onCreate(data) when submitted, and onClose() when cancelled
+
+2. Wire it up in your Dashboard page
+In app/dashboard/page.tsx (or wherever your code lives):
+
+Import at the top:
+
+ts
+Copy
+Edit
+import CreateProjectForm, { NewProjectData } from '../../components/projects/create-project-form';
+Add state alongside your existing:
+
+ts
+Copy
+Edit
+const [showCreateModal, setShowCreateModal] = useState(false);
+Toggle it on your button click:
+
+tsx
+Copy
+Edit
+<Button
+  className="bg-orange-600 hover:bg-orange-700 text-white border border-orange-700 shadow-sm px-6"
+  onClick={() => setShowCreateModal(true)}
+>
+  New Project
+</Button>
+Render the modal just above your <main> (or alongside your existing edit modal):
+
+tsx
+Copy
+Edit
+{showCreateModal && (
+  <CreateProjectForm
+    open={showCreateModal}
+    onClose={() => setShowCreateModal(false)}
+    onCreate={(data: NewProjectData) => {
+      // Build new project object
+      const newProj: Project = {
+        id: Date.now().toString(),
+        name: data.name,
+        client: data.client,
+        location: data.location,
+        lastUpdated: data.startDate,
+        progress: 0,
+      };
+      setProjects([newProj, ...projects]);
+      setShowCreateModal(false);
+      toast({ title: 'Project Created', description: `${data.name} (Client: ${data.client})` });
+    }}
+  />
+)}
+AI-Prompt Explanation
+Prompt to AI:
+“I have a Next.js dashboard page with a “New Project” button at line 234. I’d like that button to open a modal form where the user can enter Name, Client, Location, Start Date, and End Date. Upon submission it should call an onCreate callback, add the new project to my projects state, close the modal, and show a toast.
+
+Create a new file components/projects/create-project-form.tsx for the modal.
+
+Modify my dashboard page to import it, add showCreateModal state, toggle the dialog on button click, and handle the onCreate to prepend a new Project to state.”
+
+
+
+
+
+
+

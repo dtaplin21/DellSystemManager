@@ -3,11 +3,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import CreateProjectForm, { NewProjectData } from '@/components/projects/create-project-form';
 
 // Simple mock data for demonstration
 const mockProjects = [
@@ -42,48 +38,22 @@ const mockProjects = [
 
 export default function ProjectsPage() {
   const [projects, setProjects] = useState(mockProjects);
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [newProject, setNewProject] = useState({
-    name: '',
-    client: '',
-    location: '',
-    status: 'Active',
-    progress: 0,
-    description: ''
-  });
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   // Handle creating new project
-  const handleCreateProject = () => {
-    if (!newProject.name || !newProject.client || !newProject.location) {
-      alert('Please fill in all required fields');
-      return;
-    }
-
+  const handleCreateProject = (data: NewProjectData) => {
     const project = {
       id: (projects.length + 1).toString(),
-      name: newProject.name,
-      client: newProject.client,
-      location: newProject.location,
-      status: newProject.status,
-      progress: newProject.progress,
-      lastUpdated: new Date().toISOString()
+      name: data.name,
+      client: data.client,
+      location: data.location,
+      status: data.status,
+      progress: data.progress,
+      lastUpdated: data.startDate || new Date().toISOString()
     };
 
-    setProjects([...projects, project]);
-    setNewProject({
-      name: '',
-      client: '',
-      location: '',
-      status: 'Active',
-      progress: 0,
-      description: ''
-    });
-    setIsCreateModalOpen(false);
-  };
-
-  // Handle input changes
-  const handleInputChange = (field: string, value: string | number) => {
-    setNewProject(prev => ({ ...prev, [field]: value }));
+    setProjects([project, ...projects]);
+    setShowCreateModal(false);
   };
 
   // Simple status color function
@@ -106,113 +76,20 @@ export default function ProjectsPage() {
     <div className="container mx-auto p-8">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold">Projects</h1>
-        <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-blue-600 hover:bg-blue-700 text-white">
-              + New Project
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle className="text-xl font-semibold text-gray-900">Create New Project</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 mt-4">
-              <div>
-                <Label htmlFor="project-name" className="text-sm font-medium text-gray-700">Project Name *</Label>
-                <Input
-                  id="project-name"
-                  type="text"
-                  value={newProject.name}
-                  onChange={(e) => handleInputChange('name', e.target.value)}
-                  placeholder="Enter project name"
-                  className="mt-1"
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="client" className="text-sm font-medium text-gray-700">Client *</Label>
-                <Input
-                  id="client"
-                  type="text"
-                  value={newProject.client}
-                  onChange={(e) => handleInputChange('client', e.target.value)}
-                  placeholder="Enter client name"
-                  className="mt-1"
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="location" className="text-sm font-medium text-gray-700">Location *</Label>
-                <Input
-                  id="location"
-                  type="text"
-                  value={newProject.location}
-                  onChange={(e) => handleInputChange('location', e.target.value)}
-                  placeholder="Enter project location"
-                  className="mt-1"
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="status" className="text-sm font-medium text-gray-700">Status</Label>
-                <Select value={newProject.status} onValueChange={(value) => handleInputChange('status', value)}>
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Active">Active</SelectItem>
-                    <SelectItem value="Completed">Completed</SelectItem>
-                    <SelectItem value="On Hold">On Hold</SelectItem>
-                    <SelectItem value="Delayed">Delayed</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div>
-                <Label htmlFor="progress" className="text-sm font-medium text-gray-700">Initial Progress (%)</Label>
-                <Input
-                  id="progress"
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={newProject.progress}
-                  onChange={(e) => handleInputChange('progress', parseInt(e.target.value) || 0)}
-                  placeholder="0"
-                  className="mt-1"
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="description" className="text-sm font-medium text-gray-700">Description</Label>
-                <Textarea
-                  id="description"
-                  value={newProject.description}
-                  onChange={(e) => handleInputChange('description', e.target.value)}
-                  placeholder="Enter project description (optional)"
-                  className="mt-1"
-                  rows={3}
-                />
-              </div>
-            </div>
-            
-            <div className="flex justify-end space-x-3 mt-6">
-              <Button 
-                variant="outline" 
-                onClick={() => setIsCreateModalOpen(false)}
-                className="px-4 py-2"
-              >
-                Cancel
-              </Button>
-              <Button 
-                onClick={handleCreateProject}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2"
-              >
-                Create Project
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <Button 
+          className="bg-blue-600 hover:bg-blue-700 text-white"
+          onClick={() => setShowCreateModal(true)}
+        >
+          + New Project
+        </Button>
       </div>
+
+      {/* Create Project Modal */}
+      <CreateProjectForm
+        open={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onCreate={handleCreateProject}
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <Card className="bg-white shadow-md border-t-4 border-blue-500">
