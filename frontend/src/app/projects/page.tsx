@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import CreateProjectForm, { NewProjectData } from '@/components/projects/create-project-form';
+import SimpleCreateForm from '@/components/projects/simple-create-form';
 
 // Simple mock data for demonstration
 const mockProjects = [
@@ -41,7 +41,7 @@ export default function ProjectsPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   // Handle creating new project
-  const handleCreateProject = (data: NewProjectData) => {
+  const handleCreateProject = (data: any) => {
     const project = {
       id: (projects.length + 1).toString(),
       name: data.name,
@@ -85,7 +85,7 @@ export default function ProjectsPage() {
       </div>
 
       {/* Create Project Modal */}
-      <CreateProjectForm
+      <SimpleCreateForm
         open={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         onCreate={handleCreateProject}
