@@ -65,10 +65,11 @@ app.get('/dashboard/panel-layout', (req, res) => {
   });
 });
 
-// Dashboard projects route - proxy to Frontend Server
+// Dashboard projects route - proxy to Frontend Server (must be before other routes)
 app.use('/dashboard/projects', createProxyMiddleware({
   target: 'http://localhost:3000',
   changeOrigin: true,
+  logLevel: 'debug',
   pathRewrite: {
     '^/dashboard/projects': '/dashboard/projects'
   }
