@@ -65,19 +65,7 @@ app.get('/dashboard/panel-layout', (req, res) => {
   });
 });
 
-// Serve static projects page
-app.get('/dashboard/projects', (req, res) => {
-  const filePath = path.join(publicDir, 'dashboard', 'projects.html');
-  console.log('Serving static projects page:', filePath);
-  res.sendFile(filePath, err => {
-    if (err) {
-      console.error('Error serving projects.html:', err);
-      res.status(404).send('Projects page not found');
-    }
-  });
-});
-
-// All other dashboard routes - proxy to Frontend Server (Next.js)
+// All dashboard routes (except panel-layout) - proxy to Frontend Server (Next.js)
 app.use('/dashboard', createProxyMiddleware({
   target: 'http://localhost:3000',
   changeOrigin: true,
