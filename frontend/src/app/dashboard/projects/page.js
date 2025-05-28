@@ -4,11 +4,13 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import EditForm from './edit-form';
 import { useToast } from '@/hooks/use-toast';
+import SimpleCreateForm from '@/components/projects/simple-create-form';
 
 export default function ProjectsPage() {
   const [projects, setProjects] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [editingProject, setEditingProject] = useState(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -79,12 +81,45 @@ export default function ProjectsPage() {
     });
   };
 
+  const handleCreateProject = (data) => {
+    const newProject = {
+      id: (projects.length + 1).toString(),
+      name: data.name,
+      client: data.client,
+      location: data.location,
+      status: data.status || 'Active',
+      progress: data.progress || 0,
+      lastUpdated: new Date().toISOString().split('T')[0]
+    };
+
+    setProjects([newProject, ...projects]);
+    setShowCreateModal(false);
+    
+    toast({
+      title: 'Project Created',
+      description: `${data.name} has been created successfully.`,
+    });
+  };
+
   return (
     <div className="space-y-8 p-6 max-w-7xl mx-auto">
-      <div className="border-b border-navy-200 pb-4 mb-8">
+      <div className="border-b border-navy-200 pb-4 mb-8 flex justify-between items-center">
         <h1 className="text-3xl font-bold text-navy-800">Projects</h1>
+        <button 
+          onClick={() => setShowCreateModal(true)}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium transition-colors"
+        >
+          + New Project
+        </button>
       </div>
       
+      {/* Create Project Modal */}
+      <SimpleCreateForm
+        open={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onCreate={handleCreateProject}
+      />
+
       {/* Edit Project Modal */}
       {editingProject && (
         <EditForm 
