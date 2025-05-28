@@ -74,6 +74,15 @@ app.use('/projects', createProxyMiddleware({
   }
 }));
 
+// Dashboard projects route - proxy to Frontend Server
+app.use('/dashboard/projects', createProxyMiddleware({
+  target: 'http://localhost:3000',
+  changeOrigin: true,
+  pathRewrite: {
+    '^/dashboard/projects': '/projects'
+  }
+}));
+
 // Authentication bypasses - redirect to dashboard
 app.get(['/login', '/signup'], (req, res) => {
   res.redirect('/dashboard');
