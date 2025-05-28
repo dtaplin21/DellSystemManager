@@ -65,21 +65,12 @@ app.get('/dashboard/panel-layout', (req, res) => {
   });
 });
 
-// Projects page route - proxy to Frontend Server
-app.use('/projects', createProxyMiddleware({
-  target: 'http://localhost:3000',
-  changeOrigin: true,
-  pathRewrite: {
-    '^/projects': '/projects'
-  }
-}));
-
 // Dashboard projects route - proxy to Frontend Server
 app.use('/dashboard/projects', createProxyMiddleware({
   target: 'http://localhost:3000',
   changeOrigin: true,
   pathRewrite: {
-    '^/dashboard/projects': '/projects'
+    '^/dashboard/projects': '/dashboard/projects'
   }
 }));
 
