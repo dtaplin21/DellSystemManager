@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GeoQC - Projects</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #f5f8fa;
+      color: #334e68;
+    }
+    header {
+      background: white;
+      padding: 1rem 2rem;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .logo {
+      font-weight: bold;
+      font-size: 1.5rem;
+      color: #0a2463;
+    }
+    nav {
+      display: flex;
+      gap: 2rem;
+    }
+    nav a {
+      text-decoration: none;
+      color: #627d98;
+      font-weight: 500;
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      transition: background 0.2s;
+    }
+    nav a:hover, nav a.active {
+      background: #0a2463;
+      color: white;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+    .page-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+      padding-bottom: 1rem;
+      border-bottom: 2px solid #e9ecef;
+    }
+    .page-title {
+      font-size: 2rem;
+      font-weight: bold;
+      color: #0a2463;
+      margin: 0;
+    }
+    .btn-primary {
+      background: #2563eb;
+      color: white;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 6px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn-primary:hover {
+      background: #1d4ed8;
+    }
+    .projects-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+      gap: 1.5rem;
+    }
+    .project-card {
+      background: white;
+      border: 1px solid #e9ecef;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      overflow: hidden;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .project-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .card-header {
+      padding: 1.5rem;
+      border-bottom: 1px solid #e9ecef;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+    .card-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin: 0;
+      color: #0a2463;
+    }
+    .status-badge {
+      padding: 0.25rem 0.75rem;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+    .status-active {
+      background: #dcfce7;
+      color: #166534;
+      border: 1px solid #22c55e;
+    }
+    .status-progress {
+      background: #fef3c7;
+      color: #92400e;
+      border: 1px solid #f59e0b;
+    }
+    .status-completed {
+      background: #dbeafe;
+      color: #1e40af;
+      border: 1px solid #3b82f6;
+    }
+    .status-delayed {
+      background: #fecaca;
+      color: #dc2626;
+      border: 1px solid #ef4444;
+    }
+    .card-content {
+      padding: 1.5rem;
+    }
+    .card-detail {
+      margin-bottom: 0.5rem;
+      color: #627d98;
+    }
+    .progress-section {
+      margin: 1rem 0;
+    }
+    .progress-bar {
+      width: 100%;
+      height: 8px;
+      background: #e9ecef;
+      border-radius: 4px;
+      overflow: hidden;
+      margin: 0.5rem 0;
+    }
+    .progress-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.3s;
+    }
+    .progress-high { background: #22c55e; }
+    .progress-medium { background: #3b82f6; }
+    .progress-low { background: #f59e0b; }
+    .card-actions {
+      padding: 1rem 1.5rem;
+      background: #f8f9fa;
+      display: flex;
+      gap: 0.5rem;
+    }
+    .btn-outline {
+      background: white;
+      color: #0a2463;
+      border: 1px solid #0a2463;
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      text-decoration: none;
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: background 0.2s;
+    }
+    .btn-outline:hover {
+      background: #f0f4f8;
+    }
+    .btn-secondary {
+      background: #ff7f11;
+      color: white;
+      border: 1px solid #ff7f11;
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      text-decoration: none;
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: background 0.2s;
+    }
+    .btn-secondary:hover {
+      background: #e66d00;
+    }
+    /* Modal Styles */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal.show {
+      display: flex;
+    }
+    .modal-content {
+      background: white;
+      padding: 2rem;
+      border-radius: 8px;
+      width: 90%;
+      max-width: 500px;
+      position: relative;
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+    }
+    .modal-title {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: #0a2463;
+      margin: 0;
+    }
+    .close-btn {
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      cursor: pointer;
+      color: #627d98;
+    }
+    .form-group {
+      margin-bottom: 1rem;
+    }
+    .form-label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 500;
+      color: #374151;
+    }
+    .form-input {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      font-size: 1rem;
+      transition: border-color 0.2s;
+    }
+    .form-input:focus {
+      outline: none;
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+    .form-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 1rem;
+      margin-top: 1.5rem;
+    }
+    .btn-cancel {
+      background: white;
+      color: #6b7280;
+      border: 1px solid #d1d5db;
+      padding: 0.75rem 1.5rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 500;
+    }
+    .btn-cancel:hover {
+      background: #f9fafb;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">GeoQC</div>
+    <nav>
+      <a href="/dashboard">Dashboard</a>
+      <a href="/dashboard/projects" class="active">Projects</a>
+      <a href="/dashboard/panel-layout">Panel Layout</a>
+      <a href="/dashboard/qc-data">QC Data</a>
+      <a href="/dashboard/documents">Documents</a>
+    </nav>
+  </header>
+  
+  <div class="container">
+    <div class="page-header">
+      <h1 class="page-title">Projects</h1>
+      <button class="btn-primary" onclick="openCreateModal()">+ New Project</button>
+    </div>
+    
+    <div class="projects-grid">
+      <div class="project-card">
+        <div class="card-header">
+          <h3 class="card-title">North Valley Containment</h3>
+          <span class="status-badge status-active">Active</span>
+        </div>
+        <div class="card-content">
+          <div class="card-detail"><strong>Client:</strong> Valley Engineering</div>
+          <div class="card-detail"><strong>Location:</strong> North Valley, CA</div>
+          <div class="card-detail"><strong>Last Updated:</strong> May 1, 2025</div>
+          <div class="progress-section">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+              <span style="font-weight: 500;">Progress</span>
+              <span style="font-weight: 500;">75%</span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill progress-high" style="width: 75%"></div>
+            </div>
+          </div>
+        </div>
+        <div class="card-actions">
+          <a href="/dashboard/projects/1" class="btn-outline">View</a>
+          <a href="/dashboard/projects/1/panel-layout" class="btn-secondary">Layout</a>
+        </div>
+      </div>
+      
+      <div class="project-card">
+        <div class="card-header">
+          <h3 class="card-title">Southside Liner Installation</h3>
+          <span class="status-badge status-progress">On Hold</span>
+        </div>
+        <div class="card-content">
+          <div class="card-detail"><strong>Client:</strong> Metro Waste Solutions</div>
+          <div class="card-detail"><strong>Location:</strong> Southside, TX</div>
+          <div class="card-detail"><strong>Last Updated:</strong> April 15, 2025</div>
+          <div class="progress-section">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+              <span style="font-weight: 500;">Progress</span>
+              <span style="font-weight: 500;">45%</span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill progress-medium" style="width: 45%"></div>
+            </div>
+          </div>
+        </div>
+        <div class="card-actions">
+          <a href="/dashboard/projects/2" class="btn-outline">View</a>
+          <a href="/dashboard/projects/2/panel-layout" class="btn-secondary">Layout</a>
+        </div>
+      </div>
+      
+      <div class="project-card">
+        <div class="card-header">
+          <h3 class="card-title">Eastwood Landfill Cover</h3>
+          <span class="status-badge status-completed">Completed</span>
+        </div>
+        <div class="card-content">
+          <div class="card-detail"><strong>Client:</strong> Eastwood County</div>
+          <div class="card-detail"><strong>Location:</strong> Eastwood, OR</div>
+          <div class="card-detail"><strong>Last Updated:</strong> May 10, 2025</div>
+          <div class="progress-section">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+              <span style="font-weight: 500;">Progress</span>
+              <span style="font-weight: 500;">100%</span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill progress-high" style="width: 100%"></div>
+            </div>
+          </div>
+        </div>
+        <div class="card-actions">
+          <a href="/dashboard/projects/3" class="btn-outline">View</a>
+          <a href="/dashboard/projects/3/panel-layout" class="btn-secondary">Layout</a>
+        </div>
+      </div>
+      
+      <div class="project-card">
+        <div class="card-header">
+          <h3 class="card-title">Westlake Industrial Pond</h3>
+          <span class="status-badge status-delayed">Delayed</span>
+        </div>
+        <div class="card-content">
+          <div class="card-detail"><strong>Client:</strong> Westlake Industries</div>
+          <div class="card-detail"><strong>Location:</strong> Westlake, MI</div>
+          <div class="card-detail"><strong>Last Updated:</strong> March 22, 2025</div>
+          <div class="progress-section">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+              <span style="font-weight: 500;">Progress</span>
+              <span style="font-weight: 500;">30%</span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill progress-low" style="width: 30%"></div>
+            </div>
+          </div>
+        </div>
+        <div class="card-actions">
+          <a href="/dashboard/projects/4" class="btn-outline">View</a>
+          <a href="/dashboard/projects/4/panel-layout" class="btn-secondary">Layout</a>
+        </div>
+      </div>
+      
+      <div class="project-card">
+        <div class="card-header">
+          <h3 class="card-title">Central City Treatment Plant</h3>
+          <span class="status-badge status-active">Active</span>
+        </div>
+        <div class="card-content">
+          <div class="card-detail"><strong>Client:</strong> Central Municipal Authority</div>
+          <div class="card-detail"><strong>Location:</strong> Central City, NY</div>
+          <div class="card-detail"><strong>Last Updated:</strong> May 18, 2025</div>
+          <div class="progress-section">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+              <span style="font-weight: 500;">Progress</span>
+              <span style="font-weight: 500;">60%</span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill progress-medium" style="width: 60%"></div>
+            </div>
+          </div>
+        </div>
+        <div class="card-actions">
+          <a href="/dashboard/projects/5" class="btn-outline">View</a>
+          <a href="/dashboard/projects/5/panel-layout" class="btn-secondary">Layout</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Create Project Modal -->
+  <div class="modal" id="createModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title">Create New Project</h2>
+        <button class="close-btn" onclick="closeCreateModal()">&times;</button>
+      </div>
+      <form onsubmit="createProject(event)">
+        <div class="form-group">
+          <label class="form-label" for="projectName">Project Name *</label>
+          <input type="text" id="projectName" class="form-input" placeholder="Enter project name" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="clientName">Client *</label>
+          <input type="text" id="clientName" class="form-input" placeholder="Enter client name" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="location">Location *</label>
+          <input type="text" id="location" class="form-input" placeholder="Enter project location" required>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn-cancel" onclick="closeCreateModal()">Cancel</button>
+          <button type="submit" class="btn-primary">Create Project</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    function openCreateModal() {
+      document.getElementById('createModal').classList.add('show');
+    }
+
+    function closeCreateModal() {
+      document.getElementById('createModal').classList.remove('show');
+      // Reset form
+      document.getElementById('projectName').value = '';
+      document.getElementById('clientName').value = '';
+      document.getElementById('location').value = '';
+    }
+
+    function createProject(event) {
+      event.preventDefault();
+      
+      const projectName = document.getElementById('projectName').value;
+      const clientName = document.getElementById('clientName').value;
+      const location = document.getElementById('location').value;
+      
+      if (!projectName || !clientName || !location) {
+        alert('Please fill in all required fields');
+        return;
+      }
+      
+      // In a real application, this would send data to your backend
+      alert(`Project "${projectName}" created successfully!`);
+      closeCreateModal();
+    }
+
+    // Close modal when clicking outside
+    document.getElementById('createModal').addEventListener('click', function(e) {
+      if (e.target === this) {
+        closeCreateModal();
+      }
+    });
+  </script>
+</body>
+</html>
