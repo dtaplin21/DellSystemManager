@@ -53,6 +53,25 @@ app.get('/panel-layout-fixed', (req, res) => {
   res.sendFile(path.join(publicDir, 'panel-layout-fixed.html'));
 });
 
+// Proxy Next.js static assets first
+app.use('/_next', createProxyMiddleware({
+  target: 'http://localhost:3000',
+  changeOrigin: true,
+  logLevel: 'silent'
+}));
+
+app.use('/static', createProxyMiddleware({
+  target: 'http://localhost:3000',
+  changeOrigin: true,
+  logLevel: 'silent'
+}));
+
+app.get('/favicon.ico', createProxyMiddleware({
+  target: 'http://localhost:3000',
+  changeOrigin: true,
+  logLevel: 'silent'
+}));
+
 // Dashboard panel layout page (special case - serves from public directory)
 app.get('/dashboard/panel-layout', (req, res) => {
   const filePath = path.join(publicDir, 'dashboard', 'panel-layout.html');
@@ -65,7 +84,7 @@ app.get('/dashboard/panel-layout', (req, res) => {
   });
 });
 
-// All dashboard routes - proxy to Frontend Server (Next.js)
+// All other dashboard routes - proxy to Frontend Server (Next.js)
 app.use('/dashboard', createProxyMiddleware({
   target: 'http://localhost:3000',
   changeOrigin: true,
