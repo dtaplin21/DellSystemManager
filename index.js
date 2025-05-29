@@ -65,13 +65,16 @@ app.get('/dashboard/panel-layout', (req, res) => {
   });
 });
 
-// All dashboard routes (except panel-layout) - proxy to Frontend Server (Next.js)
+// All dashboard routes - proxy to Frontend Server (Next.js)
 app.use('/dashboard', createProxyMiddleware({
   target: 'http://localhost:3000',
   changeOrigin: true,
   logLevel: 'debug',
   pathRewrite: {
     '^/dashboard': '/dashboard'
+  },
+  onProxyReq: (proxyReq, req, res) => {
+    console.log('Proxying dashboard request:', req.url);
   }
 }));
 
