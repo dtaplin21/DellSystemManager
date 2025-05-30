@@ -89,11 +89,16 @@ app.use('/dashboard', createProxyMiddleware({
   target: 'http://localhost:3000',
   changeOrigin: true,
   logLevel: 'debug',
+  ws: true,
   pathRewrite: {
     '^/dashboard': '/dashboard'
   },
   onProxyReq: (proxyReq, req, res) => {
     console.log('Proxying dashboard request:', req.url);
+  },
+  onError: (err, req, res) => {
+    console.error('Proxy error:', err.message);
+    res.status(500).send('Dashboard proxy error');
   }
 }));
 

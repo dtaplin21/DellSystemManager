@@ -48,7 +48,6 @@ const nextConfig = {
     ];
   },
   // For Replit web preview - important for dashboard display
-  output: 'standalone',
   distDir: '.next',
   // Turn off compression for easier debugging
   compress: false,
