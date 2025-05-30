@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '../../components/ui/button';
+import { useAuth } from '../../hooks/use-auth';
+import { useToast } from '../../hooks/use-toast';
 
 // Define proper types for our projects
 interface Project {
@@ -16,7 +18,7 @@ interface Project {
   status?: string;
 }
 
-// Demo project data
+// Mock project data for demonstration
 const DEMO_PROJECTS = [
   {
     id: '1',
@@ -47,14 +49,24 @@ const DEMO_PROJECTS = [
 export default function Dashboard() {
   const [projects, setProjects] = useState<Project[]>(DEMO_PROJECTS);
   const [isLoading, setIsLoading] = useState(true);
+  const { user, isLoading: authLoading } = useAuth();
   const router = useRouter();
+  const { toast } = useToast();
 
   useEffect(() => {
-    // Simulate loading
+    // Simulate fetching projects from API
     setTimeout(() => {
       setIsLoading(false);
     }, 800);
   }, []);
+
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -62,7 +74,7 @@ export default function Dashboard() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-600">Welcome to your QC Management Platform</p>
+          <p className="text-gray-600">Welcome back, {user?.displayName || 'User'}!</p>
         </div>
         <Link href="/dashboard/projects">
           <Button className="bg-blue-600 hover:bg-blue-700">
