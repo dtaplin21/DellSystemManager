@@ -84,41 +84,30 @@ app.get('/dashboard/panel-layout', (req, res) => {
   });
 });
 
-// Handle dashboard routes with exact matching
-app.get('/dashboard', createProxyMiddleware({
-  target: 'http://localhost:3000',
-  changeOrigin: true,
-  pathRewrite: {
-    '^/dashboard$': '/dashboard'
-  },
-  onProxyReq: (proxyReq, req, res) => {
-    console.log('Dashboard exact proxy - Target:', proxyReq.path);
-  }
-}));
-
-// Handle dashboard sub-routes
-app.use('/dashboard/', createProxyMiddleware({
-  target: 'http://localhost:3000',
-  changeOrigin: true,
-  pathRewrite: {
-    '^/dashboard': '/dashboard'
-  },
-  onProxyReq: (proxyReq, req, res) => {
-    console.log('Dashboard sub-route proxy - Target:', proxyReq.path);
-  }
-}));
-
 // Authentication bypasses - redirect to dashboard
 app.get(['/login', '/signup'], (req, res) => {
   res.redirect('/dashboard');
 });
 
-// API routes - proxy to Backend Server
+// API routes - proxy to Backend Server (BEFORE dashboard routes)
 app.use('/api', createProxyMiddleware({
   target: 'http://localhost:8000',
   changeOrigin: true,
   pathRewrite: {
     '^/api': '/api'
+  }
+}));
+
+// Dashboard proxy - handle all dashboard routes (AFTER API routes)
+app.use('/dashboard', createProxyMiddleware({
+  target: 'http://localhost:3000',
+  changeOrigin: true,
+  logLevel: 'info',
+  onProxyReq: (proxyReq, req, res) => {
+    console.log('Dashboard proxy:', req.originalUrl, '->', proxyReq.path);
+  },
+  onProxyRes: (proxyRes, req, res) => {
+    console.log('Dashboard response:', proxyRes.statusCode);
   }
 }));
 
