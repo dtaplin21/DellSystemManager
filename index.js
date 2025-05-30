@@ -77,25 +77,30 @@ app.get(['/login', '/signup'], (req, res) => {
   res.redirect('/dashboard');
 });
 
-// API routes - proxy to Backend Server (BEFORE dashboard routes)
+// Dashboard routes - proxy to Next.js frontend (MUST come BEFORE API routes)
+app.use('/dashboard', createProxyMiddleware({
+  target: 'http://localhost:3000',
+  changeOrigin: true,
+  ws: true,
+  logLevel: 'debug',
+  onProxyReq: (proxyReq, req, res) => {
+    console.log('✓ Dashboard proxy request:', req.method, req.originalUrl, '-> http://localhost:3000');
+  },
+  onProxyRes: (proxyRes, req, res) => {
+    console.log('✓ Dashboard proxy response:', proxyRes.statusCode, req.originalUrl);
+  },
+  onError: (err, req, res) => {
+    console.error('✗ Dashboard proxy error:', err.message);
+    res.status(500).send('Dashboard service unavailable');
+  }
+}));
+
+// API routes - proxy to Backend Server (AFTER dashboard routes)
 app.use('/api', createProxyMiddleware({
   target: 'http://localhost:8000',
   changeOrigin: true,
   pathRewrite: {
     '^/api': '/api'
-  }
-}));
-
-// Dashboard routes - proxy to Next.js frontend
-app.use('/dashboard', createProxyMiddleware({
-  target: 'http://localhost:3000',
-  changeOrigin: true,
-  onProxyReq: (proxyReq, req, res) => {
-    console.log('Dashboard proxy:', req.originalUrl);
-  },
-  onError: (err, req, res) => {
-    console.error('Dashboard proxy error:', err.message);
-    res.status(500).send('Dashboard service unavailable');
   }
 }));
 
