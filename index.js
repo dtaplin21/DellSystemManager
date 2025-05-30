@@ -90,14 +90,19 @@ app.use('/dashboard', createProxyMiddleware({
   changeOrigin: true,
   logLevel: 'debug',
   ws: true,
-  pathRewrite: {
-    '^/dashboard': '/dashboard'
+  router: (req) => {
+    console.log('Dashboard proxy request:', req.url);
+    return 'http://localhost:3000';
   },
   onProxyReq: (proxyReq, req, res) => {
-    console.log('Proxying dashboard request:', req.url);
+    // Remove trailing slash for consistency
+    if (req.url === '/dashboard/') {
+      proxyReq.path = '/dashboard';
+    }
+    console.log('Proxying to:', proxyReq.path);
   },
   onError: (err, req, res) => {
-    console.error('Proxy error:', err.message);
+    console.error('Dashboard proxy error:', err.message);
     res.status(500).send('Dashboard proxy error');
   }
 }));
