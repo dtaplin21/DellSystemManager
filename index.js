@@ -72,18 +72,6 @@ app.get('/favicon.ico', createProxyMiddleware({
   logLevel: 'silent'
 }));
 
-// Dashboard panel layout page (special case - serves from public directory)
-app.get('/dashboard/panel-layout', (req, res) => {
-  const filePath = path.join(publicDir, 'dashboard', 'panel-layout.html');
-  console.log('Attempting to serve:', filePath);
-  res.sendFile(filePath, (err) => {
-    if (err) {
-      console.error('Error serving panel-layout.html:', err);
-      res.status(404).send('Panel layout page not found');
-    }
-  });
-});
-
 // Authentication bypasses - redirect to dashboard
 app.get(['/login', '/signup'], (req, res) => {
   res.redirect('/dashboard');
