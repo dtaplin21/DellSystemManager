@@ -98,15 +98,16 @@ app.use('/api', createProxyMiddleware({
   }
 }));
 
-// Dashboard routes - proxy to Next.js
+// Dashboard routes - proxy to Next.js frontend
 app.use('/dashboard', createProxyMiddleware({
   target: 'http://localhost:3000',
   changeOrigin: true,
   onProxyReq: (proxyReq, req, res) => {
-    console.log('Dashboard proxy request:', req.method, req.originalUrl);
+    console.log('Dashboard proxy:', req.originalUrl);
   },
-  onProxyRes: (proxyRes, req, res) => {
-    console.log('Dashboard proxy response:', proxyRes.statusCode);
+  onError: (err, req, res) => {
+    console.error('Dashboard proxy error:', err.message);
+    res.status(500).send('Dashboard service unavailable');
   }
 }));
 
