@@ -56,6 +56,8 @@ const nextConfig = {
     allowedDevOrigins: ['.replit.dev', '.picard.replit.dev', '.csb.app', '*'], 
     externalDir: true
   },
+  // Ensure assets are served from correct path
+  assetPrefix: '',
   // Handle cross-origin issues on Replit
   crossOrigin: 'anonymous',
   // Properly generate assets
