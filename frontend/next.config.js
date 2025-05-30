@@ -26,6 +26,11 @@ const nextConfig = {
       {
         source: '/api/:path*',
         destination: 'http://localhost:8000/api/:path*',
+      },
+      // Fix static asset routing
+      {
+        source: '/static/:path*',
+        destination: '/_next/static/:path*',
       }
     ];
   },

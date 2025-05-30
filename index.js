@@ -84,26 +84,27 @@ app.get('/dashboard/panel-layout', (req, res) => {
   });
 });
 
-// All other dashboard routes - proxy to Frontend Server (Next.js)
-app.use('/dashboard', createProxyMiddleware({
+// Handle dashboard routes with exact matching
+app.get('/dashboard', createProxyMiddleware({
   target: 'http://localhost:3000',
   changeOrigin: true,
-  logLevel: 'debug',
-  ws: true,
-  router: (req) => {
-    console.log('Dashboard proxy request:', req.url);
-    return 'http://localhost:3000';
+  pathRewrite: {
+    '^/dashboard$': '/dashboard'
   },
   onProxyReq: (proxyReq, req, res) => {
-    // Remove trailing slash for consistency
-    if (req.url === '/dashboard/') {
-      proxyReq.path = '/dashboard';
-    }
-    console.log('Proxying to:', proxyReq.path);
+    console.log('Dashboard exact proxy - Target:', proxyReq.path);
+  }
+}));
+
+// Handle dashboard sub-routes
+app.use('/dashboard/', createProxyMiddleware({
+  target: 'http://localhost:3000',
+  changeOrigin: true,
+  pathRewrite: {
+    '^/dashboard': '/dashboard'
   },
-  onError: (err, req, res) => {
-    console.error('Dashboard proxy error:', err.message);
-    res.status(500).send('Dashboard proxy error');
+  onProxyReq: (proxyReq, req, res) => {
+    console.log('Dashboard sub-route proxy - Target:', proxyReq.path);
   }
 }));
 
