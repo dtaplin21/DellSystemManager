@@ -1,392 +1,449 @@
 /**
- * GeoQC Panel Layout Optimizer
- * 
- * This module provides advanced panel placement optimization for geosynthetic liner projects,
- * taking into account site boundaries, elevation changes, and slope constraints.
+ * GeoQC Panel Optimizer
+ * Main panel optimization module for the frontend panel layout tool
  */
 
-class PanelOptimizer {
-  constructor(siteConfig, panels, strategy = 'balanced') {
-    this.siteConfig = siteConfig;
-    this.panels = panels;
-    this.strategy = strategy; // 'material', 'labor', or 'balanced'
-    this.placements = [];
-    this.noGoZones = siteConfig.noGoZones || [];
-    this.elevationGrid = siteConfig.elevationGrid || [];
-  }
+// Configuration constants
+const OPTIMIZATION_CONFIG = {
+  gridSnapTolerance: 0.2,
+  minPanelSpacing: 1.0,
+  maxOverlapTolerance: 0.1,
+  defaultOptimizationStrategy: 'balanced'
+};
 
-  /**
-   * Run the optimization algorithm
-   * @returns {Object} Optimized panel placement results
-   */
-  optimize() {
-    console.log(`Starting optimization with ${this.strategy} strategy...`);
-    
-    // Reset placements
-    this.placements = [];
-    
-    // Different strategies use different approaches
-    switch (this.strategy) {
-      case 'material':
-        this.optimizeMaterialEfficiency();
-        break;
-      case 'labor':
-        this.optimizeLaborEfficiency();
-        break;
-      case 'balanced':
-      default:
-        this.optimizeBalanced();
-        break;
-    }
-    
-    // Generate the summary report
-    const summary = this.generateSummary();
-    
-    return {
-      placements: this.placements,
-      summary: summary
-    };
-  }
+/**
+ * Main panel layout optimization function
+ * @param {Array} panels Array of panel objects
+ * @param {Object} siteConfig Site configuration parameters
+ * @param {Object} optimizationSettings Optimization preferences
+ * @returns {Object} Optimized panel layout with summary
+ */
+function optimizePanelLayout(panels, siteConfig, optimizationSettings = {}) {
+  const strategy = optimizationSettings.strategy || OPTIMIZATION_CONFIG.defaultOptimizationStrategy;
   
-  /**
-   * Optimize for material efficiency (minimize waste)
-   * This prioritizes using full panels and minimizing cuts
-   */
-  optimizeMaterialEfficiency() {
-    console.log('Optimizing for material efficiency...');
-    
-    // Sort panels by area (largest first)
-    const sortedPanels = [...this.panels].sort((a, b) => 
-      (b.width * b.length) - (a.width * a.length)
-    );
-    
-    // Place panels using a grid pattern, largest panels first
-    let row = 0;
-    let col = 0;
-    const spacing = 5; // 5 ft spacing between panels
-    const maxCols = Math.floor(this.siteConfig.width / (sortedPanels[0].width + spacing));
-    
-    sortedPanels.forEach((panel, index) => {
-      // Calculate position based on grid
-      col = index % maxCols;
-      row = Math.floor(index / maxCols);
-      
-      const x = col * (panel.width + spacing) + 50; // 50 ft margin from edge
-      const y = row * (panel.length + spacing) + 50; // 50 ft margin from edge
-      
-      // If position is valid within site boundaries
-      if (this.isValidPosition(x, y, panel.width, panel.length)) {
-        // Calculate elevation adjustment based on grid
-        const elevationAdjustment = this.calculateElevationAdjustment(x, y, panel.width, panel.length);
-        
-        // Add to placements
-        this.placements.push({
-          id: panel.id,
-          x: x,
-          y: y,
-          rotation: 0, // No rotation for material efficiency
-          elevationAdjustment: elevationAdjustment
-        });
-      }
-    });
-  }
+  // Create deep copy of panels to avoid modifying original
+  const optimizedPanels = JSON.parse(JSON.stringify(panels));
   
-  /**
-   * Optimize for labor efficiency (minimize installation time)
-   * This prioritizes placing panels in a sequence that minimizes movement
-   */
-  optimizeLaborEfficiency() {
-    console.log('Optimizing for labor efficiency...');
-    
-    // Sort panels by location proximity (top to bottom, left to right)
-    const sortedPanels = [...this.panels].sort((a, b) => a.id.localeCompare(b.id));
-    
-    // Use a spiral pattern starting from the center for installation efficiency
-    const centerX = this.siteConfig.width / 2;
-    const centerY = this.siteConfig.length / 2;
-    const spiralSpacing = 10; // ft
-    
-    sortedPanels.forEach((panel, index) => {
-      // Calculate position based on spiral pattern
-      // This creates a pattern where crews can work continuously without jumping around
-      const angle = 0.5 * index;
-      const radius = spiralSpacing * angle / (2 * Math.PI);
-      
-      const x = centerX + radius * Math.cos(angle) - panel.width / 2;
-      const y = centerY + radius * Math.sin(angle) - panel.length / 2;
-      
-      // Determine if rotation helps with installation
-      const rotation = (index % 2 === 0) ? 0 : 90;
-      
-      // If position is valid within site boundaries
-      const actualWidth = rotation === 90 ? panel.length : panel.width;
-      const actualLength = rotation === 90 ? panel.width : panel.length;
-      
-      if (this.isValidPosition(x, y, actualWidth, actualLength)) {
-        // Calculate elevation adjustment based on grid
-        const elevationAdjustment = this.calculateElevationAdjustment(x, y, actualWidth, actualLength);
-        
-        // Add to placements
-        this.placements.push({
-          id: panel.id,
-          x: x,
-          y: y,
-          rotation: rotation,
-          elevationAdjustment: elevationAdjustment
-        });
-      }
-    });
-  }
-  
-  /**
-   * Balanced optimization approach
-   * This balances material efficiency and labor efficiency
-   */
-  optimizeBalanced() {
-    console.log('Optimizing with balanced approach...');
-    
-    // Sort panels by area (largest first) but with some consideration for installation sequence
-    const sortedPanels = [...this.panels].sort((a, b) => {
-      // Primary sort by area
-      const areaComparison = (b.width * b.length) - (a.width * a.length);
-      
-      // If areas are similar, sort by ID for installation sequence
-      if (Math.abs(areaComparison) < 100) { // Within 100 sq ft
-        return a.id.localeCompare(b.id);
-      }
-      
-      return areaComparison;
-    });
-    
-    // Use quadrant-based placement (divides site into 4 quadrants)
-    // This allows for efficient material use while keeping installation somewhat sequential
-    const quadrants = [
-      { x: this.siteConfig.width * 0.25, y: this.siteConfig.length * 0.25 }, // Q1
-      { x: this.siteConfig.width * 0.75, y: this.siteConfig.length * 0.25 }, // Q2
-      { x: this.siteConfig.width * 0.25, y: this.siteConfig.length * 0.75 }, // Q3
-      { x: this.siteConfig.width * 0.75, y: this.siteConfig.length * 0.75 }, // Q4
-    ];
-    
-    // Place panels in quadrants, alternating between them
-    sortedPanels.forEach((panel, index) => {
-      const quadrant = quadrants[index % 4];
-      const quadrantIndex = index % 4;
-      
-      // Calculate position within quadrant
-      const posInQuadrant = Math.floor(index / 4);
-      const quadrantCols = 3;
-      
-      const colInQuad = posInQuadrant % quadrantCols;
-      const rowInQuad = Math.floor(posInQuadrant / quadrantCols);
-      
-      const spacing = 10; // 10 ft spacing between panels
-      
-      // Calculate base position in quadrant
-      const quadBaseX = quadrant.x - (this.siteConfig.width * 0.25);
-      const quadBaseY = quadrant.y - (this.siteConfig.length * 0.25);
-      
-      // Position within quadrant grid
-      const x = quadBaseX + colInQuad * (panel.width + spacing);
-      const y = quadBaseY + rowInQuad * (panel.length + spacing);
-      
-      // Determine if rotation helps with fit
-      const rotation = (quadrantIndex % 2 === 0) ? 0 : 90;
-      
-      // If position is valid within site boundaries
-      const actualWidth = rotation === 90 ? panel.length : panel.width;
-      const actualLength = rotation === 90 ? panel.width : panel.length;
-      
-      if (this.isValidPosition(x, y, actualWidth, actualLength)) {
-        // Calculate elevation adjustment based on grid
-        const elevationAdjustment = this.calculateElevationAdjustment(x, y, actualWidth, actualLength);
-        
-        // Add to placements
-        this.placements.push({
-          id: panel.id,
-          x: x,
-          y: y,
-          rotation: rotation,
-          elevationAdjustment: elevationAdjustment
-        });
-      }
-    });
-  }
-  
-  /**
-   * Check if a position is valid within site boundaries and doesn't overlap no-go zones
-   */
-  isValidPosition(x, y, width, length) {
-    // Check site boundaries
-    if (x < 0 || y < 0 || 
-        x + width > this.siteConfig.width || 
-        y + length > this.siteConfig.length) {
-      return false;
-    }
-    
-    // Check no-go zones
-    for (const zone of this.noGoZones) {
-      // Simple rectangular collision detection
-      if (!(x + width < zone.x || x > zone.x + zone.width ||
-            y + length < zone.y || y > zone.y + zone.height)) {
-        return false;
-      }
-    }
-    
-    // Check for overlap with existing placements
-    for (const placement of this.placements) {
-      const placementWidth = placement.rotation === 90 ? 
-        this.getPanelById(placement.id).length : 
-        this.getPanelById(placement.id).width;
-        
-      const placementLength = placement.rotation === 90 ? 
-        this.getPanelById(placement.id).width : 
-        this.getPanelById(placement.id).length;
-      
-      // Rectangular collision detection
-      if (!(x + width < placement.x || x > placement.x + placementWidth ||
-            y + length < placement.y || y > placement.y + placementLength)) {
-        return false;
-      }
-    }
-    
-    return true;
-  }
-  
-  /**
-   * Calculate elevation adjustment based on slope
-   */
-  calculateElevationAdjustment(x, y, width, length) {
-    if (!this.elevationGrid || this.elevationGrid.length === 0) {
-      return 0; // No elevation data
-    }
-    
-    // Use average elevation under the panel
-    let totalElevation = 0;
-    let gridPoints = 0;
-    
-    // Sample the grid at multiple points under the panel
-    const samplePoints = [
-      { x: x, y: y }, // Southwest corner
-      { x: x + width, y: y }, // Southeast corner
-      { x: x, y: y + length }, // Northwest corner
-      { x: x + width, y: y + length }, // Northeast corner
-      { x: x + width/2, y: y + length/2 } // Center
-    ];
-    
-    samplePoints.forEach(point => {
-      // Find the grid cell containing this point
-      const gridCell = this.findGridCell(point.x, point.y);
-      if (gridCell) {
-        totalElevation += gridCell.elevation;
-        gridPoints++;
-      }
-    });
-    
-    if (gridPoints === 0) return 0;
-    
-    // Average elevation adjustment
-    return parseFloat((totalElevation / gridPoints).toFixed(1));
-  }
-  
-  /**
-   * Find the grid cell containing a point
-   */
-  findGridCell(x, y) {
-    return this.elevationGrid.find(cell => 
-      x >= cell.x && x < cell.x + cell.width &&
-      y >= cell.y && y < cell.y + cell.height
-    );
-  }
-  
-  /**
-   * Get panel by ID
-   */
-  getPanelById(id) {
-    return this.panels.find(panel => panel.id === id);
-  }
-  
-  /**
-   * Generate a summary of the optimization results
-   */
-  generateSummary() {
-    // Count panels with significant elevation adjustment
-    const elevatedPanels = this.placements.filter(p => Math.abs(p.elevationAdjustment) > 1).length;
-    const totalPanels = this.placements.length;
-    
-    // Calculate average elevation adjustment
-    const avgElevation = this.placements.reduce((sum, p) => sum + Math.abs(p.elevationAdjustment), 0) / totalPanels;
-    
-    // Calculate total area covered
-    const totalArea = this.placements.reduce((sum, p) => {
-      const panel = this.getPanelById(p.id);
-      return sum + (panel.width * panel.length);
-    }, 0);
-    
-    // Calculate site utilization percentage
-    const siteArea = this.siteConfig.width * this.siteConfig.length;
-    const utilization = (totalArea / siteArea * 100).toFixed(1);
-    
-    return {
-      strategy: this.strategy,
-      totalPanels: totalPanels,
-      elevatedPanels: elevatedPanels,
-      averageElevationAdjustment: avgElevation.toFixed(1),
-      siteUtilization: utilization + '%',
-      slopeImpact: this.generateSlopeImpactSummary(elevatedPanels, totalPanels, avgElevation)
-    };
-  }
-  
-  /**
-   * Generate a human-readable summary of how slopes affected placement
-   */
-  generateSlopeImpactSummary(elevatedPanels, totalPanels, avgElevation) {
-    if (elevatedPanels === 0) {
-      return "No significant slope constraints affected panel placement.";
-    }
-    
-    const impactPercentage = ((elevatedPanels / totalPanels) * 100).toFixed(0);
-    
-    if (impactPercentage > 50) {
-      return `Significant slope constraints affected ${impactPercentage}% of panels. Average elevation adjustment of ${avgElevation.toFixed(1)} ft required across the site. Special mounting considerations recommended.`;
-    } else if (impactPercentage > 20) {
-      return `Moderate slope constraints affected ${impactPercentage}% of panels. Average elevation adjustment of ${avgElevation.toFixed(1)} ft required for affected areas.`;
-    } else {
-      return `Minor slope constraints affected ${impactPercentage}% of panels. Average elevation adjustment of ${avgElevation.toFixed(1)} ft required in isolated areas.`;
-    }
+  // Apply optimization based on strategy
+  switch (strategy) {
+    case 'material-efficient':
+      return optimizeMaterialEfficiency(optimizedPanels, siteConfig, optimizationSettings);
+    case 'labor-efficient':
+      return optimizeLaborEfficiency(optimizedPanels, siteConfig, optimizationSettings);
+    case 'balanced':
+    default:
+      return optimizeBalanced(optimizedPanels, siteConfig, optimizationSettings);
   }
 }
 
 /**
- * Export panel layout to DXF format
- * @param {Array} placements Panel placement data
- * @param {Array} panels Panel definitions
+ * Material-efficient optimization strategy
+ * Minimizes material waste by optimizing panel placement and sizing
  */
-function exportToDXF(placements, panels) {
-  // This would generate a DXF file for CAD programs
-  // Implementation would use a DXF library to create proper CAD format
-  console.log("Exporting to DXF...");
+function optimizeMaterialEfficiency(panels, siteConfig, settings) {
+  // Sort panels by material type to group similar materials
+  panels.sort((a, b) => {
+    const materialA = a.material || 'HDPE 60 mil';
+    const materialB = b.material || 'HDPE 60 mil';
+    return materialA.localeCompare(materialB);
+  });
   
-  // In a real implementation, this would return a DXF string or file object
+  // Apply tight packing algorithm
+  applyTightPacking(panels, siteConfig);
+  
+  // Minimize edge waste
+  minimizeEdgeWaste(panels, siteConfig);
+  
   return {
-    success: true,
-    message: "DXF export generated successfully"
+    panels: panels,
+    summary: {
+      strategy: 'material-efficient',
+      wasteReduction: calculateWasteReduction(panels, siteConfig),
+      materialUtilization: calculateMaterialUtilization(panels, siteConfig)
+    }
   };
 }
 
 /**
- * Export panel layout to Excel format
- * @param {Array} placements Panel placement data
- * @param {Array} panels Panel definitions
- * @param {Object} summary Optimization summary
+ * Labor-efficient optimization strategy
+ * Minimizes installation time by optimizing for construction workflow
  */
-function exportToExcel(placements, panels, summary) {
-  // This would generate an Excel spreadsheet
-  // Implementation would create a table with panel details
-  console.log("Exporting to Excel...");
+function optimizeLaborEfficiency(panels, siteConfig, settings) {
+  // Organize panels for logical installation sequence
+  optimizeInstallationSequence(panels, siteConfig);
   
-  // In a real implementation, this would return Excel data
+  // Minimize seam lengths
+  minimizeSeamLengths(panels);
+  
+  // Group panels by installation zone
+  groupByInstallationZone(panels, siteConfig);
+  
   return {
-    success: true,
-    message: "Excel export generated successfully"
+    panels: panels,
+    summary: {
+      strategy: 'labor-efficient',
+      seamReduction: calculateSeamReduction(panels),
+      installationEfficiency: calculateInstallationEfficiency(panels)
+    }
+  };
+}
+
+/**
+ * Balanced optimization strategy
+ * Compromises between material and labor efficiency
+ */
+function optimizeBalanced(panels, siteConfig, settings) {
+  // Apply moderate packing with installation considerations
+  applyModeratePacking(panels, siteConfig);
+  
+  // Balance seam optimization with material efficiency
+  balanceSeamAndMaterial(panels, siteConfig);
+  
+  // Resolve overlaps and spacing issues
+  resolveOverlaps(panels);
+  
+  return {
+    panels: panels,
+    summary: {
+      strategy: 'balanced',
+      overallEfficiency: calculateOverallEfficiency(panels, siteConfig),
+      coverage: calculateSiteCoverage(panels, siteConfig)
+    }
+  };
+}
+
+/**
+ * Apply tight packing algorithm for material efficiency
+ */
+function applyTightPacking(panels, siteConfig) {
+  const spacing = OPTIMIZATION_CONFIG.minPanelSpacing;
+  
+  panels.forEach((panel, index) => {
+    // Find optimal position with minimal gaps
+    const position = findOptimalPosition(panel, panels.slice(0, index), siteConfig, spacing);
+    panel.x = position.x;
+    panel.y = position.y;
+  });
+}
+
+/**
+ * Find optimal position for a panel
+ */
+function findOptimalPosition(panel, existingPanels, siteConfig, minSpacing) {
+  const siteWidth = parseFloat(siteConfig.width) || 4000;
+  const siteHeight = parseFloat(siteConfig.length) || 4000;
+  
+  // Start from top-left and find first available position
+  for (let y = 0; y <= siteHeight - panel.length; y += 5) {
+    for (let x = 0; x <= siteWidth - panel.width; x += 5) {
+      const testPosition = { x, y };
+      
+      if (isPositionValid(panel, testPosition, existingPanels, minSpacing)) {
+        return testPosition;
+      }
+    }
+  }
+  
+  // Fallback to original position if no valid position found
+  return { x: panel.x || 0, y: panel.y || 0 };
+}
+
+/**
+ * Check if a position is valid for panel placement
+ */
+function isPositionValid(panel, position, existingPanels, minSpacing) {
+  const testPanel = {
+    ...panel,
+    x: position.x,
+    y: position.y
+  };
+  
+  // Check for overlaps with existing panels
+  for (const existingPanel of existingPanels) {
+    if (panelsOverlap(testPanel, existingPanel, minSpacing)) {
+      return false;
+    }
+  }
+  
+  return true;
+}
+
+/**
+ * Check if two panels overlap
+ */
+function panelsOverlap(panel1, panel2, minSpacing = 0) {
+  const p1 = {
+    left: panel1.x - minSpacing,
+    right: panel1.x + panel1.width + minSpacing,
+    top: panel1.y - minSpacing,
+    bottom: panel1.y + panel1.length + minSpacing
+  };
+  
+  const p2 = {
+    left: panel2.x,
+    right: panel2.x + panel2.width,
+    top: panel2.y,
+    bottom: panel2.y + panel2.length
+  };
+  
+  return !(p1.right <= p2.left || p1.left >= p2.right || 
+           p1.bottom <= p2.top || p1.top >= p2.bottom);
+}
+
+/**
+ * Minimize edge waste by optimizing panel positioning
+ */
+function minimizeEdgeWaste(panels, siteConfig) {
+  // Move panels closer to edges when possible
+  panels.forEach(panel => {
+    // Snap to site boundaries if close enough
+    if (panel.x < 10) panel.x = 0;
+    if (panel.y < 10) panel.y = 0;
+  });
+}
+
+/**
+ * Optimize installation sequence for labor efficiency
+ */
+function optimizeInstallationSequence(panels, siteConfig) {
+  // Sort panels by logical installation order (left to right, top to bottom)
+  panels.sort((a, b) => {
+    if (Math.abs(a.y - b.y) < 10) {
+      return a.x - b.x; // Same row, sort by x
+    }
+    return a.y - b.y; // Different rows, sort by y
+  });
+}
+
+/**
+ * Minimize total seam lengths
+ */
+function minimizeSeamLengths(panels) {
+  // Group adjacent panels and align edges where possible
+  panels.forEach((panel, index) => {
+    const neighbors = findNeighbors(panel, panels);
+    alignWithNeighbors(panel, neighbors);
+  });
+}
+
+/**
+ * Find neighboring panels
+ */
+function findNeighbors(panel, allPanels) {
+  const tolerance = 5; // 5 foot tolerance for considering panels as neighbors
+  
+  return allPanels.filter(otherPanel => {
+    if (otherPanel === panel) return false;
+    
+    const distance = Math.sqrt(
+      Math.pow(panel.x - otherPanel.x, 2) + 
+      Math.pow(panel.y - otherPanel.y, 2)
+    );
+    
+    return distance < tolerance;
+  });
+}
+
+/**
+ * Align panel with its neighbors
+ */
+function alignWithNeighbors(panel, neighbors) {
+  neighbors.forEach(neighbor => {
+    // Align horizontally if panels are side by side
+    if (Math.abs(panel.y - neighbor.y) < 1) {
+      if (panel.x > neighbor.x && panel.x < neighbor.x + neighbor.width + 5) {
+        panel.x = neighbor.x + neighbor.width;
+      }
+    }
+    
+    // Align vertically if panels are stacked
+    if (Math.abs(panel.x - neighbor.x) < 1) {
+      if (panel.y > neighbor.y && panel.y < neighbor.y + neighbor.length + 5) {
+        panel.y = neighbor.y + neighbor.length;
+      }
+    }
+  });
+}
+
+/**
+ * Apply moderate packing for balanced optimization
+ */
+function applyModeratePacking(panels, siteConfig) {
+  const spacing = OPTIMIZATION_CONFIG.minPanelSpacing * 1.5; // Slightly more spacing than tight packing
+  applyTightPacking(panels, { ...siteConfig, minSpacing: spacing });
+}
+
+/**
+ * Balance seam optimization with material efficiency
+ */
+function balanceSeamAndMaterial(panels, siteConfig) {
+  // Apply both optimizations with reduced intensity
+  minimizeSeamLengths(panels);
+  minimizeEdgeWaste(panels, siteConfig);
+}
+
+/**
+ * Resolve panel overlaps
+ */
+function resolveOverlaps(panels) {
+  for (let i = 0; i < panels.length; i++) {
+    for (let j = i + 1; j < panels.length; j++) {
+      if (panelsOverlap(panels[i], panels[j], OPTIMIZATION_CONFIG.maxOverlapTolerance)) {
+        // Move the second panel to resolve overlap
+        moveToResolveOverlap(panels[j], panels[i]);
+      }
+    }
+  }
+}
+
+/**
+ * Move a panel to resolve overlap with another panel
+ */
+function moveToResolveOverlap(movingPanel, fixedPanel) {
+  // Simple strategy: move the panel to the right of the fixed panel
+  movingPanel.x = fixedPanel.x + fixedPanel.width + OPTIMIZATION_CONFIG.minPanelSpacing;
+}
+
+/**
+ * Calculate waste reduction percentage
+ */
+function calculateWasteReduction(panels, siteConfig) {
+  // Simplified calculation - in practice this would be more complex
+  const totalPanelArea = panels.reduce((sum, panel) => sum + (panel.width * panel.length), 0);
+  const siteArea = (parseFloat(siteConfig.width) || 4000) * (parseFloat(siteConfig.length) || 4000);
+  const utilization = totalPanelArea / siteArea;
+  
+  return Math.min(utilization * 100, 95); // Cap at 95% for realism
+}
+
+/**
+ * Calculate material utilization
+ */
+function calculateMaterialUtilization(panels, siteConfig) {
+  return calculateWasteReduction(panels, siteConfig);
+}
+
+/**
+ * Calculate seam reduction
+ */
+function calculateSeamReduction(panels) {
+  // Simplified calculation
+  const alignedEdges = countAlignedEdges(panels);
+  const totalPossibleEdges = panels.length * 4;
+  
+  return (alignedEdges / totalPossibleEdges) * 100;
+}
+
+/**
+ * Count aligned edges between panels
+ */
+function countAlignedEdges(panels) {
+  let alignedCount = 0;
+  
+  for (let i = 0; i < panels.length; i++) {
+    for (let j = i + 1; j < panels.length; j++) {
+      if (edgesAreAligned(panels[i], panels[j])) {
+        alignedCount++;
+      }
+    }
+  }
+  
+  return alignedCount;
+}
+
+/**
+ * Check if edges of two panels are aligned
+ */
+function edgesAreAligned(panel1, panel2) {
+  const tolerance = 1; // 1 foot tolerance
+  
+  // Check for horizontal alignment
+  if (Math.abs(panel1.y - panel2.y) < tolerance || 
+      Math.abs((panel1.y + panel1.length) - (panel2.y + panel2.length)) < tolerance) {
+    return true;
+  }
+  
+  // Check for vertical alignment
+  if (Math.abs(panel1.x - panel2.x) < tolerance || 
+      Math.abs((panel1.x + panel1.width) - (panel2.x + panel2.width)) < tolerance) {
+    return true;
+  }
+  
+  return false;
+}
+
+/**
+ * Calculate installation efficiency
+ */
+function calculateInstallationEfficiency(panels) {
+  // Based on logical sequencing and neighbor alignment
+  const sequenceScore = calculateSequenceScore(panels);
+  const alignmentScore = calculateSeamReduction(panels);
+  
+  return (sequenceScore + alignmentScore) / 2;
+}
+
+/**
+ * Calculate sequence score for installation efficiency
+ */
+function calculateSequenceScore(panels) {
+  let score = 0;
+  
+  for (let i = 1; i < panels.length; i++) {
+    const current = panels[i];
+    const previous = panels[i - 1];
+    
+    // Score based on logical progression (left to right, top to bottom)
+    if (current.y >= previous.y && current.x >= previous.x) {
+      score++;
+    }
+  }
+  
+  return (score / (panels.length - 1)) * 100;
+}
+
+/**
+ * Calculate overall efficiency for balanced strategy
+ */
+function calculateOverallEfficiency(panels, siteConfig) {
+  const materialScore = calculateMaterialUtilization(panels, siteConfig);
+  const laborScore = calculateInstallationEfficiency(panels);
+  
+  return (materialScore + laborScore) / 2;
+}
+
+/**
+ * Calculate site coverage percentage
+ */
+function calculateSiteCoverage(panels, siteConfig) {
+  const totalPanelArea = panels.reduce((sum, panel) => sum + (panel.width * panel.length), 0);
+  const siteArea = (parseFloat(siteConfig.width) || 4000) * (parseFloat(siteConfig.length) || 4000);
+  
+  return Math.min((totalPanelArea / siteArea) * 100, 100);
+}
+
+/**
+ * Group panels by installation zone
+ */
+function groupByInstallationZone(panels, siteConfig) {
+  // Simple zoning based on grid sections
+  const zoneSize = 500; // 500 foot zones
+  
+  panels.forEach(panel => {
+    panel.installationZone = {
+      x: Math.floor(panel.x / zoneSize),
+      y: Math.floor(panel.y / zoneSize)
+    };
+  });
+}
+
+// Export functions for use in other modules
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    optimizePanelLayout,
+    optimizeMaterialEfficiency,
+    optimizeLaborEfficiency,
+    optimizeBalanced,
+    OPTIMIZATION_CONFIG
   };
 }
