@@ -8,6 +8,9 @@ const { createProxyMiddleware } = require('http-proxy-middleware');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Disable Express automatic trailing slash redirects
+app.set('strict routing', true);
+
 // Basic logging
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
@@ -29,9 +32,23 @@ app.use((req, res, next) => {
   next();
 });
 
-// Public directory for static assets
+// Public directory for static assets (after dashboard routes)
 const publicDir = path.join(__dirname, 'public');
-app.use(express.static(publicDir));
+
+// Dashboard routes - handle both /dashboard and /dashboard/ (BEFORE static files)
+app.get(['/dashboard', '/dashboard/'], (req, res) => {
+  res.send(`
+    <html>
+      <head><title>Dashboard Test</title></head>
+      <body>
+        <h1>Static Dashboard Placeholder</h1>
+        <p>If you see this without redirects, the loop is fixed.</p>
+        <p>Next.js frontend will be connected once the routing is stable.</p>
+        <a href="/">← Back to Home</a>
+      </body>
+    </html>
+  `);
+});
 
 // Main landing page
 app.get('/', (req, res) => {
@@ -53,6 +70,9 @@ app.get('/panel-layout-fixed', (req, res) => {
   res.sendFile(path.join(publicDir, 'panel-layout-fixed.html'));
 });
 
+// Static file serving (after specific routes)
+app.use(express.static(publicDir));
+
 // Proxy Next.js static assets first
 app.use('/_next', createProxyMiddleware({
   target: 'http://localhost:3000',
@@ -72,28 +92,34 @@ app.get('/favicon.ico', createProxyMiddleware({
   logLevel: 'silent'
 }));
 
-// Authentication bypasses - redirect to dashboard
-app.get(['/login', '/signup'], (req, res) => {
-  res.redirect('/dashboard');
+// Login page - only redirect if already authenticated
+app.get('/login', (req, res) => {
+  // For now, serve login page instead of redirecting
+  // TODO: Add session check here later
+  res.sendFile(path.join(publicDir, 'login.html'));
 });
 
-// Dashboard routes - proxy to Next.js frontend (MUST come BEFORE API routes)
-app.use('/dashboard', createProxyMiddleware({
-  target: 'http://localhost:3000',
-  changeOrigin: true,
-  ws: true,
-  logLevel: 'debug',
-  onProxyReq: (proxyReq, req, res) => {
-    console.log('✓ Dashboard proxy request:', req.method, req.originalUrl, '-> http://localhost:3000');
-  },
-  onProxyRes: (proxyRes, req, res) => {
-    console.log('✓ Dashboard proxy response:', proxyRes.statusCode, req.originalUrl);
-  },
-  onError: (err, req, res) => {
-    console.error('✗ Dashboard proxy error:', err.message);
-    res.status(500).send('Dashboard service unavailable');
-  }
-}));
+// Signup page - only redirect if already authenticated  
+app.get('/signup', (req, res) => {
+  // For now, serve signup page instead of redirecting
+  // TODO: Add session check here later
+  res.sendFile(path.join(publicDir, 'signup.html'));
+});
+
+// Dashboard routes - handle both /dashboard and /dashboard/ 
+app.get(['/dashboard', '/dashboard/'], (req, res) => {
+  res.send(`
+    <html>
+      <head><title>Dashboard Test</title></head>
+      <body>
+        <h1>Static Dashboard Placeholder</h1>
+        <p>If you see this without redirects, the loop is fixed.</p>
+        <p>Next.js frontend will be connected once the routing is stable.</p>
+        <a href="/">← Back to Home</a>
+      </body>
+    </html>
+  `);
+});
 
 // API routes - proxy to Backend Server (AFTER dashboard routes)
 app.use('/api', createProxyMiddleware({
