@@ -19,7 +19,20 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// Setup routes
+// Dashboard redirect to Gateway Server
+app.get('/dashboard', (req, res) => {
+  // Since the web preview accesses port 8000, redirect to Gateway Server on port 5000
+  const gatewayUrl = `${req.protocol}://${req.hostname}:5000/dashboard`;
+  res.redirect(gatewayUrl);
+});
+
+// Redirect root to Gateway Server as well
+app.get('/', (req, res) => {
+  const gatewayUrl = `${req.protocol}://${req.hostname}:5000/`;
+  res.redirect(gatewayUrl);
+});
+
+// Setup API routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/projects', require('./routes/projects'));
 app.use('/api/documents', require('./routes/documents'));

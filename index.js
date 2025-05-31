@@ -106,20 +106,7 @@ app.get('/signup', (req, res) => {
   res.sendFile(path.join(publicDir, 'signup.html'));
 });
 
-// Dashboard routes - handle both /dashboard and /dashboard/ 
-app.get(['/dashboard', '/dashboard/'], (req, res) => {
-  res.send(`
-    <html>
-      <head><title>Dashboard Test</title></head>
-      <body>
-        <h1>Static Dashboard Placeholder</h1>
-        <p>If you see this without redirects, the loop is fixed.</p>
-        <p>Next.js frontend will be connected once the routing is stable.</p>
-        <a href="/">← Back to Home</a>
-      </body>
-    </html>
-  `);
-});
+
 
 // API routes - proxy to Backend Server (AFTER dashboard routes)
 app.use('/api', createProxyMiddleware({
