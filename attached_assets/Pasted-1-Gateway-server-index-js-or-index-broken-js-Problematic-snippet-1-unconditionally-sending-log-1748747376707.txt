@@ -1,0 +1,298 @@
+1. Gateway server (index.js or index-broken.js)
+Problematic snippet #1: unconditionally sending /login → /dashboard
+In older versions of your gateway you had:
+
+js
+Copy
+Edit
+// Authentication bypasses - redirect to dashboard
+app.get(['/login', '/signup'], (req, res) => {
+  res.redirect('/dashboard');
+});
+Why it loops:
+
+Client hits /login → gateway immediately issues 302 → /dashboard.
+
+/dashboard is being proxied to Next.js (or static placeholder), but Next.js (or your code) sees the user is not authenticated and immediately redirects back to /login.
+
+Gateway sees /login again → sends another 302 → /dashboard → infinite loop.
+
+What to do: Remove (or comment out) this redirect entirely. Instead, serve the actual login.html and signup.html so the user can authenticate:
+
+diff
+Copy
+Edit
+- // Authentication bypasses - redirect to dashboard
+- // app.get(['/login', '/signup'], (req, res) => {
+- //   res.redirect('/dashboard');
+- // });
+
++ // Instead of always redirecting, serve the static login/signup pages:
++ app.get('/login', (req, res) => {
++   const loginPath = path.join(publicDir, 'login.html');
++   if (fs.existsSync(loginPath)) {
++     res.sendFile(loginPath);
++   } else {
++     res.status(404).send('Login page not found.');
++   }
++ });
++
++ app.get('/signup', (req, res) => {
++   const signupPath = path.join(publicDir, 'signup.html');
++   if (fs.existsSync(signupPath)) {
++     res.sendFile(signupPath);
++   } else {
++     res.status(404).send('Signup page not found.');
++   }
++ });
+In other words: Make sure no res.redirect('/dashboard') is running unconditionally from /login or /signup. That is the first—and biggest—cause of the loop.
+
+Problematic snippet #2: placing the /dashboard proxy before you serve a static fallback
+In some versions you wrote:
+
+js
+Copy
+Edit
+// All dashboard routes (except panel-layout) should go to Frontend Server
+app.use('/dashboard', (req, res, next) => {
+  if (req.path === '/panel-layout') {
+    return next();
+  }
+  const proxy = createProxyMiddleware({
+    target: 'http://localhost:3000',
+    changeOrigin: true,
+    logLevel: 'debug',
+    pathRewrite: { '^/dashboard': '/dashboard' }
+  });
+  return proxy(req, res, next);
+});
+That code by itself is okay—as long as /login no longer redirects you back to /dashboard. But if the Next.js side is set up to check “if not authenticated, redirect to /login,” then every time you visit /dashboard you’ll get a 302 → /login, and your gateway (if it still had the old redirect) would bounce you right back.
+
+Because you removed the login‐>dashboard redirect, the next thing to verify is:
+
+Is your Next.js app (at localhost:3000) redirecting unauthorized visits to /dashboard back to /login?
+
+If so, that’s a client‐side redirect inside Next.js, not your Express code. You’ll need to disable that “always redirect to /login if no session” logic in your Next.js project until the gateway routing is stable.
+
+Confirm that your gateway’s “serve-static” call lives below the /dashboard route. In the final version you posted, you did:
+
+js
+Copy
+Edit
+// 1) Handle /dashboard (and /dashboard/) yourself (temporary placeholder)
+app.get(['/dashboard', '/dashboard/'], (req, res) => {
+  res.send(`… static HTML placeholder …`);
+});
+
+// 2) Main landing, free-trial, etc.
+app.get('/', (req, res) => {
+  res.sendFile(path.join(publicDir, 'index.html'));
+});
+/* … other specific .get(…) … */
+
+// 3) Now serve anything in /public as static files
+app.use(express.static(publicDir));
+
+// 4) Proxy Next.js static assets
+app.use('/_next', createProxyMiddleware({ target: 'http://localhost:3000', … }));
+app.use('/static', createProxyMiddleware({ target: 'http://localhost:3000', … }));
+app.get('/favicon.ico', createProxyMiddleware({ target: 'http://localhost:3000', … }));
+
+// 5) Proxy all /api calls
+app.use('/api', createProxyMiddleware({ target: 'http://localhost:8000', … }));
+// …
+That order is correct: you explicitly capture /dashboard first (so Express will not fall through to Next.js), then you fall back to your static folder, then to the Next.js proxy for _next/static, and finally API proxies.
+
+If you accidentally swapped that ordering—so that /dashboard fell through to the “static” or “proxy” before you returned your placeholder—you could still end up in a loop.
+
+Action item: Double-check your final index.js file has exactly this sequence:
+
+app.set('strict routing', true);
+
+app.get(['/dashboard','/dashboard/'], …) – your placeholder HTML
+
+app.get('/', …), app.get('/free-trial', …), etc.
+
+app.use(express.static(publicDir));
+
+app.use('/_next', proxy→3000), app.use('/static', proxy→3000), app.get('/favicon.ico', proxy→3000)
+
+app.use('/api', proxy→8000), app.use('/panel-api', proxy→8001)
+
+If anything is out of that order, your request for /dashboard might “fall through” to the Next.js proxy (which might itself redirect you to /login) before Express ever hits your placeholder. That can reintroduce the loop.
+
+2. login.html and signup.html (inside /public)
+Open up each file and look for any inline JavaScript that does a redirect to /dashboard. For example, if you see something like:
+
+html
+Copy
+Edit
+<button onclick="window.location.href='/dashboard'">Continue to Dashboard</button>
+or
+
+js
+Copy
+Edit
+// login.html (inside <script>):
+window.location = '/dashboard';
+That will jump you immediately to /dashboard, which the Next.js side may pick up and bounce back. If these buttons or scripts are running unconditionally (that is, not gated behind “only redirect if logged in”), remove or comment them out. Instead, make the “Continue to Dashboard” button submit the credentials to your /api/auth/login endpoint and only redirect on success.
+
+In short:
+
+Search for any occurrence of window.location… '/dashboard' or <a href="/dashboard">…</a> inside login.html or signup.html.
+
+Temporarily replace them with something inert (e.g. a <button disabled>…</button>) until you have real session logic.
+
+Example change (in login.html):
+
+diff
+Copy
+Edit
+- <button id="continue-btn">Continue to Dashboard</button>
++ <!-- Temporarily disable direct link to /dashboard until auth is wired up -->
++ <button id="continue-btn" disabled>Continue to Dashboard (login not yet hooked)</button>
+or replace with a form submission to /api/auth/login.
+
+If you skip this step, clicking “Continue” will keep pinging /dashboard (gateway) → Next.js → redirect→ /login → (gateway serves static login.html) → you click “Continue” again → loop.
+
+3. Any leftover “demo” route in your static server (fix-local-server.js, vscode-server.js, etc.)
+You have a few different “static‐only” servers lying around. For instance:
+
+js
+Copy
+Edit
+// fix-local-server.js or vscode-server.js
+app.get('/login', (req, res) => {
+  // serve 'public/login.html'
+});
+app.get('/signup', (req, res) => {
+  // serve 'public/signup.html'
+});
+app.get('/demo', (req, res) => { … });
+Make sure none of these older scripts (if you happen to be running them) is still redirecting. For example, look for lines like:
+
+js
+Copy
+Edit
+// DO NOT do this in your static server:
+app.get('/login', (req, res) => {
+  res.redirect('/dashboard');
+});
+If any one of your copy‐and‐paste servers still has that, it will cause a redirect loop. You want your code to consistently:
+
+Serve login.html at /login
+
+Serve signup.html at /signup
+
+Never redirect /login → /dashboard or /signup → /dashboard anywhere.
+
+4. Summary of “files to change” (exact filenames)
+Below is the minimal list of files you must edit and the lines to remove or comment, so that no part of your stack is issuing an unconditional /login → /dashboard (or vice-versa) redirect.
+
+index.js (your gateway)
+
+Remove (all of):
+
+js
+Copy
+Edit
+// Authentication bypasses - redirect to dashboard
+app.get(['/login', '/signup'], (req, res) => {
+  res.redirect('/dashboard');
+});
+Add/replace with:
+
+js
+Copy
+Edit
+app.get('/login', (req, res) => {
+  res.sendFile(path.join(publicDir, 'login.html'));
+});
+app.get('/signup', (req, res) => {
+  res.sendFile(path.join(publicDir, 'signup.html'));
+});
+Ensure ordering:
+
+js
+Copy
+Edit
+app.set('strict routing', true);
+app.get(['/dashboard','/dashboard/'], (req, res) => { …placeholder… });
+app.get('/', …);// index.html
+/* … other GETs for free-trial, etc. … */
+app.use(express.static(publicDir));
+app.use('/_next', proxy→3000);
+app.use('/static', proxy→3000);
+app.get('/favicon.ico', proxy→3000);
+app.use('/api', proxy→8000);
+app.use('/panel-api', proxy→8001);
+Verify no other res.redirect('/dashboard') or app.get('/login', res.redirect…) remains.
+
+index-broken.js (if you’re still running this anywhere)
+
+Do exactly the same removal of /login → /dashboard redirects, and replace them with the sendFile('login.html') logic.
+
+login.html (in /public)
+
+Find any <a href="/dashboard">…</a> or <button onclick="location.href='/dashboard'">…</button>
+
+Comment out or remove it until you implement proper login logic.
+
+Example:
+
+diff
+Copy
+Edit
+- <a href="/dashboard" class="button">Continue to Dashboard</a>
++ <!-- <a href="/dashboard" class="button">Continue to Dashboard</a> -->
+signup.html (in /public)
+
+Same idea: remove any direct “go to /dashboard” link or form.
+
+Only allow form submission to /api/auth/signup (if that’s what you plan) or leave the “Create Account” button doing nothing until your backend is wired.
+
+Any other Express “static” server scripts you are running in parallel (e.g. fix-local-server.js, vscode-server.js)
+
+Remove or comment out any res.redirect('/dashboard') in those files.
+
+Instead, serve the files directly from /public/login.html and /public/signup.html.
+
+After you make those changes:
+Restart your gateway.
+
+Try loading /login. You should see the login form HTML—no redirect.
+
+Click whatever “Continue” or “Submit” button you have. If it still tries to send you to /dashboard, that’s likely your Next.js or front‐end code. You’ll need to comment out any <a href="/dashboard"> or JavaScript location.href = '/dashboard' in your front-end until you have real session logic.
+
+If you do try to visit /dashboard manually in the browser (without Next.js auth), you’ll see the placeholder:
+
+html
+Copy
+Edit
+<html>
+  <head><title>Dashboard Test</title></head>
+  <body>
+    <h1>Static Dashboard Placeholder</h1>
+    <p>If you see this without redirects, the loop is fixed.</p>
+    <a href="/">← Back to Home</a>
+  </body>
+</html>
+That tells you “no redirect loop” is happening at the gateway level. Once that works, you can swap in your real Next.js proxy for /dashboard and implement proper session checks in Next.js (so it no longer unconditionally sends you back to /login/).
+
+TL;DR
+Remove every res.redirect('/dashboard') from /login or /signup in your gateway.
+
+Serve login.html directly instead.
+
+Double-check no HTML/JS in login.html/signup.html is still trying to send you to /dashboard.
+
+Restart and verify you can land on /login and /dashboard (placeholder) without bouncing back and forth.
+
+After those edits, you should no longer get “redirected you too many times.”
+
+
+
+
+
+
+
