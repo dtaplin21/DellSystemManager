@@ -39,9 +39,10 @@ const publicDir = path.join(__dirname, 'public');
 app.use('/dashboard', createProxyMiddleware({
   target: 'http://localhost:3000',
   changeOrigin: true,
-  logLevel: 'silent',
-  pathRewrite: {
-    '^/dashboard': '/dashboard'
+  logLevel: 'info',
+  onError: (err, req, res) => {
+    console.log('Dashboard Proxy Error:', err.message);
+    res.status(500).send('Dashboard Proxy Error');
   }
 }));
 
