@@ -35,20 +35,15 @@ app.use((req, res, next) => {
 // Public directory for static assets (after dashboard routes)
 const publicDir = path.join(__dirname, 'public');
 
-// Dashboard routes - handle both /dashboard and /dashboard/ (BEFORE static files)
-app.get(['/dashboard', '/dashboard/'], (req, res) => {
-  res.send(`
-    <html>
-      <head><title>Dashboard Test</title></head>
-      <body>
-        <h1>Static Dashboard Placeholder</h1>
-        <p>If you see this without redirects, the loop is fixed.</p>
-        <p>Next.js frontend will be connected once the routing is stable.</p>
-        <a href="/">← Back to Home</a>
-      </body>
-    </html>
-  `);
-});
+// Dashboard routes - proxy to Next.js frontend
+app.use('/dashboard', createProxyMiddleware({
+  target: 'http://localhost:3000',
+  changeOrigin: true,
+  logLevel: 'silent',
+  pathRewrite: {
+    '^/dashboard': '/dashboard'
+  }
+}));
 
 // Main landing page
 app.get('/', (req, res) => {
@@ -73,24 +68,24 @@ app.get('/panel-layout-fixed', (req, res) => {
 // Static file serving (after specific routes)
 app.use(express.static(publicDir));
 
-// TEMPORARILY DISABLED - These Next.js proxies are causing redirect loops
-// app.use('/_next', createProxyMiddleware({
-//   target: 'http://localhost:3000',
-//   changeOrigin: true,
-//   logLevel: 'silent'
-// }));
+// Next.js static assets - essential for dashboard functionality
+app.use('/_next', createProxyMiddleware({
+  target: 'http://localhost:3000',
+  changeOrigin: true,
+  logLevel: 'silent'
+}));
 
-// app.use('/static', createProxyMiddleware({
-//   target: 'http://localhost:3000',
-//   changeOrigin: true,
-//   logLevel: 'silent'
-// }));
+app.use('/static', createProxyMiddleware({
+  target: 'http://localhost:3000',
+  changeOrigin: true,
+  logLevel: 'silent'
+}));
 
-// app.get('/favicon.ico', createProxyMiddleware({
-//   target: 'http://localhost:3000',
-//   changeOrigin: true,
-//   logLevel: 'silent'
-// }));
+app.get('/favicon.ico', createProxyMiddleware({
+  target: 'http://localhost:3000',
+  changeOrigin: true,
+  logLevel: 'silent'
+}));
 
 // Login page - only redirect if already authenticated
 app.get('/login', (req, res) => {
