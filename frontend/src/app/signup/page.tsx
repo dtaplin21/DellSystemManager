@@ -29,8 +29,8 @@ export default function SignupPage() {
         description: 'You have successfully signed up.',
       });
       
-      // Redirect to dashboard
-      router.push('/dashboard');
+      // DISABLED - Redirect causing infinite loop
+      // router.push('/dashboard');
     } catch (error) {
       console.error('Signup error:', error);
       toast({

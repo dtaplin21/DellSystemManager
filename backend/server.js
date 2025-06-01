@@ -19,19 +19,8 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// Dashboard redirect to Gateway Server
-app.get('/dashboard', (req, res) => {
-  // Since the web preview accesses port 8000, redirect to Gateway Server on port 5000
-  // But use the same hostname without explicit port to avoid redirect loops
-  const gatewayUrl = `${req.protocol}://${req.hostname.replace(':8000', '')}:5000/dashboard`;
-  res.redirect(gatewayUrl);
-});
-
-// Redirect root to Gateway Server as well
-app.get('/', (req, res) => {
-  const gatewayUrl = `${req.protocol}://${req.hostname}:5000/`;
-  res.redirect(gatewayUrl);
-});
+// REMOVED ALL REDIRECTS - These were causing infinite loops
+// Dashboard and root requests are now handled by gateway server only
 
 // Setup API routes
 app.use('/api/auth', require('./routes/auth'));
