@@ -19,12 +19,12 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// Dashboard redirect to Gateway Server
-app.get('/dashboard', (req, res) => {
-  // Since the web preview accesses port 8000, redirect to Gateway Server on port 5000
-  const gatewayUrl = `${req.protocol}://${req.hostname}:5000/dashboard`;
-  res.redirect(gatewayUrl);
-});
+// DISABLED - Dashboard redirect causing infinite loop
+// app.get('/dashboard', (req, res) => {
+//   // Since the web preview accesses port 8000, redirect to Gateway Server on port 5000
+//   const gatewayUrl = `${req.protocol}://${req.hostname}:5000/dashboard`;
+//   res.redirect(gatewayUrl);
+// });
 
 // Redirect root to Gateway Server as well
 app.get('/', (req, res) => {
