@@ -22,10 +22,6 @@ args = "Frontend Server"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Gateway Server"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
 args = "Panel Optimizer Service"
 
 [[workflows.workflow]]
@@ -50,15 +46,6 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "cd frontend && npm run dev"
-waitForPort = 3000
-
-[[workflows.workflow]]
-name = "Gateway Server"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "node index.js"
 waitForPort = 5000
 
 [[workflows.workflow]]
