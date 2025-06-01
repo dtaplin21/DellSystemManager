@@ -24,12 +24,13 @@ export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
   
-  useEffect(() => {
-    // If user is already logged in, redirect to dashboard
-    if (user) {
-      router.push('/dashboard');
-    }
-  }, [user, router]);
+  // DISABLED - Automatic redirect causing infinite loop
+  // useEffect(() => {
+  //   // If user is already logged in, redirect to dashboard
+  //   if (user) {
+  //     router.push('/dashboard');
+  //   }
+  // }, [user, router]);
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,7 +50,8 @@ export default function LoginPage() {
           description: 'You have successfully logged in.',
         });
       }
-      router.push('/dashboard');
+      // DISABLED - Redirect after login causing infinite loop
+      // router.push('/dashboard');
     } catch (error) {
       toast({
         title: 'Authentication failed',
@@ -64,7 +66,8 @@ export default function LoginPage() {
   const handleGoogleSignIn = async () => {
     try {
       await loginWithGoogle();
-      router.push('/dashboard');
+      // DISABLED - Redirect after Google login causing infinite loop
+      // router.push('/dashboard');
     } catch (error) {
       toast({
         title: 'Google authentication failed',
