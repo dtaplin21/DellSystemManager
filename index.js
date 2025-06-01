@@ -35,16 +35,13 @@ app.use((req, res, next) => {
 // Public directory for static assets (after dashboard routes)
 const publicDir = path.join(__dirname, 'public');
 
-// Dashboard routes - proxy to Next.js frontend  
-app.use('/dashboard', createProxyMiddleware({
-  target: 'http://localhost:3000',
-  changeOrigin: true,
-  logLevel: 'info',
-  onError: (err, req, res) => {
-    console.log('Dashboard Proxy Error:', err.message);
-    res.status(500).send('Dashboard Proxy Error');
-  }
-}));
+// Dashboard route - direct proxy to Next.js
+app.get('/dashboard*', (req, res) => {
+  console.log('Dashboard request received:', req.url);
+  // Simple redirect to Next.js frontend for now
+  const proxyUrl = `http://localhost:3000${req.url}`;
+  res.redirect(proxyUrl);
+});
 
 // Main landing page
 app.get('/', (req, res) => {
@@ -108,6 +105,7 @@ app.get('/signup', (req, res) => {
 app.use('/api', createProxyMiddleware({
   target: 'http://localhost:8000',
   changeOrigin: true,
+  logLevel: 'info',
   pathRewrite: {
     '^/api': '/api'
   }
