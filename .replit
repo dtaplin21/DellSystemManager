@@ -24,6 +24,10 @@ args = "Frontend Server"
 task = "workflow.run"
 args = "Panel Optimizer Service"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Gateway Server"
+
 [[workflows.workflow]]
 name = "Backend Server"
 author = "agent"
@@ -46,7 +50,7 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "cd frontend && npm run dev"
-waitForPort = 5000
+waitForPort = 3000
 
 [[workflows.workflow]]
 name = "Panel Optimizer Service"
@@ -56,6 +60,15 @@ author = "agent"
 task = "shell.exec"
 args = "cd backend && python run_panel_api.py"
 waitForPort = 8001
+
+[[workflows.workflow]]
+name = "Gateway Server"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node index.js"
+waitForPort = 5000
 
 [deployment]
 run = ["sh", "-c", "cd backend && node server.js"]
