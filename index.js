@@ -73,24 +73,24 @@ app.get('/panel-layout-fixed', (req, res) => {
 // Static file serving (after specific routes)
 app.use(express.static(publicDir));
 
-// Proxy Next.js static assets first
-app.use('/_next', createProxyMiddleware({
-  target: 'http://localhost:3000',
-  changeOrigin: true,
-  logLevel: 'silent'
-}));
+// TEMPORARILY DISABLED - These Next.js proxies are causing redirect loops
+// app.use('/_next', createProxyMiddleware({
+//   target: 'http://localhost:3000',
+//   changeOrigin: true,
+//   logLevel: 'silent'
+// }));
 
-app.use('/static', createProxyMiddleware({
-  target: 'http://localhost:3000',
-  changeOrigin: true,
-  logLevel: 'silent'
-}));
+// app.use('/static', createProxyMiddleware({
+//   target: 'http://localhost:3000',
+//   changeOrigin: true,
+//   logLevel: 'silent'
+// }));
 
-app.get('/favicon.ico', createProxyMiddleware({
-  target: 'http://localhost:3000',
-  changeOrigin: true,
-  logLevel: 'silent'
-}));
+// app.get('/favicon.ico', createProxyMiddleware({
+//   target: 'http://localhost:3000',
+//   changeOrigin: true,
+//   logLevel: 'silent'
+// }));
 
 // Login page - only redirect if already authenticated
 app.get('/login', (req, res) => {
