@@ -65,7 +65,7 @@ export default function Dashboard() {
           <p className="text-gray-600">Welcome to your QC Management Platform</p>
         </div>
         <Link href="/dashboard/projects">
-          <Button className="bg-blue-600 hover:bg-blue-700">
+          <Button className="bg-orange-600 hover:bg-orange-700">
             View All Projects
           </Button>
         </Link>
@@ -75,8 +75,8 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white p-6 rounded-lg shadow border">
           <div className="flex items-center">
-            <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-              <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-8 h-8 bg-navy-100 rounded-lg flex items-center justify-center">
+              <svg className="w-5 h-5 text-navy-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
               </svg>
             </div>
@@ -140,7 +140,7 @@ export default function Dashboard() {
                       <p className="text-sm font-medium text-gray-900">{project.progress}%</p>
                       <div className="w-16 bg-gray-200 rounded-full h-2">
                         <div 
-                          className="bg-blue-600 h-2 rounded-full" 
+                          className="bg-orange-600 h-2 rounded-full" 
                           style={{ width: `${project.progress}%` }}
                         ></div>
                       </div>
@@ -165,9 +165,9 @@ export default function Dashboard() {
         </div>
         <div className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Link href="/dashboard/projects" className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-              <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
-                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <Link href="/dashboard/projects" className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-navy-50 transition-colors">
+              <div className="w-8 h-8 bg-navy-100 rounded-lg flex items-center justify-center mr-3">
+                <svg className="w-5 h-5 text-navy-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                 </svg>
               </div>

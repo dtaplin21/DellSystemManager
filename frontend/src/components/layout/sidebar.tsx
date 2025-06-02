@@ -111,8 +111,8 @@ export default function Sidebar() {
                           className={cn(
                             "flex items-center px-3 py-2 text-sm font-medium rounded-md",
                             subItem.current 
-                              ? "bg-blue-50 text-blue-700" 
-                              : "text-gray-700 hover:bg-gray-100"
+                              ? "bg-orange-600 text-white" 
+                              : "text-navy-100 hover:bg-navy-700 hover:text-orange-400"
                           )}
                         >
                           {subItem.icon && <subItem.icon className="mr-3 h-5 w-5" />}
