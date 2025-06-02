@@ -19,8 +19,11 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// REMOVED ALL REDIRECTS - These were causing infinite loops
-// Dashboard and root requests are now handled by gateway server only
+// Redirect root requests to the gateway server
+app.get('/', (req, res) => {
+  const gatewayUrl = req.get('host').replace(':8000', ':5000');
+  res.redirect(`${req.protocol}://${gatewayUrl}`);
+});
 
 // Setup API routes
 app.use('/api/auth', require('./routes/auth'));
