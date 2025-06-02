@@ -6,7 +6,7 @@ const fs = require('fs');
 const { createProxyMiddleware } = require('http-proxy-middleware');
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 8000;
 
 // Disable Express automatic trailing slash redirects
 app.set('strict routing', true);
@@ -104,7 +104,7 @@ app.get('/signup', (req, res) => {
 
 // API routes - proxy to Backend Server (AFTER dashboard routes)
 app.use('/api', createProxyMiddleware({
-  target: 'http://localhost:8000',
+  target: 'http://localhost:8002',
   changeOrigin: true,
   logLevel: 'info',
   pathRewrite: {

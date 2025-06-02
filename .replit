@@ -53,7 +53,7 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node index.js"
-waitForPort = 5000
+waitForPort = 8000
 
 [[workflows.workflow]]
 name = "Backend API"
@@ -62,7 +62,7 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "cd backend && node server.js"
-waitForPort = 8000
+waitForPort = 8002
 
 [deployment]
 run = ["sh", "-c", "cd backend && node server.js"]
@@ -82,3 +82,7 @@ externalPort = 80
 [[ports]]
 localPort = 8001
 externalPort = 3001
+
+[[ports]]
+localPort = 8002
+externalPort = 3002

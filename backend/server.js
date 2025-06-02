@@ -19,11 +19,8 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// Redirect root requests to the gateway server
-app.get('/', (req, res) => {
-  const gatewayUrl = req.get('host').replace(':8000', ':5000');
-  res.redirect(`${req.protocol}://${gatewayUrl}`);
-});
+// Backend server should not handle root requests - only API routes
+// Root requests should go directly to gateway server on port 5000
 
 // Setup API routes
 app.use('/api/auth', require('./routes/auth'));
@@ -63,7 +60,7 @@ async function startServer() {
   
   try {
     // Start HTTP server on port 8000
-    const PORT = process.env.PORT || 8000;
+    const PORT = process.env.PORT || 8002;
     const server = app.listen(PORT, '0.0.0.0', () => {
       console.log(`Server running on http://0.0.0.0:${PORT}`);
     });
