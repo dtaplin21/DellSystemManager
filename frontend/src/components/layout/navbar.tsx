@@ -33,10 +33,10 @@ export default function Navbar() {
   };
 
   return (
-    <nav className="bg-white border-b border-gray-200 py-4 px-6">
+    <nav className="bg-navy-900 border-b border-navy-700 py-4 px-6">
       <div className="flex justify-between items-center">
         <div className="flex items-center">
-          <Link href="/dashboard" className="text-xl font-bold text-blue-800">
+          <Link href="/dashboard" className="text-xl font-bold text-orange-500">
             GeoQC
           </Link>
         </div>
@@ -45,6 +45,7 @@ export default function Navbar() {
           <Button 
             variant="ghost" 
             size="sm"
+            className="text-navy-100 hover:text-orange-400 hover:bg-navy-800"
             onClick={() => window.location.href = '/dashboard'}
           >
             Dashboard
@@ -53,6 +54,7 @@ export default function Navbar() {
           <Button 
             variant="ghost" 
             size="sm"
+            className="text-navy-100 hover:text-orange-400 hover:bg-navy-800"
             onClick={() => window.location.href = '/dashboard/projects'}
           >
             Projects
@@ -60,8 +62,8 @@ export default function Navbar() {
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="gap-2">
-                <div className="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center text-white">
+              <Button variant="ghost" size="sm" className="gap-2 text-navy-100 hover:text-orange-400 hover:bg-navy-800">
+                <div className="h-8 w-8 rounded-full bg-orange-600 flex items-center justify-center text-white">
                   {user?.displayName?.charAt(0) || user?.email?.charAt(0) || 'G'}
                 </div>
                 <span className="hidden md:inline">{user?.displayName || user?.email || 'Guest User'}</span>

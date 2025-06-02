@@ -76,7 +76,7 @@ export default function Sidebar() {
   ];
 
   return (
-    <div className="bg-white border-r border-gray-200 w-64 min-h-screen hidden md:block">
+    <div className="bg-navy-800 border-r border-navy-700 w-64 min-h-screen hidden md:block">
       <div className="h-full py-6 px-3">
         <div className="space-y-6">
           {navigation.map((item, index) => (
@@ -88,8 +88,8 @@ export default function Sidebar() {
                   className={cn(
                     "flex items-center px-3 py-2 text-sm font-medium rounded-md",
                     item.current 
-                      ? "bg-blue-50 text-blue-700" 
-                      : "text-gray-700 hover:bg-gray-100"
+                      ? "bg-orange-600 text-white" 
+                      : "text-navy-100 hover:bg-navy-700 hover:text-orange-400"
                   )}
                 >
                   {item.icon && <item.icon className="mr-3 h-5 w-5" />}
@@ -100,7 +100,7 @@ export default function Sidebar() {
               {/* Section with sub-items */}
               {item.section && item.items && (
                 <div>
-                  <h3 className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                  <h3 className="px-3 text-xs font-semibold text-navy-300 uppercase tracking-wider mb-2">
                     {item.section}
                   </h3>
                   <ul className="space-y-1">
