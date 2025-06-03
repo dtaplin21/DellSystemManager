@@ -17,10 +17,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// Standard middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
 // Set CORS headers
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
@@ -35,14 +31,24 @@ app.use((req, res, next) => {
 // Public directory for static assets (after dashboard routes)
 const publicDir = path.join(__dirname, 'public');
 
-// API routes - proxy to backend server
+// API routes - proxy to backend server (before body parsing middleware)
 app.use('/api', createProxyMiddleware({
   target: 'http://localhost:8002',
   changeOrigin: true,
+  secure: false,
+  // Don't rewrite the path - let the full path pass through
   onProxyReq: (proxyReq, req, res) => {
-    console.log('Proxying API request:', req.url);
+    console.log('Proxying API request:', req.method, req.originalUrl, '-> backend:', proxyReq.path);
+  },
+  onError: (err, req, res) => {
+    console.error('Proxy error:', err.message);
+    res.status(500).json({ message: 'Proxy error occurred' });
   }
 }));
+
+// Standard middleware (after API proxy to avoid conflicts)
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Dashboard route - proxy to Next.js frontend
 app.use('/dashboard', createProxyMiddleware({
