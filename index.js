@@ -44,10 +44,14 @@ app.use('/dashboard', createProxyMiddleware({
   }
 }));
 
-// Main landing page
-app.get('/', (req, res) => {
-  res.sendFile(path.join(publicDir, 'index.html'));
-});
+// Main landing page - proxy to Next.js frontend
+app.use('/', createProxyMiddleware({
+  target: 'http://localhost:3000',
+  changeOrigin: true,
+  pathRewrite: {
+    '^/$': '/'
+  }
+}));
 
 // Free trial page
 app.get('/free-trial', (req, res) => {
