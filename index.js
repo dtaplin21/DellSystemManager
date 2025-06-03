@@ -31,24 +31,47 @@ app.use((req, res, next) => {
 // Public directory for static assets (after dashboard routes)
 const publicDir = path.join(__dirname, 'public');
 
-// API routes - proxy to backend server (before body parsing middleware)
-app.use('/api', createProxyMiddleware({
-  target: 'http://localhost:8002',
-  changeOrigin: true,
-  secure: false,
-  // Don't rewrite the path - let the full path pass through
-  onProxyReq: (proxyReq, req, res) => {
-    console.log('Proxying API request:', req.method, req.originalUrl, '-> backend:', proxyReq.path);
-  },
-  onError: (err, req, res) => {
-    console.error('Proxy error:', err.message);
-    res.status(500).json({ message: 'Proxy error occurred' });
-  }
-}));
-
-// Standard middleware (after API proxy to avoid conflicts)
+// Standard middleware (before API routes)
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// API routes - direct forwarding to backend
+app.use('/api', async (req, res) => {
+  const targetUrl = `http://localhost:8002${req.originalUrl}`;
+  console.log('Forwarding API request:', req.method, req.originalUrl, '-> target:', targetUrl);
+  
+  try {
+    const axios = require('axios');
+    
+    const config = {
+      method: req.method.toLowerCase(),
+      url: targetUrl,
+      headers: {
+        ...req.headers,
+        host: 'localhost:8002'
+      },
+      validateStatus: () => true // Accept all status codes
+    };
+
+    if (req.body && Object.keys(req.body).length > 0) {
+      config.data = req.body;
+    }
+
+    const response = await axios(config);
+    
+    // Forward response headers
+    Object.keys(response.headers).forEach(key => {
+      if (key !== 'content-encoding') { // Skip problematic headers
+        res.set(key, response.headers[key]);
+      }
+    });
+    
+    res.status(response.status).send(response.data);
+  } catch (error) {
+    console.error('API forwarding error:', error.message);
+    res.status(500).json({ message: 'API forwarding failed', error: error.message });
+  }
+});
 
 // Dashboard route - proxy to Next.js frontend
 app.use('/dashboard', createProxyMiddleware({
