@@ -3,51 +3,42 @@ const { db } = require('../db');
 const { users } = require('../db/schema');
 const { eq } = require('drizzle-orm');
 
-// Middleware to authenticate JWT token
 const auth = async (req, res, next) => {
   try {
-    let token;
-    
-    // Check for token in cookies first (more secure)
-    if (req.cookies && req.cookies.token) {
-      token = req.cookies.token;
-    } 
-    // Fall back to Authorization header
-    else if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
-      token = req.headers.authorization.split(' ')[1];
-    }
+    // Get token from cookie
+    const token = req.cookies.token;
     
     if (!token) {
-      return res.status(401).json({ message: 'Authentication required' });
+      return res.status(401).json({ message: 'Access denied. No token provided.' });
     }
-    
+
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
-    // Get user
-    const [user] = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, decoded.id));
+    // Get user from database
+    const [user] = await db.select().from(users).where(eq(users.id, decoded.id));
     
     if (!user) {
-      return res.status(401).json({ message: 'User not found' });
+      return res.status(401).json({ message: 'Invalid token. User not found.' });
     }
-    
+
     // Remove password from user object
-    const { password, ...userWithoutPassword } = user;
-    
-    // Attach user to request
+    const { password: _, ...userWithoutPassword } = user;
     req.user = userWithoutPassword;
     
     next();
   } catch (error) {
-    if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
-      return res.status(401).json({ message: 'Invalid or expired token' });
+    console.error('Auth middleware error:', error);
+    
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({ message: 'Invalid token.' });
     }
     
-    console.error('Auth middleware error:', error);
-    res.status(500).json({ message: 'Server error' });
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ message: 'Token expired.' });
+    }
+    
+    res.status(500).json({ message: 'Server error during authentication.' });
   }
 };
 

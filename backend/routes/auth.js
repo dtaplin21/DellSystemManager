@@ -83,7 +83,7 @@ router.post('/signup', async (req, res, next) => {
       displayName: name,
       company: company || null,
       subscription: 'basic', // Default subscription tier
-      createdAt: new Date().toISOString(),
+      createdAt: new Date(),
     }).returning();
     
     // Generate JWT token
@@ -165,7 +165,7 @@ router.post('/google', async (req, res, next) => {
         displayName: name,
         profileImageUrl: picture,
         subscription: 'basic', // Default subscription tier
-        createdAt: new Date().toISOString(),
+        createdAt: new Date(),
       }).returning();
     }
     
@@ -204,7 +204,7 @@ router.patch('/profile', auth, async (req, res, next) => {
         displayName: name || req.user.displayName,
         company: company !== undefined ? company : req.user.company,
         position: position !== undefined ? position : req.user.position,
-        updatedAt: new Date().toISOString(),
+        updatedAt: new Date(),
       })
       .where(eq(users.id, userId))
       .returning();
