@@ -102,9 +102,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch (error) {
       console.error('Login error:', error);
       
+      const errorMessage = error instanceof Error ? error.message : "Please check your credentials and try again.";
       toast({
         title: "Login failed",
-        description: error.message || "Please check your credentials and try again.",
+        description: errorMessage,
         variant: "destructive",
       });
       
@@ -145,9 +146,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch (error) {
       console.error('Signup error:', error);
       
+      const errorMessage = error instanceof Error ? error.message : "Please check your information and try again.";
       toast({
         title: "Signup failed",
-        description: error.message || "Please check your information and try again.",
+        description: errorMessage,
         variant: "destructive",
       });
       
@@ -217,36 +219,37 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(true);
     
     try {
-      // This would normally call an API endpoint to update the profile
-      // For demo purposes, we'll just update the local state
-      
-      if (user) {
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        const updatedUser = {
-          ...user,
-          ...profileData,
-        };
-        
-        setUser(updatedUser);
-        localStorage.setItem('geoqc_user', JSON.stringify(updatedUser));
-        
-        toast({
-          title: 'Profile updated',
-          description: 'Your profile has been updated successfully.',
-        });
-        
-        return updatedUser;
+      const response = await fetch('/api/auth/profile', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(profileData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Profile update failed');
       }
       
-      throw new Error('Not authenticated');
+      setUser(data.user);
+      localStorage.setItem('geoqc_user', JSON.stringify(data.user));
+      
+      toast({
+        title: 'Profile updated',
+        description: 'Your profile has been updated successfully.',
+      });
+      
+      return data.user;
     } catch (error) {
       console.error('Profile update error:', error);
       
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update profile. Please try again.';
       toast({
         title: 'Update failed',
-        description: error instanceof Error ? error.message : 'Failed to update profile. Please try again.',
+        description: errorMessage,
         variant: 'destructive',
       });
       
