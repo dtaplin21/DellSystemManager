@@ -35,42 +35,140 @@ const publicDir = path.join(__dirname, 'public');
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// API routes - direct forwarding to backend
-app.use('/api', async (req, res) => {
-  const targetUrl = `http://localhost:8002${req.originalUrl}`;
-  console.log('Forwarding API request:', req.method, req.originalUrl, '-> target:', targetUrl);
+// API auth routes - direct implementation
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+const { v4: uuidv4 } = require('uuid');
+
+// Simple in-memory user store for demo
+const users = new Map();
+
+// Helper functions
+const generateToken = (user) => {
+  return jwt.sign(
+    { id: user.id, email: user.email, subscription: user.subscription },
+    process.env.JWT_SECRET || 'default-secret',
+    { expiresIn: '7d' }
+  );
+};
+
+const setTokenCookie = (res, token) => {
+  res.cookie('token', token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+  });
+};
+
+// Auth routes
+app.post('/api/auth/signup', async (req, res) => {
+  console.log('Signup request:', req.body);
   
   try {
-    const axios = require('axios');
+    const { name, email, password, company } = req.body;
     
-    const config = {
-      method: req.method.toLowerCase(),
-      url: targetUrl,
-      headers: {
-        ...req.headers,
-        host: 'localhost:8002'
-      },
-      validateStatus: () => true // Accept all status codes
-    };
-
-    if (req.body && Object.keys(req.body).length > 0) {
-      config.data = req.body;
+    // Basic validation
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: 'Name, email, and password are required' });
     }
-
-    const response = await axios(config);
     
-    // Forward response headers
-    Object.keys(response.headers).forEach(key => {
-      if (key !== 'content-encoding') { // Skip problematic headers
-        res.set(key, response.headers[key]);
+    if (password.length < 6) {
+      return res.status(400).json({ message: 'Password must be at least 6 characters long' });
+    }
+    
+    // Check if user already exists
+    for (const [id, user] of users.entries()) {
+      if (user.email === email) {
+        return res.status(400).json({ message: 'User with this email already exists' });
       }
-    });
+    }
     
-    res.status(response.status).send(response.data);
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+    
+    // Create user
+    const newUser = {
+      id: uuidv4(),
+      email,
+      password: hashedPassword,
+      displayName: name,
+      company: company || null,
+      position: null,
+      subscription: 'basic',
+      profileImageUrl: null,
+      stripeCustomerId: null,
+      stripeSubscriptionId: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    
+    users.set(newUser.id, newUser);
+    
+    // Generate JWT token
+    const token = generateToken(newUser);
+    
+    // Set cookie
+    setTokenCookie(res, token);
+    
+    // Return user info (without password)
+    const { password: _, ...userWithoutPassword } = newUser;
+    res.status(201).json({ user: userWithoutPassword });
   } catch (error) {
-    console.error('API forwarding error:', error.message);
-    res.status(500).json({ message: 'API forwarding failed', error: error.message });
+    console.error('Signup error:', error);
+    res.status(500).json({ message: 'Something went wrong during signup' });
   }
+});
+
+app.post('/api/auth/login', async (req, res) => {
+  console.log('Login request:', req.body);
+  
+  try {
+    const { email, password } = req.body;
+    
+    // Basic validation
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Email and password are required' });
+    }
+    
+    // Find user
+    let user = null;
+    for (const [id, u] of users.entries()) {
+      if (u.email === email) {
+        user = u;
+        break;
+      }
+    }
+    
+    if (!user) {
+      return res.status(400).json({ message: 'Invalid email or password' });
+    }
+    
+    // Verify password
+    const validPassword = await bcrypt.compare(password, user.password);
+    if (!validPassword) {
+      return res.status(400).json({ message: 'Invalid email or password' });
+    }
+    
+    // Generate JWT token
+    const token = generateToken(user);
+    
+    // Set cookie
+    setTokenCookie(res, token);
+    
+    // Return user info (without password)
+    const { password: _, ...userWithoutPassword } = user;
+    res.status(200).json({ user: userWithoutPassword });
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ message: 'Something went wrong during login' });
+  }
+});
+
+app.post('/api/auth/logout', (req, res) => {
+  res.clearCookie('token');
+  res.status(200).json({ message: 'Logged out successfully' });
 });
 
 // Dashboard route - proxy to Next.js frontend
