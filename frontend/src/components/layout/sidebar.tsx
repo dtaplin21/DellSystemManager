@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { LayoutDashboard, FolderOpen, FileText, Settings, UserCircle, CreditCard, LucideIcon } from 'lucide-react';
@@ -25,8 +26,14 @@ interface NavigationSubItem {
 export default function Sidebar() {
   const router = useRouter();
   const pathname = usePathname();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const isActive = (path: string): boolean => {
+    if (!mounted) return false; // Prevent hydration mismatch
     return Boolean(pathname === path || pathname?.startsWith(path + '/'));
   };
 
