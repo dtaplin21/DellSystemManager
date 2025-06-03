@@ -38,16 +38,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Check if user is logged in
     const checkAuth = async () => {
       try {
-        // This would normally call an API endpoint to check the session
+        // First check localStorage for cached user
         const storedUser = localStorage.getItem('geoqc_user');
         
         if (storedUser) {
-          setUser(JSON.parse(storedUser));
+          // Verify session with backend
+          const response = await fetch('/api/auth/me', {
+            credentials: 'include',
+          });
+          
+          if (response.ok) {
+            const { user } = await response.json();
+            setUser(user);
+            localStorage.setItem('geoqc_user', JSON.stringify(user));
+          } else {
+            // Session expired, clear local storage
+            localStorage.removeItem('geoqc_user');
+            setUser(null);
+          }
+        } else {
+          setUser(null);
         }
-        // No automatic guest user creation to prevent redirect loops
       } catch (error) {
-        console.error('Auth error:', error);
-        // Don't create fallback user to prevent redirect loops
+        console.error('Auth check error:', error);
+        localStorage.removeItem('geoqc_user');
         setUser(null);
       } finally {
         setIsLoading(false);
@@ -61,28 +75,39 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(true);
     
     try {
-      // This would normally call an API endpoint to authenticate
-      // For demo purposes, we'll simulate a successful login
-      if (email && password) {
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 800));
-        
-        const mockUser: User = {
-          id: '123456',
-          email: email,
-          displayName: email.split('@')[0],
-          subscription: 'basic',
-          createdAt: new Date().toISOString(),
-        };
-        
-        setUser(mockUser);
-        localStorage.setItem('geoqc_user', JSON.stringify(mockUser));
-        return mockUser;
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Login failed');
       }
       
-      throw new Error('Invalid credentials');
+      setUser(data.user);
+      localStorage.setItem('geoqc_user', JSON.stringify(data.user));
+      
+      toast({
+        title: "Login successful",
+        description: "Welcome back!",
+      });
+      
+      return data.user;
     } catch (error) {
       console.error('Login error:', error);
+      
+      toast({
+        title: "Login failed",
+        description: error.message || "Please check your credentials and try again.",
+        variant: "destructive",
+      });
+      
       throw error;
     } finally {
       setIsLoading(false);
@@ -93,29 +118,39 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(true);
     
     try {
-      // This would normally call an API endpoint to register
-      // For demo purposes, we'll simulate a successful registration
-      if (name && email && password) {
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        const mockUser: User = {
-          id: '123456',
-          email: email,
-          displayName: name,
-          company: company,
-          subscription: 'basic',
-          createdAt: new Date().toISOString(),
-        };
-        
-        setUser(mockUser);
-        localStorage.setItem('geoqc_user', JSON.stringify(mockUser));
-        return mockUser;
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ name, email, password, company }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Signup failed');
       }
       
-      throw new Error('Please fill all required fields');
+      setUser(data.user);
+      localStorage.setItem('geoqc_user', JSON.stringify(data.user));
+      
+      toast({
+        title: "Account created successfully",
+        description: "Welcome to GeoSynth QC Pro!",
+      });
+      
+      return data.user;
     } catch (error) {
       console.error('Signup error:', error);
+      
+      toast({
+        title: "Signup failed",
+        description: error.message || "Please check your information and try again.",
+        variant: "destructive",
+      });
+      
       throw error;
     } finally {
       setIsLoading(false);
@@ -156,17 +191,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(true);
     
     try {
-      // This would normally call an API endpoint to logout
-      // For demo purposes, we'll just clear the local state
-      
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 300));
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
       
       setUser(null);
       localStorage.removeItem('geoqc_user');
+      
+      toast({
+        title: "Logged out successfully",
+        description: "You have been logged out.",
+      });
     } catch (error) {
       console.error('Logout error:', error);
-      throw error;
+      // Still clear local state even if API call fails
+      setUser(null);
+      localStorage.removeItem('geoqc_user');
     } finally {
       setIsLoading(false);
     }

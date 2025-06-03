@@ -2,9 +2,16 @@ const { pgTable, uuid, varchar, text, timestamp, integer, decimal, boolean, json
 
 // Users table
 const users = pgTable('users', {
-  id: serial('id').primaryKey(),
+  id: uuid('id').primaryKey(),
   email: text('email').notNull().unique(),
-  name: text('name'),
+  password: text('password'),
+  displayName: text('display_name'),
+  company: text('company'),
+  position: text('position'),
+  subscription: varchar('subscription', { length: 20 }).default('basic'),
+  profileImageUrl: text('profile_image_url'),
+  stripeCustomerId: text('stripe_customer_id'),
+  stripeSubscriptionId: text('stripe_subscription_id'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow()
 });
