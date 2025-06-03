@@ -477,8 +477,9 @@
         });
       });
       
-      document.getElementById('signup-form').addEventListener('submit', function(e) {
+      document.getElementById('signup-form').addEventListener('submit', async function(e) {
         e.preventDefault();
+        
         // Get form data
         const firstName = document.getElementById('first-name').value;
         const lastName = document.getElementById('last-name').value;
@@ -496,6 +497,12 @@
           return;
         }
         
+        // Validate password length
+        if (password.length < 6) {
+          alert('Password must be at least 6 characters long');
+          return;
+        }
+        
         console.log('Signup with:', { 
           firstName, 
           lastName, 
@@ -505,9 +512,46 @@
           plan: selectedPlan
         });
         
-        // Temporarily disabled redirect until authentication is properly wired
-        // window.location.href = '/demo';
-        alert('Account created! Authentication will be implemented soon.');
+        // Disable submit button during signup
+        const submitBtn = document.querySelector('button[type="submit"]');
+        const originalText = submitBtn.textContent;
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Creating Account...';
+        
+        try {
+          // Call signup API
+          const response = await fetch('/api/auth/signup', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify({
+              name: `${firstName} ${lastName}`,
+              email: email,
+              password: password,
+              company: company
+            }),
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data.message || 'Signup failed');
+          }
+          
+          // Success - redirect to dashboard
+          alert('Account created successfully! Welcome to GeoSynth QC Pro!');
+          window.location.href = '/dashboard';
+          
+        } catch (error) {
+          console.error('Signup error:', error);
+          alert('Signup failed: ' + error.message);
+        } finally {
+          // Re-enable submit button
+          submitBtn.disabled = false;
+          submitBtn.textContent = originalText;
+        }
       });
     });
   </script>

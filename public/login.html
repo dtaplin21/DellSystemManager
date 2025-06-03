@@ -319,17 +319,52 @@
         });
       });
       
-      document.getElementById('login-form').addEventListener('submit', function(e) {
+      document.getElementById('login-form').addEventListener('submit', async function(e) {
         e.preventDefault();
-        // In a real application, this would send the form data to your backend
+        
         const email = document.getElementById('email').value;
         const password = document.getElementById('password').value;
         
         console.log('Login attempt with:', { email, password });
         
-        // Temporarily disabled redirect until authentication is properly wired
-        // window.location.href = '/demo';
-        alert('Login form submitted! Authentication will be implemented soon.');
+        // Disable submit button during login
+        const submitBtn = document.querySelector('button[type="submit"]');
+        const originalText = submitBtn.textContent;
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Logging In...';
+        
+        try {
+          // Call login API
+          const response = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify({
+              email: email,
+              password: password
+            }),
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data.message || 'Login failed');
+          }
+          
+          // Success - redirect to dashboard
+          alert('Login successful! Welcome back!');
+          window.location.href = '/dashboard';
+          
+        } catch (error) {
+          console.error('Login error:', error);
+          alert('Login failed: ' + error.message);
+        } finally {
+          // Re-enable submit button
+          submitBtn.disabled = false;
+          submitBtn.textContent = originalText;
+        }
       });
     });
   </script>
