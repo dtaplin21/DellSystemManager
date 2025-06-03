@@ -95,14 +95,10 @@ app.get('/favicon.ico', createProxyMiddleware({
   logLevel: 'silent'
 }));
 
-// Main landing page - proxy to Next.js frontend (catch-all for root)
-app.get('/', createProxyMiddleware({
-  target: 'http://localhost:3000',
-  changeOrigin: true,
-  onProxyReq: (proxyReq, req, res) => {
-    console.log('Proxying root request to Next.js:', req.url);
-  }
-}));
+// Main landing page - serve static HTML
+app.get('/', (req, res) => {
+  res.sendFile(path.join(publicDir, 'index.html'));
+});
 
 // API routes - proxy to Backend Server (AFTER dashboard routes)
 app.use('/api', createProxyMiddleware({

@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GeoSynth QC Pro - Professional Quality Control for Geosynthetic Projects</title>
+  <style>
+    :root {
+      --navy-900: #102a43;
+      --navy-800: #243b53;
+      --navy-700: #334e68;
+      --navy-600: #486581;
+      --navy-500: #627d98;
+      --navy-400: #829ab1;
+      --navy-300: #9fb3c8;
+      --navy-200: #bcccdc;
+      --navy-100: #d9e2ec;
+      --navy-50: #f0f4f8;
+      --orange-600: #d03801;
+      --orange-500: #ff5a1f;
+      --orange-100: #feecdc;
+      --gray-50: #f9fafb;
+      --gray-100: #f3f4f6;
+      --gray-600: #4b5563;
+      --gray-700: #374151;
+      --gray-900: #111827;
+    }
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      line-height: 1.6;
+      color: var(--gray-900);
+      background-color: white;
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 1.5rem;
+    }
+    
+    /* Header */
+    header {
+      background: white;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    
+    .header-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      height: 4rem;
+    }
+    
+    .logo {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--navy-900);
+    }
+    
+    .logo .accent {
+      color: var(--orange-600);
+    }
+    
+    nav {
+      display: none;
+    }
+    
+    @media (min-width: 768px) {
+      nav {
+        display: flex;
+        align-items: center;
+        gap: 2rem;
+      }
+      
+      nav a {
+        text-decoration: none;
+        color: var(--gray-700);
+        font-weight: 500;
+        transition: color 0.3s;
+      }
+      
+      nav a:hover {
+        color: var(--navy-900);
+      }
+    }
+    
+    .auth-buttons {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    
+    .btn {
+      padding: 0.5rem 1rem;
+      border-radius: 0.5rem;
+      font-weight: 500;
+      text-decoration: none;
+      transition: all 0.3s;
+      border: none;
+      cursor: pointer;
+    }
+    
+    .btn-primary {
+      background: var(--orange-600);
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background: #b8300a;
+    }
+    
+    .btn-secondary {
+      color: var(--navy-900);
+    }
+    
+    .btn-secondary:hover {
+      color: var(--navy-700);
+    }
+    
+    /* Hero Section */
+    .hero {
+      background: linear-gradient(135deg, var(--navy-900) 0%, var(--navy-800) 50%, var(--navy-700) 100%);
+      color: white;
+      padding: 5rem 0;
+      text-align: center;
+    }
+    
+    .hero h1 {
+      font-size: 3rem;
+      font-weight: 700;
+      margin-bottom: 1.5rem;
+      line-height: 1.2;
+    }
+    
+    .hero .highlight {
+      color: var(--orange-500);
+    }
+    
+    .hero p {
+      font-size: 1.25rem;
+      color: var(--navy-200);
+      margin-bottom: 2rem;
+      max-width: 48rem;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    
+    .hero-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      align-items: center;
+    }
+    
+    @media (min-width: 640px) {
+      .hero-buttons {
+        flex-direction: row;
+        justify-content: center;
+      }
+    }
+    
+    .btn-large {
+      padding: 0.75rem 2rem;
+      font-size: 1.1rem;
+    }
+    
+    .btn-outline {
+      border: 1px solid var(--navy-300);
+      color: white;
+      background: transparent;
+    }
+    
+    .btn-outline:hover {
+      background: var(--navy-800);
+    }
+    
+    /* Features Section */
+    .features {
+      padding: 5rem 0;
+      background: white;
+    }
+    
+    .section-header {
+      text-align: center;
+      margin-bottom: 4rem;
+    }
+    
+    .section-header h2 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      color: var(--navy-900);
+      margin-bottom: 1rem;
+    }
+    
+    .section-header p {
+      font-size: 1.25rem;
+      color: var(--gray-600);
+      max-width: 32rem;
+      margin: 0 auto;
+    }
+    
+    .features-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 2rem;
+    }
+    
+    @media (min-width: 768px) {
+      .features-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+    
+    @media (min-width: 1024px) {
+      .features-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+    
+    .feature-card {
+      background: var(--gray-50);
+      padding: 1.5rem;
+      border-radius: 0.5rem;
+      transition: box-shadow 0.3s;
+    }
+    
+    .feature-card:hover {
+      box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    }
+    
+    .feature-icon {
+      font-size: 2.5rem;
+      margin-bottom: 1rem;
+    }
+    
+    .feature-card h3 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--navy-900);
+      margin-bottom: 0.75rem;
+    }
+    
+    .feature-card p {
+      color: var(--gray-600);
+    }
+    
+    /* Pricing Section */
+    .pricing {
+      padding: 5rem 0;
+      background: var(--gray-50);
+    }
+    
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 2rem;
+      max-width: 64rem;
+      margin: 0 auto;
+    }
+    
+    @media (min-width: 768px) {
+      .pricing-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+    
+    .pricing-card {
+      background: white;
+      padding: 2rem;
+      border-radius: 0.5rem;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      position: relative;
+    }
+    
+    .pricing-card.popular {
+      border: 2px solid var(--orange-500);
+    }
+    
+    .popular-badge {
+      position: absolute;
+      top: -0.75rem;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--orange-600);
+      color: white;
+      padding: 0.25rem 1rem;
+      border-radius: 9999px;
+      font-size: 0.875rem;
+      font-weight: 600;
+    }
+    
+    .pricing-header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    
+    .pricing-header h3 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--navy-900);
+      margin-bottom: 0.5rem;
+    }
+    
+    .pricing-header .price {
+      font-size: 2.5rem;
+      font-weight: 700;
+      color: var(--navy-900);
+    }
+    
+    .pricing-header .period {
+      color: var(--gray-600);
+      margin-left: 0.5rem;
+    }
+    
+    .pricing-header .description {
+      color: var(--gray-600);
+      margin-top: 1rem;
+    }
+    
+    .features-list {
+      list-style: none;
+      margin-bottom: 2rem;
+    }
+    
+    .features-list li {
+      display: flex;
+      align-items: flex-start;
+      margin-bottom: 0.75rem;
+    }
+    
+    .features-list li::before {
+      content: "✓";
+      color: #10b981;
+      font-weight: bold;
+      margin-right: 0.75rem;
+      margin-top: 0.125rem;
+    }
+    
+    .features-list li span {
+      color: var(--gray-700);
+    }
+    
+    /* Footer */
+    footer {
+      background: var(--navy-900);
+      color: white;
+      padding: 3rem 0;
+      text-align: center;
+    }
+    
+    footer p {
+      color: var(--navy-300);
+    }
+    
+    /* Responsive */
+    @media (max-width: 767px) {
+      .hero h1 {
+        font-size: 2rem;
+      }
+      
+      .hero p {
+        font-size: 1.1rem;
+      }
+      
+      .section-header h2 {
+        font-size: 2rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header>
+    <div class="container">
+      <div class="header-content">
+        <div class="logo">
+          GeoSynth <span class="accent">QC Pro</span>
+        </div>
+        
+        <nav>
+          <a href="#features">Features</a>
+          <a href="#pricing">Pricing</a>
+          <a href="/panel-layout-demo">Demo</a>
+        </nav>
+        
+        <div class="auth-buttons">
+          <a href="/login" class="btn btn-secondary">Sign In</a>
+          <a href="/signup" class="btn btn-primary">Start Free Trial</a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="hero">
+    <div class="container">
+      <h1>
+        Professional Quality Control for 
+        <span class="highlight">Geosynthetic Projects</span>
+      </h1>
+      <p>
+        Streamline your QC workflows with AI-powered automation, intelligent panel optimization, 
+        and comprehensive project management designed for geosynthetic engineering professionals.
+      </p>
+      <div class="hero-buttons">
+        <a href="/signup" class="btn btn-primary btn-large">Start Free Trial</a>
+        <a href="/login" class="btn btn-outline btn-large">Login to Dashboard</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features Section -->
+  <section id="features" class="features">
+    <div class="container">
+      <div class="section-header">
+        <h2>Powerful Features for Professional QC</h2>
+        <p>Everything you need to manage geosynthetic projects efficiently and professionally</p>
+      </div>
+      
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">🤖</div>
+          <h3>AI-Powered QC Automation</h3>
+          <p>Automated anomaly detection and intelligent data analysis reduce manual review time by up to 80%</p>
+        </div>
+        
+        <div class="feature-card">
+          <div class="feature-icon">📐</div>
+          <h3>Panel Layout Optimization</h3>
+          <p>Advanced algorithms optimize panel placement for maximum efficiency and cost savings</p>
+        </div>
+        
+        <div class="feature-card">
+          <div class="feature-icon">📁</div>
+          <h3>Document Management</h3>
+          <p>Centralized storage and AI-powered document analysis streamline project documentation</p>
+        </div>
+        
+        <div class="feature-card">
+          <div class="feature-icon">📊</div>
+          <h3>Real-time Monitoring</h3>
+          <p>Live project tracking with instant notifications for critical QC events</p>
+        </div>
+        
+        <div class="feature-card">
+          <div class="feature-icon">✅</div>
+          <h3>Compliance Reporting</h3>
+          <p>Automated generation of industry-standard compliance reports and certifications</p>
+        </div>
+        
+        <div class="feature-card">
+          <div class="feature-icon">👥</div>
+          <h3>Team Collaboration</h3>
+          <p>Multi-user access with role-based permissions for seamless team coordination</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pricing Section -->
+  <section id="pricing" class="pricing">
+    <div class="container">
+      <div class="section-header">
+        <h2>Professional Pricing Plans</h2>
+        <p>Choose the plan that fits your project needs and team size</p>
+      </div>
+      
+      <div class="pricing-grid">
+        <div class="pricing-card">
+          <div class="pricing-header">
+            <h3>Basic</h3>
+            <div>
+              <span class="price">$115</span>
+              <span class="period">per month</span>
+            </div>
+            <p class="description">Perfect for small teams and individual professionals</p>
+          </div>
+          
+          <ul class="features-list">
+            <li><span>Up to 5 active projects</span></li>
+            <li><span>Basic QC automation</span></li>
+            <li><span>Standard panel optimization</span></li>
+            <li><span>Document storage (10GB)</span></li>
+            <li><span>Email support</span></li>
+            <li><span>Basic reporting</span></li>
+          </ul>
+          
+          <a href="/signup" class="btn btn-outline" style="width: 100%; text-align: center; display: block;">Start Basic Plan</a>
+        </div>
+        
+        <div class="pricing-card popular">
+          <div class="popular-badge">Most Popular</div>
+          <div class="pricing-header">
+            <h3>Premium</h3>
+            <div>
+              <span class="price">$315</span>
+              <span class="period">per month</span>
+            </div>
+            <p class="description">Advanced features for professional teams and enterprises</p>
+          </div>
+          
+          <ul class="features-list">
+            <li><span>Unlimited projects</span></li>
+            <li><span>Advanced AI automation</span></li>
+            <li><span>Premium panel optimization</span></li>
+            <li><span>Unlimited document storage</span></li>
+            <li><span>Priority phone & email support</span></li>
+            <li><span>Advanced analytics & reporting</span></li>
+            <li><span>Custom integrations</span></li>
+            <li><span>Team collaboration tools</span></li>
+          </ul>
+          
+          <a href="/signup" class="btn btn-primary" style="width: 100%; text-align: center; display: block;">Start Premium Plan</a>
+        </div>
+      </div>
+      
+      <div style="text-align: center; margin-top: 3rem;">
+        <p style="color: var(--gray-600); margin-bottom: 1rem;">All plans include 30-day free trial • No setup fees • Cancel anytime</p>
+        <a href="/login" style="color: var(--navy-600); font-weight: 600; text-decoration: none;">
+          Already have an account? Sign in →
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="container">
+      <p>© 2025 GeoSynth QC Pro. Professional Quality Control for Geosynthetic Projects.</p>
+    </div>
+  </footer>
+
+  <script>
+    // Smooth scrolling for anchor links
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener('click', function (e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+          target.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start'
+          });
+        }
+      });
+    });
+
+    // Simple analytics tracking (can be enhanced)
+    function trackClick(element, action) {
+      console.log('User clicked:', action);
+      // Add your analytics tracking here
+    }
+
+    // Add click tracking to buttons
+    document.querySelectorAll('.btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        trackClick(this, this.textContent);
+      });
+    });
+  </script>
+</body>
+</html>
