@@ -35,6 +35,15 @@ app.use((req, res, next) => {
 // Public directory for static assets (after dashboard routes)
 const publicDir = path.join(__dirname, 'public');
 
+// API routes - proxy to backend server
+app.use('/api', createProxyMiddleware({
+  target: 'http://localhost:8002',
+  changeOrigin: true,
+  onProxyReq: (proxyReq, req, res) => {
+    console.log('Proxying API request:', req.url);
+  }
+}));
+
 // Dashboard route - proxy to Next.js frontend
 app.use('/dashboard', createProxyMiddleware({
   target: 'http://localhost:3000',
