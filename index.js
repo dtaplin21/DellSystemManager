@@ -171,12 +171,15 @@ app.post('/api/auth/logout', (req, res) => {
   res.status(200).json({ message: 'Logged out successfully' });
 });
 
-// Dashboard route - proxy to Next.js frontend
+// Dashboard route - proxy to Next.js frontend with path preservation
 app.use('/dashboard', createProxyMiddleware({
   target: 'http://localhost:3000',
   changeOrigin: true,
+  pathRewrite: {
+    '^/dashboard': '/dashboard' // Keep the dashboard path
+  },
   onProxyReq: (proxyReq, req, res) => {
-    console.log('Proxying dashboard request:', req.url);
+    console.log('Proxying dashboard request:', req.originalUrl, '-> Next.js path:', proxyReq.path);
   }
 }));
 
@@ -209,9 +212,6 @@ app.get('/signup', (req, res) => {
   res.sendFile(path.join(publicDir, 'signup.html'));
 });
 
-// Static file serving (after specific routes)
-app.use(express.static(publicDir));
-
 // Next.js static assets - essential for dashboard functionality
 app.use('/_next', createProxyMiddleware({
   target: 'http://localhost:3000',
@@ -231,21 +231,6 @@ app.get('/favicon.ico', createProxyMiddleware({
   logLevel: 'silent'
 }));
 
-// Main landing page - serve static HTML
-app.get('/', (req, res) => {
-  res.sendFile(path.join(publicDir, 'index.html'));
-});
-
-// API routes - proxy to Backend Server (AFTER dashboard routes)
-app.use('/api', createProxyMiddleware({
-  target: 'http://localhost:8002',
-  changeOrigin: true,
-  logLevel: 'info',
-  pathRewrite: {
-    '^/api': '/api'
-  }
-}));
-
 // Panel optimizer API - proxy to Panel Optimizer Service
 app.use('/panel-api', createProxyMiddleware({
   target: 'http://localhost:8001',
@@ -254,6 +239,14 @@ app.use('/panel-api', createProxyMiddleware({
     '^/panel-api': ''
   }
 }));
+
+// Main landing page - serve static HTML
+app.get('/', (req, res) => {
+  res.sendFile(path.join(publicDir, 'index.html'));
+});
+
+// Static file serving (after specific routes but before catch-all)
+app.use(express.static(publicDir));
 
 // Start the server
 app.listen(PORT, () => {
