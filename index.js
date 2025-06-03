@@ -44,15 +44,6 @@ app.use('/dashboard', createProxyMiddleware({
   }
 }));
 
-// Main landing page - proxy to Next.js frontend
-app.use('/', createProxyMiddleware({
-  target: 'http://localhost:3000',
-  changeOrigin: true,
-  pathRewrite: {
-    '^/$': '/'
-  }
-}));
-
 // Free trial page
 app.get('/free-trial', (req, res) => {
   res.sendFile(path.join(publicDir, 'free-trial.html'));
@@ -66,6 +57,20 @@ app.get('/panel-layout-demo', (req, res) => {
 // Panel layout fixed page
 app.get('/panel-layout-fixed', (req, res) => {
   res.sendFile(path.join(publicDir, 'panel-layout-fixed.html'));
+});
+
+// Login page - only redirect if already authenticated
+app.get('/login', (req, res) => {
+  // For now, serve login page instead of redirecting
+  // TODO: Add session check here later
+  res.sendFile(path.join(publicDir, 'login.html'));
+});
+
+// Signup page - only redirect if already authenticated  
+app.get('/signup', (req, res) => {
+  // For now, serve signup page instead of redirecting
+  // TODO: Add session check here later
+  res.sendFile(path.join(publicDir, 'signup.html'));
 });
 
 // Static file serving (after specific routes)
@@ -90,21 +95,14 @@ app.get('/favicon.ico', createProxyMiddleware({
   logLevel: 'silent'
 }));
 
-// Login page - only redirect if already authenticated
-app.get('/login', (req, res) => {
-  // For now, serve login page instead of redirecting
-  // TODO: Add session check here later
-  res.sendFile(path.join(publicDir, 'login.html'));
-});
-
-// Signup page - only redirect if already authenticated  
-app.get('/signup', (req, res) => {
-  // For now, serve signup page instead of redirecting
-  // TODO: Add session check here later
-  res.sendFile(path.join(publicDir, 'signup.html'));
-});
-
-
+// Main landing page - proxy to Next.js frontend (catch-all for root)
+app.get('/', createProxyMiddleware({
+  target: 'http://localhost:3000',
+  changeOrigin: true,
+  onProxyReq: (proxyReq, req, res) => {
+    console.log('Proxying root request to Next.js:', req.url);
+  }
+}));
 
 // API routes - proxy to Backend Server (AFTER dashboard routes)
 app.use('/api', createProxyMiddleware({
