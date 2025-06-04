@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 
 export interface NewProjectData {
   name: string;
@@ -65,17 +67,9 @@ export default function CreateProjectForm({ open, onClose, onCreate }: CreatePro
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold text-gray-900">Create New Project</h2>
-          <button 
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-xl"
-          >
-            ×
-          </button>
-        </div>
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="w-full max-w-md mx-4">
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">Create New Project</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <Label htmlFor="name" className="text-sm font-medium text-gray-700">Project Name *</Label>
@@ -138,17 +132,17 @@ export default function CreateProjectForm({ open, onClose, onCreate }: CreatePro
           
           <div>
             <Label htmlFor="status" className="text-sm font-medium text-gray-700">Status</Label>
-            <Select value={form.status} onValueChange={(value) => handleSelectChange('status', value)}>
-              <SelectTrigger className="mt-1">
-                <SelectValue placeholder="Select status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Active">Active</SelectItem>
-                <SelectItem value="Completed">Completed</SelectItem>
-                <SelectItem value="On Hold">On Hold</SelectItem>
-                <SelectItem value="Delayed">Delayed</SelectItem>
-              </SelectContent>
-            </Select>
+            <select 
+              id="status"
+              value={form.status} 
+              onChange={(e) => handleSelectChange('status', e.target.value)}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="Active">Active</option>
+              <option value="Completed">Completed</option>
+              <option value="On Hold">On Hold</option>
+              <option value="Delayed">Delayed</option>
+            </select>
           </div>
           
           <div>
@@ -167,12 +161,12 @@ export default function CreateProjectForm({ open, onClose, onCreate }: CreatePro
           
           <div>
             <Label htmlFor="description" className="text-sm font-medium text-gray-700">Description</Label>
-            <Textarea 
+            <textarea 
               id="description" 
               value={form.description} 
               onChange={handleChange}
               placeholder="Enter project description (optional)"
-              className="mt-1"
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
               rows={3}
             />
           </div>
