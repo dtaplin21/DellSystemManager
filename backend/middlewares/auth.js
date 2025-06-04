@@ -10,11 +10,16 @@ const auth = async (req, res, next) => {
     
     if (!token) {
       // Development bypass: use first available user for testing
-      const [user] = await db.select().from(users).limit(1);
-      if (user) {
-        const { password: _, ...userWithoutPassword } = user;
-        req.user = userWithoutPassword;
-        return next();
+      try {
+        const [user] = await db.select().from(users).limit(1);
+        if (user) {
+          const { password: _, ...userWithoutPassword } = user;
+          req.user = userWithoutPassword;
+          console.log('Auth bypass successful for user:', userWithoutPassword.id);
+          return next();
+        }
+      } catch (error) {
+        console.error('Auth bypass failed:', error);
       }
       return res.status(401).json({ message: 'Access denied. No token provided.' });
     }
