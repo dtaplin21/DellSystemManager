@@ -8,8 +8,7 @@ const { createProxyMiddleware } = require('http-proxy-middleware');
 const app = express();
 const PORT = process.env.PORT || 8000;
 
-// Disable Express automatic trailing slash redirects
-app.set('strict routing', true);
+// Use default Express routing for flexibility with dashboard and API routes
 
 // Basic logging
 app.use((req, res, next) => {
