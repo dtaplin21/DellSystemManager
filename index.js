@@ -170,18 +170,11 @@ app.post('/api/auth/logout', (req, res) => {
   res.status(200).json({ message: 'Logged out successfully' });
 });
 
-// Dashboard routes - catch all dashboard paths with filter function
-app.use(createProxyMiddleware({
-  filter: (pathname, req) => pathname.startsWith('/dashboard'),
+// Next.js static assets - MUST come first to prevent routing conflicts
+app.use('/_next', createProxyMiddleware({
   target: 'http://localhost:3000',
   changeOrigin: true,
-  onProxyReq: (proxyReq, req, res) => {
-    console.log('Dashboard proxy - Original URL:', req.originalUrl);
-    console.log('Dashboard proxy - Target path:', proxyReq.path);
-  },
-  onProxyRes: (proxyRes, req, res) => {
-    console.log('Dashboard proxy response - Status:', proxyRes.statusCode);
-  }
+  logLevel: 'silent'
 }));
 
 // Free trial page
@@ -213,11 +206,18 @@ app.get('/signup', (req, res) => {
   res.sendFile(path.join(publicDir, 'signup.html'));
 });
 
-// Next.js static assets - essential for dashboard functionality
-app.use('/_next', createProxyMiddleware({
+// Dashboard routes - catch all dashboard paths with filter function
+app.use(createProxyMiddleware({
+  filter: (pathname, req) => pathname.startsWith('/dashboard'),
   target: 'http://localhost:3000',
   changeOrigin: true,
-  logLevel: 'silent'
+  onProxyReq: (proxyReq, req, res) => {
+    console.log('Dashboard proxy - Original URL:', req.originalUrl);
+    console.log('Dashboard proxy - Target path:', proxyReq.path);
+  },
+  onProxyRes: (proxyRes, req, res) => {
+    console.log('Dashboard proxy response - Status:', proxyRes.statusCode);
+  }
 }));
 
 app.use('/static', createProxyMiddleware({
