@@ -170,16 +170,14 @@ app.post('/api/auth/logout', (req, res) => {
   res.status(200).json({ message: 'Logged out successfully' });
 });
 
-// Dashboard routes - proxy ALL dashboard paths to Next.js frontend
-app.use('/dashboard', createProxyMiddleware({
+// Dashboard routes - catch all dashboard paths with filter function
+app.use(createProxyMiddleware({
+  filter: (pathname, req) => pathname.startsWith('/dashboard'),
   target: 'http://localhost:3000',
   changeOrigin: true,
-  pathRewrite: {
-    '^/dashboard': '/dashboard' // Explicitly preserve the dashboard path
-  },
   onProxyReq: (proxyReq, req, res) => {
     console.log('Dashboard proxy - Original URL:', req.originalUrl);
-    console.log('Dashboard proxy - Rewritten path:', proxyReq.path);
+    console.log('Dashboard proxy - Target path:', proxyReq.path);
   },
   onProxyRes: (proxyRes, req, res) => {
     console.log('Dashboard proxy response - Status:', proxyRes.statusCode);
