@@ -18,28 +18,12 @@ interface Project {
 // Demo project data
 const DEMO_PROJECTS = [
   {
-    id: '1',
-    name: 'Landfill Cell 4 Expansion',
-    client: 'Metro Waste Management',
-    location: 'Northfield, MN',
-    lastUpdated: '2025-05-01',
-    progress: 68,
-  },
-  {
-    id: '2',
-    name: 'Industrial Retention Pond',
-    client: 'Ace Manufacturing',
-    location: 'Detroit, MI',
-    lastUpdated: '2025-04-28',
-    progress: 32,
-  },
-  {
-    id: '3',
-    name: 'Wastewater Treatment Lining',
-    client: 'PureWater Inc.',
-    location: 'Tampa, FL',
-    lastUpdated: '2025-05-03',
-    progress: 94,
+    id: '00000000-0000-0000-0000-000000000001',
+    name: 'Demo Geosynthetic Project',
+    client: 'Demo Client',
+    location: 'Denver, CO',
+    lastUpdated: '2025-06-04',
+    progress: 25,
   },
 ];
 
