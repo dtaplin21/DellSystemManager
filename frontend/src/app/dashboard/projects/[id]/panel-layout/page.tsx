@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -38,7 +38,7 @@ export default function PanelLayoutPage({ params }: { params: { id: string } }) 
   const { toast } = useToast();
   const router = useRouter();
   const { socket, isConnected } = useWebSocket();
-  const { id } = params;
+  const { id } = use(params);
 
   useEffect(() => {
     const loadProjectAndLayout = async () => {
