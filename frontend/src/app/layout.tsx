@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import '../../../tailwind.css';
 import './globals.css';
 import { AuthProvider } from '../contexts/auth-context';
 import { WebSocketProvider } from '../contexts/websocket-context';
