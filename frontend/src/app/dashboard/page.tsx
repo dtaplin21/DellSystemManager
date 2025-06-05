@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Button } from '../../components/ui/button';
+import './dashboard.css';
 
 // Define proper types for our projects
 interface Project {
@@ -48,9 +48,9 @@ export default function Dashboard() {
           <p className="text-gray-600">Welcome to your QC Management Platform</p>
         </div>
         <Link href="/dashboard/projects">
-          <Button className="bg-orange-600 hover:bg-orange-700">
+          <button className="btn-orange">
             View All Projects
-          </Button>
+          </button>
         </Link>
       </div>
 
@@ -129,9 +129,9 @@ export default function Dashboard() {
                       </div>
                     </div>
                     <Link href={`/dashboard/projects/${project.id}`}>
-                      <Button variant="outline" size="sm">
+                      <button className="btn-outline">
                         View
-                      </Button>
+                      </button>
                     </Link>
                   </div>
                 </div>
