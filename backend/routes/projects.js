@@ -101,10 +101,10 @@ router.post('/', auth, async (req, res, next) => {
       id: uuidv4(),
       projectId: newProject.id,
       panels: '[]', // Empty panels array as string
-      width: 100,
-      height: 100,
-      scale: 1,
-      lastUpdated: new Date().toISOString(),
+      width: '100',
+      height: '100',
+      scale: '1',
+      lastUpdated: new Date(),
     });
     
     // Return the new project

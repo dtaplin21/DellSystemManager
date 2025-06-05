@@ -18,15 +18,24 @@ const users = pgTable('users', {
 
 // Projects table
 const projects = pgTable('projects', {
-  id: serial('id').primaryKey(),
+  id: uuid('id').primaryKey(),
   name: text('name').notNull(),
-  userId: integer('user_id').references(() => users.id),
+  description: text('description'),
+  status: varchar('status', { length: 20 }).default('active'),
+  client: text('client'),
+  location: text('location'),
+  startDate: timestamp('start_date'),
+  endDate: timestamp('end_date'),
+  area: decimal('area'),
+  progress: integer('progress').default(0),
+  subscription: varchar('subscription', { length: 20 }).default('basic'),
+  userId: uuid('user_id').notNull().references(() => users.id),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow()
 });
 
 // Panel layouts table
-const panels = pgTable('panels', {
+const panels = pgTable('panel_layouts', {
   id: uuid('id').primaryKey(),
   projectId: uuid('project_id').notNull().references(() => projects.id),
   panels: text('panels').notNull(), // JSON string of panels data
