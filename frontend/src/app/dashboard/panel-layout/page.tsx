@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Button } from '../../../components/ui/button';
+import './panel-layout.css';
 
 export default function PanelLayoutPage() {
   const [panels, setPanels] = useState([]);
@@ -23,9 +23,9 @@ export default function PanelLayoutPage() {
           <p className="text-gray-600">Design and optimize geosynthetic panel arrangements</p>
         </div>
         <Link href="/dashboard">
-          <Button variant="outline">
+          <button className="btn-outline">
             Back to Dashboard
-          </Button>
+          </button>
         </Link>
       </div>
 
