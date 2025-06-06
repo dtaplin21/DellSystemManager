@@ -3,469 +3,699 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../../components/ui/dialog';
 
 interface Panel {
   id: string;
-  x: number;
-  y: number;
   width: number;
-  height: number;
-  label: string;
-  color?: string;
-  thickness?: number;
-  material?: string;
+  length: number;
+  material: string;
+  shape: 'rectangle' | 'polygon';
+  corners?: number[][];
+}
+
+interface OptimizationResults {
+  placements: any[];
+  summary: any;
 }
 
 export default function PanelLayoutPage() {
   const [panels, setPanels] = useState<Panel[]>([]);
-  const [selectedPanel, setSelectedPanel] = useState<Panel | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
+  const [panelCounter, setPanelCounter] = useState(1);
+  const [selectedStrategy, setSelectedStrategy] = useState('balanced');
+  const [selectedShape, setSelectedShape] = useState('rectangle');
+  const [isCreatingPolygon, setIsCreatingPolygon] = useState(false);
+  const [polygonPoints, setPolygonPoints] = useState<{x: number, y: number}[]>([]);
+  const [contourImageData, setContourImageData] = useState<string | null>(null);
+  const [optimizationResults, setOptimizationResults] = useState<OptimizationResults | null>(null);
+  const [showPanels, setShowPanels] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
-  const [dragInfo, setDragInfo] = useState<{
-    isDragging: boolean;
-    panelId: string | null;
-    offsetX: number;
-    offsetY: number;
-  }>({
-    isDragging: false,
-    panelId: null,
-    offsetX: 0,
-    offsetY: 0
+  const [toast, setToast] = useState<{show: boolean, title: string, message: string}>({
+    show: false, title: '', message: ''
   });
-  
+
   const [siteConfig, setSiteConfig] = useState({
-    width: 800,
-    height: 600,
-    scale: 1,
-    gridSize: 20
+    width: 1000,
+    length: 1000
   });
 
   const [newPanel, setNewPanel] = useState({
-    label: '',
-    width: 100,
-    height: 80,
-    thickness: 60,
-    material: 'HDPE'
+    width: 15,
+    length: 100,
+    material: 'HDPE 60 mil'
   });
 
-  const canvasRef = useRef<HTMLDivElement>(null);
+  const panelViewerRef = useRef<HTMLDivElement>(null);
+
+  const showToast = (title: string, message: string) => {
+    setToast({ show: true, title, message });
+    setTimeout(() => setToast({ show: false, title: '', message: '' }), 3000);
+  };
+
+  const showLoading = (loading: boolean) => {
+    setIsLoading(loading);
+  };
+
+  const updatePanelList = () => {
+    // Panel list is managed by React state, so this is automatic
+  };
+
+  const clearPolygonPoints = () => {
+    setPolygonPoints([]);
+    setIsCreatingPolygon(false);
+  };
+
+  const removePolygonPoint = (index: number) => {
+    setPolygonPoints(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const finishPolygon = () => {
+    if (polygonPoints.length >= 3) {
+      const minX = Math.min(...polygonPoints.map(p => p.x));
+      const maxX = Math.max(...polygonPoints.map(p => p.x));
+      const minY = Math.min(...polygonPoints.map(p => p.y));
+      const maxY = Math.max(...polygonPoints.map(p => p.y));
+
+      const width = maxX - minX;
+      const height = maxY - minY;
+
+      const panel: Panel = {
+        id: `panel-${panelCounter}`,
+        width: width || 15,
+        length: height || 100,
+        material: newPanel.material,
+        shape: 'polygon',
+        corners: polygonPoints.map(p => [p.x, p.y])
+      };
+
+      setPanels(prev => [...prev, panel]);
+      setPanelCounter(prev => prev + 1);
+      clearPolygonPoints();
+      showToast('Polygon Created', `Custom polygon panel added with ${polygonPoints.length} points.`);
+    }
+  };
+
+  const handleCanvasClick = (e: React.MouseEvent) => {
+    if (selectedShape === 'polygon' && panelViewerRef.current) {
+      if (!isCreatingPolygon) {
+        setIsCreatingPolygon(true);
+      }
+
+      const rect = panelViewerRef.current.getBoundingClientRect();
+      const x = Math.round(e.clientX - rect.left);
+      const y = Math.round(e.clientY - rect.top);
+
+      setPolygonPoints(prev => [...prev, { x, y }]);
+      showToast('Point Added', `Added point at (${x}, ${y}). Right-click to finish or add more points.`);
+    }
+  };
+
+  const handleCanvasRightClick = (e: React.MouseEvent) => {
+    if (selectedShape === 'polygon' && isCreatingPolygon && polygonPoints.length >= 3) {
+      e.preventDefault();
+      finishPolygon();
+    }
+  };
 
   const addPanel = () => {
-    if (!newPanel.label) return;
-    
-    const panel: Panel = {
-      id: `panel-${Date.now()}`,
-      x: 50,
-      y: 50,
-      width: newPanel.width,
-      height: newPanel.height,
-      label: newPanel.label,
-      thickness: newPanel.thickness,
-      material: newPanel.material,
-      color: `hsl(${Math.random() * 360}, 70%, 60%)`
-    };
-    
-    setPanels(prev => [...prev, panel]);
-    setNewPanel({ label: '', width: 100, height: 80, thickness: 60, material: 'HDPE' });
-  };
+    if (selectedShape === 'rectangle') {
+      if (isNaN(newPanel.width) || isNaN(newPanel.length) || newPanel.width <= 0 || newPanel.length <= 0) {
+        showToast('Invalid Input', 'Please enter valid width and length values.');
+        return;
+      }
 
-  const deletePanel = (id: string) => {
-    setPanels(prev => prev.filter(p => p.id !== id));
-    if (selectedPanel?.id === id) {
-      setSelectedPanel(null);
-    }
-  };
+      const panel: Panel = {
+        id: `panel-${panelCounter}`,
+        width: newPanel.width,
+        length: newPanel.length,
+        material: newPanel.material,
+        shape: 'rectangle'
+      };
 
-  const updatePanel = (id: string, updates: Partial<Panel>) => {
-    setPanels(prev => prev.map(p => 
-      p.id === id ? { ...p, ...updates } : p
-    ));
-    if (selectedPanel?.id === id) {
-      setSelectedPanel(prev => prev ? { ...prev, ...updates } : null);
-    }
-  };
+      setPanels(prev => [...prev, panel]);
+      setPanelCounter(prev => prev + 1);
+      showToast('Panel Added', `Rectangular panel ${panel.id} added successfully.`);
 
-  const handleMouseDown = (e: React.MouseEvent, panel: Panel) => {
-    e.preventDefault();
-    const rect = canvasRef.current?.getBoundingClientRect();
-    if (rect) {
-      setDragInfo({
-        isDragging: true,
-        panelId: panel.id,
-        offsetX: e.clientX - rect.left - panel.x,
-        offsetY: e.clientY - rect.top - panel.y
-      });
-      setSelectedPanel(panel);
-    }
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (dragInfo.isDragging && dragInfo.panelId) {
-      const rect = canvasRef.current?.getBoundingClientRect();
-      if (rect) {
-        const newX = Math.max(0, Math.min(siteConfig.width - 100, e.clientX - rect.left - dragInfo.offsetX));
-        const newY = Math.max(0, Math.min(siteConfig.height - 80, e.clientY - rect.top - dragInfo.offsetY));
-        
-        updatePanel(dragInfo.panelId, { x: newX, y: newY });
+    } else if (selectedShape === 'polygon') {
+      if (polygonPoints.length === 0) {
+        showToast('Create Polygon', 'Click on the viewer area to start creating polygon points. Right-click when finished.');
+        setIsCreatingPolygon(true);
+      } else if (polygonPoints.length >= 3) {
+        finishPolygon();
+      } else {
+        showToast('Need More Points', 'Add at least 3 points to create a polygon.');
       }
     }
   };
 
-  const handleMouseUp = () => {
-    setDragInfo({
-      isDragging: false,
-      panelId: null,
-      offsetX: 0,
-      offsetY: 0
-    });
+  const clearAllPanels = () => {
+    if (window.confirm('Are you sure you want to clear all panels?')) {
+      setPanels([]);
+      showToast('Info', 'All panels cleared');
+    }
   };
 
-  const testOptimization = async () => {
+  const visualizeTerrain = async () => {
+    if (isNaN(siteConfig.width) || isNaN(siteConfig.length) || siteConfig.width <= 0 || siteConfig.length <= 0) {
+      showToast('Error', 'Please enter valid site dimensions');
+      return;
+    }
+
+    showLoading(true);
+
     try {
-      setIsLoading(true);
+      const response = await fetch('/panel-api/api/panel-layout/visualize-terrain', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          width: siteConfig.width,
+          length: siteConfig.length,
+          noGoZones: []
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error ${response.status}`);
+      }
+
+      const data = await response.json();
+      setContourImageData(data.imageData);
+      displayContourImage(data.imageData);
+      showToast('Success', 'Terrain visualization generated');
+
+    } catch (error) {
+      console.error('Error visualizing terrain:', error);
+      showToast('Error', 'Failed to visualize terrain');
+    } finally {
+      showLoading(false);
+    }
+  };
+
+  const runOptimization = async () => {
+    if (isNaN(siteConfig.width) || isNaN(siteConfig.length) || siteConfig.width <= 0 || siteConfig.length <= 0) {
+      showToast('Error', 'Please enter valid site dimensions');
+      return;
+    }
+
+    if (panels.length === 0) {
+      showToast('Error', 'Please add at least one panel');
+      return;
+    }
+
+    showLoading(true);
+
+    try {
       const response = await fetch('/panel-api/api/panel-layout/optimize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          siteConfig,
-          panels,
-          strategy: 'balanced'
+          siteConfig: {
+            width: siteConfig.width,
+            length: siteConfig.length,
+            noGoZones: []
+          },
+          panels: panels,
+          strategy: selectedStrategy
         })
       });
-      
-      if (response.ok) {
-        const result = await response.json();
-        console.log('Optimization result:', result);
-        alert('Panel optimization completed successfully!');
-      } else {
-        alert('Optimization failed - please check panel service connection');
+
+      if (!response.ok) {
+        throw new Error(`HTTP error ${response.status}`);
       }
+
+      const data = await response.json();
+      setOptimizationResults(data);
+      showToast('Success', `Optimized ${data.placements.length} panels with ${selectedStrategy} strategy`);
+
     } catch (error) {
-      console.error('Optimization error:', error);
-      alert('Network error during optimization');
+      console.error('Error running optimization:', error);
+      showToast('Error', 'Failed to run optimization');
     } finally {
-      setIsLoading(false);
+      showLoading(false);
     }
   };
 
-  const renderGrid = () => {
-    const lines = [];
-    const { gridSize, width, height } = siteConfig;
-    
-    // Vertical lines
-    for (let x = 0; x <= width; x += gridSize) {
-      lines.push(
-        <line key={`v-${x}`} x1={x} y1={0} x2={x} y2={height} 
-              stroke="#e5e7eb" strokeWidth="1" />
-      );
+  const exportDXF = async () => {
+    if (!optimizationResults || optimizationResults.placements.length === 0) {
+      showToast('Error', 'No optimized panels to export');
+      return;
     }
-    
-    // Horizontal lines
-    for (let y = 0; y <= height; y += gridSize) {
-      lines.push(
-        <line key={`h-${y}`} x1={0} y1={y} x2={width} y2={y} 
-              stroke="#e5e7eb" strokeWidth="1" />
-      );
+
+    showLoading(true);
+
+    try {
+      const response = await fetch('/panel-api/api/panel-layout/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          format: 'dxf',
+          panels: optimizationResults.placements,
+          summary: optimizationResults.summary
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error ${response.status}`);
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'panel_layout.dxf';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      showToast('Success', 'DXF export generated');
+
+    } catch (error) {
+      console.error('Error exporting to DXF:', error);
+      showToast('Error', 'Failed to export to DXF');
+    } finally {
+      showLoading(false);
     }
-    
-    return lines;
+  };
+
+  const exportCSV = async () => {
+    if (!optimizationResults || optimizationResults.placements.length === 0) {
+      showToast('Error', 'No optimized panels to export');
+      return;
+    }
+
+    showLoading(true);
+
+    try {
+      const response = await fetch('/panel-api/api/panel-layout/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          format: 'csv',
+          panels: optimizationResults.placements,
+          summary: optimizationResults.summary
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error ${response.status}`);
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'panel_layout.csv';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      showToast('Success', 'CSV export generated');
+
+    } catch (error) {
+      console.error('Error exporting to CSV:', error);
+      showToast('Error', 'Failed to export to CSV');
+    } finally {
+      showLoading(false);
+    }
+  };
+
+  const visualize3D = async () => {
+    if (isNaN(siteConfig.width) || isNaN(siteConfig.length) || siteConfig.width <= 0 || siteConfig.length <= 0) {
+      showToast('Error', 'Please enter valid site dimensions');
+      return;
+    }
+
+    showLoading(true);
+
+    try {
+      const response = await fetch('/panel-api/api/panel-layout/visualize-3d', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          siteConfig: {
+            width: siteConfig.width,
+            length: siteConfig.length,
+            noGoZones: []
+          },
+          panels: optimizationResults ? optimizationResults.placements : null
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error ${response.status}`);
+      }
+
+      const data = await response.json();
+      displayContourImage(data.imageData);
+      showToast('Success', '3D visualization generated');
+
+    } catch (error) {
+      console.error('Error generating 3D visualization:', error);
+      showToast('Error', 'Failed to generate 3D visualization');
+    } finally {
+      showLoading(false);
+    }
+  };
+
+  const displayContourImage = (imageData: string) => {
+    if (panelViewerRef.current) {
+      panelViewerRef.current.innerHTML = '';
+      const img = document.createElement('img');
+      img.src = `data:image/png;base64,${imageData}`;
+      img.alt = 'Terrain Contour Map';
+      img.style.maxWidth = '100%';
+      img.style.maxHeight = '100%';
+      img.style.objectFit = 'contain';
+      panelViewerRef.current.appendChild(img);
+    }
   };
 
   return (
-    <div className="space-y-6">
+    <div className="min-h-screen bg-[#f0f4f8]">
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-navy-600">Panel Layout Designer</h1>
-          <p className="text-navy-300">Design and optimize geosynthetic panel arrangements</p>
-        </div>
-        <Link href="/dashboard">
-          <Button variant="outline" className="border-navy-600 text-navy-600 hover:bg-navy-600 hover:text-white">
-            Back to Dashboard
-          </Button>
-        </Link>
-      </div>
+      <header className="bg-white shadow-sm p-4 flex justify-between items-center">
+        <div className="text-2xl font-bold text-[#0a2463]">GeoQC</div>
+        <nav className="flex gap-6">
+          <Link href="/dashboard" className="text-[#486581] hover:text-[#ff7f11] transition-colors">Dashboard</Link>
+          <Link href="/dashboard/projects" className="text-[#486581] hover:text-[#ff7f11] transition-colors">Projects</Link>
+          <span className="text-[#0a2463] font-medium">Panel Layout</span>
+          <Link href="/dashboard/qc-data" className="text-[#486581] hover:text-[#ff7f11] transition-colors">QC Data</Link>
+          <Link href="/dashboard/documents" className="text-[#486581] hover:text-[#ff7f11] transition-colors">Documents</Link>
+        </nav>
+      </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Controls Panel */}
-        <div className="lg:col-span-1 space-y-4">
-          {/* Add Panel Form */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-navy-600">Add Panel</CardTitle>
-              <CardDescription>Create new geosynthetic panels</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-navy-600">Panel Label</label>
-                <Input
-                  placeholder="e.g., P-001"
-                  value={newPanel.label}
-                  onChange={(e) => setNewPanel(prev => ({ ...prev, label: e.target.value }))}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
+      <div className="max-w-7xl mx-auto p-8">
+        <div className="grid grid-cols-[400px_1fr] gap-8 min-h-[800px]">
+          {/* Left Panel - Controls */}
+          <div className="bg-white rounded-lg shadow-sm p-6 flex flex-col max-h-[800px] overflow-y-auto">
+            
+            {/* Site Configuration */}
+            <div className="mb-6 pb-6 border-b border-[#d9e2ec]">
+              <h2 className="text-lg font-semibold mb-4 text-[#243b53]">Site Configuration</h2>
+              <div className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium text-navy-600">Width (ft)</label>
-                  <Input
-                    type="number"
-                    value={newPanel.width}
-                    onChange={(e) => setNewPanel(prev => ({ ...prev, width: parseInt(e.target.value) || 100 }))}
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-navy-600">Height (ft)</label>
-                  <Input
-                    type="number"
-                    value={newPanel.height}
-                    onChange={(e) => setNewPanel(prev => ({ ...prev, height: parseInt(e.target.value) || 80 }))}
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-navy-600">Material</label>
-                <select
-                  className="w-full h-10 px-3 py-2 border-2 border-gray-300 rounded-md text-sm"
-                  value={newPanel.material}
-                  onChange={(e) => setNewPanel(prev => ({ ...prev, material: e.target.value }))}
-                >
-                  <option value="HDPE">HDPE 60 mil</option>
-                  <option value="LLDPE">LLDPE 40 mil</option>
-                  <option value="PVC">PVC 30 mil</option>
-                  <option value="EPDM">EPDM 45 mil</option>
-                </select>
-              </div>
-              <Button onClick={addPanel} className="btn-navy w-full" disabled={!newPanel.label}>
-                Add Panel
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Site Configuration */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-navy-600">Site Configuration</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-sm font-medium text-navy-600">Width (ft)</label>
+                  <label className="block text-sm text-[#334e68] mb-2">Site Width (ft)</label>
                   <Input
                     type="number"
                     value={siteConfig.width}
-                    onChange={(e) => setSiteConfig(prev => ({ ...prev, width: parseInt(e.target.value) || 800 }))}
+                    onChange={(e) => setSiteConfig(prev => ({ ...prev, width: parseInt(e.target.value) || 1000 }))}
+                    min="500"
+                    max="2000"
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-navy-600">Height (ft)</label>
+                  <label className="block text-sm text-[#334e68] mb-2">Site Length (ft)</label>
                   <Input
                     type="number"
-                    value={siteConfig.height}
-                    onChange={(e) => setSiteConfig(prev => ({ ...prev, height: parseInt(e.target.value) || 600 }))}
+                    value={siteConfig.length}
+                    onChange={(e) => setSiteConfig(prev => ({ ...prev, length: parseInt(e.target.value) || 1000 }))}
+                    min="500"
+                    max="2000"
                   />
                 </div>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-navy-600">Grid Size</label>
-                <Input
-                  type="number"
-                  value={siteConfig.gridSize}
-                  onChange={(e) => setSiteConfig(prev => ({ ...prev, gridSize: parseInt(e.target.value) || 20 }))}
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Actions */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-navy-600">Actions</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Button onClick={testOptimization} className="btn-orange w-full" disabled={isLoading}>
-                {isLoading ? 'Optimizing...' : 'Optimize Layout'}
-              </Button>
-              <Button onClick={() => setPanels([])} variant="outline" className="w-full border-red-500 text-red-500 hover:bg-red-500 hover:text-white">
-                Clear All Panels
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Panel List */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-navy-600">Panels ({panels.length})</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 max-h-64 overflow-y-auto">
-              {panels.map((panel) => (
-                <div key={panel.id} className="flex items-center justify-between p-2 border border-navy-100 rounded">
-                  <div className="flex items-center space-x-2">
-                    <div 
-                      className="w-4 h-4 rounded"
-                      style={{ backgroundColor: panel.color }}
-                    />
-                    <div>
-                      <p className="text-sm font-medium text-navy-600">{panel.label}</p>
-                      <p className="text-xs text-navy-300">{panel.width}×{panel.height}</p>
-                    </div>
-                  </div>
-                  <div className="flex space-x-1">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => { setSelectedPanel(panel); setIsEditing(true); }}
-                      className="text-xs px-2 py-1"
-                    >
-                      Edit
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => deletePanel(panel.id)}
-                      className="text-xs px-2 py-1 border-red-500 text-red-500 hover:bg-red-500 hover:text-white"
-                    >
-                      Del
-                    </Button>
-                  </div>
-                </div>
-              ))}
-              {panels.length === 0 && (
-                <p className="text-sm text-navy-300 text-center py-4">No panels added yet</p>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Canvas Area */}
-        <div className="lg:col-span-3">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-navy-600">Layout Canvas</CardTitle>
-              <CardDescription>
-                Drag panels to reposition. Click to select and edit properties.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="border border-navy-200 rounded-lg overflow-hidden bg-white">
-                <div
-                  ref={canvasRef}
-                  className="relative cursor-crosshair"
-                  style={{ width: `${siteConfig.width}px`, height: `${siteConfig.height}px` }}
-                  onMouseMove={handleMouseMove}
-                  onMouseUp={handleMouseUp}
-                  onMouseLeave={handleMouseUp}
+                <Button 
+                  onClick={visualizeTerrain}
+                  className="w-full bg-white text-[#0a2463] border border-[#9fb3c8] hover:bg-[#f0f4f8]"
                 >
-                  {/* Grid */}
-                  <svg className="absolute inset-0 pointer-events-none" width="100%" height="100%">
-                    {renderGrid()}
-                  </svg>
-                  
-                  {/* Panels */}
-                  {panels.map((panel) => (
-                    <div
-                      key={panel.id}
-                      className={`absolute border-2 cursor-move transition-all duration-150 flex items-center justify-center text-xs font-bold ${
-                        selectedPanel?.id === panel.id 
-                          ? 'border-orange-500 shadow-lg z-10' 
-                          : 'border-navy-400 hover:border-navy-600'
-                      }`}
-                      style={{
-                        left: `${panel.x}px`,
-                        top: `${panel.y}px`,
-                        width: `${panel.width}px`,
-                        height: `${panel.height}px`,
-                        backgroundColor: panel.color,
-                        opacity: 0.8
-                      }}
-                      onMouseDown={(e) => handleMouseDown(e, panel)}
-                      onClick={() => setSelectedPanel(panel)}
-                    >
-                      <div className="text-center text-navy-800">
-                        <div className="font-bold">{panel.label}</div>
-                        <div className="text-xs">{panel.width}×{panel.height}</div>
-                        <div className="text-xs">{panel.material}</div>
-                      </div>
-                    </div>
-                  ))}
-                  
-                  {panels.length === 0 && (
-                    <div className="absolute inset-0 flex items-center justify-center text-navy-300">
-                      <div className="text-center">
-                        <p className="text-lg mb-2">Empty Canvas</p>
-                        <p className="text-sm">Add panels using the form on the left</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      {/* Edit Panel Dialog */}
-      <Dialog open={isEditing} onOpenChange={setIsEditing}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Panel: {selectedPanel?.label}</DialogTitle>
-            <DialogDescription>
-              Modify panel properties and specifications
-            </DialogDescription>
-          </DialogHeader>
-          {selectedPanel && (
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium">Label</label>
-                <Input
-                  value={selectedPanel.label}
-                  onChange={(e) => updatePanel(selectedPanel.id, { label: e.target.value })}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium">Width (ft)</label>
-                  <Input
-                    type="number"
-                    value={selectedPanel.width}
-                    onChange={(e) => updatePanel(selectedPanel.id, { width: parseInt(e.target.value) || 100 })}
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Height (ft)</label>
-                  <Input
-                    type="number"
-                    value={selectedPanel.height}
-                    onChange={(e) => updatePanel(selectedPanel.id, { height: parseInt(e.target.value) || 80 })}
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="text-sm font-medium">Material</label>
-                <select
-                  className="w-full h-10 px-3 py-2 border-2 border-gray-300 rounded-md text-sm"
-                  value={selectedPanel.material || 'HDPE'}
-                  onChange={(e) => updatePanel(selectedPanel.id, { material: e.target.value })}
-                >
-                  <option value="HDPE">HDPE 60 mil</option>
-                  <option value="LLDPE">LLDPE 40 mil</option>
-                  <option value="PVC">PVC 30 mil</option>
-                  <option value="EPDM">EPDM 45 mil</option>
-                </select>
-              </div>
-              <div className="flex justify-end space-x-2">
-                <Button variant="outline" onClick={() => setIsEditing(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={() => setIsEditing(false)} className="btn-navy">
-                  Save Changes
+                  Visualize Terrain
                 </Button>
               </div>
             </div>
-          )}
-        </DialogContent>
-      </Dialog>
+
+            {/* Panel Management */}
+            <div className="mb-6 pb-6 border-b border-[#d9e2ec]">
+              <h2 className="text-lg font-semibold mb-4 text-[#243b53]">Panel Management</h2>
+              
+              {/* Shape Toggle */}
+              <div className="mb-4">
+                <label className="block text-sm text-[#334e68] mb-2">Panel Shape</label>
+                <div className="flex border border-[#bcccdc] rounded overflow-hidden">
+                  <button
+                    className={`flex-1 py-2 px-3 text-xs font-medium transition-colors ${
+                      selectedShape === 'rectangle' 
+                        ? 'bg-[#0a2463] text-white' 
+                        : 'bg-white text-[#0a2463]'
+                    }`}
+                    onClick={() => {
+                      setSelectedShape('rectangle');
+                      clearPolygonPoints();
+                    }}
+                  >
+                    Rectangle
+                  </button>
+                  <button
+                    className={`flex-1 py-2 px-3 text-xs font-medium transition-colors ${
+                      selectedShape === 'polygon' 
+                        ? 'bg-[#0a2463] text-white' 
+                        : 'bg-white text-[#0a2463]'
+                    }`}
+                    onClick={() => setSelectedShape('polygon')}
+                  >
+                    Custom Polygon
+                  </button>
+                </div>
+              </div>
+
+              {/* Rectangle Controls */}
+              {selectedShape === 'rectangle' && (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm text-[#334e68] mb-2">Add Rectangular Panel</label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs text-[#334e68] mb-1">Width (ft)</label>
+                        <Input
+                          type="number"
+                          value={newPanel.width}
+                          onChange={(e) => setNewPanel(prev => ({ ...prev, width: parseInt(e.target.value) || 15 }))}
+                          min="1"
+                          max="100"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-[#334e68] mb-1">Length (ft)</label>
+                        <Input
+                          type="number"
+                          value={newPanel.length}
+                          onChange={(e) => setNewPanel(prev => ({ ...prev, length: parseInt(e.target.value) || 100 }))}
+                          min="1"
+                          max="500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Polygon Controls */}
+              {selectedShape === 'polygon' && (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm text-[#334e68] mb-2">Create Custom Polygon</label>
+                    <p className="text-xs text-[#627d98] mb-2">
+                      Click on the viewer to add polygon points. Right-click to finish.
+                    </p>
+                    <div className="max-h-32 overflow-y-auto border border-[#bcccdc] rounded p-2 bg-[#f0f4f8] text-xs">
+                      {polygonPoints.map((point, index) => (
+                        <div key={index} className="flex justify-between items-center py-1 border-b border-[#d9e2ec] last:border-b-0">
+                          <span className="text-[#334e68]">Point {index + 1}: ({point.x}, {point.y})</span>
+                          <button
+                            onClick={() => removePolygonPoint(index)}
+                            className="text-[#ff7f11] hover:text-[#e36a00] text-xs"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex gap-2 mt-2">
+                      <Button
+                        onClick={clearPolygonPoints}
+                        variant="outline"
+                        size="sm"
+                        className="text-xs"
+                      >
+                        Clear Points
+                      </Button>
+                      <Button
+                        onClick={finishPolygon}
+                        disabled={polygonPoints.length < 3}
+                        size="sm"
+                        className="text-xs bg-[#0a2463] text-white"
+                      >
+                        Finish Polygon
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Material Selection */}
+              <div className="mt-4">
+                <label className="block text-sm text-[#334e68] mb-2">Material Type</label>
+                <select
+                  value={newPanel.material}
+                  onChange={(e) => setNewPanel(prev => ({ ...prev, material: e.target.value }))}
+                  className="w-full p-2 border border-[#bcccdc] rounded text-sm"
+                >
+                  <option>HDPE 60 mil</option>
+                  <option>HDPE 80 mil</option>
+                  <option>LLDPE 40 mil</option>
+                  <option>PVC 30 mil</option>
+                  <option>GCL</option>
+                </select>
+              </div>
+
+              <Button
+                onClick={addPanel}
+                className="w-full mt-4 bg-[#0a2463] text-white hover:bg-[#041640]"
+              >
+                Add Panel
+              </Button>
+
+              {/* Panel List */}
+              <div className="mt-4 max-h-48 overflow-y-auto border border-[#bcccdc] rounded">
+                {panels.map((panel) => (
+                  <div key={panel.id} className="p-3 border-b border-[#d9e2ec] last:border-b-0 text-sm flex justify-between">
+                    <span>{panel.id}</span>
+                    <span className="text-[#627d98]">{panel.width}' x {panel.length}' {panel.material}</span>
+                  </div>
+                ))}
+              </div>
+
+              <Button
+                onClick={clearAllPanels}
+                variant="outline"
+                className="w-full mt-3"
+              >
+                Clear All
+              </Button>
+            </div>
+
+            {/* Python Optimization */}
+            <div className="mb-6 pb-6 border-b border-[#d9e2ec]">
+              <h2 className="text-lg font-semibold mb-4 text-[#243b53]">Python Optimization</h2>
+              <div className="flex border border-[#bcccdc] rounded overflow-hidden mb-4">
+                {['material', 'labor', 'balanced'].map((strategy) => (
+                  <button
+                    key={strategy}
+                    className={`flex-1 py-2 px-2 text-xs font-medium transition-colors capitalize ${
+                      selectedStrategy === strategy 
+                        ? 'bg-[#0a2463] text-white' 
+                        : 'bg-white text-[#0a2463]'
+                    }`}
+                    onClick={() => setSelectedStrategy(strategy)}
+                  >
+                    {strategy}
+                  </button>
+                ))}
+              </div>
+              <Button
+                onClick={runOptimization}
+                className="w-full bg-[#ff7f11] text-white hover:bg-[#e36a00]"
+              >
+                Run Python Optimization
+              </Button>
+              
+              {optimizationResults && (
+                <div className="mt-4 p-3 bg-[#f0f4f8] rounded text-sm">
+                  <div className="font-semibold mb-2">Optimization Results</div>
+                  <div className="grid grid-cols-[auto_1fr] gap-2 text-xs">
+                    <div className="font-medium">Strategy:</div>
+                    <div>{selectedStrategy}</div>
+                    <div className="font-medium">Total Panels:</div>
+                    <div>{optimizationResults.placements.length}</div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Export Options */}
+            <div>
+              <h2 className="text-lg font-semibold mb-4 text-[#243b53]">Export Options</h2>
+              <div className="space-y-2">
+                <Button
+                  onClick={exportDXF}
+                  variant="outline"
+                  className="w-full"
+                >
+                  Export DXF
+                </Button>
+                <Button
+                  onClick={exportCSV}
+                  variant="outline"
+                  className="w-full"
+                >
+                  Export CSV
+                </Button>
+                <Button
+                  onClick={visualize3D}
+                  className="w-full bg-[#0a2463] text-white"
+                >
+                  3D Visualization
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Panel - Viewer */}
+          <div className="bg-white rounded-lg shadow-sm p-6 flex flex-col">
+            <div className="flex justify-between items-center mb-6 pb-6 border-b border-[#d9e2ec]">
+              <h2 className="text-xl font-semibold text-[#243b53]">Python-Powered Panel Layout</h2>
+              <Button
+                onClick={() => setShowPanels(!showPanels)}
+                variant="outline"
+              >
+                Toggle Panel View
+              </Button>
+            </div>
+
+            <div className="flex-grow bg-[#f8fafc] border-2 border-dashed border-[#9fb3c8] rounded relative overflow-hidden">
+              <div
+                ref={panelViewerRef}
+                className={`w-full h-full flex items-center justify-center ${
+                  selectedShape === 'polygon' ? 'cursor-crosshair' : ''
+                }`}
+                onClick={handleCanvasClick}
+                onContextMenu={handleCanvasRightClick}
+                style={{
+                  backgroundImage: 'linear-gradient(to right, #e2e8f0 1px, transparent 1px), linear-gradient(to bottom, #e2e8f0 1px, transparent 1px)',
+                  backgroundSize: '20px 20px'
+                }}
+              >
+                {isLoading && (
+                  <div className="absolute inset-0 bg-white/80 flex items-center justify-center z-10">
+                    <div className="w-10 h-10 border-4 border-[#0a2463]/20 border-l-[#0a2463] rounded-full animate-spin" />
+                  </div>
+                )}
+                {!contourImageData && !isLoading && (
+                  <div className="text-center text-[#9fb3c8]">
+                    <p className="text-lg mb-2">Empty Canvas</p>
+                    <p className="text-sm">Visualize terrain or add panels to get started</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Toast Notification */}
+      {toast.show && (
+        <div className="fixed bottom-5 right-5 max-w-sm bg-white rounded-lg shadow-lg p-4 z-50 transition-all duration-300">
+          <div className="flex justify-between items-start mb-2">
+            <div className="font-semibold text-[#243b53]">{toast.title}</div>
+            <button
+              onClick={() => setToast({ show: false, title: '', message: '' })}
+              className="text-[#627d98] hover:text-[#243b53] text-xl leading-none"
+            >
+              ×
+            </button>
+          </div>
+          <div className="text-[#627d98] text-sm">{toast.message}</div>
+        </div>
+      )}
     </div>
   );
 }
