@@ -1,8 +1,7 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import Link from 'next/link';
-import { Button } from '../../../components/ui/button';
-import { Input } from '../../../components/ui/input';
+import './panel-layout.css';
 
 interface Panel {
   id: string;
@@ -49,14 +48,6 @@ export default function PanelLayoutPage() {
   const showToast = (title: string, message: string) => {
     setToast({ show: true, title, message });
     setTimeout(() => setToast({ show: false, title: '', message: '' }), 3000);
-  };
-
-  const showLoading = (loading: boolean) => {
-    setIsLoading(loading);
-  };
-
-  const updatePanelList = () => {
-    // Panel list is managed by React state, so this is automatic
   };
 
   const clearPolygonPoints = () => {
@@ -160,7 +151,7 @@ export default function PanelLayoutPage() {
       return;
     }
 
-    showLoading(true);
+    setIsLoading(true);
 
     try {
       const response = await fetch('/panel-api/api/panel-layout/visualize-terrain', {
@@ -186,7 +177,7 @@ export default function PanelLayoutPage() {
       console.error('Error visualizing terrain:', error);
       showToast('Error', 'Failed to visualize terrain');
     } finally {
-      showLoading(false);
+      setIsLoading(false);
     }
   };
 
@@ -201,7 +192,7 @@ export default function PanelLayoutPage() {
       return;
     }
 
-    showLoading(true);
+    setIsLoading(true);
 
     try {
       const response = await fetch('/panel-api/api/panel-layout/optimize', {
@@ -230,7 +221,7 @@ export default function PanelLayoutPage() {
       console.error('Error running optimization:', error);
       showToast('Error', 'Failed to run optimization');
     } finally {
-      showLoading(false);
+      setIsLoading(false);
     }
   };
 
@@ -240,7 +231,7 @@ export default function PanelLayoutPage() {
       return;
     }
 
-    showLoading(true);
+    setIsLoading(true);
 
     try {
       const response = await fetch('/panel-api/api/panel-layout/export', {
@@ -273,7 +264,7 @@ export default function PanelLayoutPage() {
       console.error('Error exporting to DXF:', error);
       showToast('Error', 'Failed to export to DXF');
     } finally {
-      showLoading(false);
+      setIsLoading(false);
     }
   };
 
@@ -283,7 +274,7 @@ export default function PanelLayoutPage() {
       return;
     }
 
-    showLoading(true);
+    setIsLoading(true);
 
     try {
       const response = await fetch('/panel-api/api/panel-layout/export', {
@@ -316,7 +307,7 @@ export default function PanelLayoutPage() {
       console.error('Error exporting to CSV:', error);
       showToast('Error', 'Failed to export to CSV');
     } finally {
-      showLoading(false);
+      setIsLoading(false);
     }
   };
 
@@ -326,7 +317,7 @@ export default function PanelLayoutPage() {
       return;
     }
 
-    showLoading(true);
+    setIsLoading(true);
 
     try {
       const response = await fetch('/panel-api/api/panel-layout/visualize-3d', {
@@ -354,7 +345,7 @@ export default function PanelLayoutPage() {
       console.error('Error generating 3D visualization:', error);
       showToast('Error', 'Failed to generate 3D visualization');
     } finally {
-      showLoading(false);
+      setIsLoading(false);
     }
   };
 
@@ -372,101 +363,99 @@ export default function PanelLayoutPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f0f4f8]">
+    <div className="panel-layout-page">
       {/* Header */}
-      <header className="bg-white shadow-sm p-4 flex justify-between items-center">
-        <div className="text-2xl font-bold text-[#0a2463]">GeoQC</div>
-        <nav className="flex gap-6">
-          <Link href="/dashboard" className="text-[#486581] hover:text-[#ff7f11] transition-colors">Dashboard</Link>
-          <Link href="/dashboard/projects" className="text-[#486581] hover:text-[#ff7f11] transition-colors">Projects</Link>
-          <span className="text-[#0a2463] font-medium">Panel Layout</span>
-          <Link href="/dashboard/qc-data" className="text-[#486581] hover:text-[#ff7f11] transition-colors">QC Data</Link>
-          <Link href="/dashboard/documents" className="text-[#486581] hover:text-[#ff7f11] transition-colors">Documents</Link>
+      <header className="panel-layout-header">
+        <div className="panel-layout-logo">GeoQC</div>
+        <nav className="panel-layout-nav">
+          <Link href="/dashboard">Dashboard</Link>
+          <Link href="/dashboard/projects">Projects</Link>
+          <span className="active">Panel Layout</span>
+          <Link href="/dashboard/qc-data">QC Data</Link>
+          <Link href="/dashboard/documents">Documents</Link>
         </nav>
       </header>
 
-      <div className="max-w-7xl mx-auto p-8">
-        <div className="grid grid-cols-[400px_1fr] gap-8 min-h-[800px]">
+      <div className="panel-layout-container">
+        <div className="panel-layout-interface">
           {/* Left Panel - Controls */}
-          <div className="bg-white rounded-lg shadow-sm p-6 flex flex-col max-h-[800px] overflow-y-auto">
+          <div className="panel-controls">
             
             {/* Site Configuration */}
-            <div className="mb-6 pb-6 border-b border-[#d9e2ec]">
-              <h2 className="text-lg font-semibold mb-4 text-[#243b53]">Site Configuration</h2>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm text-[#334e68] mb-2">Site Width (ft)</label>
-                  <Input
-                    type="number"
-                    value={siteConfig.width}
-                    onChange={(e) => setSiteConfig(prev => ({ ...prev, width: parseInt(e.target.value) || 1000 }))}
-                    min="500"
-                    max="2000"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm text-[#334e68] mb-2">Site Length (ft)</label>
-                  <Input
-                    type="number"
-                    value={siteConfig.length}
-                    onChange={(e) => setSiteConfig(prev => ({ ...prev, length: parseInt(e.target.value) || 1000 }))}
-                    min="500"
-                    max="2000"
-                  />
-                </div>
-                <Button 
+            <div className="control-section">
+              <h2 className="section-title">Site Configuration</h2>
+              <div className="form-group">
+                <label htmlFor="site-width">Site Width (ft)</label>
+                <input
+                  type="number"
+                  id="site-width"
+                  className="form-input"
+                  value={siteConfig.width}
+                  onChange={(e) => setSiteConfig(prev => ({ ...prev, width: parseInt(e.target.value) || 1000 }))}
+                  min="500"
+                  max="2000"
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="site-length">Site Length (ft)</label>
+                <input
+                  type="number"
+                  id="site-length"
+                  className="form-input"
+                  value={siteConfig.length}
+                  onChange={(e) => setSiteConfig(prev => ({ ...prev, length: parseInt(e.target.value) || 1000 }))}
+                  min="500"
+                  max="2000"
+                />
+              </div>
+              <div className="form-group">
+                <button 
                   onClick={visualizeTerrain}
-                  className="w-full bg-white text-[#0a2463] border border-[#9fb3c8] hover:bg-[#f0f4f8]"
+                  className="btn btn-secondary btn-block"
                 >
                   Visualize Terrain
-                </Button>
+                </button>
               </div>
             </div>
 
             {/* Panel Management */}
-            <div className="mb-6 pb-6 border-b border-[#d9e2ec]">
-              <h2 className="text-lg font-semibold mb-4 text-[#243b53]">Panel Management</h2>
+            <div className="control-section">
+              <h2 className="section-title">Panel Management</h2>
               
               {/* Shape Toggle */}
-              <div className="mb-4">
-                <label className="block text-sm text-[#334e68] mb-2">Panel Shape</label>
-                <div className="flex border border-[#bcccdc] rounded overflow-hidden">
-                  <button
-                    className={`flex-1 py-2 px-3 text-xs font-medium transition-colors ${
-                      selectedShape === 'rectangle' 
-                        ? 'bg-[#0a2463] text-white' 
-                        : 'bg-white text-[#0a2463]'
-                    }`}
+              <div className="form-group">
+                <label>Panel Shape</label>
+                <div className="shape-toggle">
+                  <div
+                    className={`shape-option ${selectedShape === 'rectangle' ? 'selected' : ''}`}
                     onClick={() => {
                       setSelectedShape('rectangle');
                       clearPolygonPoints();
                     }}
                   >
                     Rectangle
-                  </button>
-                  <button
-                    className={`flex-1 py-2 px-3 text-xs font-medium transition-colors ${
-                      selectedShape === 'polygon' 
-                        ? 'bg-[#0a2463] text-white' 
-                        : 'bg-white text-[#0a2463]'
-                    }`}
+                  </div>
+                  <div
+                    className={`shape-option ${selectedShape === 'polygon' ? 'selected' : ''}`}
                     onClick={() => setSelectedShape('polygon')}
                   >
                     Custom Polygon
-                  </button>
+                  </div>
                 </div>
               </div>
 
               {/* Rectangle Controls */}
               {selectedShape === 'rectangle' && (
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm text-[#334e68] mb-2">Add Rectangular Panel</label>
-                    <div className="grid grid-cols-2 gap-3">
+                <div id="rectangle-controls" className="shape-controls">
+                  <div className="form-group">
+                    <label>Add Rectangular Panel</label>
+                    <div className="dimensions-grid">
                       <div>
-                        <label className="block text-xs text-[#334e68] mb-1">Width (ft)</label>
-                        <Input
+                        <label htmlFor="panel-width">Width (ft)</label>
+                        <input
                           type="number"
+                          id="panel-width"
+                          className="form-input"
                           value={newPanel.width}
                           onChange={(e) => setNewPanel(prev => ({ ...prev, width: parseInt(e.target.value) || 15 }))}
                           min="1"
@@ -474,9 +463,11 @@ export default function PanelLayoutPage() {
                         />
                       </div>
                       <div>
-                        <label className="block text-xs text-[#334e68] mb-1">Length (ft)</label>
-                        <Input
+                        <label htmlFor="panel-length">Length (ft)</label>
+                        <input
                           type="number"
+                          id="panel-length"
+                          className="form-input"
                           value={newPanel.length}
                           onChange={(e) => setNewPanel(prev => ({ ...prev, length: parseInt(e.target.value) || 100 }))}
                           min="1"
@@ -490,54 +481,54 @@ export default function PanelLayoutPage() {
 
               {/* Polygon Controls */}
               {selectedShape === 'polygon' && (
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm text-[#334e68] mb-2">Create Custom Polygon</label>
-                    <p className="text-xs text-[#627d98] mb-2">
+                <div id="polygon-controls" className="shape-controls">
+                  <div className="form-group">
+                    <label>Create Custom Polygon</label>
+                    <p style={{fontSize: '0.75rem', color: 'var(--color-navy-600)', marginBottom: '0.5rem'}}>
                       Click on the viewer to add polygon points. Right-click to finish.
                     </p>
-                    <div className="max-h-32 overflow-y-auto border border-[#bcccdc] rounded p-2 bg-[#f0f4f8] text-xs">
+                    <div id="polygon-points-list" className="polygon-points">
                       {polygonPoints.map((point, index) => (
-                        <div key={index} className="flex justify-between items-center py-1 border-b border-[#d9e2ec] last:border-b-0">
-                          <span className="text-[#334e68]">Point {index + 1}: ({point.x}, {point.y})</span>
+                        <div key={index} className="polygon-point">
+                          <span className="point-coords">Point {index + 1}: ({point.x}, {point.y})</span>
                           <button
+                            className="remove-point"
                             onClick={() => removePolygonPoint(index)}
-                            className="text-[#ff7f11] hover:text-[#e36a00] text-xs"
                           >
                             ×
                           </button>
                         </div>
                       ))}
                     </div>
-                    <div className="flex gap-2 mt-2">
-                      <Button
+                    <div className="btn-group" style={{marginTop: '0.5rem'}}>
+                      <button
                         onClick={clearPolygonPoints}
-                        variant="outline"
-                        size="sm"
-                        className="text-xs"
+                        className="btn btn-secondary"
+                        style={{fontSize: '0.75rem'}}
                       >
                         Clear Points
-                      </Button>
-                      <Button
+                      </button>
+                      <button
                         onClick={finishPolygon}
                         disabled={polygonPoints.length < 3}
-                        size="sm"
-                        className="text-xs bg-[#0a2463] text-white"
+                        className="btn btn-primary"
+                        style={{fontSize: '0.75rem'}}
                       >
                         Finish Polygon
-                      </Button>
+                      </button>
                     </div>
                   </div>
                 </div>
               )}
 
               {/* Material Selection */}
-              <div className="mt-4">
-                <label className="block text-sm text-[#334e68] mb-2">Material Type</label>
+              <div className="form-group">
+                <label htmlFor="panel-material">Material Type</label>
                 <select
+                  id="panel-material"
+                  className="form-select"
                   value={newPanel.material}
                   onChange={(e) => setNewPanel(prev => ({ ...prev, material: e.target.value }))}
-                  className="w-full p-2 border border-[#bcccdc] rounded text-sm"
                 >
                   <option>HDPE 60 mil</option>
                   <option>HDPE 80 mil</option>
@@ -547,135 +538,134 @@ export default function PanelLayoutPage() {
                 </select>
               </div>
 
-              <Button
-                onClick={addPanel}
-                className="w-full mt-4 bg-[#0a2463] text-white hover:bg-[#041640]"
-              >
-                Add Panel
-              </Button>
+              <div className="form-group">
+                <button
+                  onClick={addPanel}
+                  className="btn btn-primary btn-block"
+                >
+                  Add Panel
+                </button>
+              </div>
 
               {/* Panel List */}
-              <div className="mt-4 max-h-48 overflow-y-auto border border-[#bcccdc] rounded">
+              <div className="panel-list" id="panel-list">
                 {panels.map((panel) => (
-                  <div key={panel.id} className="p-3 border-b border-[#d9e2ec] last:border-b-0 text-sm flex justify-between">
+                  <div key={panel.id} className="panel-list-item">
                     <span>{panel.id}</span>
-                    <span className="text-[#627d98]">{panel.width}' x {panel.length}' {panel.material}</span>
+                    <span>{panel.width}' x {panel.length}' {panel.material}</span>
                   </div>
                 ))}
               </div>
 
-              <Button
-                onClick={clearAllPanels}
-                variant="outline"
-                className="w-full mt-3"
-              >
-                Clear All
-              </Button>
+              <div className="btn-group">
+                <button
+                  onClick={clearAllPanels}
+                  className="btn btn-secondary"
+                >
+                  Clear All
+                </button>
+              </div>
             </div>
 
             {/* Python Optimization */}
-            <div className="mb-6 pb-6 border-b border-[#d9e2ec]">
-              <h2 className="text-lg font-semibold mb-4 text-[#243b53]">Python Optimization</h2>
-              <div className="flex border border-[#bcccdc] rounded overflow-hidden mb-4">
+            <div className="control-section">
+              <h2 className="section-title">Python Optimization</h2>
+              <div className="optimization-toggle">
                 {['material', 'labor', 'balanced'].map((strategy) => (
-                  <button
+                  <div
                     key={strategy}
-                    className={`flex-1 py-2 px-2 text-xs font-medium transition-colors capitalize ${
-                      selectedStrategy === strategy 
-                        ? 'bg-[#0a2463] text-white' 
-                        : 'bg-white text-[#0a2463]'
-                    }`}
+                    className={`optimization-option ${selectedStrategy === strategy ? 'selected' : ''}`}
                     onClick={() => setSelectedStrategy(strategy)}
                   >
-                    {strategy}
-                  </button>
+                    {strategy.charAt(0).toUpperCase() + strategy.slice(1)}
+                  </div>
                 ))}
               </div>
-              <Button
-                onClick={runOptimization}
-                className="w-full bg-[#ff7f11] text-white hover:bg-[#e36a00]"
-              >
-                Run Python Optimization
-              </Button>
+              <div className="form-group">
+                <button
+                  onClick={runOptimization}
+                  className="btn btn-accent btn-block"
+                >
+                  Run Python Optimization
+                </button>
+              </div>
               
               {optimizationResults && (
-                <div className="mt-4 p-3 bg-[#f0f4f8] rounded text-sm">
-                  <div className="font-semibold mb-2">Optimization Results</div>
-                  <div className="grid grid-cols-[auto_1fr] gap-2 text-xs">
-                    <div className="font-medium">Strategy:</div>
+                <div id="optimization-results" className="results-section">
+                  <div className="results-title">Optimization Results</div>
+                  <div className="results-grid">
+                    <div className="results-label">Strategy:</div>
                     <div>{selectedStrategy}</div>
-                    <div className="font-medium">Total Panels:</div>
+                    <div className="results-label">Total Panels:</div>
                     <div>{optimizationResults.placements.length}</div>
+                    <div className="results-label">Utilization:</div>
+                    <div>{optimizationResults.summary?.utilization || 'N/A'}</div>
+                    <div className="results-label">Elevated Panels:</div>
+                    <div>{optimizationResults.summary?.elevatedPanels || 'N/A'}</div>
                   </div>
                 </div>
               )}
             </div>
 
             {/* Export Options */}
-            <div>
-              <h2 className="text-lg font-semibold mb-4 text-[#243b53]">Export Options</h2>
-              <div className="space-y-2">
-                <Button
+            <div className="control-section">
+              <h2 className="section-title">Export Options</h2>
+              <div className="export-section">
+                <button
                   onClick={exportDXF}
-                  variant="outline"
-                  className="w-full"
+                  className="btn btn-secondary"
                 >
                   Export DXF
-                </Button>
-                <Button
+                </button>
+                <button
                   onClick={exportCSV}
-                  variant="outline"
-                  className="w-full"
+                  className="btn btn-secondary"
                 >
                   Export CSV
-                </Button>
-                <Button
+                </button>
+                <button
                   onClick={visualize3D}
-                  className="w-full bg-[#0a2463] text-white"
+                  className="btn btn-primary btn-block"
                 >
                   3D Visualization
-                </Button>
+                </button>
               </div>
             </div>
           </div>
 
           {/* Right Panel - Viewer */}
-          <div className="bg-white rounded-lg shadow-sm p-6 flex flex-col">
-            <div className="flex justify-between items-center mb-6 pb-6 border-b border-[#d9e2ec]">
-              <h2 className="text-xl font-semibold text-[#243b53]">Python-Powered Panel Layout</h2>
-              <Button
-                onClick={() => setShowPanels(!showPanels)}
-                variant="outline"
-              >
-                Toggle Panel View
-              </Button>
+          <div className="panel-viewer-container">
+            <div className="viewer-toolbar">
+              <h2 className="toolbar-title">Python-Powered Panel Layout</h2>
+              <div>
+                <button
+                  onClick={() => setShowPanels(!showPanels)}
+                  className="btn btn-secondary"
+                >
+                  Toggle Panel View
+                </button>
+              </div>
             </div>
 
-            <div className="flex-grow bg-[#f8fafc] border-2 border-dashed border-[#9fb3c8] rounded relative overflow-hidden">
-              <div
-                ref={panelViewerRef}
-                className={`w-full h-full flex items-center justify-center ${
-                  selectedShape === 'polygon' ? 'cursor-crosshair' : ''
-                }`}
-                onClick={handleCanvasClick}
-                onContextMenu={handleCanvasRightClick}
-                style={{
-                  backgroundImage: 'linear-gradient(to right, #e2e8f0 1px, transparent 1px), linear-gradient(to bottom, #e2e8f0 1px, transparent 1px)',
-                  backgroundSize: '20px 20px'
-                }}
-              >
-                {isLoading && (
-                  <div className="absolute inset-0 bg-white/80 flex items-center justify-center z-10">
-                    <div className="w-10 h-10 border-4 border-[#0a2463]/20 border-l-[#0a2463] rounded-full animate-spin" />
-                  </div>
-                )}
-                {!contourImageData && !isLoading && (
-                  <div className="text-center text-[#9fb3c8]">
-                    <p className="text-lg mb-2">Empty Canvas</p>
-                    <p className="text-sm">Visualize terrain or add panels to get started</p>
-                  </div>
-                )}
-              </div>
+            <div
+              className={`panel-viewer ${selectedShape === 'polygon' ? 'polygon-mode' : ''}`}
+              id="panel-viewer"
+              ref={panelViewerRef}
+              onClick={handleCanvasClick}
+              onContextMenu={handleCanvasRightClick}
+            >
+              {/* Contour visualization will be displayed here */}
+              {isLoading && (
+                <div className="loading-overlay">
+                  <div className="spinner"></div>
+                </div>
+              )}
+              {!contourImageData && !isLoading && (
+                <div style={{textAlign: 'center', color: 'var(--color-navy-300)'}}>
+                  <p style={{fontSize: '1.125rem', marginBottom: '0.5rem'}}>Empty Canvas</p>
+                  <p style={{fontSize: '0.875rem'}}>Visualize terrain or add panels to get started</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -683,17 +673,17 @@ export default function PanelLayoutPage() {
 
       {/* Toast Notification */}
       {toast.show && (
-        <div className="fixed bottom-5 right-5 max-w-sm bg-white rounded-lg shadow-lg p-4 z-50 transition-all duration-300">
-          <div className="flex justify-between items-start mb-2">
-            <div className="font-semibold text-[#243b53]">{toast.title}</div>
+        <div className="toast show" id="toast">
+          <div className="toast-header">
+            <div className="toast-title">{toast.title}</div>
             <button
+              className="toast-close"
               onClick={() => setToast({ show: false, title: '', message: '' })}
-              className="text-[#627d98] hover:text-[#243b53] text-xl leading-none"
             >
-              ×
+              &times;
             </button>
           </div>
-          <div className="text-[#627d98] text-sm">{toast.message}</div>
+          <div className="toast-message">{toast.message}</div>
         </div>
       )}
     </div>
