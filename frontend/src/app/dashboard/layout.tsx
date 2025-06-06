@@ -15,7 +15,7 @@ export default function DashboardLayout({
   // Users can access dashboard without login
   
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-navy-50">
       <Navbar />
       <div className="flex">
         <Sidebar />

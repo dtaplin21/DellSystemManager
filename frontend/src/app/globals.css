@@ -34,26 +34,45 @@
 
 /* Force compilation of navy and orange classes for professional theme */
 @layer utilities {
-  .bg-navy-900 { background-color: #102a43; }
-  .bg-navy-800 { background-color: #243b53; }
-  .bg-navy-700 { background-color: #334e68; }
-  .bg-navy-600 { background-color: #486581; }
-  .bg-navy-100 { background-color: #d9e2ec; }
-  .bg-navy-50 { background-color: #f0f4f8; }
-  .text-navy-100 { color: #d9e2ec; }
-  .text-navy-600 { color: #486581; }
-  .text-navy-300 { color: #9fb3c8; }
-  .bg-orange-600 { background-color: #d03801; }
-  .bg-orange-700 { background-color: #b43403; }
-  .bg-orange-100 { background-color: #feecdc; }
-  .text-orange-500 { color: #ff5a1f; }
-  .text-orange-600 { color: #d03801; }
-  .text-orange-400 { color: #ff8a4c; }
-  .hover\:bg-navy-700:hover { background-color: #334e68; }
-  .hover\:bg-navy-800:hover { background-color: #243b53; }
-  .hover\:bg-orange-700:hover { background-color: #b43403; }
-  .hover\:text-orange-400:hover { color: #ff8a4c; }
-  .border-navy-700 { border-color: #334e68; }
-  .hover\:bg-navy-50:hover { background-color: #f0f4f8; }
+  /* Free trial matching colors */
+  .bg-navy-900 { background-color: #0a2463; }
+  .bg-navy-800 { background-color: #0a2463; }
+  .bg-navy-700 { background-color: #0a2463; }
+  .bg-navy-600 { background-color: #0a2463; }
+  .bg-navy-100 { background-color: #e6ebff; }
+  .bg-navy-50 { background-color: #f0f5ff; }
+  .text-navy-100 { color: #e6ebff; }
+  .text-navy-600 { color: #0a2463; }
+  .text-navy-300 { color: #6b7db3; }
+  .bg-orange-600 { background-color: #ff7f11; }
+  .bg-orange-700 { background-color: #e86f00; }
+  .bg-orange-100 { background-color: #fff4ec; }
+  .text-orange-500 { color: #ff7f11; }
+  .text-orange-600 { color: #ff7f11; }
+  .text-orange-400 { color: #ff7f11; }
+  .hover\:bg-navy-700:hover { background-color: #06184a; }
+  .hover\:bg-navy-800:hover { background-color: #06184a; }
+  .hover\:bg-orange-700:hover { background-color: #e86f00; }
+  .hover\:text-orange-400:hover { color: #ff7f11; }
+  .border-navy-700 { border-color: #0a2463; }
+  .hover\:bg-navy-50:hover { background-color: #f0f5ff; }
+  
+  /* Free trial button styles */
+  .btn-navy {
+    background-color: #0a2463;
+    color: white;
+    transition: all 0.2s;
+  }
+  .btn-navy:hover {
+    background-color: #06184a;
+  }
+  .btn-orange {
+    background-color: #ff7f11;
+    color: white;
+    transition: all 0.2s;
+  }
+  .btn-orange:hover {
+    background-color: #e86f00;
+  }
 }
 
