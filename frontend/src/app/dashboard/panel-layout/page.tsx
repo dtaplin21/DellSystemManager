@@ -8,8 +8,18 @@ import AutoOptimizer from '../../../components/panel-layout/auto-optimizer';
 import ExportDialog from '../../../components/panel-layout/export-dialog';
 import { useToast } from '../../../hooks/use-toast';
 
+interface Panel {
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  label: string;
+  color?: string;
+}
+
 export default function PanelLayoutPage() {
-  const [panels, setPanels] = useState([]);
+  const [panels, setPanels] = useState<Panel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [siteConfig, setSiteConfig] = useState({
     width: 500,
@@ -25,11 +35,11 @@ export default function PanelLayoutPage() {
     }, 500);
   }, []);
 
-  const handlePanelUpdate = (updatedPanels) => {
+  const handlePanelUpdate = (updatedPanels: Panel[]) => {
     setPanels(updatedPanels);
   };
 
-  const handleAutoOptimize = async (settings) => {
+  const handleAutoOptimize = async (settings: any) => {
     try {
       setIsLoading(true);
       // Call panel optimizer service
@@ -90,17 +100,20 @@ export default function PanelLayoutPage() {
 
       {/* Control Toolbar */}
       <ControlToolbar
-        onPanelUpdate={handlePanelUpdate}
-        siteConfig={siteConfig}
-        onSiteConfigChange={setSiteConfig}
-        isLoading={isLoading}
+        scale={siteConfig.scale}
+        onScaleChange={(newScale) => setSiteConfig(prev => ({ ...prev, scale: newScale }))}
+        onAddPanel={(panel) => setPanels(prev => [...prev, panel])}
       />
 
       {/* Auto Optimizer */}
       <AutoOptimizer
-        onOptimize={handleAutoOptimize}
-        isLoading={isLoading}
-        panelCount={panels.length}
+        projectId="demo-project"
+        onOptimizationComplete={(results) => {
+          if (results?.optimizedPanels) {
+            setPanels(results.optimizedPanels);
+          }
+        }}
+        currentWastePercentage={panels.length > 0 ? 15.3 : 0}
       />
 
       {/* Panel Grid */}
@@ -111,9 +124,10 @@ export default function PanelLayoutPage() {
         <div className="p-6">
           <PanelGrid
             panels={panels}
+            width={siteConfig.width}
+            height={siteConfig.height}
+            scale={siteConfig.scale}
             onPanelUpdate={handlePanelUpdate}
-            siteConfig={siteConfig}
-            isLoading={isLoading}
           />
         </div>
       </div>
@@ -150,8 +164,8 @@ export default function PanelLayoutPage() {
       <ExportDialog
         open={exportDialogOpen}
         onOpenChange={setExportDialogOpen}
-        panels={panels}
-        siteConfig={siteConfig}
+        projectId="demo-project"
+        layout={{ panels, siteConfig }}
       />
     </div>
   );
