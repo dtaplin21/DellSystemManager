@@ -172,7 +172,7 @@ app.post('/api/auth/logout', (req, res) => {
 
 // Next.js static assets - MUST come first to prevent routing conflicts
 app.use('/_next', createProxyMiddleware({
-  target: 'http://localhost:3000',
+  target: 'http://localhost:3001',
   changeOrigin: true,
   logLevel: 'silent'
 }));
@@ -209,7 +209,7 @@ app.get('/signup', (req, res) => {
 // Dashboard routes - catch all dashboard paths with filter function
 app.use(createProxyMiddleware({
   filter: (pathname, req) => pathname.startsWith('/dashboard'),
-  target: 'http://localhost:3000',
+  target: 'http://localhost:3001',
   changeOrigin: true,
   onProxyReq: (proxyReq, req, res) => {
     console.log('Dashboard proxy - Original URL:', req.originalUrl);
@@ -221,20 +221,20 @@ app.use(createProxyMiddleware({
 }));
 
 app.use('/static', createProxyMiddleware({
-  target: 'http://localhost:3000',
+  target: 'http://localhost:3001',
   changeOrigin: true,
   logLevel: 'silent'
 }));
 
 app.get('/favicon.ico', createProxyMiddleware({
-  target: 'http://localhost:3000',
+  target: 'http://localhost:3001',
   changeOrigin: true,
   logLevel: 'silent'
 }));
 
 // Panel optimizer API - proxy to Panel Optimizer Service
 app.use('/panel-api', createProxyMiddleware({
-  target: 'http://localhost:8001',
+  target: 'http://localhost:8002',
   changeOrigin: true,
   pathRewrite: {
     '^/panel-api': ''

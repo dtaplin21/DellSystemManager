@@ -59,8 +59,8 @@ async function startServer() {
   }
   
   try {
-    // Start HTTP server on port 8000
-    const PORT = process.env.PORT || 8002;
+    // Start HTTP server on port 8003 (avoiding conflicts with gateway on 8000 and panel service on 8001)
+    const PORT = process.env.PORT || 8003;
     const server = app.listen(PORT, '0.0.0.0', () => {
       console.log(`Server running on http://0.0.0.0:${PORT}`);
     });

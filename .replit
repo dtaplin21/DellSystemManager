@@ -14,6 +14,10 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
+args = "Gateway Server"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
 args = "Frontend Server"
 
 [[workflows.workflow.tasks]]
@@ -22,29 +26,7 @@ args = "Panel Optimizer Service"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Gateway Server"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
 args = "Backend API"
-
-[[workflows.workflow]]
-name = "Frontend Server"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "cd frontend && npm run dev"
-waitForPort = 3000
-
-[[workflows.workflow]]
-name = "Panel Optimizer Service"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "cd backend && python run_panel_api.py"
-waitForPort = 8001
 
 [[workflows.workflow]]
 name = "Gateway Server"
@@ -56,13 +38,31 @@ args = "node index.js"
 waitForPort = 8000
 
 [[workflows.workflow]]
+name = "Frontend Server"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd frontend && npm run dev -- --port 3001"
+waitForPort = 3001
+
+[[workflows.workflow]]
+name = "Panel Optimizer Service"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd backend && PANEL_API_PORT=8002 python run_panel_api.py"
+waitForPort = 8002
+
+[[workflows.workflow]]
 name = "Backend API"
 author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "cd backend && node server.js"
-waitForPort = 8002
+args = "cd backend && PORT=8003 node server.js"
+waitForPort = 8003
 
 [deployment]
 run = ["sh", "-c", "cd backend && node server.js"]
@@ -70,6 +70,10 @@ run = ["sh", "-c", "cd backend && node server.js"]
 [[ports]]
 localPort = 3000
 externalPort = 3000
+
+[[ports]]
+localPort = 3001
+externalPort = 3003
 
 [[ports]]
 localPort = 5000
@@ -86,3 +90,7 @@ externalPort = 3001
 [[ports]]
 localPort = 8002
 externalPort = 3002
+
+[[ports]]
+localPort = 8003
+externalPort = 4200
