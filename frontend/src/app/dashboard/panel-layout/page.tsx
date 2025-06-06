@@ -43,7 +43,7 @@ export default function PanelLayoutPage() {
     try {
       setIsLoading(true);
       // Call panel optimizer service
-      const response = await fetch('/api/panels/optimize', {
+      const response = await fetch('/panel-api/api/panel-layout/optimize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

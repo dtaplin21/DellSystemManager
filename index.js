@@ -206,6 +206,26 @@ app.get('/signup', (req, res) => {
   res.sendFile(path.join(publicDir, 'signup.html'));
 });
 
+// Panel optimizer API - proxy to Panel Optimizer Service (MUST come before dashboard routes)
+app.use('/panel-api', createProxyMiddleware({
+  target: 'http://localhost:8002',
+  changeOrigin: true,
+  pathRewrite: {
+    '^/panel-api': ''
+  },
+  onProxyReq: (proxyReq, req, res) => {
+    console.log('Panel API proxy - Original URL:', req.originalUrl);
+    console.log('Panel API proxy - Target path:', proxyReq.path);
+  },
+  onProxyRes: (proxyRes, req, res) => {
+    console.log('Panel API proxy response - Status:', proxyRes.statusCode);
+  },
+  onError: (err, req, res) => {
+    console.error('Panel API proxy error:', err);
+    res.status(500).json({ error: 'Panel API service unavailable' });
+  }
+}));
+
 // Dashboard routes - catch all dashboard paths with filter function
 app.use(createProxyMiddleware({
   filter: (pathname, req) => pathname.startsWith('/dashboard'),
@@ -230,26 +250,6 @@ app.get('/favicon.ico', createProxyMiddleware({
   target: 'http://localhost:3001',
   changeOrigin: true,
   logLevel: 'silent'
-}));
-
-// Panel optimizer API - proxy to Panel Optimizer Service
-app.use('/panel-api', createProxyMiddleware({
-  target: 'http://localhost:8002',
-  changeOrigin: true,
-  pathRewrite: {
-    '^/panel-api': ''
-  },
-  onProxyReq: (proxyReq, req, res) => {
-    console.log('Panel API proxy - Original URL:', req.originalUrl);
-    console.log('Panel API proxy - Target path:', proxyReq.path);
-  },
-  onProxyRes: (proxyRes, req, res) => {
-    console.log('Panel API proxy response - Status:', proxyRes.statusCode);
-  },
-  onError: (err, req, res) => {
-    console.error('Panel API proxy error:', err);
-    res.status(500).json({ error: 'Panel API service unavailable' });
-  }
 }));
 
 // Main landing page - serve static HTML
