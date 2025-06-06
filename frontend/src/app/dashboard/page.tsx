@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '../../components/ui/button';
 
+
 // Define proper types for our projects
 interface Project {
   id: string;
