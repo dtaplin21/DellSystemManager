@@ -238,6 +238,17 @@ app.use('/panel-api', createProxyMiddleware({
   changeOrigin: true,
   pathRewrite: {
     '^/panel-api': ''
+  },
+  onProxyReq: (proxyReq, req, res) => {
+    console.log('Panel API proxy - Original URL:', req.originalUrl);
+    console.log('Panel API proxy - Target path:', proxyReq.path);
+  },
+  onProxyRes: (proxyRes, req, res) => {
+    console.log('Panel API proxy response - Status:', proxyRes.statusCode);
+  },
+  onError: (err, req, res) => {
+    console.error('Panel API proxy error:', err);
+    res.status(500).json({ error: 'Panel API service unavailable' });
   }
 }));
 
