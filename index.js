@@ -6,7 +6,7 @@ const fs = require('fs');
 const { createProxyMiddleware } = require('http-proxy-middleware');
 
 const app = express();
-const PORT = process.env.PORT || 8000;
+const PORT = process.env.PORT || 5000;
 
 // Use default Express routing for flexibility with dashboard and API routes
 
@@ -172,7 +172,7 @@ app.post('/api/auth/logout', (req, res) => {
 
 // Next.js static assets - MUST come first to prevent routing conflicts
 app.use('/_next', createProxyMiddleware({
-  target: 'http://localhost:3001',
+  target: 'http://localhost:3002',
   changeOrigin: true,
   logLevel: 'silent'
 }));
@@ -208,7 +208,7 @@ app.get('/signup', (req, res) => {
 
 // Panel optimizer API - proxy to Panel Optimizer Service (MUST come before dashboard routes)
 app.use('/panel-api', createProxyMiddleware({
-  target: 'http://localhost:8002',
+  target: 'http://localhost:8004',
   changeOrigin: true,
   pathRewrite: {
     '^/panel-api': ''
@@ -229,7 +229,7 @@ app.use('/panel-api', createProxyMiddleware({
 // Dashboard routes - catch all dashboard paths with filter function
 app.use(createProxyMiddleware({
   filter: (pathname, req) => pathname.startsWith('/dashboard'),
-  target: 'http://localhost:3001',
+  target: 'http://localhost:3002',
   changeOrigin: true,
   onProxyReq: (proxyReq, req, res) => {
     console.log('Dashboard proxy - Original URL:', req.originalUrl);
@@ -241,13 +241,13 @@ app.use(createProxyMiddleware({
 }));
 
 app.use('/static', createProxyMiddleware({
-  target: 'http://localhost:3001',
+  target: 'http://localhost:3002',
   changeOrigin: true,
   logLevel: 'silent'
 }));
 
 app.get('/favicon.ico', createProxyMiddleware({
-  target: 'http://localhost:3001',
+  target: 'http://localhost:3002',
   changeOrigin: true,
   logLevel: 'silent'
 }));
