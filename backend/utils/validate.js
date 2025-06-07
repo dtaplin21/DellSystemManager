@@ -35,7 +35,29 @@ const validateLogin = (data) => {
   return schema.validate(data);
 };
 
+const validateProject = (data) => {
+  const schema = Joi.object({
+    name: Joi.string().min(2).max(100).required(),
+    description: Joi.string().allow('', null).optional(),
+    client: Joi.string().allow('', null).optional(),
+    location: Joi.string().allow('', null).optional(),
+    startDate: Joi.date().optional(),
+    endDate: Joi.date().optional(),
+    area: Joi.number().optional()
+  });
+
+  return schema.validate(data);
+};
+
+const validateObjectId = (id) => {
+  // UUID validation - more flexible to handle test UUIDs
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(id);
+};
+
 module.exports = {
   validateSignup,
-  validateLogin
+  validateLogin,
+  validateProject,
+  validateObjectId
 };
