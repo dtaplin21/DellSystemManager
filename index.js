@@ -8,11 +8,28 @@ const { createProxyMiddleware } = require('http-proxy-middleware');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Replit preview configuration
+const REPLIT_DEV_DOMAIN = process.env.REPLIT_DEV_DOMAIN;
+const isReplitPreview = !!REPLIT_DEV_DOMAIN;
+
 // Use default Express routing for flexibility with dashboard and API routes
 
 // Basic logging
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  next();
+});
+
+// Replit preview middleware - handle host headers for external access
+app.use((req, res, next) => {
+  if (isReplitPreview) {
+    // Handle Replit preview host headers
+    const originalHost = req.get('host');
+    if (originalHost && originalHost.includes('replit.dev')) {
+      req.headers['x-forwarded-host'] = originalHost;
+      req.headers['x-forwarded-proto'] = 'https';
+    }
+  }
   next();
 });
 
@@ -275,8 +292,22 @@ app.get('/', (req, res) => {
 // Static file serving (after specific routes but before catch-all)
 app.use(express.static(publicDir));
 
+// Configure Express to trust proxies for Replit deployment
+app.set('trust proxy', true);
+
 // Start the server
-app.listen(PORT, '0.0.0.0', () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`- Dashboard: http://localhost:${PORT}/dashboard`);
+  
+  if (isReplitPreview && REPLIT_DEV_DOMAIN) {
+    console.log(`- Replit Preview: https://${REPLIT_DEV_DOMAIN}`);
+  } else {
+    console.log(`- External: http://0.0.0.0:${PORT}`);
+  }
 });
+
+// Ensure server can handle connections properly for Replit preview
+server.keepAliveTimeout = 120000;
+server.headersTimeout = 120000;
+server.timeout = 120000;
