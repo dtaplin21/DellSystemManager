@@ -1,12 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { FileText, Upload, File, AlertCircle, Download, Search } from 'lucide-react';
+import './documents.css';
 
 export default function DocumentsPage() {
   const [searchQuery, setSearchQuery] = useState('');
+  const [showUploadModal, setShowUploadModal] = useState(false);
   
   // Sample document data
   const documents = [
@@ -62,78 +61,169 @@ export default function DocumentsPage() {
   const getDocumentIcon = (type: string) => {
     switch (type.toLowerCase()) {
       case 'pdf':
-        return <FileText className="h-6 w-6 text-red-500" />;
+        return '📄';
       case 'excel':
-        return <FileText className="h-6 w-6 text-green-600" />;
+        return '📊';
       case 'cad':
-        return <FileText className="h-6 w-6 text-blue-500" />;
+        return '📐';
       default:
-        return <File className="h-6 w-6 text-gray-500" />;
+        return '📋';
     }
   };
-  
+
+  const getDocumentIconClass = (type: string) => {
+    switch (type.toLowerCase()) {
+      case 'pdf':
+        return 'document-icon pdf';
+      case 'excel':
+        return 'document-icon excel';
+      case 'cad':
+        return 'document-icon cad';
+      default:
+        return 'document-icon default';
+    }
+  };
+
+  const getTypeClass = (type: string) => {
+    switch (type.toLowerCase()) {
+      case 'pdf':
+        return 'document-type-badge type-pdf';
+      case 'excel':
+        return 'document-type-badge type-excel';
+      case 'cad':
+        return 'document-type-badge type-cad';
+      default:
+        return 'document-type-badge type-default';
+    }
+  };
+
+  const handleDownload = (docId: number) => {
+    alert(`Download functionality ready! This will download document ${docId} when connected to backend.`);
+  };
+
+  const handleViewDetails = (docId: number) => {
+    alert(`View details functionality ready! This will show document ${docId} details when connected to backend.`);
+  };
+
+  const handleUpload = () => {
+    alert('Upload functionality ready! This will connect to your backend when ready.');
+    setShowUploadModal(false);
+  };
+
   return (
-    <div className="container py-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Documents</h1>
-        <Button className="bg-blue-600 hover:bg-blue-700">
-          <Upload className="h-4 w-4 mr-2" />
-          Upload Document
-        </Button>
-      </div>
-      
-      <div className="relative mb-6">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-        <input
-          type="text"
-          placeholder="Search documents by name, project, or type..."
-          className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
-      </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredDocuments.length > 0 ? (
-          filteredDocuments.map((doc) => (
-            <Card key={doc.id} className="overflow-hidden">
-              <CardHeader className="pb-2">
-                <div className="flex justify-between items-start">
-                  <div className="mr-4">{getDocumentIcon(doc.type)}</div>
-                  <CardTitle className="text-lg">{doc.name}</CardTitle>
+    <div className="documents-page">
+      <div className="documents-container">
+        <div className="documents-header">
+          <h1 className="documents-title">Documents</h1>
+          <button 
+            onClick={() => setShowUploadModal(true)}
+            className="btn-upload"
+          >
+            📤 Upload Document
+          </button>
+        </div>
+        
+        <div className="search-section">
+          <div className="search-container">
+            <span className="search-icon">🔍</span>
+            <input
+              type="text"
+              placeholder="Search documents by name, project, or type..."
+              className="search-input"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+        </div>
+        
+        <div className="documents-grid">
+          {filteredDocuments.length > 0 ? (
+            filteredDocuments.map((doc) => (
+              <div key={doc.id} className="document-card">
+                <div className="document-card-header">
+                  <div className="document-header-content">
+                    <div className={getDocumentIconClass(doc.type)}>
+                      {getDocumentIcon(doc.type)}
+                    </div>
+                    <div>
+                      <h3 className="document-title">{doc.name}</h3>
+                      <p className="document-project">{doc.project}</p>
+                    </div>
+                  </div>
                 </div>
-                <CardDescription>{doc.project}</CardDescription>
-              </CardHeader>
-              <CardContent className="pb-2">
-                <div className="flex justify-between text-sm text-gray-500">
-                  <span>Type: {doc.type}</span>
-                  <span>Size: {doc.size}</span>
+                <div className="document-card-body">
+                  <div className="document-details">
+                    <span className={getTypeClass(doc.type)}>{doc.type}</span>
+                    <span>{doc.size}</span>
+                  </div>
+                  <div className="document-uploaded">
+                    Uploaded: {new Date(doc.uploadedAt).toLocaleDateString()}
+                  </div>
+                  <div className="document-actions">
+                    <button 
+                      onClick={() => handleDownload(doc.id)}
+                      className="btn-action primary"
+                    >
+                      📥 Download
+                    </button>
+                    <button 
+                      onClick={() => handleViewDetails(doc.id)}
+                      className="btn-action"
+                    >
+                      👁️ Details
+                    </button>
+                  </div>
                 </div>
-                <div className="text-sm text-gray-500">
-                  Uploaded: {doc.uploadedAt}
-                </div>
-              </CardContent>
-              <CardFooter className="flex justify-between pt-2">
-                <Button variant="outline" size="sm">
-                  <Download className="h-4 w-4 mr-1" />
-                  Download
-                </Button>
-                <Button variant="outline" size="sm">
-                  <AlertCircle className="h-4 w-4 mr-1" />
-                  Details
-                </Button>
-              </CardFooter>
-            </Card>
-          ))
-        ) : (
-          <div className="col-span-full text-center py-12">
-            <FileText className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-1">No documents found</h3>
-            <p className="text-gray-500">
-              {searchQuery
-                ? `No documents matching "${searchQuery}"`
-                : "Upload documents to get started."}
-            </p>
+              </div>
+            ))
+          ) : (
+            <div className="empty-state">
+              <div className="empty-icon">📄</div>
+              <h3 className="empty-title">No documents found</h3>
+              <p className="empty-message">
+                {searchQuery
+                  ? `No documents matching "${searchQuery}"`
+                  : "Upload documents to get started."}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Upload Modal */}
+        {showUploadModal && (
+          <div className="upload-modal">
+            <div className="upload-modal-content">
+              <div className="upload-modal-header">
+                <h2 className="upload-modal-title">Upload Document</h2>
+                <button 
+                  onClick={() => setShowUploadModal(false)}
+                  className="modal-close"
+                >
+                  ×
+                </button>
+              </div>
+              
+              <div className="upload-area">
+                <div className="upload-icon">📤</div>
+                <p className="upload-text">Drop files here or click to browse</p>
+                <p className="upload-subtext">Support for PDF, Excel, CAD, and other document formats</p>
+              </div>
+              
+              <div className="document-actions">
+                <button
+                  onClick={() => setShowUploadModal(false)}
+                  className="btn-action"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleUpload}
+                  className="btn-action primary"
+                >
+                  Upload Files
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>
