@@ -127,6 +127,24 @@
   border: 1px solid var(--color-navy-200);
   border-radius: 4px;
   font-size: 0.875rem;
+  background-color: white;
+  transition: border-color 0.2s;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: var(--color-navy-500);
+  box-shadow: 0 0 0 2px rgba(98, 125, 152, 0.1);
+}
+
+.form-input.required-field {
+  border-color: #ef4444;
+  background-color: #fef2f2;
+}
+
+.form-input.required-field:focus {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.1);
 }
 
 .form-select {

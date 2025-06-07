@@ -34,7 +34,9 @@ export default function PanelLayoutPage() {
 
   const [siteConfig, setSiteConfig] = useState({
     width: 1000,
-    length: 1000
+    length: 1000,
+    panelNumber: '',
+    rollNumber: ''
   });
 
   const [newPanel, setNewPanel] = useState({
@@ -71,6 +73,12 @@ export default function PanelLayoutPage() {
   };
 
   const finishPolygon = () => {
+    // Validate mandatory fields for polygons too
+    if (!siteConfig.panelNumber.trim() || !siteConfig.rollNumber.trim()) {
+      showToast('Missing Information', 'Please enter panel number and roll number before creating polygons.');
+      return;
+    }
+
     if (polygonPoints.length >= 3) {
       const minX = Math.min(...polygonPoints.map(p => p.x));
       const maxX = Math.max(...polygonPoints.map(p => p.x));
@@ -81,7 +89,7 @@ export default function PanelLayoutPage() {
       const height = maxY - minY;
 
       const panel: Panel = {
-        id: `panel-${panelCounter}`,
+        id: `${siteConfig.panelNumber}-${siteConfig.rollNumber}-${panelCounter}`,
         width: width || 15,
         length: height || 100,
         material: newPanel.material,
@@ -92,7 +100,7 @@ export default function PanelLayoutPage() {
       setPanels(prev => [...prev, panel]);
       setPanelCounter(prev => prev + 1);
       clearPolygonPoints();
-      showToast('Polygon Created', `Custom polygon panel added with ${polygonPoints.length} points.`);
+      showToast('Polygon Created', `Custom polygon panel ${panel.id} added with ${polygonPoints.length} points.`);
     }
   };
 
@@ -119,6 +127,17 @@ export default function PanelLayoutPage() {
   };
 
   const addPanel = () => {
+    // Validate mandatory fields first
+    if (!siteConfig.panelNumber.trim()) {
+      showToast('Missing Panel Number', 'Please enter a panel number before adding panels.');
+      return;
+    }
+
+    if (!siteConfig.rollNumber.trim()) {
+      showToast('Missing Roll Number', 'Please enter a roll number before adding panels.');
+      return;
+    }
+
     if (selectedShape === 'rectangle') {
       if (isNaN(newPanel.width) || isNaN(newPanel.length) || newPanel.width <= 0 || newPanel.length <= 0) {
         showToast('Invalid Input', 'Please enter valid width and length values.');
@@ -126,7 +145,7 @@ export default function PanelLayoutPage() {
       }
 
       const panel: Panel = {
-        id: `panel-${panelCounter}`,
+        id: `${siteConfig.panelNumber}-${siteConfig.rollNumber}-${panelCounter}`,
         width: newPanel.width,
         length: newPanel.length,
         material: newPanel.material,
@@ -135,7 +154,7 @@ export default function PanelLayoutPage() {
 
       setPanels(prev => [...prev, panel]);
       setPanelCounter(prev => prev + 1);
-      showToast('Panel Added', `Rectangular panel ${panel.id} added successfully.`);
+      showToast('Panel Added', `Panel ${panel.id} added successfully.`);
 
     } else if (selectedShape === 'polygon') {
       if (polygonPoints.length === 0) {
@@ -487,6 +506,35 @@ export default function PanelLayoutPage() {
             {/* Site Configuration */}
             <div className="control-section">
               <h2 className="section-title">Site Configuration</h2>
+              
+              {/* Required Panel Information */}
+              <div className="form-group">
+                <label htmlFor="panel-number">Panel Number <span style={{color: 'red'}}>*</span></label>
+                <input
+                  type="text"
+                  id="panel-number"
+                  className={`form-input ${!siteConfig.panelNumber.trim() ? 'required-field' : ''}`}
+                  value={siteConfig.panelNumber}
+                  onChange={(e) => setSiteConfig(prev => ({ ...prev, panelNumber: e.target.value }))}
+                  placeholder="e.g., P001, Panel-A"
+                  required
+                />
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="roll-number">Roll Number <span style={{color: 'red'}}>*</span></label>
+                <input
+                  type="text"
+                  id="roll-number"
+                  className={`form-input ${!siteConfig.rollNumber.trim() ? 'required-field' : ''}`}
+                  value={siteConfig.rollNumber}
+                  onChange={(e) => setSiteConfig(prev => ({ ...prev, rollNumber: e.target.value }))}
+                  placeholder="e.g., R001, Roll-1"
+                  required
+                />
+              </div>
+              
+              {/* Site Dimensions */}
               <div className="form-group">
                 <label htmlFor="site-width">Site Width (ft)</label>
                 <input
