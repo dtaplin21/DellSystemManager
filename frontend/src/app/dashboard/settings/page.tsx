@@ -1,349 +1,435 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Switch } from '@/components/ui/switch';
-import { Button } from '@/components/ui/button';
-import { Slider } from '@/components/ui/slider';
-import { useToast } from '@/hooks/use-toast';
+import { useState } from 'react';
+import './settings.css';
 
 export default function SettingsPage() {
-  const { toast } = useToast();
-  const [emailNotifications, setEmailNotifications] = useState(true);
-  const [reportFrequency, setReportFrequency] = useState('weekly');
-  const [dataRetention, setDataRetention] = useState(90); // days
-  const [darkMode, setDarkMode] = useState(false);
-  const [automaticQC, setAutomaticQC] = useState(true);
+  const [activeTab, setActiveTab] = useState('general');
   const [isLoading, setIsLoading] = useState(false);
+  
+  // General Settings State
+  const [emailNotifications, setEmailNotifications] = useState(true);
+  const [browserNotifications, setBrowserNotifications] = useState(false);
+  const [darkMode, setDarkMode] = useState(false);
+  const [language, setLanguage] = useState('en');
+  
+  // QC Settings State
+  const [automaticQC, setAutomaticQC] = useState(true);
+  const [qcThreshold, setQcThreshold] = useState(85);
+  const [reportFrequency, setReportFrequency] = useState('weekly');
+  const [alertLevel, setAlertLevel] = useState('high');
+  
+  // Data Settings State
+  const [dataRetention, setDataRetention] = useState(90);
+  const [autoBackup, setAutoBackup] = useState(true);
+  const [exportFormat, setExportFormat] = useState('csv');
 
-  const handleSaveGeneral = async (): Promise<void> => {
+  const handleSave = async (section: string) => {
     setIsLoading(true);
     
     // Simulate API call
-    await new Promise<void>((resolve) => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
     
-    toast({
-      title: 'Settings Saved',
-      description: 'Your general settings have been updated successfully.',
-    });
-    
+    alert(`${section} settings saved successfully!`);
     setIsLoading(false);
   };
 
-  const handleSaveNotifications = async (): Promise<void> => {
-    setIsLoading(true);
-    
-    // Simulate API call
-    await new Promise<void>((resolve) => setTimeout(resolve, 1000));
-    
-    toast({
-      title: 'Notification Settings Saved',
-      description: 'Your notification preferences have been updated successfully.',
-    });
-    
-    setIsLoading(false);
+  const handleReset = (section: string) => {
+    if (confirm(`Are you sure you want to reset ${section} settings to defaults?`)) {
+      if (section === 'General') {
+        setEmailNotifications(true);
+        setBrowserNotifications(false);
+        setDarkMode(false);
+        setLanguage('en');
+      } else if (section === 'QC') {
+        setAutomaticQC(true);
+        setQcThreshold(85);
+        setReportFrequency('weekly');
+        setAlertLevel('high');
+      } else if (section === 'Data') {
+        setDataRetention(90);
+        setAutoBackup(true);
+        setExportFormat('csv');
+      }
+      alert(`${section} settings reset to defaults.`);
+    }
   };
 
-  const handleSaveData = async (): Promise<void> => {
-    setIsLoading(true);
-    
-    // Simulate API call
-    await new Promise<void>((resolve) => setTimeout(resolve, 1000));
-    
-    toast({
-      title: 'Data Settings Saved',
-      description: 'Your data management settings have been updated successfully.',
-    });
-    
-    setIsLoading(false);
+  const handleDeleteAccount = () => {
+    if (confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
+      alert('Account deletion functionality ready! This will connect to your backend when ready.');
+    }
   };
 
-  const handleSaveQC = async (): Promise<void> => {
-    setIsLoading(true);
-    
-    // Simulate API call
-    await new Promise<void>((resolve) => setTimeout(resolve, 1000));
-    
-    toast({
-      title: 'QC Settings Saved',
-      description: 'Your quality control settings have been updated successfully.',
-    });
-    
-    setIsLoading(false);
-  };
+  const ToggleSwitch = ({ active, onChange }: { active: boolean; onChange: () => void }) => (
+    <div 
+      className={`toggle-switch ${active ? 'active' : ''}`}
+      onClick={onChange}
+    />
+  );
 
   return (
-    <div className="container py-6">
-      <h1 className="text-2xl font-bold mb-6">Settings</h1>
-      
-      <Tabs defaultValue="general" className="space-y-6">
-        <TabsList className="w-full sm:w-auto grid grid-cols-2 sm:grid-cols-4 gap-2">
-          <TabsTrigger value="general">General</TabsTrigger>
-          <TabsTrigger value="notifications">Notifications</TabsTrigger>
-          <TabsTrigger value="data">Data Management</TabsTrigger>
-          <TabsTrigger value="qc">QC Settings</TabsTrigger>
-        </TabsList>
-        
+    <div className="settings-page">
+      <div className="settings-container">
+        <div className="settings-header">
+          <h1 className="settings-title">Settings</h1>
+          <p className="settings-subtitle">
+            Configure your application preferences and account settings.
+          </p>
+        </div>
+
+        {/* Tabs */}
+        <div className="settings-tabs">
+          <button 
+            className={`tab-button ${activeTab === 'general' ? 'active' : ''}`}
+            onClick={() => setActiveTab('general')}
+          >
+            General
+          </button>
+          <button 
+            className={`tab-button ${activeTab === 'qc' ? 'active' : ''}`}
+            onClick={() => setActiveTab('qc')}
+          >
+            Quality Control
+          </button>
+          <button 
+            className={`tab-button ${activeTab === 'data' ? 'active' : ''}`}
+            onClick={() => setActiveTab('data')}
+          >
+            Data Management
+          </button>
+          <button 
+            className={`tab-button ${activeTab === 'account' ? 'active' : ''}`}
+            onClick={() => setActiveTab('account')}
+          >
+            Account
+          </button>
+        </div>
+
         {/* General Settings */}
-        <TabsContent value="general">
-          <Card>
-            <CardHeader>
-              <CardTitle>General Settings</CardTitle>
-              <CardDescription>
-                Manage your application preferences and interface settings.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-medium">Dark Mode</h3>
-                  <p className="text-sm text-gray-500">
-                    Enable dark mode for the application interface.
-                  </p>
+        <div className={`tab-content ${activeTab === 'general' ? 'active' : ''}`}>
+          <div className="settings-section">
+            <div className="section-header">
+              <h2 className="section-title">General Preferences</h2>
+              <p className="section-description">Configure general application settings and notifications</p>
+            </div>
+            <div className="section-content">
+              <div className="setting-item">
+                <div className="setting-info">
+                  <h3 className="setting-label">Email Notifications</h3>
+                  <p className="setting-description">Receive email notifications for important updates</p>
                 </div>
-                <Switch
-                  checked={darkMode}
-                  onCheckedChange={setDarkMode}
-                />
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-medium">Project Card View</h3>
-                  <p className="text-sm text-gray-500">
-                    Show project cards in grid view instead of list view.
-                  </p>
+                <div className="setting-control">
+                  <ToggleSwitch 
+                    active={emailNotifications} 
+                    onChange={() => setEmailNotifications(!emailNotifications)} 
+                  />
                 </div>
-                <Switch
-                  checked={true}
-                  onCheckedChange={() => {}}
-                />
               </div>
-              
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-medium">Auto Save</h3>
-                  <p className="text-sm text-gray-500">
-                    Automatically save changes to forms and edits.
-                  </p>
+
+              <div className="setting-item">
+                <div className="setting-info">
+                  <h3 className="setting-label">Browser Notifications</h3>
+                  <p className="setting-description">Show desktop notifications in your browser</p>
                 </div>
-                <Switch
-                  checked={true}
-                  onCheckedChange={() => {}}
-                />
-              </div>
-              
-              <Button onClick={handleSaveGeneral} disabled={isLoading}>
-                {isLoading ? 'Saving...' : 'Save Settings'}
-              </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        {/* Notification Settings */}
-        <TabsContent value="notifications">
-          <Card>
-            <CardHeader>
-              <CardTitle>Notification Settings</CardTitle>
-              <CardDescription>
-                Manage how and when you receive notifications.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-medium">Email Notifications</h3>
-                  <p className="text-sm text-gray-500">
-                    Receive project updates and alerts via email.
-                  </p>
+                <div className="setting-control">
+                  <ToggleSwitch 
+                    active={browserNotifications} 
+                    onChange={() => setBrowserNotifications(!browserNotifications)} 
+                  />
                 </div>
-                <Switch
-                  checked={emailNotifications}
-                  onCheckedChange={setEmailNotifications}
-                />
               </div>
-              
-              <div>
-                <h3 className="font-medium mb-2">Report Frequency</h3>
-                <p className="text-sm text-gray-500 mb-4">
-                  How often would you like to receive project summary reports?
-                </p>
-                <div className="grid grid-cols-3 gap-2">
-                  <Button 
-                    variant={reportFrequency === 'daily' ? 'default' : 'outline'} 
-                    onClick={() => setReportFrequency('daily')}
+
+              <div className="setting-item">
+                <div className="setting-info">
+                  <h3 className="setting-label">Dark Mode</h3>
+                  <p className="setting-description">Use dark theme for the interface</p>
+                </div>
+                <div className="setting-control">
+                  <ToggleSwitch 
+                    active={darkMode} 
+                    onChange={() => setDarkMode(!darkMode)} 
+                  />
+                </div>
+              </div>
+
+              <div className="setting-item">
+                <div className="setting-info">
+                  <h3 className="setting-label">Language</h3>
+                  <p className="setting-description">Choose your preferred language</p>
+                </div>
+                <div className="setting-control">
+                  <select 
+                    className="select-dropdown"
+                    value={language}
+                    onChange={(e) => setLanguage(e.target.value)}
                   >
-                    Daily
-                  </Button>
-                  <Button 
-                    variant={reportFrequency === 'weekly' ? 'default' : 'outline'} 
-                    onClick={() => setReportFrequency('weekly')}
-                  >
-                    Weekly
-                  </Button>
-                  <Button 
-                    variant={reportFrequency === 'monthly' ? 'default' : 'outline'} 
-                    onClick={() => setReportFrequency('monthly')}
-                  >
-                    Monthly
-                  </Button>
+                    <option value="en">English</option>
+                    <option value="es">Spanish</option>
+                    <option value="fr">French</option>
+                    <option value="de">German</option>
+                  </select>
                 </div>
               </div>
-              
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-medium">QC Alerts</h3>
-                  <p className="text-sm text-gray-500">
-                    Receive alerts for quality control issues.
-                  </p>
-                </div>
-                <Switch
-                  checked={true}
-                  onCheckedChange={() => {}}
-                />
+
+              <div className="section-actions">
+                <button 
+                  className="btn-secondary"
+                  onClick={() => handleReset('General')}
+                >
+                  Reset to Defaults
+                </button>
+                <button 
+                  className="btn-primary"
+                  onClick={() => handleSave('General')}
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Saving...' : 'Save Changes'}
+                </button>
               </div>
-              
-              <Button onClick={handleSaveNotifications} disabled={isLoading}>
-                {isLoading ? 'Saving...' : 'Save Settings'}
-              </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        {/* Data Management Settings */}
-        <TabsContent value="data">
-          <Card>
-            <CardHeader>
-              <CardTitle>Data Management</CardTitle>
-              <CardDescription>
-                Configure how your data is stored and processed.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div>
-                <h3 className="font-medium mb-2">Data Retention Period</h3>
-                <p className="text-sm text-gray-500 mb-4">
-                  How long should project data be kept after project completion? ({dataRetention} days)
-                </p>
-                <Slider
-                  value={[dataRetention]}
-                  min={30}
-                  max={365}
-                  step={30}
-                  onValueChange={(value) => setDataRetention(value[0])}
-                  className="mb-2"
-                />
-                <div className="flex justify-between text-xs text-gray-500">
-                  <span>30 days</span>
-                  <span>1 year</span>
-                </div>
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-medium">Automatic Backups</h3>
-                  <p className="text-sm text-gray-500">
-                    Create automatic backups of project data.
-                  </p>
-                </div>
-                <Switch
-                  checked={true}
-                  onCheckedChange={() => {}}
-                />
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-medium">Data Export Format</h3>
-                  <p className="text-sm text-gray-500">
-                    Default format for exporting data.
-                  </p>
-                </div>
-                <select className="border rounded-md px-2 py-1">
-                  <option>Excel (.xlsx)</option>
-                  <option>CSV (.csv)</option>
-                  <option>JSON (.json)</option>
-                </select>
-              </div>
-              
-              <Button onClick={handleSaveData} disabled={isLoading}>
-                {isLoading ? 'Saving...' : 'Save Settings'}
-              </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
+            </div>
+          </div>
+        </div>
+
         {/* QC Settings */}
-        <TabsContent value="qc">
-          <Card>
-            <CardHeader>
-              <CardTitle>Quality Control Settings</CardTitle>
-              <CardDescription>
-                Configure how quality control processes work.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-medium">Automatic QC</h3>
-                  <p className="text-sm text-gray-500">
-                    Automatically run quality control checks on new data.
-                  </p>
+        <div className={`tab-content ${activeTab === 'qc' ? 'active' : ''}`}>
+          <div className="settings-section">
+            <div className="section-header">
+              <h2 className="section-title">Quality Control Settings</h2>
+              <p className="section-description">Configure QC automation and reporting preferences</p>
+            </div>
+            <div className="section-content">
+              <div className="setting-item">
+                <div className="setting-info">
+                  <h3 className="setting-label">Automatic QC Analysis</h3>
+                  <p className="setting-description">Automatically analyze uploaded QC data</p>
                 </div>
-                <Switch
-                  checked={automaticQC}
-                  onCheckedChange={setAutomaticQC}
+                <div className="setting-control">
+                  <ToggleSwitch 
+                    active={automaticQC} 
+                    onChange={() => setAutomaticQC(!automaticQC)} 
+                  />
+                </div>
+              </div>
+
+              <div className="setting-item">
+                <div className="setting-info">
+                  <h3 className="setting-label">QC Pass Threshold</h3>
+                  <p className="setting-description">Minimum score for automatic pass rating ({qcThreshold}%)</p>
+                </div>
+                <div className="setting-control">
+                  <div className="slider-container">
+                    <input
+                      type="range"
+                      min="70"
+                      max="99"
+                      value={qcThreshold}
+                      onChange={(e) => setQcThreshold(Number(e.target.value))}
+                      className="slider"
+                    />
+                    <span className="slider-value">{qcThreshold}%</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="setting-item">
+                <div className="setting-info">
+                  <h3 className="setting-label">Report Frequency</h3>
+                  <p className="setting-description">How often to generate automatic reports</p>
+                </div>
+                <div className="setting-control">
+                  <select 
+                    className="select-dropdown"
+                    value={reportFrequency}
+                    onChange={(e) => setReportFrequency(e.target.value)}
+                  >
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                    <option value="manual">Manual Only</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="setting-item">
+                <div className="setting-info">
+                  <h3 className="setting-label">Alert Level</h3>
+                  <p className="setting-description">Minimum severity for QC alerts</p>
+                </div>
+                <div className="setting-control">
+                  <select 
+                    className="select-dropdown"
+                    value={alertLevel}
+                    onChange={(e) => setAlertLevel(e.target.value)}
+                  >
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                    <option value="critical">Critical Only</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="section-actions">
+                <button 
+                  className="btn-secondary"
+                  onClick={() => handleReset('QC')}
+                >
+                  Reset to Defaults
+                </button>
+                <button 
+                  className="btn-primary"
+                  onClick={() => handleSave('QC')}
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Data Management */}
+        <div className={`tab-content ${activeTab === 'data' ? 'active' : ''}`}>
+          <div className="settings-section">
+            <div className="section-header">
+              <h2 className="section-title">Data Management</h2>
+              <p className="section-description">Configure data retention and backup settings</p>
+            </div>
+            <div className="section-content">
+              <div className="setting-item">
+                <div className="setting-info">
+                  <h3 className="setting-label">Data Retention Period</h3>
+                  <p className="setting-description">How long to keep project data ({dataRetention} days)</p>
+                </div>
+                <div className="setting-control">
+                  <div className="slider-container">
+                    <input
+                      type="range"
+                      min="30"
+                      max="365"
+                      step="30"
+                      value={dataRetention}
+                      onChange={(e) => setDataRetention(Number(e.target.value))}
+                      className="slider"
+                    />
+                    <span className="slider-value">{dataRetention} days</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="setting-item">
+                <div className="setting-info">
+                  <h3 className="setting-label">Automatic Backup</h3>
+                  <p className="setting-description">Automatically backup your data daily</p>
+                </div>
+                <div className="setting-control">
+                  <ToggleSwitch 
+                    active={autoBackup} 
+                    onChange={() => setAutoBackup(!autoBackup)} 
+                  />
+                </div>
+              </div>
+
+              <div className="setting-item">
+                <div className="setting-info">
+                  <h3 className="setting-label">Default Export Format</h3>
+                  <p className="setting-description">Preferred format for data exports</p>
+                </div>
+                <div className="setting-control">
+                  <select 
+                    className="select-dropdown"
+                    value={exportFormat}
+                    onChange={(e) => setExportFormat(e.target.value)}
+                  >
+                    <option value="csv">CSV</option>
+                    <option value="excel">Excel</option>
+                    <option value="pdf">PDF</option>
+                    <option value="json">JSON</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="section-actions">
+                <button 
+                  className="btn-secondary"
+                  onClick={() => handleReset('Data')}
+                >
+                  Reset to Defaults
+                </button>
+                <button 
+                  className="btn-primary"
+                  onClick={() => handleSave('Data')}
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Account Settings */}
+        <div className={`tab-content ${activeTab === 'account' ? 'active' : ''}`}>
+          <div className="settings-section">
+            <div className="section-header">
+              <h2 className="section-title">Account Security</h2>
+              <p className="section-description">Manage your account security and preferences</p>
+            </div>
+            <div className="section-content">
+              <div className="form-group">
+                <label className="form-label">Current Password</label>
+                <input 
+                  type="password" 
+                  className="form-input" 
+                  placeholder="Enter current password"
                 />
               </div>
               
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-medium">AI Anomaly Detection</h3>
-                  <p className="text-sm text-gray-500">
-                    Use AI to detect anomalies in QC data.
-                  </p>
-                </div>
-                <Switch
-                  checked={true}
-                  onCheckedChange={() => {}}
+              <div className="form-group">
+                <label className="form-label">New Password</label>
+                <input 
+                  type="password" 
+                  className="form-input" 
+                  placeholder="Enter new password"
                 />
               </div>
               
-              <div>
-                <h3 className="font-medium mb-2">Default Tolerance Level</h3>
-                <p className="text-sm text-gray-500 mb-4">
-                  Set the default tolerance level for QC checks.
+              <div className="form-group">
+                <label className="form-label">Confirm New Password</label>
+                <input 
+                  type="password" 
+                  className="form-input" 
+                  placeholder="Confirm new password"
+                />
+              </div>
+
+              <div className="section-actions">
+                <button 
+                  className="btn-primary"
+                  onClick={() => handleSave('Password')}
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Updating...' : 'Update Password'}
+                </button>
+              </div>
+
+              <div className="danger-zone">
+                <h3 className="danger-title">Danger Zone</h3>
+                <p className="danger-description">
+                  Once you delete your account, there is no going back. This will permanently delete your account and all associated data.
                 </p>
-                <div className="grid grid-cols-3 gap-2">
-                  <Button 
-                    variant={'outline'} 
-                    onClick={() => {}}
-                  >
-                    Strict
-                  </Button>
-                  <Button 
-                    variant={'default'} 
-                    onClick={() => {}}
-                  >
-                    Standard
-                  </Button>
-                  <Button 
-                    variant={'outline'} 
-                    onClick={() => {}}
-                  >
-                    Relaxed
-                  </Button>
-                </div>
+                <button 
+                  className="btn-danger"
+                  onClick={handleDeleteAccount}
+                >
+                  Delete Account
+                </button>
               </div>
-              
-              <Button onClick={handleSaveQC} disabled={isLoading}>
-                {isLoading ? 'Saving...' : 'Save Settings'}
-              </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

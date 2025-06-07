@@ -1,21 +1,17 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { useAuth } from '@/hooks/use-auth';
-import { useToast } from '@/hooks/use-toast';
+import './profile.css';
 
 export default function ProfilePage() {
-  const { user, updateProfile } = useAuth();
-  const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
-    name: user?.displayName || '',
-    email: user?.email || '',
-    company: user?.company || '',
-    position: user?.position || '',
+    name: 'John Anderson',
+    email: 'john.anderson@example.com',
+    company: 'Valley Engineering Co.',
+    position: 'Senior QC Manager',
+    phone: '+1 (555) 123-4567',
+    location: 'Denver, CO'
   });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -25,125 +21,215 @@ export default function ProfilePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    try {
-      await updateProfile(formData);
-      setIsEditing(false);
-      toast({
-        title: 'Profile Updated',
-        description: 'Your profile has been updated successfully.',
-      });
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to update profile. Please try again.',
-        variant: 'destructive',
-      });
-    }
+    alert('Profile update functionality ready! This will connect to your backend when ready.');
+    setIsEditing(false);
+  };
+
+  const handleCancel = () => {
+    setIsEditing(false);
+    // Reset form data to original values
+    setFormData({
+      name: 'John Anderson',
+      email: 'john.anderson@example.com',
+      company: 'Valley Engineering Co.',
+      position: 'Senior QC Manager',
+      phone: '+1 (555) 123-4567',
+      location: 'Denver, CO'
+    });
+  };
+
+  const handleChangeAvatar = () => {
+    alert('Avatar change functionality ready! This will connect to your backend when ready.');
+  };
+
+  const handleManageSubscription = () => {
+    alert('Subscription management functionality ready! This will redirect to billing portal when ready.');
   };
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Profile</h1>
+    <div className="profile-page">
+      <div className="profile-container">
+        <div className="profile-header">
+          <h1 className="profile-title">Profile</h1>
+          <p className="profile-subtitle">
+            Manage your account information and preferences.
+          </p>
+        </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Personal Information</CardTitle>
-          <CardDescription>Manage your personal and contact information</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit}>
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium" htmlFor="name">Full Name</label>
-                <Input 
-                  id="name"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleInputChange}
-                  disabled={!isEditing}
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium" htmlFor="email">Email</label>
-                <Input 
-                  id="email"
-                  name="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  disabled={!isEditing}
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium" htmlFor="company">Company</label>
-                <Input 
-                  id="company"
-                  name="company"
-                  value={formData.company}
-                  onChange={handleInputChange}
-                  disabled={!isEditing}
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium" htmlFor="position">Position</label>
-                <Input 
-                  id="position"
-                  name="position"
-                  value={formData.position}
-                  onChange={handleInputChange}
-                  disabled={!isEditing}
-                  className="mt-1"
-                />
-              </div>
-              
-              <div className="pt-2">
-                {isEditing ? (
-                  <div className="flex space-x-2">
-                    <Button type="submit">Save Changes</Button>
-                    <Button type="button" variant="outline" onClick={() => setIsEditing(false)}>
-                      Cancel
-                    </Button>
-                  </div>
-                ) : (
-                  <Button type="button" onClick={() => setIsEditing(true)}>
-                    Edit Profile
-                  </Button>
-                )}
-              </div>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Subscription</CardTitle>
-          <CardDescription>Manage your subscription plan</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
+        {/* Personal Information */}
+        <div className="profile-section">
+          <div className="section-header">
             <div>
-              <h3 className="text-lg font-medium">Current Plan</h3>
-              <p className="text-sm text-gray-500">
-                {user?.subscription === 'premium' 
-                  ? 'Premium Plan ($315/month)'
-                  : 'Basic Plan ($115/month)'}
-              </p>
+              <h2 className="section-title">Personal Information</h2>
+              <p className="section-description">Update your personal details and contact information</p>
             </div>
-            <Button 
-              onClick={() => window.location.href = '/dashboard/subscription'}
-              variant="outline"
-            >
-              {user?.subscription === 'premium' 
-                ? 'Manage Subscription' 
-                : 'Upgrade to Premium'}
-            </Button>
+            {!isEditing && (
+              <button onClick={() => setIsEditing(true)} className="btn-edit">
+                Edit Profile
+              </button>
+            )}
           </div>
-        </CardContent>
-      </Card>
+          
+          <div className="section-content">
+            <div className="avatar-section">
+              <div className="avatar">
+                {formData.name.split(' ').map(n => n[0]).join('')}
+              </div>
+              <div className="avatar-info">
+                <h2>{formData.name}</h2>
+                <p>{formData.position} at {formData.company}</p>
+              </div>
+              <button onClick={handleChangeAvatar} className="btn-change-avatar">
+                Change Avatar
+              </button>
+            </div>
+
+            {isEditing ? (
+              <form onSubmit={handleSubmit} className="profile-form">
+                <div className="form-row">
+                  <div className="form-group">
+                    <label className="form-label">Full Name</label>
+                    <input
+                      type="text"
+                      name="name"
+                      value={formData.name}
+                      onChange={handleInputChange}
+                      className="form-input"
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Email</label>
+                    <input
+                      type="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleInputChange}
+                      className="form-input"
+                      required
+                    />
+                  </div>
+                </div>
+                
+                <div className="form-row">
+                  <div className="form-group">
+                    <label className="form-label">Company</label>
+                    <input
+                      type="text"
+                      name="company"
+                      value={formData.company}
+                      onChange={handleInputChange}
+                      className="form-input"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Position</label>
+                    <input
+                      type="text"
+                      name="position"
+                      value={formData.position}
+                      onChange={handleInputChange}
+                      className="form-input"
+                    />
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label className="form-label">Phone</label>
+                    <input
+                      type="tel"
+                      name="phone"
+                      value={formData.phone}
+                      onChange={handleInputChange}
+                      className="form-input"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Location</label>
+                    <input
+                      type="text"
+                      name="location"
+                      value={formData.location}
+                      onChange={handleInputChange}
+                      className="form-input"
+                    />
+                  </div>
+                </div>
+
+                <div className="form-actions">
+                  <button type="button" onClick={handleCancel} className="btn-cancel">
+                    Cancel
+                  </button>
+                  <button type="submit" className="btn-save">
+                    Save Changes
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="profile-info">
+                <div className="info-item">
+                  <span className="info-label">Email:</span>
+                  <span className="info-value">{formData.email}</span>
+                </div>
+                <div className="info-item">
+                  <span className="info-label">Company:</span>
+                  <span className="info-value">{formData.company}</span>
+                </div>
+                <div className="info-item">
+                  <span className="info-label">Position:</span>
+                  <span className="info-value">{formData.position}</span>
+                </div>
+                <div className="info-item">
+                  <span className="info-label">Phone:</span>
+                  <span className="info-value">{formData.phone}</span>
+                </div>
+                <div className="info-item">
+                  <span className="info-label">Location:</span>
+                  <span className="info-value">{formData.location}</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Subscription */}
+        <div className="profile-section">
+          <div className="section-header">
+            <div>
+              <h2 className="section-title">Subscription</h2>
+              <p className="section-description">Manage your subscription plan and billing</p>
+            </div>
+          </div>
+          
+          <div className="section-content">
+            <div className="subscription-info">
+              <div className="plan-details">
+                <h3>Professional Plan</h3>
+                <p>$315/month • Next billing: June 15, 2025</p>
+              </div>
+              <button onClick={handleManageSubscription} className="btn-manage">
+                Manage Subscription
+              </button>
+            </div>
+            
+            <div className="profile-info">
+              <div className="info-item">
+                <span className="info-label">Status:</span>
+                <span className="info-value">Active</span>
+              </div>
+              <div className="info-item">
+                <span className="info-label">Features:</span>
+                <span className="info-value">Unlimited projects, Advanced AI analysis, Priority support</span>
+              </div>
+              <div className="info-item">
+                <span className="info-label">Usage:</span>
+                <span className="info-value">12 of unlimited projects this month</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
