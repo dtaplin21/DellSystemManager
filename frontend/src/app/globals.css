@@ -48,6 +48,12 @@
   .bg-orange-700 { background-color: #e86f00; }
   .bg-orange-100 { background-color: #fff4ec; }
   .text-orange-500 { color: #ff7f11; }
+  .text-orange-400 { color: #ff9c47; }
+  .hover\:text-orange-400:hover { color: #ff9c47; }
+  .hover\:bg-navy-700:hover { background-color: #0a2463; }
+  .hover\:bg-navy-800:hover { background-color: #0a2463; }
+  .border-navy-700 { border-color: #0a2463; }
+  .border-navy-700 { border-color: #0a2463; }
   .text-orange-600 { color: #ff7f11; }
   .text-orange-400 { color: #ff7f11; }
   .hover\:bg-navy-700:hover { background-color: #06184a; }

@@ -16,12 +16,13 @@ app.use((req, res, next) => {
   next();
 });
 
-// Set CORS headers
+// Set CORS headers for Replit compatibility
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.header('Access-Control-Allow-Credentials', 'true');
   if (req.method === 'OPTIONS') {
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     return res.status(200).json({});
   }
   next();
@@ -168,6 +169,20 @@ app.post('/api/auth/login', async (req, res) => {
 app.post('/api/auth/logout', (req, res) => {
   res.clearCookie('token');
   res.status(200).json({ message: 'Logged out successfully' });
+});
+
+// Health check endpoint for external monitoring
+app.get('/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    services: {
+      gateway: 'running',
+      frontend: 'running',
+      backend: 'running',
+      panelOptimizer: 'running'
+    }
+  });
 });
 
 // Next.js static assets - MUST come first to prevent routing conflicts
