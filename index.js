@@ -16,15 +16,11 @@ app.use((req, res, next) => {
   next();
 });
 
-// Set CORS headers and Replit-specific configuration for external preview
+// Set CORS headers for Replit compatibility
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
   res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('X-Frame-Options', 'SAMEORIGIN');
-  res.header('X-Content-Type-Options', 'nosniff');
-  
-  // Handle preflight requests
   if (req.method === 'OPTIONS') {
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     return res.status(200).json({});
@@ -175,29 +171,17 @@ app.post('/api/auth/logout', (req, res) => {
   res.status(200).json({ message: 'Logged out successfully' });
 });
 
-// Health check endpoint for external monitoring
+// Health check endpoint
 app.get('/health', (req, res) => {
-  res.status(200).json({ 
-    status: 'ok', 
+  res.json({
+    status: 'ok',
     timestamp: new Date().toISOString(),
     services: {
       gateway: 'running',
       frontend: 'running',
       backend: 'running',
       panelOptimizer: 'running'
-    },
-    host: req.get('host'),
-    protocol: req.protocol
-  });
-});
-
-// Simple ping endpoint for external connectivity testing
-app.get('/ping', (req, res) => {
-  res.set('Cache-Control', 'no-cache');
-  res.json({ 
-    message: 'pong',
-    timestamp: new Date().toISOString(),
-    ready: true
+    }
   });
 });
 
