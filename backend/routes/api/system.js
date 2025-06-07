@@ -3,6 +3,19 @@ const router = express.Router();
 const { isOpenAIConfigured } = require('../../services/ai-connector');
 
 /**
+ * @route GET /api/system/health
+ * @desc Health check endpoint
+ * @access Public
+ */
+router.get('/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+});
+
+/**
  * @route GET /api/system/services
  * @desc Get system services status
  * @access Public
