@@ -1022,7 +1022,31 @@ export default function PanelLayoutPage() {
           <div className="panel-viewer-container">
             <div className="viewer-toolbar">
               <h2 className="toolbar-title">Python-Powered Panel Layout</h2>
-              <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                {/* Snap-to Status Indicator */}
+                {showSnapGuides && (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.25rem 0.75rem',
+                    background: 'rgba(239, 68, 68, 0.1)',
+                    color: '#dc2626',
+                    borderRadius: '20px',
+                    fontSize: '0.75rem',
+                    fontWeight: '500',
+                    border: '1px solid rgba(239, 68, 68, 0.2)'
+                  }}>
+                    <div style={{
+                      width: '6px',
+                      height: '6px',
+                      background: '#ef4444',
+                      borderRadius: '50%',
+                      animation: 'pulse 1.5s infinite'
+                    }}></div>
+                    Snap Active
+                  </div>
+                )}
                 <button
                   onClick={() => setShowPanels(!showPanels)}
                   className="btn btn-secondary"
