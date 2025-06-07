@@ -591,7 +591,14 @@ export default function PanelLayoutPage() {
               showToast('Panel Selected', `${panel.id}: ${panel.width}' × ${panel.length}' (${panel.material})`);
             }}
           >
-            {panel.id.replace(/.*-/, 'P')}
+            <div style={{ textAlign: 'center', lineHeight: '1.2' }}>
+              <div style={{ fontSize: '10px', fontWeight: 'bold' }}>
+                {panel.id.split('-')[0]}
+              </div>
+              <div style={{ fontSize: '9px', opacity: '0.9' }}>
+                {panel.id.split('-')[1]}
+              </div>
+            </div>
           </div>
 
           {/* Interactive Handles - Only show when selected */}
@@ -711,7 +718,14 @@ export default function PanelLayoutPage() {
             showToast('Panel Selected', `${panel.id}: ${panel.width}' × ${panel.length}' (${panel.material})`);
           }}
         >
-          {panel.id.replace(/.*-/, 'P')}
+          <div style={{ textAlign: 'center', lineHeight: '1.2' }}>
+            <div style={{ fontSize: '10px', fontWeight: 'bold' }}>
+              {panel.id.split('-')[0]}
+            </div>
+            <div style={{ fontSize: '9px', opacity: '0.9' }}>
+              {panel.id.split('-')[1]}
+            </div>
+          </div>
         </div>
       );
     }
