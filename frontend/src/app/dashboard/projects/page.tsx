@@ -163,7 +163,7 @@ export default function ProjectsPage() {
                   </div>
                   <div className="project-detail">
                     <span className="detail-label">Updated:</span>
-                    <span className="detail-value">{new Date(project.lastUpdated).toLocaleDateString()}</span>
+                    <span className="detail-value">{project.lastUpdated}</span>
                   </div>
                 </div>
                 
