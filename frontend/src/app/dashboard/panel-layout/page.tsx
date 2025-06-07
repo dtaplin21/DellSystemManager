@@ -67,19 +67,23 @@ export default function PanelLayoutPage() {
   const initializeViewer = () => {
     if (!panelViewerRef.current) return;
     
+    // Clear existing content
+    panelViewerRef.current.innerHTML = '';
+    
     // Create a basic grid background for the viewer
     const canvas = document.createElement('div');
+    canvas.className = 'viewer-canvas';
     canvas.style.cssText = `
       position: relative;
       width: 100%;
       height: 100%;
+      min-height: 400px;
       background: linear-gradient(to right, #f1f5f9 1px, transparent 1px),
                   linear-gradient(to bottom, #f1f5f9 1px, transparent 1px);
       background-size: 20px 20px;
       background-color: #ffffff;
     `;
     
-    panelViewerRef.current.innerHTML = '';
     panelViewerRef.current.appendChild(canvas);
   };
 
@@ -412,15 +416,28 @@ export default function PanelLayoutPage() {
   const renderPanels = () => {
     if (!panelViewerRef.current || !showPanels) return;
 
-    // Remove existing panel elements
-    const existingPanels = panelViewerRef.current.querySelectorAll('.rendered-panel');
-    existingPanels.forEach(panel => panel.remove());
+    // Find or create the canvas container
+    let canvas = panelViewerRef.current.querySelector('.viewer-canvas');
+    if (!canvas) {
+      initializeViewer();
+      canvas = panelViewerRef.current.querySelector('.viewer-canvas');
+    }
+    
+    if (!canvas) return;
 
-    // Calculate scale based on viewer size and site dimensions
-    const viewerRect = panelViewerRef.current.getBoundingClientRect();
-    const scaleX = viewerRect.width / siteConfig.width;
-    const scaleY = viewerRect.height / siteConfig.length;
-    const scale = Math.min(scaleX, scaleY) * 0.8; // 80% to leave margins
+    // Remove existing panel elements safely
+    const existingPanels = canvas.querySelectorAll('.rendered-panel');
+    existingPanels.forEach(panel => {
+      if (panel.parentNode) {
+        panel.parentNode.removeChild(panel);
+      }
+    });
+
+    // Calculate scale based on canvas size and site dimensions
+    const canvasRect = canvas.getBoundingClientRect();
+    const scaleX = (canvasRect.width || 600) / siteConfig.width;
+    const scaleY = (canvasRect.height || 400) / siteConfig.length;
+    const scale = Math.min(scaleX, scaleY, 0.5); // Cap the scale for better visibility
 
     // Render each panel
     panels.forEach((panel, index) => {
@@ -428,7 +445,7 @@ export default function PanelLayoutPage() {
       panelElement.className = 'rendered-panel';
       panelElement.style.cssText = `
         position: absolute;
-        background: rgba(59, 130, 246, 0.6);
+        background: rgba(59, 130, 246, 0.7);
         border: 2px solid #3b82f6;
         border-radius: 4px;
         cursor: pointer;
@@ -436,23 +453,25 @@ export default function PanelLayoutPage() {
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 10px;
+        font-size: 11px;
         color: white;
         font-weight: bold;
-        text-shadow: 1px 1px 1px rgba(0,0,0,0.5);
+        text-shadow: 1px 1px 1px rgba(0,0,0,0.8);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        transition: all 0.2s ease;
       `;
 
       if (panel.shape === 'rectangle') {
-        const width = panel.width * scale;
-        const height = panel.length * scale;
-        const x = 50 + (index * 20) % (viewerRect.width - width - 100);
-        const y = 50 + Math.floor(index / 10) * (height + 10);
+        const width = Math.max(panel.width * scale, 30); // Minimum width for visibility
+        const height = Math.max(panel.length * scale, 20); // Minimum height for visibility
+        const x = 20 + (index * 15) % Math.max(canvasRect.width - width - 40, 100);
+        const y = 20 + Math.floor(index / 8) * (height + 15);
 
         panelElement.style.width = `${width}px`;
         panelElement.style.height = `${height}px`;
         panelElement.style.left = `${x}px`;
         panelElement.style.top = `${y}px`;
-        panelElement.textContent = panel.id;
+        panelElement.textContent = panel.id.replace('panel-', 'P');
       } else if (panel.shape === 'polygon' && panel.corners) {
         // For polygons, create a simple approximation
         const minX = Math.min(...panel.corners.map(c => c[0]));
@@ -460,14 +479,25 @@ export default function PanelLayoutPage() {
         const minY = Math.min(...panel.corners.map(c => c[1]));
         const maxY = Math.max(...panel.corners.map(c => c[1]));
         
-        panelElement.style.width = `${(maxX - minX)}px`;
-        panelElement.style.height = `${(maxY - minY)}px`;
-        panelElement.style.left = `${minX}px`;
-        panelElement.style.top = `${minY}px`;
-        panelElement.style.background = 'rgba(168, 85, 247, 0.6)';
+        panelElement.style.width = `${Math.max(maxX - minX, 30)}px`;
+        panelElement.style.height = `${Math.max(maxY - minY, 20)}px`;
+        panelElement.style.left = `${Math.max(minX, 0)}px`;
+        panelElement.style.top = `${Math.max(minY, 0)}px`;
+        panelElement.style.background = 'rgba(168, 85, 247, 0.7)';
         panelElement.style.borderColor = '#a855f7';
-        panelElement.textContent = panel.id;
+        panelElement.textContent = panel.id.replace('panel-', 'P');
       }
+
+      // Add hover effect
+      panelElement.addEventListener('mouseenter', () => {
+        panelElement.style.transform = 'scale(1.05)';
+        panelElement.style.zIndex = '20';
+      });
+      
+      panelElement.addEventListener('mouseleave', () => {
+        panelElement.style.transform = 'scale(1)';
+        panelElement.style.zIndex = '10';
+      });
 
       // Add click handler to show panel details
       panelElement.addEventListener('click', (e) => {
@@ -475,7 +505,7 @@ export default function PanelLayoutPage() {
         showToast('Panel Info', `${panel.id}: ${panel.width}' × ${panel.length}' (${panel.material})`);
       });
 
-      panelViewerRef.current.appendChild(panelElement);
+      canvas.appendChild(panelElement);
     });
   };
 
