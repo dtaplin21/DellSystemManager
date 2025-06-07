@@ -11,12 +11,16 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // Temporarily using standalone layout for dashboard page
-  // to preserve original working CSS styling
+  // Allow dashboard access without authentication as per comment
+  // Users can access dashboard without login
   
   return (
-    <div>
-      {children}
+    <div className="min-h-screen bg-navy-50">
+      <Navbar />
+      <div className="flex">
+        <Sidebar />
+        <main className="flex-1 p-6">{children}</main>
+      </div>
     </div>
   );
 }
