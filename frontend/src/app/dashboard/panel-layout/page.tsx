@@ -36,6 +36,9 @@ export default function PanelLayoutPage() {
   const [isResizing, setIsResizing] = useState(false);
   const [isRotating, setIsRotating] = useState(false);
   const [dragStart, setDragStart] = useState<{x: number, y: number} | null>(null);
+  const [snapThreshold] = useState(15); // Distance in pixels for snap detection
+  const [showSnapGuides, setShowSnapGuides] = useState(false);
+  const [snapGuides, setSnapGuides] = useState<{x?: number, y?: number}>({});
   const [toast, setToast] = useState<{show: boolean, title: string, message: string}>({
     show: false, title: '', message: ''
   });
@@ -439,10 +442,31 @@ export default function PanelLayoutPage() {
     if (!selectedPanel) return;
 
     if (isDragging) {
-      updatePanel(selectedPanelId, {
-        x: Math.max(0, (selectedPanel.x || 0) + deltaX),
-        y: Math.max(0, (selectedPanel.y || 0) + deltaY)
-      });
+      let newX = Math.max(0, (selectedPanel.x || 0) + deltaX);
+      let newY = Math.max(0, (selectedPanel.y || 0) + deltaY);
+      
+      // Find snap targets
+      const snapTargets = findSnapTargets(selectedPanel, newX, newY);
+      
+      // Apply snapping
+      if (snapTargets.x !== undefined) {
+        newX = snapTargets.x;
+        setShowSnapGuides(true);
+        setSnapGuides(prev => ({ ...prev, x: snapTargets.x }));
+      } else {
+        setSnapGuides(prev => ({ ...prev, x: undefined }));
+      }
+      
+      if (snapTargets.y !== undefined) {
+        newY = snapTargets.y;
+        setShowSnapGuides(true);
+        setSnapGuides(prev => ({ ...prev, y: snapTargets.y }));
+      } else {
+        setSnapGuides(prev => ({ ...prev, y: undefined }));
+      }
+      
+      // Update panel position
+      updatePanel(selectedPanelId, { x: newX, y: newY });
       setDragStart({ x: currentX, y: currentY });
     } else if (isResizing) {
       const scale = 0.3;
@@ -466,6 +490,62 @@ export default function PanelLayoutPage() {
     setIsResizing(false);
     setIsRotating(false);
     setDragStart(null);
+    setShowSnapGuides(false);
+    setSnapGuides({});
+  };
+
+  const findSnapTargets = (movingPanel: Panel, newX: number, newY: number) => {
+    const snapTargets: {x?: number, y?: number} = {};
+    const scale = 0.3;
+    
+    const movingWidth = movingPanel.width * scale;
+    const movingHeight = movingPanel.length * scale;
+    
+    // Check against all other panels
+    panels.forEach(panel => {
+      if (panel.id === movingPanel.id) return;
+      
+      const panelX = panel.x || 0;
+      const panelY = panel.y || 0;
+      const panelWidth = panel.width * scale;
+      const panelHeight = panel.length * scale;
+      
+      // Check for horizontal alignment (left, right, center)
+      const leftToLeft = Math.abs(newX - panelX);
+      const leftToRight = Math.abs(newX - (panelX + panelWidth));
+      const rightToLeft = Math.abs((newX + movingWidth) - panelX);
+      const rightToRight = Math.abs((newX + movingWidth) - (panelX + panelWidth));
+      const centerToCenter = Math.abs((newX + movingWidth/2) - (panelX + panelWidth/2));
+      
+      // Check for vertical alignment (top, bottom, center)
+      const topToTop = Math.abs(newY - panelY);
+      const topToBottom = Math.abs(newY - (panelY + panelHeight));
+      const bottomToTop = Math.abs((newY + movingHeight) - panelY);
+      const bottomToBottom = Math.abs((newY + movingHeight) - (panelY + panelHeight));
+      const centerToCenterY = Math.abs((newY + movingHeight/2) - (panelY + panelHeight/2));
+      
+      // Snap to edges when panels are adjacent or overlapping vertically
+      const verticalOverlap = !(newY + movingHeight < panelY || newY > panelY + panelHeight);
+      const horizontalOverlap = !(newX + movingWidth < panelX || newX > panelX + panelWidth);
+      
+      if (verticalOverlap) {
+        if (leftToLeft < snapThreshold) snapTargets.x = panelX;
+        else if (leftToRight < snapThreshold) snapTargets.x = panelX + panelWidth;
+        else if (rightToLeft < snapThreshold) snapTargets.x = panelX - movingWidth;
+        else if (rightToRight < snapThreshold) snapTargets.x = panelX + panelWidth - movingWidth;
+        else if (centerToCenter < snapThreshold) snapTargets.x = panelX + panelWidth/2 - movingWidth/2;
+      }
+      
+      if (horizontalOverlap) {
+        if (topToTop < snapThreshold) snapTargets.y = panelY;
+        else if (topToBottom < snapThreshold) snapTargets.y = panelY + panelHeight;
+        else if (bottomToTop < snapThreshold) snapTargets.y = panelY - movingHeight;
+        else if (bottomToBottom < snapThreshold) snapTargets.y = panelY + panelHeight - movingHeight;
+        else if (centerToCenterY < snapThreshold) snapTargets.y = panelY + panelHeight/2 - movingHeight/2;
+      }
+    });
+    
+    return snapTargets;
   };
 
   const renderPanelElement = (panel: Panel, index: number) => {
@@ -483,14 +563,14 @@ export default function PanelLayoutPage() {
         <div key={panel.id} style={{ position: 'absolute', left: x, top: y }}>
           {/* Main Panel */}
           <div
-            className="rendered-panel"
+            className={`rendered-panel ${isSelected ? 'panel-selected' : ''} ${isDragging && isSelected ? 'panel-dragging' : ''} ${(snapGuides.x !== undefined || snapGuides.y !== undefined) && isSelected ? 'snap-active' : ''}`}
             style={{
               width: `${width}px`,
               height: `${height}px`,
               background: isSelected ? 'rgba(59, 130, 246, 0.9)' : 'rgba(59, 130, 246, 0.8)',
               border: isSelected ? '3px solid #1d4ed8' : '2px solid #3b82f6',
               borderRadius: '4px',
-              cursor: 'move',
+              cursor: isDragging && isSelected ? 'grabbing' : 'move',
               zIndex: isSelected ? 20 : 10,
               display: 'flex',
               alignItems: 'center',
@@ -502,7 +582,7 @@ export default function PanelLayoutPage() {
               boxShadow: isSelected ? '0 4px 8px rgba(0,0,0,0.3)' : '0 2px 4px rgba(0,0,0,0.2)',
               transform: `rotate(${rotation}deg)`,
               transformOrigin: 'center',
-              transition: 'all 0.2s ease'
+              transition: isDragging ? 'none' : 'all 0.2s ease'
             }}
             onMouseDown={(e) => handlePanelMouseDown(e, panel.id, 'drag')}
             onClick={(e) => {
@@ -1003,6 +1083,46 @@ export default function PanelLayoutPage() {
                 </div>
               )}
               
+              {/* Snap guides */}
+              {showSnapGuides && (
+                <svg 
+                  style={{ 
+                    position: 'absolute', 
+                    top: 0, 
+                    left: 0, 
+                    width: '100%', 
+                    height: '100%', 
+                    pointerEvents: 'none',
+                    zIndex: 30
+                  }}
+                >
+                  {snapGuides.x !== undefined && (
+                    <line
+                      x1={snapGuides.x}
+                      y1={0}
+                      x2={snapGuides.x}
+                      y2="100%"
+                      stroke="#ef4444"
+                      strokeWidth="1"
+                      strokeDasharray="3,3"
+                      opacity="0.8"
+                    />
+                  )}
+                  {snapGuides.y !== undefined && (
+                    <line
+                      x1={0}
+                      y1={snapGuides.y}
+                      x2="100%"
+                      y2={snapGuides.y}
+                      stroke="#ef4444"
+                      strokeWidth="1"
+                      strokeDasharray="3,3"
+                      opacity="0.8"
+                    />
+                  )}
+                </svg>
+              )}
+
               {/* Render panels using React */}
               {showPanels && panels.map((panel, index) => renderPanelElement(panel, index))}
               
