@@ -10,6 +10,9 @@ interface Panel {
   material: string;
   shape: 'rectangle' | 'polygon';
   corners?: number[][];
+  x?: number;
+  y?: number;
+  rotation?: number;
 }
 
 interface OptimizationResults {
@@ -28,6 +31,11 @@ export default function PanelLayoutPage() {
   const [optimizationResults, setOptimizationResults] = useState<OptimizationResults | null>(null);
   const [showPanels, setShowPanels] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedPanelId, setSelectedPanelId] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
+  const [isRotating, setIsRotating] = useState(false);
+  const [dragStart, setDragStart] = useState<{x: number, y: number} | null>(null);
   const [toast, setToast] = useState<{show: boolean, title: string, message: string}>({
     show: false, title: '', message: ''
   });
@@ -94,7 +102,10 @@ export default function PanelLayoutPage() {
         length: height || 100,
         material: newPanel.material,
         shape: 'polygon',
-        corners: polygonPoints.map(p => [p.x, p.y])
+        corners: polygonPoints.map(p => [p.x, p.y]),
+        x: minX,
+        y: minY,
+        rotation: 0
       };
 
       setPanels(prev => [...prev, panel]);
@@ -149,7 +160,10 @@ export default function PanelLayoutPage() {
         width: newPanel.width,
         length: newPanel.length,
         material: newPanel.material,
-        shape: 'rectangle'
+        shape: 'rectangle',
+        x: 30 + (panelCounter * 20) % 300,
+        y: 30 + Math.floor(panelCounter / 6) * 50,
+        rotation: 0
       };
 
       setPanels(prev => [...prev, panel]);
@@ -383,15 +397,208 @@ export default function PanelLayoutPage() {
     setContourImageData(imageData);
   };
 
+  const updatePanel = (panelId: string, updates: Partial<Panel>) => {
+    setPanels(prev => prev.map(panel => 
+      panel.id === panelId ? { ...panel, ...updates } : panel
+    ));
+  };
+
+  const handlePanelMouseDown = (e: React.MouseEvent, panelId: string, action: 'drag' | 'resize' | 'rotate') => {
+    e.stopPropagation();
+    setSelectedPanelId(panelId);
+    
+    const rect = panelViewerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    
+    setDragStart({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top
+    });
+
+    if (action === 'drag') {
+      setIsDragging(true);
+    } else if (action === 'resize') {
+      setIsResizing(true);
+    } else if (action === 'rotate') {
+      setIsRotating(true);
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!dragStart || !selectedPanelId) return;
+    
+    const rect = panelViewerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    
+    const currentX = e.clientX - rect.left;
+    const currentY = e.clientY - rect.top;
+    const deltaX = currentX - dragStart.x;
+    const deltaY = currentY - dragStart.y;
+    
+    const selectedPanel = panels.find(p => p.id === selectedPanelId);
+    if (!selectedPanel) return;
+
+    if (isDragging) {
+      updatePanel(selectedPanelId, {
+        x: Math.max(0, (selectedPanel.x || 0) + deltaX),
+        y: Math.max(0, (selectedPanel.y || 0) + deltaY)
+      });
+      setDragStart({ x: currentX, y: currentY });
+    } else if (isResizing) {
+      const scale = 0.3;
+      updatePanel(selectedPanelId, {
+        width: Math.max(5, selectedPanel.width + deltaX / scale),
+        length: Math.max(5, selectedPanel.length + deltaY / scale)
+      });
+      setDragStart({ x: currentX, y: currentY });
+    } else if (isRotating) {
+      const centerX = (selectedPanel.x || 0) + (selectedPanel.width * 0.3) / 2;
+      const centerY = (selectedPanel.y || 0) + (selectedPanel.length * 0.3) / 2;
+      const angle = Math.atan2(currentY - centerY, currentX - centerX) * 180 / Math.PI;
+      updatePanel(selectedPanelId, {
+        rotation: angle
+      });
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+    setIsResizing(false);
+    setIsRotating(false);
+    setDragStart(null);
+  };
+
   const renderPanelElement = (panel: Panel, index: number) => {
-    const scale = 0.3; // Fixed scale for consistent sizing
+    const scale = 0.3;
+    const isSelected = selectedPanelId === panel.id;
     
     if (panel.shape === 'rectangle') {
       const width = Math.max(panel.width * scale, 40);
       const height = Math.max(panel.length * scale, 25);
-      const x = 30 + (index * 20) % 300;
-      const y = 30 + Math.floor(index / 6) * (height + 20);
+      const x = panel.x || (30 + (index * 20) % 300);
+      const y = panel.y || (30 + Math.floor(index / 6) * (height + 20));
+      const rotation = panel.rotation || 0;
 
+      return (
+        <div key={panel.id} style={{ position: 'absolute', left: x, top: y }}>
+          {/* Main Panel */}
+          <div
+            className="rendered-panel"
+            style={{
+              width: `${width}px`,
+              height: `${height}px`,
+              background: isSelected ? 'rgba(59, 130, 246, 0.9)' : 'rgba(59, 130, 246, 0.8)',
+              border: isSelected ? '3px solid #1d4ed8' : '2px solid #3b82f6',
+              borderRadius: '4px',
+              cursor: 'move',
+              zIndex: isSelected ? 20 : 10,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '11px',
+              color: 'white',
+              fontWeight: 'bold',
+              textShadow: '1px 1px 1px rgba(0,0,0,0.8)',
+              boxShadow: isSelected ? '0 4px 8px rgba(0,0,0,0.3)' : '0 2px 4px rgba(0,0,0,0.2)',
+              transform: `rotate(${rotation}deg)`,
+              transformOrigin: 'center',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseDown={(e) => handlePanelMouseDown(e, panel.id, 'drag')}
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedPanelId(panel.id);
+              showToast('Panel Selected', `${panel.id}: ${panel.width}' × ${panel.length}' (${panel.material})`);
+            }}
+          >
+            {panel.id.replace(/.*-/, 'P')}
+          </div>
+
+          {/* Interactive Handles - Only show when selected */}
+          {isSelected && (
+            <>
+              {/* Resize Handle - Bottom Right */}
+              <div
+                style={{
+                  position: 'absolute',
+                  right: '-6px',
+                  bottom: '-6px',
+                  width: '12px',
+                  height: '12px',
+                  background: '#1d4ed8',
+                  border: '2px solid white',
+                  borderRadius: '50%',
+                  cursor: 'se-resize',
+                  zIndex: 25,
+                  transform: `rotate(${rotation}deg)`,
+                  transformOrigin: `${-width/2 + 6}px ${-height/2 + 6}px`
+                }}
+                onMouseDown={(e) => handlePanelMouseDown(e, panel.id, 'resize')}
+              />
+
+              {/* Rotation Handle - Top Center */}
+              <div
+                style={{
+                  position: 'absolute',
+                  left: `${width/2 - 6}px`,
+                  top: '-20px',
+                  width: '12px',
+                  height: '12px',
+                  background: '#dc2626',
+                  border: '2px solid white',
+                  borderRadius: '50%',
+                  cursor: 'grab',
+                  zIndex: 25,
+                  transform: `rotate(${rotation}deg)`,
+                  transformOrigin: `6px ${height/2 + 20}px`
+                }}
+                onMouseDown={(e) => handlePanelMouseDown(e, panel.id, 'rotate')}
+              />
+
+              {/* Connection Line for Rotation Handle */}
+              <div
+                style={{
+                  position: 'absolute',
+                  left: `${width/2}px`,
+                  top: '-8px',
+                  width: '2px',
+                  height: '12px',
+                  background: '#dc2626',
+                  transformOrigin: `1px ${height/2 + 8}px`,
+                  transform: `rotate(${rotation}deg)`,
+                  zIndex: 24
+                }}
+              />
+
+              {/* Dimension Labels */}
+              <div
+                style={{
+                  position: 'absolute',
+                  left: `${width + 8}px`,
+                  top: '2px',
+                  background: 'rgba(0,0,0,0.8)',
+                  color: 'white',
+                  padding: '2px 4px',
+                  borderRadius: '2px',
+                  fontSize: '9px',
+                  whiteSpace: 'nowrap',
+                  zIndex: 25
+                }}
+              >
+                {panel.width.toFixed(1)}' × {panel.length.toFixed(1)}'
+              </div>
+            </>
+          )}
+        </div>
+      );
+    } else if (panel.shape === 'polygon' && panel.corners) {
+      const minX = Math.min(...panel.corners.map(c => c[0]));
+      const maxX = Math.max(...panel.corners.map(c => c[0]));
+      const minY = Math.min(...panel.corners.map(c => c[1]));
+      const maxY = Math.max(...panel.corners.map(c => c[1]));
+      const x = panel.x || minX;
+      const y = panel.y || minY;
+      
       return (
         <div
           key={panel.id}
@@ -400,60 +607,13 @@ export default function PanelLayoutPage() {
             position: 'absolute',
             left: `${x}px`,
             top: `${y}px`,
-            width: `${width}px`,
-            height: `${height}px`,
-            background: 'rgba(59, 130, 246, 0.8)',
-            border: '2px solid #3b82f6',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            zIndex: 10,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '11px',
-            color: 'white',
-            fontWeight: 'bold',
-            textShadow: '1px 1px 1px rgba(0,0,0,0.8)',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-            transition: 'all 0.2s ease'
-          }}
-          onClick={(e) => {
-            e.stopPropagation();
-            showToast('Panel Info', `${panel.id}: ${panel.width}' × ${panel.length}' (${panel.material})`);
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = 'scale(1.1)';
-            e.currentTarget.style.zIndex = '20';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = 'scale(1)';
-            e.currentTarget.style.zIndex = '10';
-          }}
-        >
-          {panel.id.replace('panel-', 'P')}
-        </div>
-      );
-    } else if (panel.shape === 'polygon' && panel.corners) {
-      const minX = Math.min(...panel.corners.map(c => c[0]));
-      const maxX = Math.max(...panel.corners.map(c => c[0]));
-      const minY = Math.min(...panel.corners.map(c => c[1]));
-      const maxY = Math.max(...panel.corners.map(c => c[1]));
-      
-      return (
-        <div
-          key={panel.id}
-          className="rendered-panel"
-          style={{
-            position: 'absolute',
-            left: `${Math.max(minX, 0)}px`,
-            top: `${Math.max(minY, 0)}px`,
             width: `${Math.max(maxX - minX, 40)}px`,
             height: `${Math.max(maxY - minY, 25)}px`,
-            background: 'rgba(168, 85, 247, 0.8)',
-            border: '2px solid #a855f7',
+            background: isSelected ? 'rgba(168, 85, 247, 0.9)' : 'rgba(168, 85, 247, 0.8)',
+            border: isSelected ? '3px solid #7c3aed' : '2px solid #a855f7',
             borderRadius: '4px',
-            cursor: 'pointer',
-            zIndex: 10,
+            cursor: 'move',
+            zIndex: isSelected ? 20 : 10,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -461,23 +621,17 @@ export default function PanelLayoutPage() {
             color: 'white',
             fontWeight: 'bold',
             textShadow: '1px 1px 1px rgba(0,0,0,0.8)',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+            boxShadow: isSelected ? '0 4px 8px rgba(0,0,0,0.3)' : '0 2px 4px rgba(0,0,0,0.2)',
             transition: 'all 0.2s ease'
           }}
+          onMouseDown={(e) => handlePanelMouseDown(e, panel.id, 'drag')}
           onClick={(e) => {
             e.stopPropagation();
-            showToast('Panel Info', `${panel.id}: ${panel.width}' × ${panel.length}' (${panel.material})`);
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = 'scale(1.1)';
-            e.currentTarget.style.zIndex = '20';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = 'scale(1)';
-            e.currentTarget.style.zIndex = '10';
+            setSelectedPanelId(panel.id);
+            showToast('Panel Selected', `${panel.id}: ${panel.width}' × ${panel.length}' (${panel.material})`);
           }}
         >
-          {panel.id.replace('panel-', 'P')}
+          {panel.id.replace(/.*-/, 'P')}
         </div>
       );
     }
@@ -802,8 +956,14 @@ export default function PanelLayoutPage() {
               className={`panel-viewer ${selectedShape === 'polygon' ? 'polygon-mode' : ''}`}
               id="panel-viewer"
               ref={panelViewerRef}
-              onClick={handleCanvasClick}
+              onClick={(e) => {
+                handleCanvasClick(e);
+                setSelectedPanelId(null); // Deselect panels when clicking empty space
+              }}
               onContextMenu={handleCanvasRightClick}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+              onMouseLeave={handleMouseUp}
               style={{
                 position: 'relative',
                 width: '100%',
@@ -811,7 +971,8 @@ export default function PanelLayoutPage() {
                 minHeight: '400px',
                 background: contourImageData ? 'transparent' : 'linear-gradient(to right, #f1f5f9 1px, transparent 1px), linear-gradient(to bottom, #f1f5f9 1px, transparent 1px)',
                 backgroundSize: '20px 20px',
-                backgroundColor: '#ffffff'
+                backgroundColor: '#ffffff',
+                userSelect: 'none'
               }}
             >
               {/* Terrain image background */}
