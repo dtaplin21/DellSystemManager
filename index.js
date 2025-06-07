@@ -185,7 +185,19 @@ app.get('/health', (req, res) => {
       frontend: 'running',
       backend: 'running',
       panelOptimizer: 'running'
-    }
+    },
+    host: req.get('host'),
+    protocol: req.protocol
+  });
+});
+
+// Simple ping endpoint for external connectivity testing
+app.get('/ping', (req, res) => {
+  res.set('Cache-Control', 'no-cache');
+  res.json({ 
+    message: 'pong',
+    timestamp: new Date().toISOString(),
+    ready: true
   });
 });
 
