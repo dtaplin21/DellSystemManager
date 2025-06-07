@@ -507,33 +507,6 @@ export default function PanelLayoutPage() {
             <div className="control-section">
               <h2 className="section-title">Site Configuration</h2>
               
-              {/* Required Panel Information */}
-              <div className="form-group">
-                <label htmlFor="panel-number">Panel Number <span style={{color: 'red'}}>*</span></label>
-                <input
-                  type="text"
-                  id="panel-number"
-                  className={`form-input ${!siteConfig.panelNumber.trim() ? 'required-field' : ''}`}
-                  value={siteConfig.panelNumber}
-                  onChange={(e) => setSiteConfig(prev => ({ ...prev, panelNumber: e.target.value }))}
-                  placeholder="e.g., P001, Panel-A"
-                  required
-                />
-              </div>
-              
-              <div className="form-group">
-                <label htmlFor="roll-number">Roll Number <span style={{color: 'red'}}>*</span></label>
-                <input
-                  type="text"
-                  id="roll-number"
-                  className={`form-input ${!siteConfig.rollNumber.trim() ? 'required-field' : ''}`}
-                  value={siteConfig.rollNumber}
-                  onChange={(e) => setSiteConfig(prev => ({ ...prev, rollNumber: e.target.value }))}
-                  placeholder="e.g., R001, Roll-1"
-                  required
-                />
-              </div>
-              
               {/* Site Dimensions */}
               <div className="form-group">
                 <label htmlFor="site-width">Site Width (ft)</label>
@@ -572,6 +545,33 @@ export default function PanelLayoutPage() {
             {/* Panel Management */}
             <div className="control-section">
               <h2 className="section-title">Panel Management</h2>
+              
+              {/* Required Panel Information */}
+              <div className="form-group">
+                <label htmlFor="panel-number">Panel Number <span style={{color: 'red'}}>*</span></label>
+                <input
+                  type="text"
+                  id="panel-number"
+                  className={`form-input ${!siteConfig.panelNumber.trim() ? 'required-field' : ''}`}
+                  value={siteConfig.panelNumber}
+                  onChange={(e) => setSiteConfig(prev => ({ ...prev, panelNumber: e.target.value }))}
+                  placeholder="e.g., P001, Panel-A"
+                  required
+                />
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="roll-number">Roll Number <span style={{color: 'red'}}>*</span></label>
+                <input
+                  type="text"
+                  id="roll-number"
+                  className={`form-input ${!siteConfig.rollNumber.trim() ? 'required-field' : ''}`}
+                  value={siteConfig.rollNumber}
+                  onChange={(e) => setSiteConfig(prev => ({ ...prev, rollNumber: e.target.value }))}
+                  placeholder="e.g., R001, Roll-1"
+                  required
+                />
+              </div>
               
               {/* Shape Toggle */}
               <div className="form-group">
