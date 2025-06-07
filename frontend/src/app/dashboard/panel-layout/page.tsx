@@ -1,5 +1,5 @@
 'use client';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import './panel-layout.css';
 
@@ -48,6 +48,39 @@ export default function PanelLayoutPage() {
   const showToast = (title: string, message: string) => {
     setToast({ show: true, title, message });
     setTimeout(() => setToast({ show: false, title: '', message: '' }), 3000);
+  };
+
+  // Effect to render panels when they change
+  useEffect(() => {
+    if (panels.length > 0) {
+      setTimeout(() => renderPanels(), 100); // Small delay to ensure DOM is ready
+    }
+  }, [panels, showPanels, siteConfig.width, siteConfig.length]);
+
+  // Effect to initialize viewer canvas
+  useEffect(() => {
+    if (panelViewerRef.current && !contourImageData) {
+      initializeViewer();
+    }
+  }, []);
+
+  const initializeViewer = () => {
+    if (!panelViewerRef.current) return;
+    
+    // Create a basic grid background for the viewer
+    const canvas = document.createElement('div');
+    canvas.style.cssText = `
+      position: relative;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(to right, #f1f5f9 1px, transparent 1px),
+                  linear-gradient(to bottom, #f1f5f9 1px, transparent 1px);
+      background-size: 20px 20px;
+      background-color: #ffffff;
+    `;
+    
+    panelViewerRef.current.innerHTML = '';
+    panelViewerRef.current.appendChild(canvas);
   };
 
   const clearPolygonPoints = () => {
@@ -352,14 +385,98 @@ export default function PanelLayoutPage() {
   const displayContourImage = (imageData: string) => {
     if (panelViewerRef.current) {
       panelViewerRef.current.innerHTML = '';
+      
+      // Create container for image and panels
+      const container = document.createElement('div');
+      container.style.cssText = `
+        position: relative;
+        width: 100%;
+        height: 100%;
+      `;
+      
       const img = document.createElement('img');
       img.src = `data:image/png;base64,${imageData}`;
       img.alt = 'Terrain Contour Map';
       img.style.maxWidth = '100%';
       img.style.maxHeight = '100%';
       img.style.objectFit = 'contain';
-      panelViewerRef.current.appendChild(img);
+      
+      container.appendChild(img);
+      panelViewerRef.current.appendChild(container);
+      
+      // Re-render panels on top of terrain
+      setTimeout(() => renderPanels(), 100);
     }
+  };
+
+  const renderPanels = () => {
+    if (!panelViewerRef.current || !showPanels) return;
+
+    // Remove existing panel elements
+    const existingPanels = panelViewerRef.current.querySelectorAll('.rendered-panel');
+    existingPanels.forEach(panel => panel.remove());
+
+    // Calculate scale based on viewer size and site dimensions
+    const viewerRect = panelViewerRef.current.getBoundingClientRect();
+    const scaleX = viewerRect.width / siteConfig.width;
+    const scaleY = viewerRect.height / siteConfig.length;
+    const scale = Math.min(scaleX, scaleY) * 0.8; // 80% to leave margins
+
+    // Render each panel
+    panels.forEach((panel, index) => {
+      const panelElement = document.createElement('div');
+      panelElement.className = 'rendered-panel';
+      panelElement.style.cssText = `
+        position: absolute;
+        background: rgba(59, 130, 246, 0.6);
+        border: 2px solid #3b82f6;
+        border-radius: 4px;
+        cursor: pointer;
+        z-index: 10;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 10px;
+        color: white;
+        font-weight: bold;
+        text-shadow: 1px 1px 1px rgba(0,0,0,0.5);
+      `;
+
+      if (panel.shape === 'rectangle') {
+        const width = panel.width * scale;
+        const height = panel.length * scale;
+        const x = 50 + (index * 20) % (viewerRect.width - width - 100);
+        const y = 50 + Math.floor(index / 10) * (height + 10);
+
+        panelElement.style.width = `${width}px`;
+        panelElement.style.height = `${height}px`;
+        panelElement.style.left = `${x}px`;
+        panelElement.style.top = `${y}px`;
+        panelElement.textContent = panel.id;
+      } else if (panel.shape === 'polygon' && panel.corners) {
+        // For polygons, create a simple approximation
+        const minX = Math.min(...panel.corners.map(c => c[0]));
+        const maxX = Math.max(...panel.corners.map(c => c[0]));
+        const minY = Math.min(...panel.corners.map(c => c[1]));
+        const maxY = Math.max(...panel.corners.map(c => c[1]));
+        
+        panelElement.style.width = `${(maxX - minX)}px`;
+        panelElement.style.height = `${(maxY - minY)}px`;
+        panelElement.style.left = `${minX}px`;
+        panelElement.style.top = `${minY}px`;
+        panelElement.style.background = 'rgba(168, 85, 247, 0.6)';
+        panelElement.style.borderColor = '#a855f7';
+        panelElement.textContent = panel.id;
+      }
+
+      // Add click handler to show panel details
+      panelElement.addEventListener('click', (e) => {
+        e.stopPropagation();
+        showToast('Panel Info', `${panel.id}: ${panel.width}' × ${panel.length}' (${panel.material})`);
+      });
+
+      panelViewerRef.current.appendChild(panelElement);
+    });
   };
 
   return (
@@ -660,10 +777,10 @@ export default function PanelLayoutPage() {
                   <div className="spinner"></div>
                 </div>
               )}
-              {!contourImageData && !isLoading && (
-                <div style={{textAlign: 'center', color: 'var(--color-navy-300)'}}>
+              {!contourImageData && !isLoading && panels.length === 0 && (
+                <div style={{textAlign: 'center', color: 'var(--color-navy-300)', padding: '2rem'}}>
                   <p style={{fontSize: '1.125rem', marginBottom: '0.5rem'}}>Empty Canvas</p>
-                  <p style={{fontSize: '0.875rem'}}>Visualize terrain or add panels to get started</p>
+                  <p style={{fontSize: '0.875rem'}}>Add panels or visualize terrain to get started</p>
                 </div>
               )}
             </div>
