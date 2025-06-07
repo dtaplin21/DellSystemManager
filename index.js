@@ -261,7 +261,7 @@ app.get('/', (req, res) => {
 app.use(express.static(publicDir));
 
 // Start the server
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`- Dashboard: http://localhost:${PORT}/dashboard`);
 });

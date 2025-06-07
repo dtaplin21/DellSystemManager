@@ -31,37 +31,45 @@ export const AuthContext = createContext<AuthContextType | null>(null);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isHydrated, setIsHydrated] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
 
   useEffect(() => {
+    // Mark as hydrated after client-side mount
+    setIsHydrated(true);
+    
     // Check if user is logged in
     const checkAuth = async () => {
       try {
-        // First check localStorage for cached user
-        const storedUser = localStorage.getItem('geoqc_user');
-        
-        if (storedUser) {
-          // Verify session with backend
-          const response = await fetch('/api/auth/me', {
-            credentials: 'include',
-          });
+        // First check localStorage for cached user (only on client)
+        if (typeof window !== 'undefined') {
+          const storedUser = localStorage.getItem('geoqc_user');
           
-          if (response.ok) {
-            const { user } = await response.json();
-            setUser(user);
-            localStorage.setItem('geoqc_user', JSON.stringify(user));
+          if (storedUser) {
+            // Verify session with backend
+            const response = await fetch('/api/auth/me', {
+              credentials: 'include',
+            });
+            
+            if (response.ok) {
+              const { user } = await response.json();
+              setUser(user);
+              localStorage.setItem('geoqc_user', JSON.stringify(user));
+            } else {
+              // Session expired, clear local storage
+              localStorage.removeItem('geoqc_user');
+              setUser(null);
+            }
           } else {
-            // Session expired, clear local storage
-            localStorage.removeItem('geoqc_user');
             setUser(null);
           }
-        } else {
-          setUser(null);
         }
       } catch (error) {
         console.error('Auth check error:', error);
-        localStorage.removeItem('geoqc_user');
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('geoqc_user');
+        }
         setUser(null);
       } finally {
         setIsLoading(false);
@@ -91,7 +99,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
       
       setUser(data.user);
-      localStorage.setItem('geoqc_user', JSON.stringify(data.user));
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('geoqc_user', JSON.stringify(data.user));
+      }
       
       toast({
         title: "Login successful",
@@ -135,7 +145,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
       
       setUser(data.user);
-      localStorage.setItem('geoqc_user', JSON.stringify(data.user));
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('geoqc_user', JSON.stringify(data.user));
+      }
       
       toast({
         title: "Account created successfully",
@@ -179,7 +191,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       };
       
       setUser(mockUser);
-      localStorage.setItem('geoqc_user', JSON.stringify(mockUser));
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('geoqc_user', JSON.stringify(mockUser));
+      }
       return mockUser;
     } catch (error) {
       console.error('Google login error:', error);
@@ -199,7 +213,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       });
       
       setUser(null);
-      localStorage.removeItem('geoqc_user');
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('geoqc_user');
+      }
       
       toast({
         title: "Logged out successfully",
@@ -209,7 +225,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.error('Logout error:', error);
       // Still clear local state even if API call fails
       setUser(null);
-      localStorage.removeItem('geoqc_user');
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('geoqc_user');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -235,7 +253,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
       
       setUser(data.user);
-      localStorage.setItem('geoqc_user', JSON.stringify(data.user));
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('geoqc_user', JSON.stringify(data.user));
+      }
       
       toast({
         title: 'Profile updated',
