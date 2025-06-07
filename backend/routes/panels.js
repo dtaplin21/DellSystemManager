@@ -3,7 +3,7 @@ const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const { auth } = require('../middlewares/auth');
 const { subscriptionCheck } = require('../middlewares/subscription');
-const { validateObjectId } = require('../utils/validate');
+// const { validateObjectId } = require('../utils/validate');
 const { db } = require('../db');
 const { panels, projects } = require('../db/schema');
 const { eq, and } = require('drizzle-orm');
@@ -15,8 +15,8 @@ router.get('/layout/:projectId', auth, async (req, res, next) => {
   try {
     const { projectId } = req.params;
     
-    // Validate project ID
-    if (!validateObjectId(projectId)) {
+    // Basic ID validation
+    if (!projectId || projectId.length === 0) {
       return res.status(400).json({ message: 'Invalid project ID' });
     }
     
@@ -50,7 +50,7 @@ router.get('/layout/:projectId', auth, async (req, res, next) => {
           width: 100,
           height: 100,
           scale: 1,
-          lastUpdated: new Date().toISOString(),
+          lastUpdated: new Date(),
         })
         .returning();
     }
@@ -73,8 +73,8 @@ router.patch('/layout/:projectId', auth, subscriptionCheck('premium'), async (re
     const { projectId } = req.params;
     const updateData = req.body;
     
-    // Validate project ID
-    if (!validateObjectId(projectId)) {
+    // Basic ID validation
+    if (!projectId || projectId.length === 0) {
       return res.status(400).json({ message: 'Invalid project ID' });
     }
     
@@ -151,8 +151,8 @@ router.get('/export/:projectId', auth, subscriptionCheck('premium'), async (req,
     const { projectId } = req.params;
     const { format = 'dwg' } = req.query;
     
-    // Validate project ID
-    if (!validateObjectId(projectId)) {
+    // Basic ID validation
+    if (!projectId || projectId.length === 0) {
       return res.status(400).json({ message: 'Invalid project ID' });
     }
     
