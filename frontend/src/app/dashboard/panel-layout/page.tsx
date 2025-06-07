@@ -50,13 +50,6 @@ export default function PanelLayoutPage() {
     setTimeout(() => setToast({ show: false, title: '', message: '' }), 3000);
   };
 
-  // Effect to render panels when they change
-  useEffect(() => {
-    if (panels.length > 0) {
-      setTimeout(() => renderPanels(), 100); // Small delay to ensure DOM is ready
-    }
-  }, [panels, showPanels, siteConfig.width, siteConfig.length]);
-
   // Effect to initialize viewer canvas
   useEffect(() => {
     if (panelViewerRef.current && !contourImageData) {
@@ -65,26 +58,7 @@ export default function PanelLayoutPage() {
   }, []);
 
   const initializeViewer = () => {
-    if (!panelViewerRef.current) return;
-    
-    // Clear existing content
-    panelViewerRef.current.innerHTML = '';
-    
-    // Create a basic grid background for the viewer
-    const canvas = document.createElement('div');
-    canvas.className = 'viewer-canvas';
-    canvas.style.cssText = `
-      position: relative;
-      width: 100%;
-      height: 100%;
-      min-height: 400px;
-      background: linear-gradient(to right, #f1f5f9 1px, transparent 1px),
-                  linear-gradient(to bottom, #f1f5f9 1px, transparent 1px);
-      background-size: 20px 20px;
-      background-color: #ffffff;
-    `;
-    
-    panelViewerRef.current.appendChild(canvas);
+    // This will be handled by React JSX instead of DOM manipulation
   };
 
   const clearPolygonPoints = () => {
@@ -387,138 +361,108 @@ export default function PanelLayoutPage() {
   };
 
   const displayContourImage = (imageData: string) => {
-    if (panelViewerRef.current) {
-      panelViewerRef.current.innerHTML = '';
-      
-      // Create container for image and panels
-      const container = document.createElement('div');
-      container.style.cssText = `
-        position: relative;
-        width: 100%;
-        height: 100%;
-      `;
-      
-      const img = document.createElement('img');
-      img.src = `data:image/png;base64,${imageData}`;
-      img.alt = 'Terrain Contour Map';
-      img.style.maxWidth = '100%';
-      img.style.maxHeight = '100%';
-      img.style.objectFit = 'contain';
-      
-      container.appendChild(img);
-      panelViewerRef.current.appendChild(container);
-      
-      // Re-render panels on top of terrain
-      setTimeout(() => renderPanels(), 100);
-    }
+    setContourImageData(imageData);
   };
 
-  const renderPanels = () => {
-    if (!panelViewerRef.current || !showPanels || panels.length === 0) return;
-
-    // Find or create the canvas container
-    let canvas = panelViewerRef.current.querySelector('.viewer-canvas');
-    if (!canvas) {
-      initializeViewer();
-      canvas = panelViewerRef.current.querySelector('.viewer-canvas');
-    }
+  const renderPanelElement = (panel: Panel, index: number) => {
+    const scale = 0.3; // Fixed scale for consistent sizing
     
-    if (!canvas) return;
+    if (panel.shape === 'rectangle') {
+      const width = Math.max(panel.width * scale, 40);
+      const height = Math.max(panel.length * scale, 25);
+      const x = 30 + (index * 20) % 300;
+      const y = 30 + Math.floor(index / 6) * (height + 20);
 
-    // Clear canvas and rebuild completely to avoid DOM issues
-    const panelContainer = document.createElement('div');
-    panelContainer.className = 'panels-container';
-    panelContainer.style.cssText = `
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-    `;
-
-    // Calculate scale based on canvas size and site dimensions
-    const canvasRect = canvas.getBoundingClientRect();
-    const scaleX = (canvasRect.width || 600) / siteConfig.width;
-    const scaleY = (canvasRect.height || 400) / siteConfig.length;
-    const scale = Math.min(scaleX, scaleY, 0.3); // Cap the scale for better visibility
-
-    // Render each panel
-    panels.forEach((panel, index) => {
-      const panelElement = document.createElement('div');
-      panelElement.className = 'rendered-panel';
-      panelElement.style.cssText = `
-        position: absolute;
-        background: rgba(59, 130, 246, 0.8);
-        border: 2px solid #3b82f6;
-        border-radius: 4px;
-        cursor: pointer;
-        z-index: 10;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 11px;
-        color: white;
-        font-weight: bold;
-        text-shadow: 1px 1px 1px rgba(0,0,0,0.8);
-        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        transition: all 0.2s ease;
-        pointer-events: auto;
-      `;
-
-      if (panel.shape === 'rectangle') {
-        const width = Math.max(panel.width * scale, 40); // Minimum width for visibility
-        const height = Math.max(panel.length * scale, 25); // Minimum height for visibility
-        const x = 30 + (index * 20) % Math.max(canvasRect.width - width - 60, 100);
-        const y = 30 + Math.floor(index / 6) * (height + 20);
-
-        panelElement.style.width = `${width}px`;
-        panelElement.style.height = `${height}px`;
-        panelElement.style.left = `${x}px`;
-        panelElement.style.top = `${y}px`;
-        panelElement.textContent = panel.id.replace('panel-', 'P');
-      } else if (panel.shape === 'polygon' && panel.corners) {
-        // For polygons, create a simple approximation
-        const minX = Math.min(...panel.corners.map(c => c[0]));
-        const maxX = Math.max(...panel.corners.map(c => c[0]));
-        const minY = Math.min(...panel.corners.map(c => c[1]));
-        const maxY = Math.max(...panel.corners.map(c => c[1]));
-        
-        panelElement.style.width = `${Math.max(maxX - minX, 40)}px`;
-        panelElement.style.height = `${Math.max(maxY - minY, 25)}px`;
-        panelElement.style.left = `${Math.max(minX, 0)}px`;
-        panelElement.style.top = `${Math.max(minY, 0)}px`;
-        panelElement.style.background = 'rgba(168, 85, 247, 0.8)';
-        panelElement.style.borderColor = '#a855f7';
-        panelElement.textContent = panel.id.replace('panel-', 'P');
-      }
-
-      // Add click handler to show panel details
-      panelElement.onclick = (e) => {
-        e.stopPropagation();
-        showToast('Panel Info', `${panel.id}: ${panel.width}' × ${panel.length}' (${panel.material})`);
-      };
-
-      // Add hover effect
-      panelElement.onmouseenter = () => {
-        panelElement.style.transform = 'scale(1.1)';
-        panelElement.style.zIndex = '20';
-      };
+      return (
+        <div
+          key={panel.id}
+          className="rendered-panel"
+          style={{
+            position: 'absolute',
+            left: `${x}px`,
+            top: `${y}px`,
+            width: `${width}px`,
+            height: `${height}px`,
+            background: 'rgba(59, 130, 246, 0.8)',
+            border: '2px solid #3b82f6',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            zIndex: 10,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '11px',
+            color: 'white',
+            fontWeight: 'bold',
+            textShadow: '1px 1px 1px rgba(0,0,0,0.8)',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+            transition: 'all 0.2s ease'
+          }}
+          onClick={(e) => {
+            e.stopPropagation();
+            showToast('Panel Info', `${panel.id}: ${panel.width}' × ${panel.length}' (${panel.material})`);
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'scale(1.1)';
+            e.currentTarget.style.zIndex = '20';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'scale(1)';
+            e.currentTarget.style.zIndex = '10';
+          }}
+        >
+          {panel.id.replace('panel-', 'P')}
+        </div>
+      );
+    } else if (panel.shape === 'polygon' && panel.corners) {
+      const minX = Math.min(...panel.corners.map(c => c[0]));
+      const maxX = Math.max(...panel.corners.map(c => c[0]));
+      const minY = Math.min(...panel.corners.map(c => c[1]));
+      const maxY = Math.max(...panel.corners.map(c => c[1]));
       
-      panelElement.onmouseleave = () => {
-        panelElement.style.transform = 'scale(1)';
-        panelElement.style.zIndex = '10';
-      };
-
-      panelContainer.appendChild(panelElement);
-    });
-
-    // Remove old panel container and add new one
-    const oldContainer = canvas.querySelector('.panels-container');
-    if (oldContainer) {
-      canvas.removeChild(oldContainer);
+      return (
+        <div
+          key={panel.id}
+          className="rendered-panel"
+          style={{
+            position: 'absolute',
+            left: `${Math.max(minX, 0)}px`,
+            top: `${Math.max(minY, 0)}px`,
+            width: `${Math.max(maxX - minX, 40)}px`,
+            height: `${Math.max(maxY - minY, 25)}px`,
+            background: 'rgba(168, 85, 247, 0.8)',
+            border: '2px solid #a855f7',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            zIndex: 10,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '11px',
+            color: 'white',
+            fontWeight: 'bold',
+            textShadow: '1px 1px 1px rgba(0,0,0,0.8)',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+            transition: 'all 0.2s ease'
+          }}
+          onClick={(e) => {
+            e.stopPropagation();
+            showToast('Panel Info', `${panel.id}: ${panel.width}' × ${panel.length}' (${panel.material})`);
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'scale(1.1)';
+            e.currentTarget.style.zIndex = '20';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'scale(1)';
+            e.currentTarget.style.zIndex = '10';
+          }}
+        >
+          {panel.id.replace('panel-', 'P')}
+        </div>
+      );
     }
-    canvas.appendChild(panelContainer);
+    return null;
   };
 
   return (
@@ -812,17 +756,60 @@ export default function PanelLayoutPage() {
               ref={panelViewerRef}
               onClick={handleCanvasClick}
               onContextMenu={handleCanvasRightClick}
+              style={{
+                position: 'relative',
+                width: '100%',
+                height: '100%',
+                minHeight: '400px',
+                background: contourImageData ? 'transparent' : 'linear-gradient(to right, #f1f5f9 1px, transparent 1px), linear-gradient(to bottom, #f1f5f9 1px, transparent 1px)',
+                backgroundSize: '20px 20px',
+                backgroundColor: '#ffffff'
+              }}
             >
-              {/* Contour visualization will be displayed here */}
+              {/* Terrain image background */}
+              {contourImageData && (
+                <img 
+                  src={`data:image/png;base64,${contourImageData}`}
+                  alt="Terrain Contour Map"
+                  style={{
+                    maxWidth: '100%',
+                    maxHeight: '100%',
+                    objectFit: 'contain'
+                  }}
+                />
+              )}
+              
+              {/* Loading overlay */}
               {isLoading && (
                 <div className="loading-overlay">
                   <div className="spinner"></div>
                 </div>
               )}
+              
+              {/* Empty state */}
               {!contourImageData && !isLoading && panels.length === 0 && (
                 <div style={{textAlign: 'center', color: 'var(--color-navy-300)', padding: '2rem'}}>
                   <p style={{fontSize: '1.125rem', marginBottom: '0.5rem'}}>Empty Canvas</p>
                   <p style={{fontSize: '0.875rem'}}>Add panels or visualize terrain to get started</p>
+                </div>
+              )}
+              
+              {/* Render panels using React */}
+              {showPanels && panels.map((panel, index) => renderPanelElement(panel, index))}
+              
+              {/* Polygon creation feedback */}
+              {isCreatingPolygon && polygonPoints.length > 0 && (
+                <div style={{
+                  position: 'absolute',
+                  top: '10px',
+                  left: '10px',
+                  background: 'rgba(0,0,0,0.7)',
+                  color: 'white',
+                  padding: '8px 12px',
+                  borderRadius: '4px',
+                  fontSize: '12px'
+                }}>
+                  Points: {polygonPoints.length} | Right-click to finish
                 </div>
               )}
             </div>
