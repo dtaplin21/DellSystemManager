@@ -1,29 +1,26 @@
 export async function fetchProjectById(id: string): Promise<any> {
   try {
-    const response = await fetch(`/api/projects/${id}`);
-    if (response.ok) {
-      return await response.json();
+    const response = await fetch(`/api/projects/${id}`, {
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error('Authentication required. Please log in.');
+      }
+      if (response.status === 404) {
+        throw new Error('Project not found.');
+      }
+      throw new Error(`Failed to fetch project: ${response.statusText}`);
     }
-    // Return mock data for development
-    return {
-      id,
-      name: `Project ${id}`,
-      subscription: 'premium',
-      client: 'Test Client',
-      location: 'Test Location',
-      status: 'Active'
-    };
+    
+    return await response.json();
   } catch (error) {
     console.error('Fetch project error:', error);
-    // Return mock data for development
-    return {
-      id,
-      name: `Project ${id}`,
-      subscription: 'premium',
-      client: 'Test Client',
-      location: 'Test Location',
-      status: 'Active'
-    };
+    throw error;
   }
 }
 

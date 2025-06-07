@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, use } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -28,19 +28,29 @@ interface PanelLayout {
   lastUpdated: string;
 }
 
-export default function PanelLayoutPage({ params }: { params: { id: string } }) {
+export default function PanelLayoutPage({ params }: { params: Promise<{ id: string }> }) {
   const [project, setProject] = useState<Project | null>(null);
   const [layout, setLayout] = useState<PanelLayout | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [id, setId] = useState<string>('');
   
   const { user } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
   const { socket, isConnected } = useWebSocket();
-  const { id } = use(params);
 
   useEffect(() => {
+    const resolveParams = async () => {
+      const resolvedParams = await params;
+      setId(resolvedParams.id);
+    };
+    resolveParams();
+  }, [params]);
+
+  useEffect(() => {
+    if (!id) return; // Don't run until id is resolved
+
     const loadProjectAndLayout = async () => {
       try {
         setIsLoading(true);
