@@ -306,10 +306,14 @@ app.get('/favicon.ico', createProxyMiddleware({
   logLevel: 'silent'
 }));
 
-// Main landing page - serve static HTML
-app.get('/', (req, res) => {
-  res.sendFile(path.join(publicDir, 'index.html'));
-});
+// Root route - proxy to Next.js frontend
+app.get('/', createProxyMiddleware({
+  target: 'http://localhost:3002',
+  changeOrigin: true,
+  onProxyReq: (proxyReq, req, res) => {
+    console.log('Root proxy - Original URL:', req.originalUrl);
+  }
+}));
 
 // Static file serving (after specific routes but before catch-all)
 app.use(express.static(publicDir));
