@@ -205,10 +205,23 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Root endpoint to handle preview access
+// Comprehensive external access endpoints
 app.get('/__replco/workspace_iframe.html', (req, res) => {
-  // Handle Replit workspace iframe request
   res.redirect('/');
+});
+
+app.get('/api/status', (req, res) => {
+  res.json({ 
+    status: 'running', 
+    server: 'gateway',
+    timestamp: Date.now(),
+    ready: true
+  });
+});
+
+// Handle root requests properly
+app.get('/api/ping', (req, res) => {
+  res.json({ pong: true, timestamp: Date.now() });
 });
 
 // Next.js static assets - MUST come first to prevent routing conflicts
