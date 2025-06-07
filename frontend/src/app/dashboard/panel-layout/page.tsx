@@ -414,7 +414,7 @@ export default function PanelLayoutPage() {
   };
 
   const renderPanels = () => {
-    if (!panelViewerRef.current || !showPanels) return;
+    if (!panelViewerRef.current || !showPanels || panels.length === 0) return;
 
     // Find or create the canvas container
     let canvas = panelViewerRef.current.querySelector('.viewer-canvas');
@@ -425,19 +425,23 @@ export default function PanelLayoutPage() {
     
     if (!canvas) return;
 
-    // Remove existing panel elements safely
-    const existingPanels = canvas.querySelectorAll('.rendered-panel');
-    existingPanels.forEach(panel => {
-      if (panel.parentNode) {
-        panel.parentNode.removeChild(panel);
-      }
-    });
+    // Clear canvas and rebuild completely to avoid DOM issues
+    const panelContainer = document.createElement('div');
+    panelContainer.className = 'panels-container';
+    panelContainer.style.cssText = `
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    `;
 
     // Calculate scale based on canvas size and site dimensions
     const canvasRect = canvas.getBoundingClientRect();
     const scaleX = (canvasRect.width || 600) / siteConfig.width;
     const scaleY = (canvasRect.height || 400) / siteConfig.length;
-    const scale = Math.min(scaleX, scaleY, 0.5); // Cap the scale for better visibility
+    const scale = Math.min(scaleX, scaleY, 0.3); // Cap the scale for better visibility
 
     // Render each panel
     panels.forEach((panel, index) => {
@@ -445,7 +449,7 @@ export default function PanelLayoutPage() {
       panelElement.className = 'rendered-panel';
       panelElement.style.cssText = `
         position: absolute;
-        background: rgba(59, 130, 246, 0.7);
+        background: rgba(59, 130, 246, 0.8);
         border: 2px solid #3b82f6;
         border-radius: 4px;
         cursor: pointer;
@@ -459,13 +463,14 @@ export default function PanelLayoutPage() {
         text-shadow: 1px 1px 1px rgba(0,0,0,0.8);
         box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         transition: all 0.2s ease;
+        pointer-events: auto;
       `;
 
       if (panel.shape === 'rectangle') {
-        const width = Math.max(panel.width * scale, 30); // Minimum width for visibility
-        const height = Math.max(panel.length * scale, 20); // Minimum height for visibility
-        const x = 20 + (index * 15) % Math.max(canvasRect.width - width - 40, 100);
-        const y = 20 + Math.floor(index / 8) * (height + 15);
+        const width = Math.max(panel.width * scale, 40); // Minimum width for visibility
+        const height = Math.max(panel.length * scale, 25); // Minimum height for visibility
+        const x = 30 + (index * 20) % Math.max(canvasRect.width - width - 60, 100);
+        const y = 30 + Math.floor(index / 6) * (height + 20);
 
         panelElement.style.width = `${width}px`;
         panelElement.style.height = `${height}px`;
@@ -479,34 +484,41 @@ export default function PanelLayoutPage() {
         const minY = Math.min(...panel.corners.map(c => c[1]));
         const maxY = Math.max(...panel.corners.map(c => c[1]));
         
-        panelElement.style.width = `${Math.max(maxX - minX, 30)}px`;
-        panelElement.style.height = `${Math.max(maxY - minY, 20)}px`;
+        panelElement.style.width = `${Math.max(maxX - minX, 40)}px`;
+        panelElement.style.height = `${Math.max(maxY - minY, 25)}px`;
         panelElement.style.left = `${Math.max(minX, 0)}px`;
         panelElement.style.top = `${Math.max(minY, 0)}px`;
-        panelElement.style.background = 'rgba(168, 85, 247, 0.7)';
+        panelElement.style.background = 'rgba(168, 85, 247, 0.8)';
         panelElement.style.borderColor = '#a855f7';
         panelElement.textContent = panel.id.replace('panel-', 'P');
       }
 
-      // Add hover effect
-      panelElement.addEventListener('mouseenter', () => {
-        panelElement.style.transform = 'scale(1.05)';
-        panelElement.style.zIndex = '20';
-      });
-      
-      panelElement.addEventListener('mouseleave', () => {
-        panelElement.style.transform = 'scale(1)';
-        panelElement.style.zIndex = '10';
-      });
-
       // Add click handler to show panel details
-      panelElement.addEventListener('click', (e) => {
+      panelElement.onclick = (e) => {
         e.stopPropagation();
         showToast('Panel Info', `${panel.id}: ${panel.width}' × ${panel.length}' (${panel.material})`);
-      });
+      };
 
-      canvas.appendChild(panelElement);
+      // Add hover effect
+      panelElement.onmouseenter = () => {
+        panelElement.style.transform = 'scale(1.1)';
+        panelElement.style.zIndex = '20';
+      };
+      
+      panelElement.onmouseleave = () => {
+        panelElement.style.transform = 'scale(1)';
+        panelElement.style.zIndex = '10';
+      };
+
+      panelContainer.appendChild(panelElement);
     });
+
+    // Remove old panel container and add new one
+    const oldContainer = canvas.querySelector('.panels-container');
+    if (oldContainer) {
+      canvas.removeChild(oldContainer);
+    }
+    canvas.appendChild(panelContainer);
   };
 
   return (
