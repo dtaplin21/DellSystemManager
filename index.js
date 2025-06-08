@@ -171,30 +171,27 @@ app.post('/api/auth/logout', (req, res) => {
   res.status(200).json({ message: 'Logged out successfully' });
 });
 
-// API routes - proxy to Backend Server (exclude auth routes) 
-app.use(createProxyMiddleware({
-  filter: (pathname) => pathname.startsWith('/api/') && !pathname.startsWith('/api/auth'),
-  target: 'http://localhost:8003',
-  changeOrigin: true,
-  onProxyReq: (proxyReq, req, res) => {
-    console.log('Backend API proxy - Original URL:', req.originalUrl);
-    console.log('Backend API proxy - Target path:', proxyReq.path);
-  },
-  onProxyRes: (proxyRes, req, res) => {
-    console.log('Backend API proxy response - Status:', proxyRes.statusCode);
-  },
-  onError: (err, req, res) => {
-    console.error('Backend API proxy error:', err);
-    res.status(500).json({ error: 'Backend API service unavailable' });
+// Main landing page - serve static HTML (MUST come FIRST before any middlewares)
+app.get('/', (req, res) => {
+  console.log('=== ROOT ROUTE HIT ===');
+  const filePath = path.join(publicDir, 'index.html');
+  console.log('Attempting to serve index.html from:', filePath);
+  console.log('Public dir:', publicDir);
+  console.log('__dirname:', __dirname);
+  
+  if (fs.existsSync(filePath)) {
+    console.log('index.html exists, serving file');
+    res.sendFile(filePath, (err) => {
+      if (err) {
+        console.log('Error serving file:', err);
+        res.status(500).send('Error serving landing page');
+      }
+    });
+  } else {
+    console.log('index.html not found at path:', filePath);
+    res.status(404).send('Landing page not found');
   }
-}));
-
-// Next.js static assets - MUST come first to prevent routing conflicts
-app.use('/_next', createProxyMiddleware({
-  target: 'http://localhost:3001',
-  changeOrigin: true,
-  logLevel: 'silent'
-}));
+});
 
 // Free trial page
 app.get('/free-trial', (req, res) => {
@@ -225,27 +222,30 @@ app.get('/signup', (req, res) => {
   res.sendFile(path.join(publicDir, 'signup.html'));
 });
 
-// Main landing page - serve static HTML (MUST come before proxy middlewares)
-app.get('/', (req, res) => {
-  console.log('=== ROOT ROUTE HIT ===');
-  const filePath = path.join(publicDir, 'index.html');
-  console.log('Attempting to serve index.html from:', filePath);
-  console.log('Public dir:', publicDir);
-  console.log('__dirname:', __dirname);
-  
-  if (fs.existsSync(filePath)) {
-    console.log('index.html exists, serving file');
-    res.sendFile(filePath, (err) => {
-      if (err) {
-        console.log('Error serving file:', err);
-        res.status(500).send('Error serving landing page');
-      }
-    });
-  } else {
-    console.log('index.html not found at path:', filePath);
-    res.status(404).send('Landing page not found');
+// API routes - proxy to Backend Server (exclude auth routes) 
+app.use(createProxyMiddleware({
+  filter: (pathname) => pathname.startsWith('/api/') && !pathname.startsWith('/api/auth'),
+  target: 'http://localhost:8003',
+  changeOrigin: true,
+  onProxyReq: (proxyReq, req, res) => {
+    console.log('Backend API proxy - Original URL:', req.originalUrl);
+    console.log('Backend API proxy - Target path:', proxyReq.path);
+  },
+  onProxyRes: (proxyRes, req, res) => {
+    console.log('Backend API proxy response - Status:', proxyRes.statusCode);
+  },
+  onError: (err, req, res) => {
+    console.error('Backend API proxy error:', err);
+    res.status(500).json({ error: 'Backend API service unavailable' });
   }
-});
+}));
+
+// Next.js static assets - MUST come first to prevent routing conflicts
+app.use('/_next', createProxyMiddleware({
+  target: 'http://localhost:3001',
+  changeOrigin: true,
+  logLevel: 'silent'
+}));
 
 // Panel optimizer API - proxy to Panel Optimizer Service (MUST come before dashboard routes)
 app.use('/panel-api', createProxyMiddleware({
