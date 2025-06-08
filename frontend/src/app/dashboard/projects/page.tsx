@@ -32,6 +32,8 @@ export default function ProjectsPage() {
         if (response.ok) {
           const data = await response.json();
           setProjects(data.projects || []);
+        } else {
+          console.error('Failed to fetch projects:', response.status);
         }
       } catch (error) {
         console.error('Error fetching projects:', error);
@@ -137,8 +139,17 @@ export default function ProjectsPage() {
           </div>
         )}
         
-        <div className="projects-grid">
-          {projects.map((project) => (
+        {isLoading ? (
+          <div className="loading-state">
+            <p>Loading projects...</p>
+          </div>
+        ) : projects.length === 0 ? (
+          <div className="empty-state">
+            <p>No projects found. Create your first project to get started.</p>
+          </div>
+        ) : (
+          <div className="projects-grid">
+            {projects.map((project) => (
             <div key={project.id} className="project-card">
               <div className="project-card-header">
                 <div>

@@ -19,6 +19,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
+  isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<User | undefined>;
   signup: (name: string, email: string, password: string, company?: string) => Promise<User | undefined>;
   loginWithGoogle: () => Promise<User | undefined>;
@@ -306,6 +307,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       value={{
         user,
         isLoading,
+        isAuthenticated: !!user,
         login,
         signup,
         loginWithGoogle,
