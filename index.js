@@ -13,6 +13,7 @@ const PORT = process.env.PORT || 8000;
 // Basic logging
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  console.log('Request headers:', req.headers['user-agent'] ? 'Browser' : 'Curl/Other');
   next();
 });
 
@@ -226,12 +227,20 @@ app.get('/signup', (req, res) => {
 
 // Main landing page - serve static HTML (MUST come before proxy middlewares)
 app.get('/', (req, res) => {
+  console.log('=== ROOT ROUTE HIT ===');
   const filePath = path.join(publicDir, 'index.html');
   console.log('Attempting to serve index.html from:', filePath);
+  console.log('Public dir:', publicDir);
+  console.log('__dirname:', __dirname);
   
   if (fs.existsSync(filePath)) {
     console.log('index.html exists, serving file');
-    res.sendFile(filePath);
+    res.sendFile(filePath, (err) => {
+      if (err) {
+        console.log('Error serving file:', err);
+        res.status(500).send('Error serving landing page');
+      }
+    });
   } else {
     console.log('index.html not found at path:', filePath);
     res.status(404).send('Landing page not found');
@@ -284,7 +293,9 @@ app.get('/favicon.ico', createProxyMiddleware({
 }));
 
 // Static file serving (after specific routes but before catch-all)
-app.use(express.static(publicDir));
+app.use(express.static(publicDir, {
+  index: false // Disable automatic index.html serving to prevent conflicts
+}));
 
 // Start the server
 app.listen(PORT, () => {
