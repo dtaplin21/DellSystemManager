@@ -170,47 +170,21 @@ app.post('/api/auth/logout', (req, res) => {
   res.status(200).json({ message: 'Logged out successfully' });
 });
 
-// API routes - proxy specific non-auth routes to Backend Server
-app.use('/api/projects', createProxyMiddleware({
+// API routes - proxy to Backend Server (exclude auth routes) 
+app.use(createProxyMiddleware({
+  filter: (pathname) => pathname.startsWith('/api/') && !pathname.startsWith('/api/auth'),
   target: 'http://localhost:8003',
   changeOrigin: true,
-  pathRewrite: {
-    '^/api/projects': '/api/projects'
-  },
   onProxyReq: (proxyReq, req, res) => {
-    console.log('Projects API proxy - Original URL:', req.originalUrl);
-    console.log('Projects API proxy - Target path:', proxyReq.path);
+    console.log('Backend API proxy - Original URL:', req.originalUrl);
+    console.log('Backend API proxy - Target path:', proxyReq.path);
   },
   onProxyRes: (proxyRes, req, res) => {
-    console.log('Projects API proxy response - Status:', proxyRes.statusCode);
-  }
-}));
-
-app.use('/api/panels', createProxyMiddleware({
-  target: 'http://localhost:8003',
-  changeOrigin: true,
-  pathRewrite: {
-    '^/api/panels': '/api/panels'
+    console.log('Backend API proxy response - Status:', proxyRes.statusCode);
   },
-  onProxyReq: (proxyReq, req, res) => {
-    console.log('Panels API proxy - Original URL:', req.originalUrl);
-    console.log('Panels API proxy - Target path:', proxyReq.path);
-  }
-}));
-
-app.use('/api/documents', createProxyMiddleware({
-  target: 'http://localhost:8003',
-  changeOrigin: true,
-  pathRewrite: {
-    '^/api/documents': '/api/documents'
-  }
-}));
-
-app.use('/api/qc-data', createProxyMiddleware({
-  target: 'http://localhost:8003',
-  changeOrigin: true,
-  pathRewrite: {
-    '^/api/qc-data': '/api/qc-data'
+  onError: (err, req, res) => {
+    console.error('Backend API proxy error:', err);
+    res.status(500).json({ error: 'Backend API service unavailable' });
   }
 }));
 
