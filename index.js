@@ -224,6 +224,20 @@ app.get('/signup', (req, res) => {
   res.sendFile(path.join(publicDir, 'signup.html'));
 });
 
+// Main landing page - serve static HTML (MUST come before proxy middlewares)
+app.get('/', (req, res) => {
+  const filePath = path.join(publicDir, 'index.html');
+  console.log('Attempting to serve index.html from:', filePath);
+  
+  if (fs.existsSync(filePath)) {
+    console.log('index.html exists, serving file');
+    res.sendFile(filePath);
+  } else {
+    console.log('index.html not found at path:', filePath);
+    res.status(404).send('Landing page not found');
+  }
+});
+
 // Panel optimizer API - proxy to Panel Optimizer Service (MUST come before dashboard routes)
 app.use('/panel-api', createProxyMiddleware({
   target: 'http://localhost:8002',
@@ -245,8 +259,7 @@ app.use('/panel-api', createProxyMiddleware({
 }));
 
 // Dashboard routes - catch all dashboard paths with filter function
-app.use(createProxyMiddleware({
-  filter: (pathname, req) => pathname.startsWith('/dashboard'),
+app.use('/dashboard', createProxyMiddleware({
   target: 'http://localhost:3001',
   changeOrigin: true,
   onProxyReq: (proxyReq, req, res) => {
@@ -269,11 +282,6 @@ app.get('/favicon.ico', createProxyMiddleware({
   changeOrigin: true,
   logLevel: 'silent'
 }));
-
-// Main landing page - serve static HTML
-app.get('/', (req, res) => {
-  res.sendFile(path.join(publicDir, 'index.html'));
-});
 
 // Static file serving (after specific routes but before catch-all)
 app.use(express.static(publicDir));
