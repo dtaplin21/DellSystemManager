@@ -224,11 +224,7 @@ app.get('/signup', (req, res) => {
 
 // Dashboard routes - MUST come before API routes to prevent conflicts
 app.use(createProxyMiddleware({
-  filter: (pathname, req) => {
-    const isDashboard = pathname.startsWith('/dashboard');
-    console.log('Dashboard filter check:', pathname, '-> isDashboard:', isDashboard);
-    return isDashboard;
-  },
+  filter: (pathname, req) => pathname.startsWith('/dashboard'),
   target: 'http://localhost:3001',
   changeOrigin: true,
   onProxyReq: (proxyReq, req, res) => {
