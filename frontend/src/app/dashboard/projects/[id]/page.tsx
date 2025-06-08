@@ -21,13 +21,23 @@ interface Project {
   progress: number;
 }
 
-export default function ProjectDetailsPage({ params }: { params: { id: string } }) {
+export default function ProjectDetailsPage({ params }: { params: Promise<{ id: string }> }) {
   const [project, setProject] = useState<Project | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
-  const { id } = params;
+  const [id, setId] = useState<string>('');
 
   useEffect(() => {
+    const loadParams = async () => {
+      const resolvedParams = await params;
+      setId(resolvedParams.id);
+    };
+    loadParams();
+  }, [params]);
+
+  useEffect(() => {
+    if (!id) return;
+    
     const loadProject = async () => {
       try {
         setIsLoading(true);

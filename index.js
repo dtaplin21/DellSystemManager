@@ -170,6 +170,27 @@ app.post('/api/auth/logout', (req, res) => {
   res.status(200).json({ message: 'Logged out successfully' });
 });
 
+// API routes - proxy to Backend Server (MUST come before dashboard routes)
+app.use('/api', createProxyMiddleware({
+  filter: (pathname) => !pathname.startsWith('/api/auth'),
+  target: 'http://localhost:8003',
+  changeOrigin: true,
+  pathRewrite: {
+    '^/api': ''
+  },
+  onProxyReq: (proxyReq, req, res) => {
+    console.log('API proxy - Original URL:', req.originalUrl);
+    console.log('API proxy - Target path:', proxyReq.path);
+  },
+  onProxyRes: (proxyRes, req, res) => {
+    console.log('API proxy response - Status:', proxyRes.statusCode);
+  },
+  onError: (err, req, res) => {
+    console.error('API proxy error:', err);
+    res.status(500).json({ error: 'Backend API service unavailable' });
+  }
+}));
+
 // Next.js static assets - MUST come first to prevent routing conflicts
 app.use('/_next', createProxyMiddleware({
   target: 'http://localhost:3001',
