@@ -43,8 +43,8 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "cd backend && PANEL_API_PORT=8004 python run_panel_api.py"
-waitForPort = 8004
+args = "cd backend && PANEL_API_PORT=8002 python run_panel_api.py"
+waitForPort = 8002
 
 [[workflows.workflow]]
 name = "Frontend Server"
@@ -52,8 +52,8 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "cd frontend && npm run dev -- --port 3002"
-waitForPort = 3002
+args = "cd frontend && npm run dev -- --port 3001"
+waitForPort = 3001
 
 [[workflows.workflow]]
 name = "Gateway Server"
@@ -62,7 +62,7 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node index.js"
-waitForPort = 5000
+waitForPort = 8000
 
 [deployment]
 run = ["sh", "-c", "cd backend && node server.js"]
