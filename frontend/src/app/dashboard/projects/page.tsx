@@ -150,52 +150,53 @@ export default function ProjectsPage() {
         ) : (
           <div className="projects-grid">
             {projects.map((project) => (
-            <div key={project.id} className="project-card">
-              <div className="project-card-header">
-                <div>
-                  <h3 className="project-name">{project.name}</h3>
-                </div>
-                <div className={getStatusClass(project.status)}>
-                  {project.status}
-                </div>
-              </div>
-              
-              <div className="project-card-body">
-                <div className="project-details">
-                  {project.description && (
-                    <div className="project-detail">
-                      <span className="detail-label">Description:</span>
-                      <span className="detail-value">{project.description}</span>
-                    </div>
-                  )}
-                  {project.location && (
-                    <div className="project-detail">
-                      <span className="detail-label">Location:</span>
-                      <span className="detail-value">{project.location}</span>
-                    </div>
-                  )}
-                  <div className="project-detail">
-                    <span className="detail-label">Created:</span>
-                    <span className="detail-value">{new Date(project.created_at).toLocaleDateString()}</span>
+              <div key={project.id} className="project-card">
+                <div className="project-card-header">
+                  <div>
+                    <h3 className="project-name">{project.name}</h3>
                   </div>
-                  <div className="project-detail">
-                    <span className="detail-label">Updated:</span>
-                    <span className="detail-value">{new Date(project.updated_at).toLocaleDateString()}</span>
+                  <div className={getStatusClass(project.status)}>
+                    {project.status}
                   </div>
                 </div>
+                
+                <div className="project-card-body">
+                  <div className="project-details">
+                    {project.description && (
+                      <div className="project-detail">
+                        <span className="detail-label">Description:</span>
+                        <span className="detail-value">{project.description}</span>
+                      </div>
+                    )}
+                    {project.location && (
+                      <div className="project-detail">
+                        <span className="detail-label">Location:</span>
+                        <span className="detail-value">{project.location}</span>
+                      </div>
+                    )}
+                    <div className="project-detail">
+                      <span className="detail-label">Created:</span>
+                      <span className="detail-value">{new Date(project.created_at).toLocaleDateString()}</span>
+                    </div>
+                    <div className="project-detail">
+                      <span className="detail-label">Updated:</span>
+                      <span className="detail-value">{new Date(project.updated_at).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="project-actions">
+                  <a href={`/dashboard/projects/${project.id}`} className="btn-action btn-view">
+                    View Details
+                  </a>
+                  <a href={`/dashboard/projects/${project.id}/panel-layout`} className="btn-action btn-layout">
+                    Panel Layout
+                  </a>
+                </div>
               </div>
-              
-              <div className="project-actions">
-                <a href={`/dashboard/projects/${project.id}`} className="btn-action btn-view">
-                  View Details
-                </a>
-                <a href={`/dashboard/projects/${project.id}/panel-layout`} className="btn-action btn-layout">
-                  Panel Layout
-                </a>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
