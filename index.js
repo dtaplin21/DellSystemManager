@@ -222,6 +222,28 @@ app.get('/signup', (req, res) => {
   res.sendFile(path.join(publicDir, 'signup.html'));
 });
 
+// Dashboard routes - MUST come before API routes to prevent conflicts
+app.use(createProxyMiddleware({
+  filter: (pathname, req) => {
+    const isDashboard = pathname.startsWith('/dashboard');
+    console.log('Dashboard filter check:', pathname, '-> isDashboard:', isDashboard);
+    return isDashboard;
+  },
+  target: 'http://localhost:3001',
+  changeOrigin: true,
+  onProxyReq: (proxyReq, req, res) => {
+    console.log('Dashboard proxy - Original URL:', req.originalUrl);
+    console.log('Dashboard proxy - Target path:', proxyReq.path);
+  },
+  onProxyRes: (proxyRes, req, res) => {
+    console.log('Dashboard proxy response - Status:', proxyRes.statusCode);
+  },
+  onError: (err, req, res) => {
+    console.error('Dashboard proxy error:', err);
+    res.status(500).send('Dashboard service unavailable');
+  }
+}));
+
 // API routes - proxy to Backend Server (exclude auth routes) 
 app.use(createProxyMiddleware({
   filter: (pathname) => pathname.startsWith('/api/') && !pathname.startsWith('/api/auth'),
@@ -240,14 +262,14 @@ app.use(createProxyMiddleware({
   }
 }));
 
-// Next.js static assets - MUST come first to prevent routing conflicts
+// Next.js static assets
 app.use('/_next', createProxyMiddleware({
   target: 'http://localhost:3001',
   changeOrigin: true,
   logLevel: 'silent'
 }));
 
-// Panel optimizer API - proxy to Panel Optimizer Service (MUST come before dashboard routes)
+// Panel optimizer API - proxy to Panel Optimizer Service
 app.use('/panel-api', createProxyMiddleware({
   target: 'http://localhost:8002',
   changeOrigin: true,
@@ -264,19 +286,6 @@ app.use('/panel-api', createProxyMiddleware({
   onError: (err, req, res) => {
     console.error('Panel API proxy error:', err);
     res.status(500).json({ error: 'Panel API service unavailable' });
-  }
-}));
-
-// Dashboard routes - catch all dashboard paths with filter function
-app.use('/dashboard', createProxyMiddleware({
-  target: 'http://localhost:3001',
-  changeOrigin: true,
-  onProxyReq: (proxyReq, req, res) => {
-    console.log('Dashboard proxy - Original URL:', req.originalUrl);
-    console.log('Dashboard proxy - Target path:', proxyReq.path);
-  },
-  onProxyRes: (proxyRes, req, res) => {
-    console.log('Dashboard proxy response - Status:', proxyRes.statusCode);
   }
 }));
 
