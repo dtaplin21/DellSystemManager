@@ -541,6 +541,12 @@
             throw new Error(data.message || 'Signup failed');
           }
           
+          // Store token in localStorage for persistent authentication
+          if (data.token) {
+            localStorage.setItem('auth_token', data.token);
+            localStorage.setItem('user_data', JSON.stringify(data.user));
+          }
+          
           // Success - redirect to dashboard
           alert('Account created successfully! Welcome to GeoSynth QC Pro!');
           window.location.href = '/dashboard';

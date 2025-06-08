@@ -354,6 +354,12 @@
             throw new Error(data.message || 'Login failed');
           }
           
+          // Store token in localStorage for persistent authentication
+          if (data.token) {
+            localStorage.setItem('auth_token', data.token);
+            localStorage.setItem('user_data', JSON.stringify(data.user));
+          }
+          
           // Success - redirect to dashboard
           alert('Login successful! Welcome back!');
           window.location.href = '/dashboard';

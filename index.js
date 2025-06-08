@@ -38,10 +38,39 @@ app.use(express.urlencoded({ extended: true }));
 // API auth routes - direct implementation
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const { v4: uuidv4 } = require('uuid');
+const { Pool } = require('pg');
 
-// Simple in-memory user store for demo
-const users = new Map();
+// Database connection
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
+
+// Initialize database tables
+async function initDatabase() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        email TEXT NOT NULL UNIQUE,
+        password TEXT NOT NULL,
+        display_name TEXT NOT NULL,
+        company TEXT,
+        position TEXT,
+        subscription TEXT DEFAULT 'basic',
+        profile_image_url TEXT,
+        stripe_customer_id TEXT,
+        stripe_subscription_id TEXT,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    console.log('Database tables initialized');
+  } catch (error) {
+    console.error('Database initialization error:', error);
+  }
+}
+
+initDatabase();
 
 // Helper functions
 const generateToken = (user) => {
@@ -78,43 +107,36 @@ app.post('/api/auth/signup', async (req, res) => {
     }
     
     // Check if user already exists
-    for (const [id, user] of users.entries()) {
-      if (user.email === email) {
-        return res.status(400).json({ message: 'User with this email already exists' });
-      }
+    const existingUser = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+    if (existingUser.rows.length > 0) {
+      return res.status(400).json({ message: 'User with this email already exists' });
     }
     
     // Hash password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
     
-    // Create user
-    const newUser = {
-      id: uuidv4(),
-      email,
-      password: hashedPassword,
-      displayName: name,
-      company: company || null,
-      position: null,
-      subscription: 'basic',
-      profileImageUrl: null,
-      stripeCustomerId: null,
-      stripeSubscriptionId: null,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
+    // Create user in database
+    const result = await pool.query(`
+      INSERT INTO users (email, password, display_name, company, subscription)
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING id, email, display_name, company, subscription, created_at, updated_at
+    `, [email, hashedPassword, name, company || null, 'basic']);
     
-    users.set(newUser.id, newUser);
+    const newUser = result.rows[0];
     
     // Generate JWT token
     const token = generateToken(newUser);
     
-    // Set cookie
+    // Set cookie and also return token for localStorage storage
     setTokenCookie(res, token);
     
-    // Return user info (without password)
-    const { password: _, ...userWithoutPassword } = newUser;
-    res.status(201).json({ user: userWithoutPassword });
+    // Return user info and token
+    res.status(201).json({ 
+      user: newUser,
+      token: token,
+      success: true
+    });
   } catch (error) {
     console.error('Signup error:', error);
     res.status(500).json({ message: 'Something went wrong during signup' });
@@ -132,38 +154,83 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(400).json({ message: 'Email and password are required' });
     }
     
-    // Find user
-    let user = null;
-    for (const [id, u] of users.entries()) {
-      if (u.email === email) {
-        user = u;
-        break;
-      }
+    // Find user by email in database
+    const result = await pool.query(`
+      SELECT id, email, password, display_name, company, subscription, created_at, updated_at
+      FROM users WHERE email = $1
+    `, [email]);
+    
+    if (result.rows.length === 0) {
+      return res.status(401).json({ message: 'Invalid email or password' });
     }
     
-    if (!user) {
-      return res.status(400).json({ message: 'Invalid email or password' });
-    }
+    const user = result.rows[0];
     
     // Verify password
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) {
-      return res.status(400).json({ message: 'Invalid email or password' });
+      return res.status(401).json({ message: 'Invalid email or password' });
     }
+    
+    // Update last login
+    await pool.query('UPDATE users SET updated_at = NOW() WHERE id = $1', [user.id]);
     
     // Generate JWT token
     const token = generateToken(user);
     
-    // Set cookie
+    // Set cookie and also return token for localStorage storage
     setTokenCookie(res, token);
     
-    // Return user info (without password)
+    // Return user info (without password) and token
     const { password: _, ...userWithoutPassword } = user;
-    res.status(200).json({ user: userWithoutPassword });
+    res.status(200).json({ 
+      user: userWithoutPassword,
+      token: token,
+      success: true
+    });
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ message: 'Something went wrong during login' });
   }
+});
+
+// Token validation middleware
+const validateToken = async (req, res, next) => {
+  try {
+    let token = req.cookies.token;
+    
+    // Also check Authorization header for localStorage tokens
+    if (!token && req.headers.authorization) {
+      token = req.headers.authorization.replace('Bearer ', '');
+    }
+    
+    if (!token) {
+      return res.status(401).json({ message: 'No token provided' });
+    }
+    
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'default-secret');
+    
+    // Get user from database
+    const result = await pool.query(`
+      SELECT id, email, display_name, company, subscription, created_at, updated_at
+      FROM users WHERE id = $1
+    `, [decoded.id]);
+    
+    if (result.rows.length === 0) {
+      return res.status(401).json({ message: 'Invalid token' });
+    }
+    
+    req.user = result.rows[0];
+    next();
+  } catch (error) {
+    console.error('Token validation error:', error);
+    res.status(401).json({ message: 'Invalid token' });
+  }
+};
+
+// Get current user endpoint
+app.get('/api/auth/user', validateToken, (req, res) => {
+  res.json({ user: req.user });
 });
 
 app.post('/api/auth/logout', (req, res) => {
