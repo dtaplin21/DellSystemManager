@@ -35,6 +35,10 @@ const publicDir = path.join(__dirname, 'public');
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Cookie parser middleware for JWT authentication
+const cookieParser = require('cookie-parser');
+app.use(cookieParser());
+
 // API auth routes - direct implementation
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
@@ -197,9 +201,6 @@ app.post('/api/auth/login', async (req, res) => {
 // Token validation middleware
 const validateToken = async (req, res, next) => {
   try {
-    console.log('validateToken called - req.cookies:', req.cookies);
-    console.log('validateToken called - req.headers.authorization:', req.headers.authorization);
-    
     let token = req.cookies?.token;
     
     // Also check Authorization header for localStorage tokens
@@ -207,23 +208,17 @@ const validateToken = async (req, res, next) => {
       token = req.headers.authorization.replace('Bearer ', '');
     }
     
-    console.log('Token validation - token found:', !!token);
-    console.log('JWT_SECRET available:', !!(process.env.JWT_SECRET || 'default-secret'));
-    
     if (!token) {
       return res.status(401).json({ message: 'No token provided' });
     }
     
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'default-secret');
-    console.log('Token decoded successfully:', decoded);
     
     // Get user from database
     const result = await pool.query(`
       SELECT id, email, display_name, company, subscription, created_at, updated_at
       FROM users WHERE id = $1
     `, [decoded.id]);
-    
-    console.log('Database query result:', result.rows.length, 'users found');
     
     if (result.rows.length === 0) {
       return res.status(401).json({ message: 'Invalid token - user not found' });
@@ -232,7 +227,7 @@ const validateToken = async (req, res, next) => {
     req.user = result.rows[0];
     next();
   } catch (error) {
-    console.error('Token validation error:', error);
+    console.error('Token validation error:', error.message);
     res.status(401).json({ message: 'Invalid token' });
   }
 };
