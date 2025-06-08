@@ -1,49 +1,47 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useAuth } from '../../../hooks/use-auth';
 import './projects.css';
 
 interface Project {
   id: string;
   name: string;
-  client: string;
-  location: string;
+  description?: string;
+  location?: string;
   status: string;
-  progress: number;
-  lastUpdated: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export default function ProjectsPage() {
+  const { user, isAuthenticated } = useAuth();
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [projects] = useState<Project[]>([
-    {
-      id: '1',
-      name: 'North Valley Containment',
-      client: 'Valley Engineering',
-      status: 'Active',
-      location: 'North Valley, CA',
-      lastUpdated: '2025-05-01',
-      progress: 75
-    },
-    {
-      id: '2',
-      name: 'Southside Liner Installation',
-      client: 'Metro Waste Solutions',
-      status: 'On Hold',
-      location: 'Southside, TX',
-      lastUpdated: '2025-04-15',
-      progress: 45
-    },
-    {
-      id: '3',
-      name: 'Eastwood Landfill Cover',
-      client: 'Eastwood County',
-      status: 'Completed',
-      location: 'Eastwood, OR',
-      lastUpdated: '2025-05-10',
-      progress: 100
-    }
-  ]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchProjects = async () => {
+      if (!isAuthenticated) return;
+      
+      try {
+        const response = await fetch('/api/projects', {
+          credentials: 'include',
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setProjects(data.projects || []);
+        }
+      } catch (error) {
+        console.error('Error fetching projects:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchProjects();
+  }, [isAuthenticated]);
 
   const handleCreateProject = () => {
     alert('Project creation functionality ready! This will connect to your backend when ready.');
@@ -153,30 +151,25 @@ export default function ProjectsPage() {
               
               <div className="project-card-body">
                 <div className="project-details">
+                  {project.description && (
+                    <div className="project-detail">
+                      <span className="detail-label">Description:</span>
+                      <span className="detail-value">{project.description}</span>
+                    </div>
+                  )}
+                  {project.location && (
+                    <div className="project-detail">
+                      <span className="detail-label">Location:</span>
+                      <span className="detail-value">{project.location}</span>
+                    </div>
+                  )}
                   <div className="project-detail">
-                    <span className="detail-label">Client:</span>
-                    <span className="detail-value">{project.client}</span>
-                  </div>
-                  <div className="project-detail">
-                    <span className="detail-label">Location:</span>
-                    <span className="detail-value">{project.location}</span>
+                    <span className="detail-label">Created:</span>
+                    <span className="detail-value">{new Date(project.created_at).toLocaleDateString()}</span>
                   </div>
                   <div className="project-detail">
                     <span className="detail-label">Updated:</span>
-                    <span className="detail-value">{project.lastUpdated}</span>
-                  </div>
-                </div>
-                
-                <div className="project-progress">
-                  <div className="progress-header">
-                    <span className="progress-label">Progress</span>
-                    <span className="progress-value">{project.progress}%</span>
-                  </div>
-                  <div className="progress-bar">
-                    <div 
-                      className={getProgressClass(project.progress)}
-                      style={{ width: `${project.progress}%` }}
-                    ></div>
+                    <span className="detail-value">{new Date(project.updated_at).toLocaleDateString()}</span>
                   </div>
                 </div>
               </div>
