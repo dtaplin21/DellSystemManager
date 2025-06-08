@@ -42,32 +42,43 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Check if user is logged in
     const checkAuth = async () => {
       try {
-        // First check localStorage for cached user (only on client)
+        // Check localStorage for stored authentication token and user data
         if (typeof window !== 'undefined') {
-          const storedUser = localStorage.getItem('geoqc_user');
+          const storedToken = localStorage.getItem('auth_token');
+          const storedUser = localStorage.getItem('user_data');
           
-          if (storedUser) {
-            // Verify session with backend
-            const response = await fetch('/api/auth/me', {
+          if (storedToken && storedUser) {
+            // Verify token with backend
+            const response = await fetch('/api/auth/user', {
+              headers: {
+                'Authorization': `Bearer ${storedToken}`,
+                'Content-Type': 'application/json',
+              },
               credentials: 'include',
             });
             
             if (response.ok) {
               const { user } = await response.json();
               setUser(user);
-              localStorage.setItem('geoqc_user', JSON.stringify(user));
+              // Update localStorage with fresh user data
+              localStorage.setItem('user_data', JSON.stringify(user));
             } else {
-              // Session expired, clear local storage
-              localStorage.removeItem('geoqc_user');
+              // Token expired or invalid, clear storage
+              localStorage.removeItem('auth_token');
+              localStorage.removeItem('user_data');
+              localStorage.removeItem('geoqc_user'); // Legacy cleanup
               setUser(null);
             }
           } else {
+            // No authentication data found
             setUser(null);
           }
         }
       } catch (error) {
         console.error('Auth check error:', error);
         if (typeof window !== 'undefined') {
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('user_data');
           localStorage.removeItem('geoqc_user');
         }
         setUser(null);
@@ -100,7 +111,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       setUser(data.user);
       if (typeof window !== 'undefined') {
-        localStorage.setItem('geoqc_user', JSON.stringify(data.user));
+        // Store both token and user data in localStorage for persistent authentication
+        localStorage.setItem('auth_token', data.token);
+        localStorage.setItem('user_data', JSON.stringify(data.user));
+        localStorage.setItem('geoqc_user', JSON.stringify(data.user)); // Legacy compatibility
       }
       
       toast({
@@ -146,7 +160,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       setUser(data.user);
       if (typeof window !== 'undefined') {
-        localStorage.setItem('geoqc_user', JSON.stringify(data.user));
+        // Store both token and user data in localStorage for persistent authentication
+        localStorage.setItem('auth_token', data.token);
+        localStorage.setItem('user_data', JSON.stringify(data.user));
+        localStorage.setItem('geoqc_user', JSON.stringify(data.user)); // Legacy compatibility
       }
       
       toast({
@@ -214,7 +231,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       setUser(null);
       if (typeof window !== 'undefined') {
-        localStorage.removeItem('geoqc_user');
+        // Clear all authentication data from localStorage
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('user_data');
+        localStorage.removeItem('geoqc_user'); // Legacy cleanup
       }
       
       toast({
@@ -226,6 +246,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // Still clear local state even if API call fails
       setUser(null);
       if (typeof window !== 'undefined') {
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('user_data');
         localStorage.removeItem('geoqc_user');
       }
     } finally {
