@@ -197,18 +197,25 @@ app.post('/api/auth/login', async (req, res) => {
 // Token validation middleware
 const validateToken = async (req, res, next) => {
   try {
-    let token = req.cookies.token;
+    console.log('validateToken called - req.cookies:', req.cookies);
+    console.log('validateToken called - req.headers.authorization:', req.headers.authorization);
+    
+    let token = req.cookies?.token;
     
     // Also check Authorization header for localStorage tokens
-    if (!token && req.headers.authorization) {
+    if (!token && req.headers?.authorization) {
       token = req.headers.authorization.replace('Bearer ', '');
     }
+    
+    console.log('Token validation - token found:', !!token);
+    console.log('JWT_SECRET available:', !!(process.env.JWT_SECRET || 'default-secret'));
     
     if (!token) {
       return res.status(401).json({ message: 'No token provided' });
     }
     
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'default-secret');
+    console.log('Token decoded successfully:', decoded);
     
     // Get user from database
     const result = await pool.query(`
@@ -216,8 +223,10 @@ const validateToken = async (req, res, next) => {
       FROM users WHERE id = $1
     `, [decoded.id]);
     
+    console.log('Database query result:', result.rows.length, 'users found');
+    
     if (result.rows.length === 0) {
-      return res.status(401).json({ message: 'Invalid token' });
+      return res.status(401).json({ message: 'Invalid token - user not found' });
     }
     
     req.user = result.rows[0];
