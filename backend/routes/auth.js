@@ -193,6 +193,12 @@ router.get('/me', auth, async (req, res) => {
   res.status(200).json({ user: req.user });
 });
 
+// Get current user (alternative endpoint for frontend compatibility)
+router.get('/user', auth, async (req, res) => {
+  // User is already attached to req by auth middleware
+  res.status(200).json(req.user);
+});
+
 // Update user profile
 router.patch('/profile', auth, async (req, res, next) => {
   try {
