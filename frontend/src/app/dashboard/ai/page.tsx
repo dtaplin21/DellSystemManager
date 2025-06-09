@@ -191,6 +191,75 @@ export default function AIAssistantPage() {
     }
   };
 
+  const handleHandwritingUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files?.length || !selectedProject) return;
+
+    const file = files[0];
+    setIsProcessingHandwriting(true);
+    setHandwritingResult(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('qcForm', file);
+      formData.append('projectId', selectedProject);
+
+      const response = await fetch('/api/handwriting/scan', {
+        method: 'POST',
+        credentials: 'include',
+        body: formData
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setHandwritingResult(result.data);
+        setShowHandwritingPreview(true);
+        
+        // Add a message about the successful scan
+        const aiMessage: Message = {
+          id: Date.now().toString(),
+          type: 'ai',
+          content: `Successfully processed handwritten QC form "${file.name}". 
+          ${result.data.validation.isValid ? 
+            `Extracted ${Object.keys(result.data.qcData.panels || {}).length} panels and ${Object.keys(result.data.qcData.tests || {}).length} tests with ${(result.data.validation.confidence * 100).toFixed(1)}% confidence.` :
+            `Found ${result.data.validation.issues.length} validation issues that may need review.`
+          } Excel report is ready for download.`,
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, aiMessage]);
+        
+      } else {
+        throw new Error('Failed to process handwriting scan');
+      }
+    } catch (error) {
+      console.error('Error processing handwriting:', error);
+      const errorMessage: Message = {
+        id: Date.now().toString(),
+        type: 'ai',
+        content: 'Sorry, I encountered an error processing the handwritten form. Please ensure the image is clear and try again.',
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsProcessingHandwriting(false);
+      if (handwritingInputRef.current) {
+        handwritingInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleDownloadExcel = () => {
+    if (!handwritingResult) return;
+    
+    // Create a download link
+    const link = document.createElement('a');
+    link.href = handwritingResult.excelUrl;
+    link.download = handwritingResult.filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const handleGenerateLayout = async () => {
     if (!selectedProject || documents.length === 0) return;
 
@@ -350,6 +419,191 @@ export default function AIAssistantPage() {
               Send
             </button>
           </div>
+        </div>
+
+        {/* Handwriting OCR Section */}
+        <div className="handwriting-section">
+          <div className="section-header">
+            <h2>QC Form Scanner</h2>
+            <button 
+              onClick={() => handwritingInputRef.current?.click()}
+              className="btn-upload"
+              disabled={isProcessingHandwriting || !selectedProject}
+            >
+              {isProcessingHandwriting ? 'Processing...' : 'Scan Handwritten Form'}
+            </button>
+            <input
+              ref={handwritingInputRef}
+              type="file"
+              accept="image/*,.pdf"
+              onChange={handleHandwritingUpload}
+              style={{ display: 'none' }}
+            />
+          </div>
+          
+          <div className="handwriting-info">
+            <p>Upload scanned images or PDFs of handwritten QC forms to automatically extract data and generate Excel reports.</p>
+            <div className="supported-formats">
+              <span>Supported: JPG, PNG, PDF</span>
+              <span>Best results: Clear, high-contrast scans</span>
+            </div>
+          </div>
+
+          {/* Processing Status */}
+          {isProcessingHandwriting && (
+            <div className="processing-status">
+              <div className="loading-spinner"></div>
+              <span>Processing handwritten form with AI...</span>
+            </div>
+          )}
+
+          {/* Results Preview */}
+          {handwritingResult && (
+            <div className="handwriting-results">
+              <div className="results-header">
+                <h3>Scan Results</h3>
+                <div className="confidence-indicator">
+                  <span className={`confidence ${handwritingResult.validation.confidence > 0.8 ? 'high' : handwritingResult.validation.confidence > 0.6 ? 'medium' : 'low'}`}>
+                    {(handwritingResult.validation.confidence * 100).toFixed(1)}% confidence
+                  </span>
+                </div>
+              </div>
+
+              <div className="results-summary">
+                <div className="summary-stats">
+                  <div className="stat">
+                    <span className="label">Panels:</span>
+                    <span className="value">{handwritingResult.qcData.panels?.length || 0}</span>
+                  </div>
+                  <div className="stat">
+                    <span className="label">Tests:</span>
+                    <span className="value">{handwritingResult.qcData.tests?.length || 0}</span>
+                  </div>
+                  <div className="stat">
+                    <span className="label">Status:</span>
+                    <span className={`value ${handwritingResult.validation.isValid ? 'valid' : 'invalid'}`}>
+                      {handwritingResult.validation.isValid ? 'Valid' : `${handwritingResult.validation.issues.length} issues`}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Validation Issues */}
+                {!handwritingResult.validation.isValid && (
+                  <div className="validation-issues">
+                    <h4>Validation Issues:</h4>
+                    <ul>
+                      {handwritingResult.validation.issues.map((issue, index) => (
+                        <li key={index} className="issue-item">{issue}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="results-actions">
+                  <button 
+                    onClick={handleDownloadExcel}
+                    className="btn-download"
+                  >
+                    Download Excel Report
+                  </button>
+                  <button 
+                    onClick={() => setShowHandwritingPreview(!showHandwritingPreview)}
+                    className="btn-preview"
+                  >
+                    {showHandwritingPreview ? 'Hide' : 'Show'} Preview
+                  </button>
+                </div>
+
+                {/* Data Preview */}
+                {showHandwritingPreview && (
+                  <div className="data-preview">
+                    <div className="preview-tabs">
+                      <div className="tab-content">
+                        <h4>Project Information</h4>
+                        <div className="preview-data">
+                          <p><strong>Name:</strong> {handwritingResult.qcData.projectInfo?.name || 'N/A'}</p>
+                          <p><strong>Location:</strong> {handwritingResult.qcData.projectInfo?.location || 'N/A'}</p>
+                          <p><strong>Date:</strong> {handwritingResult.qcData.projectInfo?.date || 'N/A'}</p>
+                          <p><strong>Inspector:</strong> {handwritingResult.qcData.projectInfo?.inspector || 'N/A'}</p>
+                        </div>
+
+                        {handwritingResult.qcData.panels && handwritingResult.qcData.panels.length > 0 && (
+                          <>
+                            <h4>Panels ({handwritingResult.qcData.panels.length})</h4>
+                            <div className="preview-table">
+                              <table>
+                                <thead>
+                                  <tr>
+                                    <th>Panel ID</th>
+                                    <th>Width</th>
+                                    <th>Height</th>
+                                    <th>Patches</th>
+                                    <th>Welder</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {handwritingResult.qcData.panels.slice(0, 5).map((panel: any, index: number) => (
+                                    <tr key={index}>
+                                      <td>{panel.panelId || 'N/A'}</td>
+                                      <td>{panel.width || 'N/A'}</td>
+                                      <td>{panel.height || 'N/A'}</td>
+                                      <td>{panel.patches || 0}</td>
+                                      <td>{panel.seamWelder || 'N/A'}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                              {handwritingResult.qcData.panels.length > 5 && (
+                                <p className="more-data">... and {handwritingResult.qcData.panels.length - 5} more panels</p>
+                              )}
+                            </div>
+                          </>
+                        )}
+
+                        {handwritingResult.qcData.tests && handwritingResult.qcData.tests.length > 0 && (
+                          <>
+                            <h4>Tests ({handwritingResult.qcData.tests.length})</h4>
+                            <div className="preview-table">
+                              <table>
+                                <thead>
+                                  <tr>
+                                    <th>Test ID</th>
+                                    <th>Type</th>
+                                    <th>Value</th>
+                                    <th>Result</th>
+                                    <th>Operator</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {handwritingResult.qcData.tests.slice(0, 5).map((test: any, index: number) => (
+                                    <tr key={index}>
+                                      <td>{test.testId || 'N/A'}</td>
+                                      <td>{test.type || 'N/A'}</td>
+                                      <td>{test.value} {test.unit}</td>
+                                      <td className={`result ${test.result?.toLowerCase()}`}>{test.result || 'N/A'}</td>
+                                      <td>{test.operator || 'N/A'}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                              {handwritingResult.qcData.tests.length > 5 && (
+                                <p className="more-data">... and {handwritingResult.qcData.tests.length - 5} more tests</p>
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {!selectedProject && (
+            <p className="requirement-note">Select a project to enable handwriting scanning</p>
+          )}
         </div>
 
         {/* Auto-Layout Section */}

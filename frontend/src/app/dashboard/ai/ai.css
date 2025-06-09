@@ -25,7 +25,7 @@
 
 .ai-content {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 32px;
   margin-bottom: 32px;
 }
@@ -44,6 +44,266 @@
   padding: 24px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   border: 1px solid #e2e8f0;
+}
+
+/* Handwriting OCR Section */
+.handwriting-section {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e2e8f0;
+}
+
+.handwriting-info {
+  margin: 16px 0;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border-left: 4px solid #007bff;
+}
+
+.handwriting-info p {
+  margin: 0 0 12px 0;
+  color: #64748b;
+}
+
+.supported-formats {
+  display: flex;
+  gap: 16px;
+  font-size: 14px;
+}
+
+.supported-formats span {
+  color: #64748b;
+  padding: 4px 8px;
+  background: #e9ecef;
+  border-radius: 4px;
+}
+
+.processing-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  margin: 16px 0;
+}
+
+.loading-spinner {
+  width: 20px;
+  height: 20px;
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #007bff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.handwriting-results {
+  margin-top: 20px;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #dee2e6;
+}
+
+.results-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.results-header h3 {
+  margin: 0;
+  color: #1e293b;
+}
+
+.confidence-indicator .confidence {
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.confidence.high {
+  background: #d4edda;
+  color: #155724;
+}
+
+.confidence.medium {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.confidence.low {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.summary-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  background: white;
+  border-radius: 6px;
+  border: 1px solid #dee2e6;
+}
+
+.stat .label {
+  font-size: 12px;
+  color: #64748b;
+  text-transform: uppercase;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.stat .value {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.stat .value.valid {
+  color: #28a745;
+}
+
+.stat .value.invalid {
+  color: #dc3545;
+}
+
+.validation-issues {
+  margin: 16px 0;
+  padding: 16px;
+  background: #fff5f5;
+  border-radius: 6px;
+  border-left: 4px solid #dc3545;
+}
+
+.validation-issues h4 {
+  margin: 0 0 12px 0;
+  color: #721c24;
+  font-size: 16px;
+}
+
+.validation-issues ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.issue-item {
+  color: #721c24;
+  margin-bottom: 4px;
+}
+
+.results-actions {
+  display: flex;
+  gap: 12px;
+  margin: 20px 0;
+}
+
+.btn-download, .btn-preview {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-download {
+  background: #28a745;
+  color: white;
+}
+
+.btn-download:hover {
+  background: #218838;
+  transform: translateY(-1px);
+}
+
+.btn-preview {
+  background: #6c757d;
+  color: white;
+}
+
+.btn-preview:hover {
+  background: #5a6268;
+  transform: translateY(-1px);
+}
+
+.data-preview {
+  margin-top: 20px;
+  padding: 20px;
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #dee2e6;
+}
+
+.preview-data {
+  background: #f8f9fa;
+  padding: 16px;
+  border-radius: 6px;
+  margin: 12px 0;
+}
+
+.preview-data p {
+  margin: 8px 0;
+  font-size: 14px;
+}
+
+.preview-table {
+  margin: 16px 0;
+  overflow-x: auto;
+}
+
+.preview-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.preview-table th,
+.preview-table td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.preview-table th {
+  background: #f8f9fa;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.preview-table .result.pass {
+  color: #28a745;
+  font-weight: 600;
+}
+
+.preview-table .result.fail {
+  color: #dc3545;
+  font-weight: 600;
+}
+
+.more-data {
+  font-style: italic;
+  color: #64748b;
+  text-align: center;
+  margin: 12px 0;
 }
 
 .section-header {
