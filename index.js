@@ -3,6 +3,8 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
+const http = require('http');
+const { WebSocketServer, WebSocket } = require('ws');
 const { createProxyMiddleware } = require('http-proxy-middleware');
 
 const app = express();
@@ -594,8 +596,53 @@ app.use(express.static(publicDir, {
   index: false // Disable automatic index.html serving to prevent conflicts
 }));
 
+// Create HTTP server and WebSocket server
+const server = http.createServer(app);
+const wss = new WebSocketServer({ server, path: '/ws' });
+
+// WebSocket connection handling
+wss.on('connection', (ws) => {
+  console.log('WebSocket client connected');
+  
+  ws.on('message', (data) => {
+    try {
+      const message = JSON.parse(data);
+      console.log('WebSocket message received:', message.type);
+      
+      // Handle different message types
+      switch (message.type) {
+        case 'subscribe_project':
+          ws.projectId = message.data.projectId;
+          break;
+        case 'ping':
+          ws.send(JSON.stringify({ type: 'pong', timestamp: Date.now() }));
+          break;
+      }
+    } catch (error) {
+      console.error('WebSocket message error:', error);
+    }
+  });
+  
+  ws.on('close', () => {
+    console.log('WebSocket client disconnected');
+  });
+});
+
+// Broadcast AI job status updates to connected clients
+function broadcastJobUpdate(projectId, status) {
+  wss.clients.forEach((client) => {
+    if (client.readyState === WebSocket.OPEN && client.projectId === projectId) {
+      client.send(JSON.stringify({
+        type: 'ai_job_update',
+        data: { projectId, status },
+        timestamp: Date.now()
+      }));
+    }
+  });
+}
+
 // Start the server
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`- Dashboard: http://localhost:${PORT}/dashboard`);
 });

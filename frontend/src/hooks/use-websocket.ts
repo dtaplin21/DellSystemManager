@@ -14,7 +14,7 @@ interface UseWebSocketOptions {
   reconnectDelay?: number;
 }
 
-export function useWebSocket(url: string, options: UseWebSocketOptions = {}) {
+export function useWebSocket(options: UseWebSocketOptions = {}) {
   const {
     onMessage,
     onConnect,
@@ -96,8 +96,8 @@ export function useWebSocket(url: string, options: UseWebSocketOptions = {}) {
 
   useEffect(() => {
     connect();
-    return disconnect;
-  }, []);
+    return () => disconnect();
+  }, [reconnectCount]);
 
   return {
     isConnected,
