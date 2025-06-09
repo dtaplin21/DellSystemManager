@@ -278,6 +278,191 @@ app.get('/api/projects/:id', validateToken, async (req, res) => {
   }
 });
 
+// AI Assistant endpoints
+app.post('/api/ai/query', validateToken, async (req, res) => {
+  try {
+    const { projectId, question, documents } = req.body;
+    
+    if (!projectId || !question) {
+      return res.status(400).json({ message: 'Project ID and question are required' });
+    }
+    
+    // Verify project access
+    const projectResult = await pool.query(`
+      SELECT id FROM projects WHERE id = $1 AND user_id = $2
+    `, [projectId, req.user.id]);
+    
+    if (projectResult.rows.length === 0) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
+    
+    // Process documents and query with OpenAI
+    const OpenAI = require('openai');
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    
+    let context = '';
+    if (documents && documents.length > 0) {
+      context = documents.map(doc => `Document: ${doc.filename}\nContent: ${doc.text}`).join('\n\n');
+    }
+    
+    const prompt = `You are an AI assistant for geosynthetic engineering projects. Based on the following documents and question, provide a detailed answer with specific references.
+    
+Context:
+${context}
+
+Question: ${question}
+
+Please provide:
+1. A comprehensive answer
+2. Specific references to source documents with relevant excerpts
+
+Format your response as JSON with the structure:
+{
+  "answer": "detailed answer here",
+  "references": [
+    {
+      "docId": "document_id",
+      "page": 1,
+      "excerpt": "relevant text excerpt"
+    }
+  ]
+}`;
+    
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
+      messages: [{ role: "user", content: prompt }],
+      response_format: { type: "json_object" },
+    });
+    
+    const aiResponse = JSON.parse(response.choices[0].message.content);
+    
+    res.json(aiResponse);
+  } catch (error) {
+    console.error('AI query error:', error);
+    res.status(500).json({ message: 'Failed to process AI query' });
+  }
+});
+
+app.post('/api/ai/automate-layout', validateToken, async (req, res) => {
+  try {
+    const { projectId, documents } = req.body;
+    
+    if (!projectId) {
+      return res.status(400).json({ message: 'Project ID is required' });
+    }
+    
+    // Verify project access
+    const projectResult = await pool.query(`
+      SELECT id FROM projects WHERE id = $1 AND user_id = $2
+    `, [projectId, req.user.id]);
+    
+    if (projectResult.rows.length === 0) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
+    
+    // Set job status to processing
+    await pool.query(`
+      INSERT INTO ai_jobs (id, project_id, user_id, type, status, created_at)
+      VALUES (gen_random_uuid(), $1, $2, 'layout_generation', 'processing', NOW())
+      ON CONFLICT (project_id, type) DO UPDATE SET
+        status = 'processing',
+        created_at = NOW()
+    `, [projectId, req.user.id]);
+    
+    // Process documents and generate layout with OpenAI
+    const OpenAI = require('openai');
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    
+    let context = '';
+    if (documents && documents.length > 0) {
+      context = documents.map(doc => `Document: ${doc.filename}\nContent: ${doc.text}`).join('\n\n');
+    }
+    
+    const prompt = `You are an AI assistant for geosynthetic panel layout optimization. Based on the provided documents, generate an optimal panel layout configuration.
+    
+Context:
+${context}
+
+Generate a panel layout with the following specifications:
+- Analyze site dimensions and constraints from documents
+- Create rectangular panels with realistic dimensions (10-50 feet width/height)
+- Ensure panels don't overlap
+- Optimize for coverage and installation efficiency
+- Include seam details and welding specifications
+
+Format your response as JSON:
+{
+  "projectId": "${projectId}",
+  "width": 1000,
+  "height": 800,
+  "scale": 1,
+  "panels": [
+    {
+      "id": "panel_1",
+      "x": 100,
+      "y": 100,
+      "width": 200,
+      "height": 150,
+      "rotation": 0,
+      "material": "HDPE",
+      "thickness": "1.5mm",
+      "seamType": "extrusion_welded",
+      "annotations": ["Anchor points required", "Quality control zone"]
+    }
+  ]
+}`;
+    
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
+      messages: [{ role: "user", content: prompt }],
+      response_format: { type: "json_object" },
+    });
+    
+    const layoutData = JSON.parse(response.choices[0].message.content);
+    
+    // Update job status to completed
+    await pool.query(`
+      UPDATE ai_jobs SET status = 'completed', completed_at = NOW()
+      WHERE project_id = $1 AND type = 'layout_generation'
+    `, [projectId]);
+    
+    res.json(layoutData);
+  } catch (error) {
+    console.error('AI layout generation error:', error);
+    
+    // Update job status to failed
+    await pool.query(`
+      UPDATE ai_jobs SET status = 'failed', completed_at = NOW()
+      WHERE project_id = $1 AND type = 'layout_generation'
+    `, [req.body.projectId]);
+    
+    res.status(500).json({ message: 'Failed to generate layout' });
+  }
+});
+
+app.get('/api/ai/job-status/:projectId', validateToken, async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    
+    const result = await pool.query(`
+      SELECT status, created_at, completed_at 
+      FROM ai_jobs 
+      WHERE project_id = $1 AND user_id = $2 AND type = 'layout_generation'
+      ORDER BY created_at DESC 
+      LIMIT 1
+    `, [projectId, req.user.id]);
+    
+    if (result.rows.length === 0) {
+      return res.json({ status: 'idle' });
+    }
+    
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error fetching job status:', error);
+    res.status(500).json({ message: 'Failed to fetch job status' });
+  }
+});
+
 // Main landing page - serve static HTML (MUST come FIRST before any middlewares)
 app.get('/', (req, res) => {
   console.log('=== ROOT ROUTE HIT ===');

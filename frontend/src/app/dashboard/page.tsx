@@ -112,6 +112,22 @@ export default function Dashboard() {
                 </Link>
               </div>
             </div>
+
+            <div className="dashboard-card">
+              <div className="card-header">
+                <div className="card-icon ai">🤖</div>
+                <div>
+                  <h3 className="card-title">AI Assistant</h3>
+                  <p className="card-description">Document analysis & layout automation</p>
+                </div>
+              </div>
+              <div className="card-value">Ready</div>
+              <div className="card-actions">
+                <Link href="/dashboard/ai" className="btn btn-primary">
+                  Open Assistant
+                </Link>
+              </div>
+            </div>
           </div>
 
           {/* Quick Actions */}
@@ -126,6 +142,11 @@ export default function Dashboard() {
               <Link href="/dashboard/panel-layout" className="action-item">
                 <div className="action-icon orange">🔧</div>
                 <span className="action-text">Panel Layout Designer</span>
+              </Link>
+
+              <Link href="/dashboard/ai" className="action-item">
+                <div className="action-icon ai">🤖</div>
+                <span className="action-text">AI Assistant</span>
               </Link>
               
               <Link href="/dashboard/qc-data" className="action-item">
