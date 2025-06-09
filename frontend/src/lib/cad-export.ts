@@ -39,8 +39,8 @@ export function exportToDXF(panels: Panel[], projectInfo: ProjectInfo): void {
       addRectangle(d, panel);
     } else if (panel.shape === 'circle' && panel.radius) {
       addCircle(d, panel);
-    } else if (panel.shape === 'polygon' && panel.points) {
-      addPolygon(d, panel);
+    } else if (panel.shape === 'triangle' && panel.points) {
+      addTriangle(d, panel);
     }
   });
   
@@ -161,27 +161,25 @@ function addCircle(d: Drawing, panel: Panel): void {
 }
 
 /**
- * Add a polygon panel to the drawing
+ * Add a triangle panel to the drawing
  */
-function addPolygon(d: Drawing, panel: Panel): void {
+function addTriangle(d: Drawing, panel: Panel): void {
   const { points, panelNumber } = panel;
   
   if (points && points.length >= 6) {
-    // Close the polygon by duplicating the first point at the end if needed
-    const closedPoints = [...points];
-    if (closedPoints[0] !== closedPoints[closedPoints.length - 2] || 
-        closedPoints[1] !== closedPoints[closedPoints.length - 1]) {
-      closedPoints.push(closedPoints[0], closedPoints[1]);
-    }
+    // Triangle has exactly 3 points (6 coordinates)
+    const trianglePoints = [
+      points[0], points[1], // Point 1
+      points[2], points[3], // Point 2
+      points[4], points[5], // Point 3
+      points[0], points[1]  // Close triangle back to Point 1
+    ];
     
-    d.addPolyline(closedPoints, true);
+    d.addPolyline(trianglePoints, true);
     
     // Calculate the centroid for the panel number
-    const xValues = closedPoints.filter((_, i) => i % 2 === 0);
-    const yValues = closedPoints.filter((_, i) => i % 2 === 1);
-    
-    const centroidX = xValues.reduce((sum, x) => sum + x, 0) / (xValues.length - 1);
-    const centroidY = yValues.reduce((sum, y) => sum + y, 0) / (yValues.length - 1);
+    const centroidX = (points[0] + points[2] + points[4]) / 3;
+    const centroidY = (points[1] + points[3] + points[5]) / 3;
     
     d.addText(centroidX, centroidY, 5, 0, panelNumber);
   }

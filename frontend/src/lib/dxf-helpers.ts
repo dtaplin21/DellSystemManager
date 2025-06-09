@@ -175,14 +175,14 @@ function generateDXF(panels: Panel[], projectInfo: ProjectInfo): string {
       dxf += '72\n1\n'; // Horizontal text justification (center)
       dxf += '73\n1\n'; // Vertical text justification (middle)
     }
-    else if (panel.shape === 'polygon' && panel.points && panel.points.length >= 6) {
-      // Add polygon
+    else if (panel.shape === 'triangle' && panel.points && panel.points.length >= 6) {
+      // Add triangle
       dxf += '0\nPOLYLINE\n';
       dxf += '8\nPanels\n';
       dxf += '66\n1\n';
       dxf += '70\n1\n';
       
-      // Add each vertex
+      // Add each vertex (triangle has 3 vertices)
       for (let i = 0; i < panel.points.length; i += 2) {
         dxf += '0\nVERTEX\n';
         dxf += '8\nPanels\n';

@@ -339,6 +339,41 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
                       }}
                     />
                   )
+                } else if (panel.shape === 'triangle' && panel.points && panel.points.length >= 6) {
+                  return (
+                    <Line
+                      key={panel.id}
+                      points={[...panel.points, panel.points[0], panel.points[1]]} // Close the triangle
+                      fill={panel.color}
+                      stroke={isSelected ? '#0052cc' : '#666'}
+                      strokeWidth={isSelected ? 2 : 1}
+                      closed={true}
+                      draggable
+                      onClick={() => handlePanelSelect(panel.id)}
+                      onTap={() => handlePanelSelect(panel.id)}
+                      onDragEnd={(e) => {
+                        handleDragEnd(panel.id, e.target.x(), e.target.y())
+                      }}
+                    />
+                  )
+                } else if (panel.shape === 'circle' && panel.radius) {
+                  return (
+                    <Circle
+                      key={panel.id}
+                      x={panel.x}
+                      y={panel.y}
+                      radius={panel.radius}
+                      fill={panel.color}
+                      stroke={isSelected ? '#0052cc' : '#666'}
+                      strokeWidth={isSelected ? 2 : 1}
+                      draggable
+                      onClick={() => handlePanelSelect(panel.id)}
+                      onTap={() => handlePanelSelect(panel.id)}
+                      onDragEnd={(e) => {
+                        handleDragEnd(panel.id, e.target.x(), e.target.y())
+                      }}
+                    />
+                  )
                 }
                 
                 return null

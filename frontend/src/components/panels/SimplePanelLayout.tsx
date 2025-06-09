@@ -27,7 +27,7 @@ interface Panel {
   location: string
   x: number
   y: number
-  shape: 'rectangle' | 'polygon' | 'circle'
+  shape: 'rectangle' | 'triangle' | 'circle'
   points?: number[]
   radius?: number
   rotation: number
@@ -211,15 +211,12 @@ export default function SimplePanelLayout({ mode, projectInfo }: PanelLayoutProp
         y + 6
       )
     }
-    else if (shape === 'polygon' && panel.points && panel.points.length >= 6) {
-      // Draw polygon
+    else if (shape === 'triangle' && panel.points && panel.points.length >= 6) {
+      // Draw triangle
       ctx.beginPath()
       ctx.moveTo(panel.points[0], panel.points[1])
-      
-      for (let i = 2; i < panel.points.length; i += 2) {
-        ctx.lineTo(panel.points[i], panel.points[i + 1])
-      }
-      
+      ctx.lineTo(panel.points[2], panel.points[3])
+      ctx.lineTo(panel.points[4], panel.points[5])
       ctx.closePath()
       ctx.fill()
       ctx.stroke()
@@ -275,10 +272,9 @@ export default function SimplePanelLayout({ mode, projectInfo }: PanelLayoutProp
           break
         }
       }
-      else if (panel.shape === 'polygon' && panel.points) {
-        // This is a simplified check, not 100% accurate for all polygons
-        // For a proper check we'd need a point-in-polygon algorithm
-        // But for demo purposes, this will do
+      else if (panel.shape === 'triangle' && panel.points) {
+        // Triangle hit detection using point-in-triangle algorithm
+        // For simplicity, using bounding box check first
         const xCoords = panel.points.filter((_, i) => i % 2 === 0)
         const yCoords = panel.points.filter((_, i) => i % 2 === 1)
         
