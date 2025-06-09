@@ -2,6 +2,10 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { Slider } from '@/components/ui/slider';
 
 interface Panel {
   id: string;
@@ -13,6 +17,29 @@ interface Panel {
   x: number;
   y: number;
   color: string;
+  rotation?: number;
+  material?: string;
+  thickness?: number;
+}
+
+interface DragInfo {
+  isDragging: boolean;
+  startX: number;
+  startY: number;
+  panelId: string | null;
+  isResizing: boolean;
+  resizeHandle: string | null;
+  offsetX: number;
+  offsetY: number;
+}
+
+interface PanelLayoutSettings {
+  gridSize: number;
+  containerWidth: number;
+  containerHeight: number;
+  snapToGrid: boolean;
+  scale: number;
+  units: 'ft' | 'm';
 }
 
 export default function PanelPlaygroundPage() {
@@ -23,11 +50,157 @@ export default function PanelPlaygroundPage() {
   const [dimensions, setDimensions] = useState({ width: 15, length: 100 });
   const [selectedPanel, setSelectedPanel] = useState<string | null>(null);
   const [scale, setScale] = useState(1);
+  const [dragInfo, setDragInfo] = useState<DragInfo>({
+    isDragging: false,
+    startX: 0,
+    startY: 0,
+    panelId: null,
+    isResizing: false,
+    resizeHandle: null,
+    offsetX: 0,
+    offsetY: 0,
+  });
+  
+  const [settings, setSettings] = useState<PanelLayoutSettings>({
+    gridSize: 20,
+    containerWidth: 2000,
+    containerHeight: 1500,
+    snapToGrid: true,
+    scale: 1,
+    units: 'ft'
+  });
+  
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     drawCanvas();
-  }, [panels, scale]);
+  }, [panels, scale, settings, selectedPanel]);
+
+  // Snap to grid utility function
+  const snapToGrid = (value: number, gridSize: number): number => {
+    return Math.round(value / gridSize) * gridSize;
+  };
+
+  // Mouse event handlers for drag and drop
+  const handleMouseDown = (e: React.MouseEvent, panelId: string, isResizeHandle = false, handle: string | null = null) => {
+    e.preventDefault();
+    
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = (e.clientX - rect.left) / scale;
+    const mouseY = (e.clientY - rect.top) / scale;
+    
+    const panel = panels.find(p => p.id === panelId);
+    if (!panel) return;
+    
+    // Calculate offset within panel to maintain cursor position during drag
+    const offsetX = mouseX - panel.x;
+    const offsetY = mouseY - panel.y;
+    
+    setSelectedPanel(panelId);
+    setDragInfo({
+      isDragging: true,
+      startX: mouseX,
+      startY: mouseY,
+      panelId,
+      isResizing: isResizeHandle,
+      resizeHandle: handle,
+      offsetX,
+      offsetY
+    });
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!dragInfo.isDragging || !dragInfo.panelId) return;
+    
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = (e.clientX - rect.left) / scale;
+    const mouseY = (e.clientY - rect.top) / scale;
+    
+    setPanels(prevPanels => {
+      const newPanels = [...prevPanels];
+      const panelIndex = newPanels.findIndex(p => p.id === dragInfo.panelId);
+      if (panelIndex === -1) return prevPanels;
+      
+      const panel = { ...newPanels[panelIndex] };
+      
+      if (dragInfo.isResizing && dragInfo.resizeHandle) {
+        // Handle resizing
+        const deltaX = mouseX - dragInfo.startX;
+        const deltaY = mouseY - dragInfo.startY;
+        
+        switch (dragInfo.resizeHandle) {
+          case 'se':
+            panel.width = Math.max(20, panel.width + deltaX / 5);
+            panel.length = Math.max(20, panel.length + deltaY / 2);
+            break;
+          case 'sw':
+            const newWidth = Math.max(20, panel.width - deltaX / 5);
+            panel.x += (panel.width - newWidth) * 5;
+            panel.width = newWidth;
+            panel.length = Math.max(20, panel.length + deltaY / 2);
+            break;
+          case 'ne':
+            panel.width = Math.max(20, panel.width + deltaX / 5);
+            const newLength = Math.max(20, panel.length - deltaY / 2);
+            panel.y += (panel.length - newLength) * 2;
+            panel.length = newLength;
+            break;
+          case 'nw':
+            const newWidthNW = Math.max(20, panel.width - deltaX / 5);
+            const newLengthNW = Math.max(20, panel.length - deltaY / 2);
+            panel.x += (panel.width - newWidthNW) * 5;
+            panel.y += (panel.length - newLengthNW) * 2;
+            panel.width = newWidthNW;
+            panel.length = newLengthNW;
+            break;
+        }
+        
+        if (settings.snapToGrid) {
+          panel.width = Math.round(panel.width);
+          panel.length = Math.round(panel.length);
+        }
+      } else {
+        // Handle dragging
+        let newX = mouseX - dragInfo.offsetX;
+        let newY = mouseY - dragInfo.offsetY;
+        
+        if (settings.snapToGrid) {
+          newX = snapToGrid(newX, settings.gridSize);
+          newY = snapToGrid(newY, settings.gridSize);
+        }
+        
+        // Keep within bounds
+        newX = Math.max(0, Math.min(settings.containerWidth - panel.width * 5, newX));
+        newY = Math.max(0, Math.min(settings.containerHeight - panel.length * 2, newY));
+        
+        panel.x = newX;
+        panel.y = newY;
+      }
+      
+      newPanels[panelIndex] = panel;
+      return newPanels;
+    });
+  };
+
+  const handleMouseUp = () => {
+    setDragInfo({
+      isDragging: false,
+      startX: 0,
+      startY: 0,
+      panelId: null,
+      isResizing: false,
+      resizeHandle: null,
+      offsetX: 0,
+      offsetY: 0,
+    });
+  };
 
   const drawCanvas = () => {
     const canvas = canvasRef.current;
@@ -41,37 +214,79 @@ export default function PanelPlaygroundPage() {
     ctx.scale(scale, scale);
 
     // Draw grid
-    ctx.strokeStyle = '#e5e7eb';
+    ctx.strokeStyle = settings.snapToGrid ? '#e5e7eb' : '#f3f4f6';
     ctx.lineWidth = 1;
-    for (let x = 0; x <= 2000; x += 50) {
+    const gridStep = settings.snapToGrid ? settings.gridSize : 50;
+    
+    for (let x = 0; x <= settings.containerWidth; x += gridStep) {
       ctx.beginPath();
       ctx.moveTo(x, 0);
-      ctx.lineTo(x, 1500);
+      ctx.lineTo(x, settings.containerHeight);
       ctx.stroke();
     }
-    for (let y = 0; y <= 1500; y += 50) {
+    for (let y = 0; y <= settings.containerHeight; y += gridStep) {
       ctx.beginPath();
       ctx.moveTo(0, y);
-      ctx.lineTo(2000, y);
+      ctx.lineTo(settings.containerWidth, y);
       ctx.stroke();
     }
 
-    // Draw panels
+    // Draw panels with enhanced styling
     panels.forEach(panel => {
-      ctx.fillStyle = panel.color;
-      ctx.strokeStyle = selectedPanel === panel.id ? '#f97316' : '#374151';
-      ctx.lineWidth = selectedPanel === panel.id ? 3 : 1;
+      const isSelected = selectedPanel === panel.id;
+      const panelWidth = panel.width * 5;
+      const panelHeight = panel.length * 2;
       
-      ctx.fillRect(panel.x, panel.y, panel.width * 5, panel.length * 2);
-      ctx.strokeRect(panel.x, panel.y, panel.width * 5, panel.length * 2);
+      // Panel shadow
+      if (isSelected) {
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+        ctx.shadowBlur = 10;
+        ctx.shadowOffsetX = 3;
+        ctx.shadowOffsetY = 3;
+      }
+      
+      // Panel body
+      ctx.fillStyle = panel.color;
+      ctx.strokeStyle = isSelected ? '#f97316' : '#374151';
+      ctx.lineWidth = isSelected ? 3 : 1;
+      
+      ctx.fillRect(panel.x, panel.y, panelWidth, panelHeight);
+      ctx.strokeRect(panel.x, panel.y, panelWidth, panelHeight);
+      
+      // Reset shadow
+      ctx.shadowColor = 'transparent';
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
+      
+      // Draw resize handles for selected panel
+      if (isSelected) {
+        const handleSize = 8 / scale;
+        ctx.fillStyle = '#f97316';
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2 / scale;
+        
+        // Corner handles
+        const handles = [
+          { x: panel.x - handleSize/2, y: panel.y - handleSize/2, id: 'nw' },
+          { x: panel.x + panelWidth - handleSize/2, y: panel.y - handleSize/2, id: 'ne' },
+          { x: panel.x - handleSize/2, y: panel.y + panelHeight - handleSize/2, id: 'sw' },
+          { x: panel.x + panelWidth - handleSize/2, y: panel.y + panelHeight - handleSize/2, id: 'se' },
+        ];
+        
+        handles.forEach(handle => {
+          ctx.fillRect(handle.x, handle.y, handleSize, handleSize);
+          ctx.strokeRect(handle.x, handle.y, handleSize, handleSize);
+        });
+      }
       
       // Draw labels
       ctx.fillStyle = '#000';
-      ctx.font = '12px Arial';
+      ctx.font = `${12 / scale}px Arial`;
       ctx.textAlign = 'center';
-      ctx.fillText(panel.rollNumber, panel.x + (panel.width * 5) / 2, panel.y + (panel.length * 2) / 2 - 10);
-      ctx.fillText(panel.panelNumber, panel.x + (panel.width * 5) / 2, panel.y + (panel.length * 2) / 2 + 5);
-      ctx.fillText(`${panel.width}' × ${panel.length}'`, panel.x + (panel.width * 5) / 2, panel.y + (panel.length * 2) / 2 + 20);
+      ctx.fillText(panel.rollNumber, panel.x + panelWidth / 2, panel.y + panelHeight / 2 - 10 / scale);
+      ctx.fillText(panel.panelNumber, panel.x + panelWidth / 2, panel.y + panelHeight / 2 + 5 / scale);
+      ctx.fillText(`${panel.width}' × ${panel.length}'`, panel.x + panelWidth / 2, panel.y + panelHeight / 2 + 20 / scale);
     });
 
     ctx.restore();
@@ -113,12 +328,49 @@ export default function PanelPlaygroundPage() {
     const x = (e.clientX - rect.left) / scale;
     const y = (e.clientY - rect.top) / scale;
 
+    // Check if clicking on resize handle first
+    if (selectedPanel) {
+      const panel = panels.find(p => p.id === selectedPanel);
+      if (panel) {
+        const handleSize = 8 / scale;
+        const panelWidth = panel.width * 5;
+        const panelHeight = panel.length * 2;
+        
+        const handles = [
+          { x: panel.x - handleSize/2, y: panel.y - handleSize/2, id: 'nw' },
+          { x: panel.x + panelWidth - handleSize/2, y: panel.y - handleSize/2, id: 'ne' },
+          { x: panel.x - handleSize/2, y: panel.y + panelHeight - handleSize/2, id: 'sw' },
+          { x: panel.x + panelWidth - handleSize/2, y: panel.y + panelHeight - handleSize/2, id: 'se' },
+        ];
+        
+        for (const handle of handles) {
+          if (x >= handle.x && x <= handle.x + handleSize && 
+              y >= handle.y && y <= handle.y + handleSize) {
+            handleMouseDown(e, selectedPanel, true, handle.id);
+            return;
+          }
+        }
+      }
+    }
+
+    // Check for panel selection
     const clickedPanel = panels.find(panel => 
       x >= panel.x && x <= panel.x + panel.width * 5 &&
       y >= panel.y && y <= panel.y + panel.length * 2
     );
 
-    setSelectedPanel(clickedPanel ? clickedPanel.id : null);
+    if (clickedPanel) {
+      handleMouseDown(e, clickedPanel.id);
+    } else {
+      setSelectedPanel(null);
+    }
+  };
+
+  const deleteSelectedPanel = () => {
+    if (selectedPanel) {
+      setPanels(panels.filter(panel => panel.id !== selectedPanel));
+      setSelectedPanel(null);
+    }
   };
 
   return (
@@ -137,11 +389,43 @@ export default function PanelPlaygroundPage() {
       
       <div className="flex gap-6 p-6">
         {/* Controls Panel */}
-        <div className="w-80 bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-lg font-semibold mb-4">Panel Management</h2>
+        <div className="w-80 bg-white rounded-lg shadow-md p-6 space-y-6">
+          <h2 className="text-lg font-semibold">Panel Management</h2>
+          
+          {/* Layout Settings */}
+          <div className="border-b pb-4">
+            <h3 className="text-sm font-medium mb-3">Layout Settings</h3>
+            
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="snap-grid" className="text-sm">Snap to Grid</Label>
+                <Switch
+                  id="snap-grid"
+                  checked={settings.snapToGrid}
+                  onCheckedChange={(checked) => 
+                    setSettings(prev => ({ ...prev, snapToGrid: checked }))
+                  }
+                />
+              </div>
+              
+              <div>
+                <Label className="text-sm">Grid Size: {settings.gridSize}px</Label>
+                <Slider
+                  value={[settings.gridSize]}
+                  onValueChange={(values) => 
+                    setSettings(prev => ({ ...prev, gridSize: values[0] }))
+                  }
+                  max={50}
+                  min={10}
+                  step={5}
+                  className="mt-2"
+                />
+              </div>
+            </div>
+          </div>
           
           {/* Shape Selection */}
-          <div className="mb-4">
+          <div>
             <label className="block text-sm font-medium mb-2">Panel Shape</label>
             <div className="flex border border-gray-300 rounded-md overflow-hidden">
               {['rectangle', 'triangle', 'hexagon'].map(shape => (
@@ -218,6 +502,14 @@ export default function PanelPlaygroundPage() {
             <Button onClick={addPanel} className="w-full bg-orange-500 hover:bg-orange-600">
               Add Panel
             </Button>
+            <Button 
+              onClick={deleteSelectedPanel} 
+              variant="outline" 
+              className="w-full"
+              disabled={!selectedPanel}
+            >
+              Delete Selected
+            </Button>
             <Button onClick={clearAllPanels} variant="outline" className="w-full">
               Clear All
             </Button>
@@ -279,10 +571,13 @@ export default function PanelPlaygroundPage() {
           <div className="border border-gray-300 rounded overflow-auto" style={{ height: '600px' }}>
             <canvas
               ref={canvasRef}
-              width={2000}
-              height={1500}
-              className="cursor-pointer"
-              onClick={handleCanvasClick}
+              width={settings.containerWidth}
+              height={settings.containerHeight}
+              className={`${dragInfo.isDragging ? 'cursor-grabbing' : 'cursor-pointer'}`}
+              onMouseDown={handleCanvasClick}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+              onMouseLeave={handleMouseUp}
             />
           </div>
         </div>
