@@ -30,6 +30,7 @@ app.use('/api/panels', require('./routes/panels'));
 app.use('/api/qc-data', require('./routes/qc-data'));
 app.use('/api/payments', require('./routes/payments'));
 app.use('/api/ai', require('./routes/ai'));
+app.use('/api/handwriting', require('./routes/handwriting'));
 app.use('/api/system', require('./routes/api/system'));
 
 // Error handler

@@ -30,6 +30,24 @@ interface JobStatus {
   completed_at?: string;
 }
 
+interface HandwritingScanResult {
+  filename: string;
+  excelUrl: string;
+  qcData: any;
+  validation: {
+    isValid: boolean;
+    issues: string[];
+    confidence: number;
+  };
+  extractedText: any;
+  processingInfo: {
+    originalFilename: string;
+    fileSize: number;
+    mimeType: string;
+    processedAt: string;
+  };
+}
+
 export default function AIAssistantPage() {
   const { user, isAuthenticated } = useAuth();
   const router = useRouter();
