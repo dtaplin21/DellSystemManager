@@ -1,13 +1,20 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Stage, Layer, Rect, Line, Text } from 'react-konva'
+import dynamic from 'next/dynamic'
 import { Button } from '@/components/ui/button'
 import CreatePanelModal from './CreatePanelModal'
 import PanelAIChat from './PanelAIChat'
 import { parseExcelPanels, generateTemplateFile } from '@/lib/excel-import'
 import { exportToDXF, exportToJSON } from '@/lib/dxf-helpers'
 import { saveAs } from 'file-saver'
+
+// Dynamically import Konva components to avoid SSR issues
+const Stage = dynamic(() => import('react-konva').then(mod => mod.Stage), { ssr: false })
+const Layer = dynamic(() => import('react-konva').then(mod => mod.Layer), { ssr: false })
+const Rect = dynamic(() => import('react-konva').then(mod => mod.Rect), { ssr: false })
+const Line = dynamic(() => import('react-konva').then(mod => mod.Line), { ssr: false })
+const Text = dynamic(() => import('react-konva').then(mod => mod.Text), { ssr: false })
 
 interface PanelLayoutProps {
   mode: 'manual' | 'auto'
@@ -44,7 +51,12 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
   const [scale, setScale] = useState(1)
   const [position, setPosition] = useState({ x: 0, y: 0 })
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 })
+  const [isMounted, setIsMounted] = useState(false)
   const stageRef = useRef<any>(null)
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   useEffect(() => {
     // Initialize with some sample panels in auto mode
@@ -229,7 +241,7 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
             backgroundColor: '#f0f0f0'
           }}
         >
-          <Stage
+          {isMounted && <Stage
             ref={stageRef}
             width={dimensions.width}
             height={dimensions.height}
@@ -344,7 +356,7 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
                 />
               ))}
             </Layer>
-          </Stage>
+          </Stage>}
         </div>
       </div>
       
