@@ -48,6 +48,16 @@ interface HandwritingScanResult {
   };
 }
 
+interface Project {
+  id: string;
+  name: string;
+  description?: string;
+  location?: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export default function AIAssistantPage() {
   const { user, isAuthenticated } = useAuth();
   const router = useRouter();
@@ -56,6 +66,7 @@ export default function AIAssistantPage() {
   const [inputValue, setInputValue] = useState('');
   const [documents, setDocuments] = useState<Document[]>([]);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [jobStatus, setJobStatus] = useState<JobStatus>({ status: 'idle' });
   const [isGeneratingLayout, setIsGeneratingLayout] = useState(false);
   const [isUploadingDoc, setIsUploadingDoc] = useState(false);
@@ -65,6 +76,28 @@ export default function AIAssistantPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const handwritingInputRef = useRef<HTMLInputElement>(null);
+
+  // Fetch available projects
+  useEffect(() => {
+    const fetchProjects = async () => {
+      if (!isAuthenticated) return;
+      
+      try {
+        const response = await fetch('/api/projects', {
+          credentials: 'include',
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setProjects(data.projects || []);
+        }
+      } catch (error) {
+        console.error('Error fetching projects:', error);
+      }
+    };
+
+    fetchProjects();
+  }, [isAuthenticated]);
 
   // Get project ID from URL params
   useEffect(() => {
