@@ -60,6 +60,15 @@ export default function Navbar() {
             Projects
           </Button>
 
+          <Button 
+            variant="ghost" 
+            size="sm"
+            className="text-navy-100 hover:text-orange-400 hover:bg-navy-800"
+            onClick={() => window.location.href = '/dashboard/panels'}
+          >
+            Panel Designer
+          </Button>
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm" className="gap-2 text-navy-100 hover:text-orange-400 hover:bg-navy-800">
