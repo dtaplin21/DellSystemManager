@@ -139,7 +139,7 @@ export default function Dashboard() {
                 <span className="action-text">New Project</span>
               </Link>
               
-              <Link href="/panel-layout-fixed.html" className="action-item">
+              <Link href="/panel-layout" className="action-item">
                 <div className="action-icon orange">🔧</div>
                 <span className="action-text">Panel Layout Designer</span>
               </Link>
