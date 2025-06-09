@@ -59,8 +59,12 @@ export default function AIAssistantPage() {
   const [jobStatus, setJobStatus] = useState<JobStatus>({ status: 'idle' });
   const [isGeneratingLayout, setIsGeneratingLayout] = useState(false);
   const [isUploadingDoc, setIsUploadingDoc] = useState(false);
+  const [isProcessingHandwriting, setIsProcessingHandwriting] = useState(false);
+  const [handwritingResult, setHandwritingResult] = useState<HandwritingScanResult | null>(null);
+  const [showHandwritingPreview, setShowHandwritingPreview] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const handwritingInputRef = useRef<HTMLInputElement>(null);
 
   // Get project ID from URL params
   useEffect(() => {

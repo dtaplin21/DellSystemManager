@@ -2,9 +2,9 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs').promises;
-const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
 const HandwritingOCRService = require('../services/handwriting-ocr');
-const { validateToken } = require('../middlewares/auth');
+const { auth } = require('../middlewares/auth');
 
 const router = express.Router();
 
@@ -36,7 +36,7 @@ const ocrService = new HandwritingOCRService();
  * POST /api/handwriting/scan
  * Process handwritten QC form and generate Excel report
  */
-router.post('/scan', validateToken, upload.single('qcForm'), async (req, res) => {
+router.post('/scan', auth, upload.single('qcForm'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ 
@@ -117,7 +117,7 @@ router.post('/scan', validateToken, upload.single('qcForm'), async (req, res) =>
  * GET /api/handwriting/download/:filename
  * Download generated Excel report
  */
-router.get('/download/:filename', validateToken, async (req, res) => {
+router.get('/download/:filename', auth, async (req, res) => {
   try {
     const { filename } = req.params;
     
@@ -162,7 +162,7 @@ router.get('/download/:filename', validateToken, async (req, res) => {
  * GET /api/handwriting/preview/:filename
  * Get preview data for Excel file (first sheet data)
  */
-router.get('/preview/:filename', validateToken, async (req, res) => {
+router.get('/preview/:filename', auth, async (req, res) => {
   try {
     const { filename } = req.params;
     
@@ -240,7 +240,7 @@ router.get('/preview/:filename', validateToken, async (req, res) => {
  * POST /api/handwriting/validate
  * Validate and correct OCR results before generating Excel
  */
-router.post('/validate', validateToken, async (req, res) => {
+router.post('/validate', auth, async (req, res) => {
   try {
     const { qcData, corrections } = req.body;
 
@@ -290,7 +290,7 @@ router.post('/validate', validateToken, async (req, res) => {
  * DELETE /api/handwriting/cleanup/:filename
  * Clean up temporary files
  */
-router.delete('/cleanup/:filename', validateToken, async (req, res) => {
+router.delete('/cleanup/:filename', auth, async (req, res) => {
   try {
     const { filename } = req.params;
     
