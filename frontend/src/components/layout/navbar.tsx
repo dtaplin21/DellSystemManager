@@ -64,9 +64,9 @@ export default function Navbar() {
             variant="ghost" 
             size="sm"
             className="text-navy-100 hover:text-orange-400 hover:bg-navy-800"
-            onClick={() => window.location.href = '/panel-layout'}
+            onClick={() => window.location.href = '/dashboard/panel-playground'}
           >
-            Panel Designer
+            Panel Playground
           </Button>
 
           <DropdownMenu>
