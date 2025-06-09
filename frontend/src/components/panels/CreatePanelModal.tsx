@@ -12,7 +12,7 @@ interface CreatePanelModalProps {
     width: number
     rollNumber: string
     location: string
-    shape: 'rectangle' | 'polygon' | 'circle'
+    shape: 'rectangle' | 'triangle' | 'circle'
     points?: number[]
     radius?: number
   }) => void

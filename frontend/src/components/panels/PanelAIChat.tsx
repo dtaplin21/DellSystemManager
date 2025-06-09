@@ -13,7 +13,7 @@ interface Panel {
   location: string
   x: number
   y: number
-  shape: 'rectangle' | 'polygon' | 'circle'
+  shape: 'rectangle' | 'triangle' | 'circle'
   points?: number[]
   radius?: number
   rotation: number

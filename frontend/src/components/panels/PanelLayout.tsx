@@ -15,6 +15,7 @@ const Layer = dynamic(() => import('react-konva').then(mod => mod.Layer), { ssr:
 const Rect = dynamic(() => import('react-konva').then(mod => mod.Rect), { ssr: false })
 const Line = dynamic(() => import('react-konva').then(mod => mod.Line), { ssr: false })
 const Text = dynamic(() => import('react-konva').then(mod => mod.Text), { ssr: false })
+const Circle = dynamic(() => import('react-konva').then(mod => mod.Circle), { ssr: false })
 
 interface PanelLayoutProps {
   mode: 'manual' | 'auto'
@@ -37,7 +38,7 @@ interface Panel {
   location: string
   x: number
   y: number
-  shape: 'rectangle' | 'polygon' | 'circle'
+  shape: 'rectangle' | 'triangle' | 'circle'
   points?: number[]
   radius?: number
   rotation: number

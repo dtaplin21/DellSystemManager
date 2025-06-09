@@ -10,7 +10,7 @@ interface Panel {
   x: number;
   y: number;
   rotation: number;
-  shape: 'rectangle' | 'polygon' | 'circle';
+  shape: 'rectangle' | 'triangle' | 'circle';
   points?: number[];
   radius?: number;
 }
