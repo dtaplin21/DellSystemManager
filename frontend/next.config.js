@@ -9,14 +9,24 @@ const nextConfig = {
       config.resolve.fallback = {
         ...config.resolve.fallback,
         canvas: false,
+        fs: false,
+        path: false,
+        os: false,
       };
     }
     
-    // Resolve native module issues
+    // Resolve native module issues and Konva conflicts
     config.resolve.alias = {
       ...config.resolve.alias,
       'lightningcss': false,
+      'konva/lib/index-node': 'konva/lib/index',
     };
+    
+    // Exclude problematic modules from bundling
+    config.externals = config.externals || [];
+    if (!isServer) {
+      config.externals.push('canvas');
+    }
     
     return config;
   },
