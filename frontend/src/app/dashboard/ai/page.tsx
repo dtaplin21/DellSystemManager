@@ -73,6 +73,8 @@ export default function AIAssistantPage() {
   const [isProcessingHandwriting, setIsProcessingHandwriting] = useState(false);
   const [handwritingResult, setHandwritingResult] = useState<HandwritingScanResult | null>(null);
   const [showHandwritingPreview, setShowHandwritingPreview] = useState(false);
+  const [showCreateProject, setShowCreateProject] = useState(false);
+  const [isCreatingProject, setIsCreatingProject] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const handwritingInputRef = useRef<HTMLInputElement>(null);
@@ -332,6 +334,49 @@ export default function AIAssistantPage() {
     }
   };
 
+  const handleCreateProject = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    
+    const projectData = {
+      name: formData.get('name') as string,
+      client: formData.get('client') as string,
+      location: formData.get('location') as string,
+      startDate: formData.get('startDate') as string,
+      description: formData.get('description') as string,
+    };
+
+    setIsCreatingProject(true);
+    
+    try {
+      const response = await fetch('/api/projects', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(projectData)
+      });
+
+      if (response.ok) {
+        const newProject = await response.json();
+        setProjects(prev => [newProject, ...prev]);
+        setSelectedProject(newProject.id);
+        setShowCreateProject(false);
+        
+        // Reset form
+        event.currentTarget.reset();
+      } else {
+        throw new Error('Failed to create project');
+      }
+    } catch (error) {
+      console.error('Error creating project:', error);
+      alert('Failed to create project. Please try again.');
+    } finally {
+      setIsCreatingProject(false);
+    }
+  };
+
   if (!isAuthenticated) {
     return (
       <div className="ai-page">
@@ -348,6 +393,150 @@ export default function AIAssistantPage() {
       <div className="ai-header">
         <h1>AI Assistant</h1>
         <p>Upload documents, ask questions, and generate optimized panel layouts</p>
+      </div>
+
+      {/* Project Selection Section */}
+      <div className="project-selection-section">
+        <div className="section-header">
+          <h2>Project Selection</h2>
+          {selectedProject && (
+            <span className="selected-project-info">
+              Working on: {projects.find(p => p.id === selectedProject)?.name || selectedProject}
+            </span>
+          )}
+        </div>
+        
+        <div className="project-selector">
+          {projects.length === 0 ? (
+            <div className="no-projects">
+              <p>No projects found. Create a project first to use AI features.</p>
+              <div className="project-actions">
+                <button 
+                  onClick={() => setShowCreateProject(true)}
+                  className="btn-create-project"
+                >
+                  Create Project
+                </button>
+                <button 
+                  onClick={() => router.push('/dashboard/projects')}
+                  className="btn-secondary"
+                >
+                  Go to Projects
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="project-dropdown">
+              <label className="dropdown-label">Select a project to enable AI features:</label>
+              <select 
+                value={selectedProject || ''} 
+                onChange={(e) => setSelectedProject(e.target.value || null)}
+                className="project-select"
+              >
+                <option value="">Choose a project...</option>
+                {projects.map(project => (
+                  <option key={project.id} value={project.id}>
+                    {project.name} - {project.location || 'No location'}
+                  </option>
+                ))}
+              </select>
+              <button 
+                onClick={() => setShowCreateProject(true)}
+                className="btn-new-project"
+              >
+                Create New Project
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Create Project Modal */}
+        {showCreateProject && (
+          <div className="modal-overlay">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h3>Create New Project</h3>
+                <button 
+                  onClick={() => setShowCreateProject(false)}
+                  className="modal-close"
+                >
+                  ×
+                </button>
+              </div>
+              
+              <form onSubmit={handleCreateProject} className="create-project-form">
+                <div className="form-group">
+                  <label htmlFor="name">Project Name *</label>
+                  <input 
+                    type="text" 
+                    id="name" 
+                    name="name" 
+                    required 
+                    placeholder="Enter project name"
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label htmlFor="client">Client *</label>
+                  <input 
+                    type="text" 
+                    id="client" 
+                    name="client" 
+                    required 
+                    placeholder="Enter client name"
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label htmlFor="location">Location</label>
+                  <input 
+                    type="text" 
+                    id="location" 
+                    name="location" 
+                    placeholder="Enter project location"
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label htmlFor="startDate">Start Date *</label>
+                  <input 
+                    type="date" 
+                    id="startDate" 
+                    name="startDate" 
+                    required 
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label htmlFor="description">Description</label>
+                  <textarea 
+                    id="description" 
+                    name="description" 
+                    rows={3}
+                    placeholder="Optional project description"
+                  />
+                </div>
+                
+                <div className="form-actions">
+                  <button 
+                    type="button" 
+                    onClick={() => setShowCreateProject(false)}
+                    className="btn-cancel"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="submit" 
+                    disabled={isCreatingProject}
+                    className="btn-create-project"
+                  >
+                    {isCreatingProject ? 'Creating...' : 'Create Project'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="ai-content">
