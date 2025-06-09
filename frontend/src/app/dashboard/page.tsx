@@ -91,7 +91,7 @@ export default function Dashboard() {
               </div>
               <div className="card-value">23</div>
               <div className="card-actions">
-                <Link href="/dashboard/panels" className="btn btn-orange">
+                <Link href="/panel-layout" className="btn btn-orange">
                   Create Layout
                 </Link>
               </div>
@@ -139,7 +139,7 @@ export default function Dashboard() {
                 <span className="action-text">New Project</span>
               </Link>
               
-              <Link href="/dashboard/panels" className="action-item">
+              <Link href="/panel-layout-fixed.html" className="action-item">
                 <div className="action-icon orange">🔧</div>
                 <span className="action-text">Panel Layout Designer</span>
               </Link>
