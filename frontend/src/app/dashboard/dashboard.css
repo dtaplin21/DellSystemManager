@@ -284,6 +284,16 @@
   color: white;
 }
 
+.action-item .action-icon.ai {
+  background-color: #8b5cf6;
+  color: white;
+}
+
+.card-icon.ai {
+  background-color: #8b5cf6;
+  color: white;
+}
+
 .action-text {
   font-weight: 500;
   font-size: 0.9rem;
