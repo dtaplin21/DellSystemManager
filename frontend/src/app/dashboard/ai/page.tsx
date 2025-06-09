@@ -616,7 +616,7 @@ export default function AIAssistantPage() {
                     )}
                   </div>
                   <span className="message-time">
-                    {message.timestamp.toLocaleTimeString()}
+                    {message.timestamp ? new Date(message.timestamp).toLocaleTimeString() : ''}
                   </span>
                 </div>
               ))

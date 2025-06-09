@@ -59,16 +59,8 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
         const projectData = await fetchProjectById(id);
         setProject(projectData);
         
-        // Check subscription for 2D automation access
-        if (projectData.subscription !== 'premium') {
-          toast({
-            title: 'Subscription Required',
-            description: 'Panel layout features require the premium subscription ($315/month).',
-            variant: 'destructive',
-          });
-          router.push(`/dashboard/projects/${id}`);
-          return;
-        }
+        // Panel layout features are available to all users
+        // Note: Premium features may have additional capabilities
         
         // Load panel layout
         const layoutData = await fetchPanelLayout(id);
@@ -175,7 +167,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
         <div>
           <h1 className="text-2xl font-bold">Panel Layout: {project.name}</h1>
           <p className="text-gray-500">
-            Last updated: {new Date(layout.lastUpdated).toLocaleString()}
+            Last updated: {layout.lastUpdated ? new Date(layout.lastUpdated).toLocaleString() : 'Never'}
             {isConnected ? (
               <span className="text-green-500 ml-2">● Connected</span>
             ) : (
