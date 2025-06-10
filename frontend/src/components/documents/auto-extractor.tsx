@@ -171,17 +171,19 @@ export default function DocumentAutoExtractor({
   return (
     <Card className="shadow-md">
       <CardHeader>
-        <CardTitle className="flex items-center justify-between">
-          <div className="flex items-center">
-            <FileText className="h-5 w-5 mr-2 text-blue-500" />
-            <span>Document Data Extractor</span>
-          </div>
-          {extractionResults && (
-            <div className="flex items-center text-xs space-x-1 text-green-600 bg-green-50 px-2 py-1 rounded">
-              <Check className="h-3 w-3" />
-              <span>Extraction Complete</span>
+        <CardTitle>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <FileText className="h-5 w-5 mr-2 text-blue-500" />
+              <span>Document Data Extractor</span>
             </div>
-          )}
+            {extractionResults && (
+              <div className="flex items-center text-xs space-x-1 text-green-600 bg-green-50 px-2 py-1 rounded">
+                <Check className="h-3 w-3" />
+                <span>Extraction Complete</span>
+              </div>
+            )}
+          </div>
         </CardTitle>
         <CardDescription>
           Automatically extract structured data from documents to save manual data entry time

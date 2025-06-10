@@ -1,6 +1,13 @@
-import DxfWriter from 'dxf-writer';
-const Drawing = DxfWriter.Drawing;
+import Drawing from 'dxf-writer';
 import { saveAs } from 'file-saver';
+
+declare class DxfDrawing {
+  addLine(x1: number, y1: number, x2: number, y2: number): void;
+  addText(x: number, y: number, height: number, rotation: number, text: string): void;
+  addPolyline(points: number[], closed: boolean): void;
+  addCircle(x: number, y: number, radius: number): void;
+  toDxfString(): string;
+}
 
 interface Panel {
   id: string;
@@ -28,7 +35,7 @@ interface ProjectInfo {
  */
 export function exportToDXF(panels: Panel[], projectInfo: ProjectInfo): void {
   // Create a new drawing
-  const d = new Drawing();
+  const d = new Drawing() as unknown as DxfDrawing;
   
   // Add a title block with project information
   addTitleBlock(d, projectInfo);
@@ -57,7 +64,7 @@ export function exportToDXF(panels: Panel[], projectInfo: ProjectInfo): void {
 /**
  * Add a title block with project information
  */
-function addTitleBlock(d: Drawing, projectInfo: ProjectInfo): void {
+function addTitleBlock(d: DxfDrawing, projectInfo: ProjectInfo): void {
   const yPos = -50;
   const textHeight = 5;
   
@@ -88,7 +95,7 @@ function addTitleBlock(d: Drawing, projectInfo: ProjectInfo): void {
 /**
  * Add a rectangle panel to the drawing
  */
-function addRectangle(d: Drawing, panel: Panel): void {
+function addRectangle(d: DxfDrawing, panel: Panel): void {
   // Calculate the corners based on position, dimensions, and rotation
   const { x, y, width, length, rotation, panelNumber } = panel;
   
@@ -146,7 +153,7 @@ function addRectangle(d: Drawing, panel: Panel): void {
 /**
  * Add a circular panel to the drawing
  */
-function addCircle(d: Drawing, panel: Panel): void {
+function addCircle(d: DxfDrawing, panel: Panel): void {
   const { x, y, radius, panelNumber } = panel;
   
   if (radius) {
@@ -163,7 +170,7 @@ function addCircle(d: Drawing, panel: Panel): void {
 /**
  * Add a triangle panel to the drawing
  */
-function addTriangle(d: Drawing, panel: Panel): void {
+function addTriangle(d: DxfDrawing, panel: Panel): void {
   const { points, panelNumber } = panel;
   
   if (points && points.length >= 6) {
@@ -188,7 +195,7 @@ function addTriangle(d: Drawing, panel: Panel): void {
 /**
  * Add dimensions to a panel
  */
-function addDimensions(d: Drawing, panel: Panel): void {
+function addDimensions(d: DxfDrawing, panel: Panel): void {
   const { x, y, width, length, rotation } = panel;
   
   if (rotation === 0) {

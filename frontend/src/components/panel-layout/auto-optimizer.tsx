@@ -100,17 +100,19 @@ export default function PanelLayoutAutoOptimizer({
   return (
     <Card className="shadow-md">
       <CardHeader>
-        <CardTitle className="flex items-center justify-between">
-          <div className="flex items-center">
-            <Zap className="h-5 w-5 mr-2 text-amber-500" />
-            <span>Panel Layout Optimizer</span>
-          </div>
-          {optimizationResults && (
-            <div className="flex items-center text-xs space-x-1 text-green-600 bg-green-50 px-2 py-1 rounded">
-              <Check className="h-3 w-3" />
-              <span>Optimization Complete</span>
+        <CardTitle>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <Zap className="h-5 w-5 mr-2 text-amber-500" />
+              <span>Panel Layout Optimizer</span>
             </div>
-          )}
+            {optimizationResults && (
+              <div className="flex items-center text-xs space-x-1 text-green-600 bg-green-50 px-2 py-1 rounded">
+                <Check className="h-3 w-3" />
+                <span>Optimization Complete</span>
+              </div>
+            )}
+          </div>
         </CardTitle>
         <CardDescription>
           Automatically optimize your panel layout to reduce waste and lower material costs

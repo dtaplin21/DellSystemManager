@@ -52,11 +52,15 @@ export default function AIFeaturesPage() {
       </div>
       
       <Card className="mb-8">
-        <CardHeader className="pb-3">
-          <CardTitle>AI Feature Showcase</CardTitle>
-          <CardDescription>
-            Explore how AI can automate repetitive tasks and provide valuable insights for your geosynthetic projects
-          </CardDescription>
+        <CardHeader>
+          <div className="pb-3">
+            <CardTitle>
+              <div>AI Feature Showcase</div>
+            </CardTitle>
+            <CardDescription>
+              Explore how AI can automate repetitive tasks and provide valuable insights for your geosynthetic projects
+            </CardDescription>
+          </div>
         </CardHeader>
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -102,7 +106,9 @@ export default function AIFeaturesPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">AI Features Work Without API Keys</CardTitle>
+            <CardTitle>
+              <div className="text-lg">AI Features Work Without API Keys</div>
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-sm text-gray-600">
@@ -114,7 +120,9 @@ export default function AIFeaturesPage() {
         
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Advanced Features with OpenAI</CardTitle>
+            <CardTitle>
+              <div className="text-lg">Advanced Features with OpenAI</div>
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-sm text-gray-600">
@@ -126,7 +134,9 @@ export default function AIFeaturesPage() {
         
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Data Privacy & Security</CardTitle>
+            <CardTitle>
+              <div className="text-lg">Data Privacy & Security</div>
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-sm text-gray-600">

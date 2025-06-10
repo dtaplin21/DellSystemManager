@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/hooks/use-auth';
+import type { User } from '@/types/auth';
 
 export default function Navbar() {
   const { user, logout } = useAuth();

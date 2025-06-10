@@ -44,10 +44,10 @@ export default function ProjectForm({ onProjectCreated }: ProjectFormProps) {
     try {
       setIsLoading(true);
       
-      // Convert area to number if provided
+      // Convert area to string if provided
       const projectData = {
         ...formData,
-        area: formData.area ? parseFloat(formData.area) : undefined,
+        area: formData.area?.toString() || ''
       };
       
       const newProject = await createProject(projectData);

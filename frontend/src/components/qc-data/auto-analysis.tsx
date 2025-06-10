@@ -131,14 +131,16 @@ export default function QCDataAutoAnalysis({ projectId, onAnalysisComplete }: QC
   return (
     <Card className="shadow-md">
       <CardHeader>
-        <CardTitle className="flex items-center justify-between">
-          <span>QC Data Auto-Analysis</span>
-          {analysisResults && (
-            <div className="flex items-center text-xs space-x-1 text-green-600 bg-green-50 px-2 py-1 rounded">
-              <Check className="h-3 w-3" />
-              <span>Analysis Complete</span>
-            </div>
-          )}
+        <CardTitle>
+          <div className="flex items-center justify-between">
+            <span>QC Data Auto-Analysis</span>
+            {analysisResults && (
+              <div className="flex items-center text-xs space-x-1 text-green-600 bg-green-50 px-2 py-1 rounded">
+                <Check className="h-3 w-3" />
+                <span>Analysis Complete</span>
+              </div>
+            )}
+          </div>
         </CardTitle>
         <CardDescription>
           Automatically analyze quality control data to identify patterns, anomalies, and recommendations

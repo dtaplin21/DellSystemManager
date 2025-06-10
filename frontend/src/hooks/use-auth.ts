@@ -1,17 +1,15 @@
 import { useState, useEffect, createContext, useContext } from 'react';
-
-interface User {
-  id: string;
-  email: string;
-  name?: string;
-}
+import { User } from '@/types/auth';
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  signup: (name: string, email: string, password: string, company?: string) => Promise<void>;
+  loginWithGoogle: () => Promise<void>;
   logout: () => void;
+  updateProfile: (data: Partial<User>) => Promise<void>;
 }
 
 // Create auth context
@@ -79,26 +77,90 @@ export function useAuth() {
         headers: {
           'Content-Type': 'application/json',
         },
-        credentials: 'include',
         body: JSON.stringify({ email, password }),
       });
 
       if (response.ok) {
         const data = await response.json();
-        const userData = {
-          id: data.user.id,
-          email: data.user.email,
-          name: data.user.name
+        const userData: User = {
+          id: data.id,
+          email: data.email,
+          displayName: data.name || null,
+          company: data.company,
+          position: data.position,
+          subscription: data.subscription
         };
-        
-        localStorage.setItem('authToken', data.token);
-        localStorage.setItem('userData', JSON.stringify(userData));
         setUser(userData);
+        localStorage.setItem('userData', JSON.stringify(userData));
       } else {
         throw new Error('Login failed');
       }
     } catch (error) {
       console.error('Login error:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const signup = async (email: string, password: string) => {
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const userData: User = {
+          id: data.id,
+          email: data.email,
+          displayName: data.name || null,
+          company: data.company,
+          position: data.position,
+          subscription: data.subscription
+        };
+        setUser(userData);
+        localStorage.setItem('userData', JSON.stringify(userData));
+      } else {
+        throw new Error('Signup failed');
+      }
+    } catch (error) {
+      console.error('Signup error:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loginWithGoogle = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/auth/google', {
+        method: 'POST',
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const userData: User = {
+          id: data.id,
+          email: data.email,
+          displayName: data.name || null,
+          company: data.company,
+          position: data.position,
+          subscription: data.subscription
+        };
+        setUser(userData);
+        localStorage.setItem('userData', JSON.stringify(userData));
+      } else {
+        throw new Error('Google login failed');
+      }
+    } catch (error) {
+      console.error('Google login error:', error);
       throw error;
     } finally {
       setIsLoading(false);
@@ -111,11 +173,41 @@ export function useAuth() {
     setUser(null);
   };
 
+  const updateProfile = async (data: Partial<User>) => {
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/auth/updateProfile', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(data),
+      });
+
+      if (response.ok) {
+        const updatedUserData = await response.json();
+        setUser(updatedUserData);
+        localStorage.setItem('userData', JSON.stringify(updatedUserData));
+      } else {
+        throw new Error('Profile update failed');
+      }
+    } catch (error) {
+      console.error('Profile update error:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return {
     user,
     isAuthenticated: !!user,
     isLoading,
     login,
-    logout
+    signup,
+    loginWithGoogle,
+    logout,
+    updateProfile
   };
 }

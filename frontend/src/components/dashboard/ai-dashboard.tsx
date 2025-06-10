@@ -150,27 +150,31 @@ export default function AIDashboard() {
             key={index} 
             className={`overflow-hidden ${!capability.available ? 'opacity-70' : ''}`}
           >
-            <CardHeader className="pb-2">
-              <div className="flex justify-between items-start">
-                <div className={`p-2 rounded-md ${capability.available ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                  {capability.icon}
+            <CardHeader>
+              <div className="pb-2">
+                <div className="flex justify-between items-start">
+                  <div className={`p-2 rounded-md ${capability.available ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                    {capability.icon}
+                  </div>
+                  {capability.available ? (
+                    <div className="flex items-center text-xs text-green-600">
+                      <Check className="h-3 w-3 mr-1" />
+                      <span>Available</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center text-xs text-gray-500">
+                      <AlertTriangle className="h-3 w-3 mr-1" />
+                      <span>Requires config</span>
+                    </div>
+                  )}
                 </div>
-                {capability.available ? (
-                  <div className="flex items-center text-xs text-green-600">
-                    <Check className="h-3 w-3 mr-1" />
-                    <span>Available</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center text-xs text-gray-500">
-                    <AlertTriangle className="h-3 w-3 mr-1" />
-                    <span>Requires config</span>
-                  </div>
-                )}
+                <CardTitle>
+                  <div className="text-lg mt-2">{capability.name}</div>
+                </CardTitle>
+                <CardDescription>
+                  <div className="text-sm">{capability.description}</div>
+                </CardDescription>
               </div>
-              <CardTitle className="text-lg mt-2">{capability.name}</CardTitle>
-              <CardDescription className="text-sm">
-                {capability.description}
-              </CardDescription>
             </CardHeader>
             <CardContent>
               <Button 

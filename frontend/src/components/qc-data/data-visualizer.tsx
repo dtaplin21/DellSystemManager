@@ -323,93 +323,107 @@ export default function DataVisualizer({ projectId, qcData }: DataVisualizerProp
       
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
-          <CardContent className="p-4 flex flex-col items-center justify-center h-24">
-            <span className="text-lg font-bold">{resultStats.total}</span>
-            <span className="text-sm text-gray-500">Total Tests</span>
+          <CardContent>
+            <div className="p-4 flex flex-col items-center justify-center h-24">
+              <span className="text-lg font-bold">{resultStats.total}</span>
+              <span className="text-sm text-gray-500">Total Tests</span>
+            </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4 flex flex-col items-center justify-center h-24 bg-green-50">
-            <span className="text-lg font-bold text-green-600">{resultStats.pass}</span>
-            <span className="text-sm text-gray-500">Passed</span>
+          <CardContent>
+            <div className="p-4 flex flex-col items-center justify-center h-24 bg-green-50">
+              <span className="text-lg font-bold text-green-600">{resultStats.pass}</span>
+              <span className="text-sm text-gray-500">Passed</span>
+            </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4 flex flex-col items-center justify-center h-24 bg-red-50">
-            <span className="text-lg font-bold text-red-600">{resultStats.fail}</span>
-            <span className="text-sm text-gray-500">Failed</span>
+          <CardContent>
+            <div className="p-4 flex flex-col items-center justify-center h-24 bg-red-50">
+              <span className="text-lg font-bold text-red-600">{resultStats.fail}</span>
+              <span className="text-sm text-gray-500">Failed</span>
+            </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4 flex flex-col items-center justify-center h-24 bg-yellow-50">
-            <span className="text-lg font-bold text-yellow-600">{resultStats.pending}</span>
-            <span className="text-sm text-gray-500">Pending</span>
+          <CardContent>
+            <div className="p-4 flex flex-col items-center justify-center h-24 bg-yellow-50">
+              <span className="text-lg font-bold text-yellow-600">{resultStats.pending}</span>
+              <span className="text-sm text-gray-500">Pending</span>
+            </div>
           </CardContent>
         </Card>
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>
-          <CardContent className="p-4">
-            <div className="data-chart-container">
-              <canvas ref={chartRef}></canvas>
+          <CardContent>
+            <div className="p-4">
+              <div className="data-chart-container">
+                <canvas ref={chartRef}></canvas>
+              </div>
             </div>
           </CardContent>
         </Card>
         
         <Card>
-          <CardContent className="p-4">
-            <div className="data-chart-container">
-              <canvas ref={timeChartRef}></canvas>
+          <CardContent>
+            <div className="p-4">
+              <div className="data-chart-container">
+                <canvas ref={timeChartRef}></canvas>
+              </div>
             </div>
           </CardContent>
         </Card>
       </div>
       
       <Card>
-        <CardContent className="p-4">
-          <h3 className="text-lg font-medium mb-4">QC Data Records</h3>
-          
-          {filteredData.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              No QC data found for the selected filters.
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="bg-gray-50">
-                    <th className="text-left py-2 px-3 text-sm font-medium text-gray-500">Panel ID</th>
-                    <th className="text-left py-2 px-3 text-sm font-medium text-gray-500">Type</th>
-                    <th className="text-left py-2 px-3 text-sm font-medium text-gray-500">Date</th>
-                    <th className="text-left py-2 px-3 text-sm font-medium text-gray-500">Result</th>
-                    <th className="text-left py-2 px-3 text-sm font-medium text-gray-500">Technician</th>
-                    <th className="text-left py-2 px-3 text-sm font-medium text-gray-500">Notes</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {filteredData.map((item) => (
-                    <tr key={item.id} className="hover:bg-gray-50">
-                      <td className="py-2 px-3 text-sm font-medium">{item.panelId}</td>
-                      <td className="py-2 px-3 text-sm">{item.type}</td>
-                      <td className="py-2 px-3 text-sm">{new Date(item.date).toLocaleDateString()}</td>
-                      <td className="py-2 px-3 text-sm">
-                        <span className={`px-2 py-1 rounded-full text-xs 
-                          ${item.result === 'pass' ? 'bg-green-100 text-green-800' : ''}
-                          ${item.result === 'fail' ? 'bg-red-100 text-red-800' : ''}
-                          ${item.result === 'pending' ? 'bg-yellow-100 text-yellow-800' : ''}
-                        `}>
-                          {item.result}
-                        </span>
-                      </td>
-                      <td className="py-2 px-3 text-sm">{item.technician || '-'}</td>
-                      <td className="py-2 px-3 text-sm">{item.notes || '-'}</td>
+        <CardContent>
+          <div className="p-4">
+            <h3 className="text-lg font-medium mb-4">QC Data Records</h3>
+            
+            {filteredData.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                No QC data found for the selected filters.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="bg-gray-50">
+                      <th className="text-left py-2 px-3 text-sm font-medium text-gray-500">Panel ID</th>
+                      <th className="text-left py-2 px-3 text-sm font-medium text-gray-500">Type</th>
+                      <th className="text-left py-2 px-3 text-sm font-medium text-gray-500">Date</th>
+                      <th className="text-left py-2 px-3 text-sm font-medium text-gray-500">Result</th>
+                      <th className="text-left py-2 px-3 text-sm font-medium text-gray-500">Technician</th>
+                      <th className="text-left py-2 px-3 text-sm font-medium text-gray-500">Notes</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {filteredData.map((item) => (
+                      <tr key={item.id} className="hover:bg-gray-50">
+                        <td className="py-2 px-3 text-sm font-medium">{item.panelId}</td>
+                        <td className="py-2 px-3 text-sm">{item.type}</td>
+                        <td className="py-2 px-3 text-sm">{new Date(item.date).toLocaleDateString()}</td>
+                        <td className="py-2 px-3 text-sm">
+                          <span className={`px-2 py-1 rounded-full text-xs 
+                            ${item.result === 'pass' ? 'bg-green-100 text-green-800' : ''}
+                            ${item.result === 'fail' ? 'bg-red-100 text-red-800' : ''}
+                            ${item.result === 'pending' ? 'bg-yellow-100 text-yellow-800' : ''}
+                          `}>
+                            {item.result}
+                          </span>
+                        </td>
+                        <td className="py-2 px-3 text-sm">{item.technician || '-'}</td>
+                        <td className="py-2 px-3 text-sm">{item.notes || '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
     </div>

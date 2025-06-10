@@ -29,51 +29,57 @@ export default function PricingCard({
           Recommended
         </div>
       )}
-      <CardHeader className={`${highlighted ? 'bg-blue-50' : ''}`}>
-        <CardTitle className="text-xl text-center">{title}</CardTitle>
-      </CardHeader>
-      <CardContent className="p-6">
-        <div className="text-center mb-6">
-          <span className="text-3xl font-bold">${price}</span>
-          <span className="text-gray-500">/month</span>
+      <CardHeader>
+        <div className={`${highlighted ? 'bg-blue-50' : ''}`}>
+          <CardTitle>
+            <div className="text-xl text-center">{title}</div>
+          </CardTitle>
         </div>
-        
-        <ul className="space-y-3 mb-8">
-          {features.map((feature, index) => (
-            <li key={index} className="flex items-start">
-              <svg 
-                xmlns="http://www.w3.org/2000/svg" 
-                width="20" 
-                height="20" 
-                viewBox="0 0 24 24" 
-                fill="none" 
-                stroke="currentColor" 
-                strokeWidth="2" 
-                strokeLinecap="round" 
-                strokeLinejoin="round" 
-                className={`mr-2 ${highlighted ? 'text-blue-500' : 'text-green-500'}`}
-              >
-                <polyline points="20 6 9 17 4 12"></polyline>
-              </svg>
-              <span className="text-sm">{feature}</span>
-            </li>
-          ))}
-        </ul>
-        
-        <Button
-          className="w-full"
-          variant={highlighted ? 'default' : 'outline'}
-          onClick={onSelect}
-          disabled={isCurrentPlan}
-        >
-          {buttonText}
-        </Button>
-        
-        {isCurrentPlan && (
-          <p className="text-center mt-2 text-sm text-blue-600">
-            Your current plan
-          </p>
-        )}
+      </CardHeader>
+      <CardContent>
+        <div className="p-6">
+          <div className="text-center mb-6">
+            <span className="text-3xl font-bold">${price}</span>
+            <span className="text-gray-500">/month</span>
+          </div>
+          
+          <ul className="space-y-3 mb-8">
+            {features.map((feature, index) => (
+              <li key={index} className="flex items-start">
+                <svg 
+                  xmlns="http://www.w3.org/2000/svg" 
+                  width="20" 
+                  height="20" 
+                  viewBox="0 0 24 24" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  strokeWidth="2" 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round" 
+                  className={`mr-2 ${highlighted ? 'text-blue-500' : 'text-green-500'}`}
+                >
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span className="text-sm">{feature}</span>
+              </li>
+            ))}
+          </ul>
+          
+          <Button
+            className="w-full"
+            variant={highlighted ? 'default' : 'outline'}
+            onClick={onSelect}
+            disabled={isCurrentPlan}
+          >
+            {buttonText}
+          </Button>
+          
+          {isCurrentPlan && (
+            <p className="text-center mt-2 text-sm text-blue-600">
+              Your current plan
+            </p>
+          )}
+        </div>
       </CardContent>
     </Card>
   );

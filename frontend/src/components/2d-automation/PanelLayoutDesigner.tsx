@@ -318,284 +318,286 @@ export default function PanelLayoutDesigner() {
       </div>
       
       <Card>
-        <CardContent className="pt-6">
-          <div className="flex space-x-4 mb-4">
-            <Button onClick={addNewPanel}>Add Panel</Button>
-            <Button 
-              onClick={deleteSelectedPanel} 
-              variant="destructive" 
-              disabled={!selectedPanel}
-            >
-              Delete Selected
-            </Button>
-            <div className="flex items-center space-x-2 ml-4">
-              <input 
-                type="checkbox" 
-                id="snap-grid" 
-                checked={snapToGrid} 
-                onChange={(e) => setSnapToGrid(e.target.checked)} 
-              />
-              <Label htmlFor="snap-grid">Snap to Grid</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Label htmlFor="grid-size">Grid Size:</Label>
-              <Input
-                id="grid-size"
-                type="number"
-                value={gridSize}
-                onChange={(e) => setGridSize(parseInt(e.target.value))}
-                className="w-20"
-              />
-              <span>px</span>
-            </div>
-          </div>
-          
-          <div className="flex space-x-6">
-            <div 
-              ref={canvasRef}
-              className="panel-grid relative border border-gray-300 rounded-md"
-              style={{ 
-                width: `${containerWidth}px`, 
-                height: `${containerHeight}px`,
-                backgroundSize: `${gridSize}px ${gridSize}px` 
-              }}
-            >
-              {panels.map((panel) => (
-                <div 
-                  key={panel.id}
-                  className={`panel ${selectedPanel === panel.id ? 'selected' : ''}`}
-                  style={{
-                    left: `${panel.x}px`,
-                    top: `${panel.y}px`,
-                    width: `${panel.width}px`,
-                    height: `${panel.height}px`,
-                    borderColor: panel.color,
-                    backgroundColor: `${panel.color}20`
-                  }}
-                  onClick={() => handlePanelSelect(panel.id)}
-                  onMouseDown={(e) => handlePanelDrag(e, panel.id)}
-                >
-                  {panel.label}
-                  
-                  {selectedPanel === panel.id && (
-                    <>
-                      <div 
-                        className="panel-resize-handle nw" 
-                        onMouseDown={(e) => handlePanelResize(e, panel.id, 'nw')}
-                      />
-                      <div 
-                        className="panel-resize-handle ne" 
-                        onMouseDown={(e) => handlePanelResize(e, panel.id, 'ne')}
-                      />
-                      <div 
-                        className="panel-resize-handle sw" 
-                        onMouseDown={(e) => handlePanelResize(e, panel.id, 'sw')}
-                      />
-                      <div 
-                        className="panel-resize-handle se" 
-                        onMouseDown={(e) => handlePanelResize(e, panel.id, 'se')}
-                      />
-                    </>
-                  )}
-                </div>
-              ))}
+        <CardContent>
+          <div className="pt-6">
+            <div className="flex space-x-4 mb-4">
+              <Button onClick={addNewPanel}>Add Panel</Button>
+              <Button 
+                onClick={deleteSelectedPanel} 
+                variant="destructive" 
+                disabled={!selectedPanel}
+              >
+                Delete Selected
+              </Button>
+              <div className="flex items-center space-x-2 ml-4">
+                <input 
+                  type="checkbox" 
+                  id="snap-grid" 
+                  checked={snapToGrid} 
+                  onChange={(e) => setSnapToGrid(e.target.checked)} 
+                />
+                <Label htmlFor="snap-grid">Snap to Grid</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Label htmlFor="grid-size">Grid Size:</Label>
+                <Input
+                  id="grid-size"
+                  type="number"
+                  value={gridSize}
+                  onChange={(e) => setGridSize(parseInt(e.target.value))}
+                  className="w-20"
+                />
+                <span>px</span>
+              </div>
             </div>
             
-            <div className="w-80">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Panel Properties</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {selectedPanel ? (
-                    <>
-                      {panels
-                        .filter(panel => panel.id === selectedPanel)
-                        .map(panel => (
-                          <div key={panel.id} className="space-y-4">
-                            <div className="space-y-2">
-                              <Label htmlFor="panel-label">Label</Label>
-                              <Input 
-                                id="panel-label" 
-                                value={panel.label} 
-                                onChange={(e) => {
-                                  setPanels(panels.map(p => 
-                                    p.id === selectedPanel 
-                                      ? { ...p, label: e.target.value } 
-                                      : p
-                                  ));
-                                }}
-                              />
-                            </div>
-                            
-                            <div className="grid grid-cols-2 gap-4">
+            <div className="flex space-x-6">
+              <div 
+                ref={canvasRef}
+                className="panel-grid relative border border-gray-300 rounded-md"
+                style={{ 
+                  width: `${containerWidth}px`, 
+                  height: `${containerHeight}px`,
+                  backgroundSize: `${gridSize}px ${gridSize}px` 
+                }}
+              >
+                {panels.map((panel) => (
+                  <div 
+                    key={panel.id}
+                    className={`panel ${selectedPanel === panel.id ? 'selected' : ''}`}
+                    style={{
+                      left: `${panel.x}px`,
+                      top: `${panel.y}px`,
+                      width: `${panel.width}px`,
+                      height: `${panel.height}px`,
+                      borderColor: panel.color,
+                      backgroundColor: `${panel.color}20`
+                    }}
+                    onClick={() => handlePanelSelect(panel.id)}
+                    onMouseDown={(e) => handlePanelDrag(e, panel.id)}
+                  >
+                    {panel.label}
+                    
+                    {selectedPanel === panel.id && (
+                      <>
+                        <div 
+                          className="panel-resize-handle nw" 
+                          onMouseDown={(e) => handlePanelResize(e, panel.id, 'nw')}
+                        />
+                        <div 
+                          className="panel-resize-handle ne" 
+                          onMouseDown={(e) => handlePanelResize(e, panel.id, 'ne')}
+                        />
+                        <div 
+                          className="panel-resize-handle sw" 
+                          onMouseDown={(e) => handlePanelResize(e, panel.id, 'sw')}
+                        />
+                        <div 
+                          className="panel-resize-handle se" 
+                          onMouseDown={(e) => handlePanelResize(e, panel.id, 'se')}
+                        />
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+              
+              <div className="w-80">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Panel Properties</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {selectedPanel ? (
+                      <>
+                        {panels
+                          .filter(panel => panel.id === selectedPanel)
+                          .map(panel => (
+                            <div key={panel.id} className="space-y-4">
                               <div className="space-y-2">
-                                <Label htmlFor="panel-x">X Position</Label>
+                                <Label htmlFor="panel-label">Label</Label>
                                 <Input 
-                                  id="panel-x" 
-                                  type="number" 
-                                  value={panel.x} 
+                                  id="panel-label" 
+                                  value={panel.label} 
                                   onChange={(e) => {
-                                    const value = parseInt(e.target.value);
                                     setPanels(panels.map(p => 
                                       p.id === selectedPanel 
-                                        ? { ...p, x: value } 
+                                        ? { ...p, label: e.target.value } 
                                         : p
                                     ));
                                   }}
                                 />
                               </div>
                               
-                              <div className="space-y-2">
-                                <Label htmlFor="panel-y">Y Position</Label>
-                                <Input 
-                                  id="panel-y" 
-                                  type="number" 
-                                  value={panel.y} 
-                                  onChange={(e) => {
-                                    const value = parseInt(e.target.value);
-                                    setPanels(panels.map(p => 
-                                      p.id === selectedPanel 
-                                        ? { ...p, y: value } 
-                                        : p
-                                    ));
-                                  }}
-                                />
-                              </div>
-                              
-                              <div className="space-y-2">
-                                <Label htmlFor="panel-width">Width</Label>
-                                <Input 
-                                  id="panel-width" 
-                                  type="number" 
-                                  value={panel.width} 
-                                  onChange={(e) => {
-                                    const value = parseInt(e.target.value);
-                                    setPanels(panels.map(p => 
-                                      p.id === selectedPanel 
-                                        ? { ...p, width: value } 
-                                        : p
-                                    ));
-                                  }}
-                                />
-                              </div>
-                              
-                              <div className="space-y-2">
-                                <Label htmlFor="panel-height">Height</Label>
-                                <Input 
-                                  id="panel-height" 
-                                  type="number" 
-                                  value={panel.height} 
-                                  onChange={(e) => {
-                                    const value = parseInt(e.target.value);
-                                    setPanels(panels.map(p => 
-                                      p.id === selectedPanel 
-                                        ? { ...p, height: value } 
-                                        : p
-                                    ));
-                                  }}
-                                />
-                              </div>
-                            </div>
-                            
-                            {/* Material Properties Section */}
-                            <div className="mt-6 pt-4 border-t border-gray-200">
-                              <h3 className="text-sm font-medium mb-3">Material Properties</h3>
-                              
-                              <div className="space-y-4">
+                              <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
-                                  <Label htmlFor="panel-material">Material Type</Label>
-                                  <select 
-                                    id="panel-material"
-                                    className="w-full border border-gray-300 rounded-md p-2"
-                                    value={panel.material || ''}
+                                  <Label htmlFor="panel-x">X Position</Label>
+                                  <Input 
+                                    id="panel-x" 
+                                    type="number" 
+                                    value={panel.x} 
                                     onChange={(e) => {
+                                      const value = parseInt(e.target.value);
                                       setPanels(panels.map(p => 
                                         p.id === selectedPanel 
-                                          ? { ...p, material: e.target.value } 
+                                          ? { ...p, x: value } 
                                           : p
                                       ));
                                     }}
-                                  >
-                                    <option value="">Select Material</option>
-                                    <option value="HDPE">HDPE</option>
-                                    <option value="LLDPE">LLDPE</option>
-                                    <option value="PVC">PVC</option>
-                                    <option value="GCL">GCL</option>
-                                    <option value="EPDM">EPDM</option>
-                                  </select>
-                                </div>
-                                
-                                <div className="grid grid-cols-2 gap-4">
-                                  <div className="space-y-2">
-                                    <Label htmlFor="panel-thickness">Thickness (mil)</Label>
-                                    <Input 
-                                      id="panel-thickness" 
-                                      type="number" 
-                                      value={panel.thickness || ''} 
-                                      onChange={(e) => {
-                                        const value = e.target.value === '' ? undefined : parseInt(e.target.value);
-                                        setPanels(panels.map(p => 
-                                          p.id === selectedPanel 
-                                            ? { ...p, thickness: value } 
-                                            : p
-                                        ));
-                                      }}
-                                    />
-                                  </div>
-                                  
-                                  <div className="space-y-2">
-                                    <Label htmlFor="panel-seams">Seams Type</Label>
-                                    <select 
-                                      id="panel-seams"
-                                      className="w-full border border-gray-300 rounded-md p-2"
-                                      value={panel.seamsType || ''}
-                                      onChange={(e) => {
-                                        const value = e.target.value === '' ? undefined : e.target.value as 'heat' | 'fusion' | 'extrusion' | 'other';
-                                        setPanels(panels.map(p => 
-                                          p.id === selectedPanel 
-                                            ? { ...p, seamsType: value } 
-                                            : p
-                                        ));
-                                      }}
-                                    >
-                                      <option value="">Select Type</option>
-                                      <option value="heat">Heat Seam</option>
-                                      <option value="fusion">Fusion Weld</option>
-                                      <option value="extrusion">Extrusion Weld</option>
-                                      <option value="other">Other</option>
-                                    </select>
-                                  </div>
+                                  />
                                 </div>
                                 
                                 <div className="space-y-2">
-                                  <Label htmlFor="panel-notes">Notes</Label>
-                                  <Textarea 
-                                    id="panel-notes" 
-                                    value={panel.notes || ''}
-                                    rows={3}
-                                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
+                                  <Label htmlFor="panel-y">Y Position</Label>
+                                  <Input 
+                                    id="panel-y" 
+                                    type="number" 
+                                    value={panel.y} 
+                                    onChange={(e) => {
+                                      const value = parseInt(e.target.value);
                                       setPanels(panels.map(p => 
                                         p.id === selectedPanel 
-                                          ? { ...p, notes: e.target.value } 
+                                          ? { ...p, y: value } 
+                                          : p
+                                      ));
+                                    }}
+                                  />
+                                </div>
+                                
+                                <div className="space-y-2">
+                                  <Label htmlFor="panel-width">Width</Label>
+                                  <Input 
+                                    id="panel-width" 
+                                    type="number" 
+                                    value={panel.width} 
+                                    onChange={(e) => {
+                                      const value = parseInt(e.target.value);
+                                      setPanels(panels.map(p => 
+                                        p.id === selectedPanel 
+                                          ? { ...p, width: value } 
+                                          : p
+                                      ));
+                                    }}
+                                  />
+                                </div>
+                                
+                                <div className="space-y-2">
+                                  <Label htmlFor="panel-height">Height</Label>
+                                  <Input 
+                                    id="panel-height" 
+                                    type="number" 
+                                    value={panel.height} 
+                                    onChange={(e) => {
+                                      const value = parseInt(e.target.value);
+                                      setPanels(panels.map(p => 
+                                        p.id === selectedPanel 
+                                          ? { ...p, height: value } 
                                           : p
                                       ));
                                     }}
                                   />
                                 </div>
                               </div>
+                              
+                              {/* Material Properties Section */}
+                              <div className="mt-6 pt-4 border-t border-gray-200">
+                                <h3 className="text-sm font-medium mb-3">Material Properties</h3>
+                                
+                                <div className="space-y-4">
+                                  <div className="space-y-2">
+                                    <Label htmlFor="panel-material">Material Type</Label>
+                                    <select 
+                                      id="panel-material"
+                                      className="w-full border border-gray-300 rounded-md p-2"
+                                      value={panel.material || ''}
+                                      onChange={(e) => {
+                                        setPanels(panels.map(p => 
+                                          p.id === selectedPanel 
+                                            ? { ...p, material: e.target.value } 
+                                            : p
+                                        ));
+                                      }}
+                                    >
+                                      <option value="">Select Material</option>
+                                      <option value="HDPE">HDPE</option>
+                                      <option value="LLDPE">LLDPE</option>
+                                      <option value="PVC">PVC</option>
+                                      <option value="GCL">GCL</option>
+                                      <option value="EPDM">EPDM</option>
+                                    </select>
+                                  </div>
+                                  
+                                  <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                      <Label htmlFor="panel-thickness">Thickness (mil)</Label>
+                                      <Input 
+                                        id="panel-thickness" 
+                                        type="number" 
+                                        value={panel.thickness || ''} 
+                                        onChange={(e) => {
+                                          const value = e.target.value === '' ? undefined : parseInt(e.target.value);
+                                          setPanels(panels.map(p => 
+                                            p.id === selectedPanel 
+                                              ? { ...p, thickness: value } 
+                                              : p
+                                          ));
+                                        }}
+                                      />
+                                    </div>
+                                    
+                                    <div className="space-y-2">
+                                      <Label htmlFor="panel-seams">Seams Type</Label>
+                                      <select 
+                                        id="panel-seams"
+                                        className="w-full border border-gray-300 rounded-md p-2"
+                                        value={panel.seamsType || ''}
+                                        onChange={(e) => {
+                                          const value = e.target.value === '' ? undefined : e.target.value as 'heat' | 'fusion' | 'extrusion' | 'other';
+                                          setPanels(panels.map(p => 
+                                            p.id === selectedPanel 
+                                              ? { ...p, seamsType: value } 
+                                              : p
+                                          ));
+                                        }}
+                                      >
+                                        <option value="">Select Type</option>
+                                        <option value="heat">Heat Seam</option>
+                                        <option value="fusion">Fusion Weld</option>
+                                        <option value="extrusion">Extrusion Weld</option>
+                                        <option value="other">Other</option>
+                                      </select>
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="space-y-2">
+                                    <Label htmlFor="panel-notes">Notes</Label>
+                                    <Textarea 
+                                      id="panel-notes" 
+                                      value={panel.notes || ''}
+                                      rows={3}
+                                      onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
+                                        setPanels(panels.map(p => 
+                                          p.id === selectedPanel 
+                                            ? { ...p, notes: e.target.value } 
+                                            : p
+                                        ));
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+                              </div>
                             </div>
-                          </div>
-                        ))
-                      }
-                    </>
-                  ) : (
-                    <div className="text-center py-8 text-gray-500">
-                      Select a panel to edit its properties
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                          ))
+                        }
+                      </>
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">
+                        Select a panel to edit its properties
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
             </div>
           </div>
         </CardContent>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../../components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
@@ -349,26 +349,28 @@ export default function DocumentAnalyzer() {
                   <p className="text-sm">Upload documents to get started.</p>
                 </div>
               )}
-            </CardContent>
-            <CardFooter>
-              <Button 
-                onClick={analyzeDocuments} 
-                disabled={selectedDocuments.length === 0 || isAnalyzing}
-                className="w-full"
-              >
-                {isAnalyzing ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Analyzing...
-                  </>
-                ) : (
-                  <>
-                    <FileSearch className="h-4 w-4 mr-2" />
-                    Analyze Selected
-                  </>
-                )}
-              </Button>
-            </CardFooter>
+                          </CardContent>
+              <CardContent>
+                <div className="pt-0">
+                  <Button 
+                    onClick={analyzeDocuments} 
+                    disabled={selectedDocuments.length === 0 || isAnalyzing}
+                    className="w-full"
+                  >
+                    {isAnalyzing ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Analyzing...
+                      </>
+                    ) : (
+                      <>
+                        <FileSearch className="h-4 w-4 mr-2" />
+                        Analyze Selected
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
           </Card>
         </div>
         
