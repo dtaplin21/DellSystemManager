@@ -6,7 +6,13 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Textarea } from '../../components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../../components/ui/select';
 import { useToast } from '../../hooks/use-toast';
 import { FileUp, FileText, FileSearch, FilePlus2, AlertTriangle, Loader2 } from 'lucide-react';
 
@@ -349,28 +355,7 @@ export default function DocumentAnalyzer() {
                   <p className="text-sm">Upload documents to get started.</p>
                 </div>
               )}
-                          </CardContent>
-              <CardContent>
-                <div className="pt-0">
-                  <Button 
-                    onClick={analyzeDocuments} 
-                    disabled={selectedDocuments.length === 0 || isAnalyzing}
-                    className="w-full"
-                  >
-                    {isAnalyzing ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Analyzing...
-                      </>
-                    ) : (
-                      <>
-                        <FileSearch className="h-4 w-4 mr-2" />
-                        Analyze Selected
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </CardContent>
+            </CardContent>
           </Card>
         </div>
         
@@ -444,18 +429,15 @@ export default function DocumentAnalyzer() {
             <div>
               <div className="mb-4">
                 <Label htmlFor="extraction-type">Extraction Type</Label>
-                <Select
-                  value={extractionType}
-                  onValueChange={setExtractionType}
-                >
-                  <SelectTrigger id="extraction-type">
+                <Select defaultValue={extractionType} onValueChange={setExtractionType}>
+                  <SelectTrigger className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background">
                     <SelectValue placeholder="Select extraction type" />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="auto">Auto-Detect</SelectItem>
-                    <SelectItem value="qc_data">QC Data</SelectItem>
-                    <SelectItem value="materials">Material Specifications</SelectItem>
-                    <SelectItem value="tests">Test Results</SelectItem>
+                  <SelectContent className="bg-white border rounded-md shadow-lg">
+                    <SelectItem value="auto" className="px-2 py-1 cursor-pointer hover:bg-gray-100">Auto-Detect</SelectItem>
+                    <SelectItem value="qc_data" className="px-2 py-1 cursor-pointer hover:bg-gray-100">QC Data</SelectItem>
+                    <SelectItem value="materials" className="px-2 py-1 cursor-pointer hover:bg-gray-100">Material Specifications</SelectItem>
+                    <SelectItem value="tests" className="px-2 py-1 cursor-pointer hover:bg-gray-100">Test Results</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

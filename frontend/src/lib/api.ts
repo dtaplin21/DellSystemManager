@@ -254,3 +254,43 @@ export async function createCheckoutSession(plan: 'basic' | 'premium'): Promise<
 
   return response.json();
 }
+
+export async function fetchDocuments(projectId: string): Promise<any> {
+  try {
+    const response = await fetch(`/api/projects/${projectId}/documents`, {
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch documents');
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching documents:', error);
+    throw error;
+  }
+}
+
+export async function fetchQCData(projectId: string): Promise<any> {
+  try {
+    const response = await fetch(`/api/projects/${projectId}/qc-data`, {
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch QC data');
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching QC data:', error);
+    throw error;
+  }
+}

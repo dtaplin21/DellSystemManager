@@ -20,6 +20,18 @@ interface CardDescriptionProps {
   children: React.ReactNode;
 }
 
+interface CardFooterProps {
+  children: React.ReactNode;
+}
+
+export function CardFooter({ children }: CardFooterProps) {
+  return (
+    <footer className="px-6 py-4 border-t border-gray-200">
+      {children}
+    </footer>
+  );
+}
+
 export function Card({ children, className = '', ...props }: CardProps) {
   return (
     <div 

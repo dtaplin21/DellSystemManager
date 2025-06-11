@@ -38,7 +38,20 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
   const { user } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
-  const { socket, isConnected } = useWebSocket();
+  const { isConnected, sendMessage } = useWebSocket({
+    onMessage: (message) => {
+      if (message.type === 'PANEL_UPDATE' && message.data.projectId === id) {
+        setLayout((prev) => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            panels: message.data.panels || prev.panels,
+            lastUpdated: message.data.timestamp || new Date().toISOString()
+          };
+        });
+      }
+    }
+  });
 
   useEffect(() => {
     const resolveParams = async () => {
@@ -79,46 +92,6 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
     loadProjectAndLayout();
   }, [id, toast, router]);
 
-  useEffect(() => {
-    if (socket && isConnected) {
-      // Listen for panel layout updates from other users
-      socket.addEventListener('message', (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data.type === 'PANEL_UPDATE' && data.projectId === id) {
-            // Update layout with changes from other users
-            setLayout((prev) => {
-              if (!prev) return null;
-              return {
-                ...prev,
-                panels: data.panels || prev.panels,
-                lastUpdated: data.timestamp || new Date().toISOString()
-              };
-            });
-          }
-        } catch (error) {
-          console.error('Error parsing WebSocket message:', error);
-        }
-      });
-
-      // Join the panel layout room
-      socket.send(JSON.stringify({
-        type: 'JOIN_ROOM',
-        room: `panel_layout_${id}`,
-        userId: user?.id
-      }));
-
-      // Cleanup
-      return () => {
-        socket.send(JSON.stringify({
-          type: 'LEAVE_ROOM',
-          room: `panel_layout_${id}`,
-          userId: user?.id
-        }));
-      };
-    }
-  }, [socket, isConnected, id, user]);
-
   if (isLoading) {
     return (
       <div className="flex justify-center py-8">
@@ -149,15 +122,14 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
       lastUpdated: new Date().toISOString()
     });
     
-    // Send update to server and other users via WebSocket
-    if (socket && isConnected) {
-      socket.send(JSON.stringify({
-        type: 'PANEL_UPDATE',
+    // Send update via WebSocket
+    if (isConnected) {
+      sendMessage('PANEL_UPDATE', {
         projectId: id,
         panels: updatedPanels,
         userId: user?.id,
         timestamp: new Date().toISOString()
-      }));
+      });
     }
   };
 

@@ -56,7 +56,7 @@ export default function AccountPage() {
     
     setIsUpdating(true);
     try {
-      await updateProfile({ name, email, company, position });
+      await updateProfile({ displayName: name, email, company, position });
       toast({
         title: 'Profile Updated',
         description: 'Your profile has been successfully updated.',
@@ -180,77 +180,79 @@ export default function AccountPage() {
               Manage your subscription and billing
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="bg-blue-50 border border-blue-100 rounded p-3">
-              <div className="font-medium text-blue-800 mb-1">
-                {currentPlan.name}
-              </div>
-              <div className="text-sm text-blue-600">
-                {currentPlan.price}
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-500">Status</span>
-                <span className="text-sm font-medium bg-green-100 text-green-800 py-0.5 px-2 rounded">
-                  Active
-                </span>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="bg-blue-50 border border-blue-100 rounded p-3">
+                <div className="font-medium text-blue-800 mb-1">
+                  {currentPlan.name}
+                </div>
+                <div className="text-sm text-blue-600">
+                  {currentPlan.price}
+                </div>
               </div>
               
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-500">Next billing date</span>
-                <span className="text-sm font-medium">
-                  {currentPlan.renewalDate}
-                </span>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-500">Status</span>
+                  <span className="text-sm font-medium bg-green-100 text-green-800 py-0.5 px-2 rounded">
+                    Active
+                  </span>
+                </div>
+                
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-500">Next billing date</span>
+                  <span className="text-sm font-medium">
+                    {currentPlan.renewalDate}
+                  </span>
+                </div>
+                
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-500">Payment method</span>
+                  <span className="text-sm font-medium">
+                    •••• •••• •••• 4242
+                  </span>
+                </div>
               </div>
               
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-500">Payment method</span>
-                <span className="text-sm font-medium">
-                  •••• •••• •••• 4242
-                </span>
+              <div className="border-t border-gray-200 pt-4 mt-4">
+                <h4 className="text-sm font-medium mb-2">Included Features</h4>
+                <ul className="space-y-1">
+                  {currentPlan.features.map((feature, index) => (
+                    <li key={index} className="flex items-start text-sm">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      {feature}
+                    </li>
+                  ))}
+                </ul>
               </div>
-            </div>
-            
-            <div className="border-t border-gray-200 pt-4 mt-4">
-              <h4 className="text-sm font-medium mb-2">Included Features</h4>
-              <ul className="space-y-1">
-                {currentPlan.features.map((feature, index) => (
-                  <li key={index} className="flex items-start text-sm">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    {feature}
-                  </li>
-                ))}
-              </ul>
-            </div>
-            
-            <div className="pt-4 space-y-2">
-              {userSubscription === 'basic' ? (
-                <Button
-                  onClick={() => router.push('/dashboard/subscription')}
-                  className="w-full bg-blue-600 hover:bg-blue-700"
+              
+              <div className="pt-4 space-y-2">
+                {userSubscription === 'basic' ? (
+                  <Button
+                    onClick={() => router.push('/dashboard/subscription')}
+                    className="w-full bg-blue-600 hover:bg-blue-700"
+                  >
+                    Upgrade to Premium
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={() => router.push('/dashboard/subscription')}
+                    className="w-full"
+                  >
+                    Manage Plan
+                  </Button>
+                )}
+                
+                <Button 
+                  variant="outline" 
+                  className="w-full text-red-600 hover:bg-red-50 hover:text-red-700"
+                  onClick={() => setConfirmCancelOpen(true)}
                 >
-                  Upgrade to Premium
+                  Cancel Subscription
                 </Button>
-              ) : (
-                <Button
-                  onClick={() => router.push('/dashboard/subscription')}
-                  className="w-full"
-                >
-                  Manage Plan
-                </Button>
-              )}
-              
-              <Button 
-                variant="outline" 
-                className="w-full text-red-600 hover:bg-red-50 hover:text-red-700"
-                onClick={() => setConfirmCancelOpen(true)}
-              >
-                Cancel Subscription
-              </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
