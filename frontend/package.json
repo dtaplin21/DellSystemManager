@@ -27,18 +27,18 @@
     "next": "^13.4.10",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "tailwind-merge": "^1.13.2",
-    "tailwindcss-animate": "^1.0.6"
+    "tailwind-merge": "^1.13.2"
   },
   "devDependencies": {
     "@shadcn/ui": "^0.0.4",
     "@types/node": "^20.4.2",
     "@types/react": "^18.2.15",
-    "autoprefixer": "^10.4.14",
+    "autoprefixer": "^10.4.21",
     "eslint": "^8.45.0",
     "eslint-config-next": "^13.4.10",
-    "postcss": "^8.4.26",
+    "postcss": "^8.5.4",
     "tailwindcss": "^4.1.8",
+    "tailwindcss-animate": "^1.0.7",
     "typescript": "^5.1.6"
   }
 }

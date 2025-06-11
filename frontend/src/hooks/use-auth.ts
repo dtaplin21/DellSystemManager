@@ -103,7 +103,7 @@ export function useAuth() {
     }
   };
 
-  const signup = async (email: string, password: string) => {
+  const signup = async (name: string, email: string, password: string, company?: string) => {
     setIsLoading(true);
     try {
       const response = await fetch('/api/auth/signup', {
@@ -111,7 +111,7 @@ export function useAuth() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ name, email, password, company }),
       });
 
       if (response.ok) {

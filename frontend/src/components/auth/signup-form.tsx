@@ -40,7 +40,7 @@ export default function SignupForm() {
     
     try {
       setIsLoading(true);
-      await signup(email, password);
+      await signup(name, email, password, company);
       toast({
         title: 'Success',
         description: 'Account created successfully',

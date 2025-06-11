@@ -1,21 +1,14 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import dynamic from 'next/dynamic'
 import { Button } from '@/components/ui/button'
 import CreatePanelModal from './CreatePanelModal'
 import PanelAIChat from './PanelAIChat'
 import { parseExcelPanels, generateTemplateFile } from '@/lib/excel-import'
 import { exportToDXF, exportToJSON } from '@/lib/dxf-helpers'
 import { saveAs } from 'file-saver'
-
-// Dynamically import Konva components to avoid SSR issues
-const Stage = dynamic(() => import('react-konva').then(mod => mod.Stage), { ssr: false })
-const Layer = dynamic(() => import('react-konva').then(mod => mod.Layer), { ssr: false })
-const Rect = dynamic(() => import('react-konva').then(mod => mod.Rect), { ssr: false })
-const Line = dynamic(() => import('react-konva').then(mod => mod.Line), { ssr: false })
-const Text = dynamic(() => import('react-konva').then(mod => mod.Text), { ssr: false })
-const Circle = dynamic(() => import('react-konva').then(mod => mod.Circle), { ssr: false })
+import { Stage, Layer, Rect, Line, Text, Circle } from './KonvaCanvas'
+import type { Stage as StageType, Layer as LayerType, Rect as RectType, Line as LineType, Text as TextType, Circle as CircleType } from 'react-konva'
 
 interface PanelLayoutProps {
   mode: 'manual' | 'auto'
