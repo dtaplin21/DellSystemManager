@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/use-auth';
@@ -12,6 +13,7 @@ export default function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
   const { login, loginWithGoogle } = useAuth();
   const { toast } = useToast();
+  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,10 +30,7 @@ export default function LoginForm() {
     try {
       setIsLoading(true);
       await login(email, password);
-      toast({
-        title: 'Success',
-        description: 'Logged in successfully',
-      });
+      router.replace('/dashboard');
     } catch (error) {
       toast({
         title: 'Error',
@@ -47,6 +46,7 @@ export default function LoginForm() {
     try {
       setIsLoading(true);
       await loginWithGoogle();
+      router.push('/dashboard');
     } catch (error) {
       toast({
         title: 'Error',

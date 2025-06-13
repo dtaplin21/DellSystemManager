@@ -31,6 +31,7 @@ export function useAuth() {
           try {
             const parsedUser = JSON.parse(userData);
             setUser(parsedUser);
+            console.log('User data loaded from localStorage:', parsedUser);
           } catch (error) {
             console.error('Error parsing stored user data:', error);
             localStorage.removeItem('authToken');
@@ -44,15 +45,18 @@ export function useAuth() {
           credentials: 'include',
           headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
           }
         });
 
         if (response.ok) {
           const userData = await response.json();
           setUser(userData);
+          console.log('User data verified with server:', userData);
           // Update localStorage with fresh data
           localStorage.setItem('userData', JSON.stringify(userData));
         } else if (response.status === 401) {
+          console.log('Session invalid, clearing auth state');
           // Clear invalid auth state
           localStorage.removeItem('authToken');
           localStorage.removeItem('userData');
@@ -82,18 +86,43 @@ export function useAuth() {
 
       if (response.ok) {
         const data = await response.json();
-        const userData: User = {
-          id: data.id,
-          email: data.email,
-          displayName: data.name || null,
-          company: data.company,
-          position: data.position,
-          subscription: data.subscription
+        console.log('Raw login response data:', data);
+        
+        // Extract user data from the nested structure
+        const userData = data.user;
+        console.log('Extracted user data:', userData);
+        
+        // Ensure we have the required data
+        if (!userData?.id || !userData?.email) {
+          console.error('Missing required fields:', {
+            hasId: !!userData?.id,
+            hasEmail: !!userData?.email,
+            userData
+          });
+          throw new Error('Invalid response data from server');
+        }
+
+        const processedUserData: User = {
+          id: userData.id,
+          email: userData.email,
+          displayName: userData.displayName || userData.name || null,
+          company: userData.company || null,
+          position: userData.position || null,
+          subscription: userData.subscription || 'basic'
         };
-        setUser(userData);
-        localStorage.setItem('userData', JSON.stringify(userData));
+
+        console.log('Processed user data:', processedUserData);
+        setUser(processedUserData);
+        localStorage.setItem('userData', JSON.stringify(processedUserData));
+        localStorage.setItem('authToken', data.token);
+
+        // Verify the user data was set correctly
+        const storedUser = localStorage.getItem('userData');
+        console.log('Stored user data:', storedUser);
       } else {
-        throw new Error('Login failed');
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Login failed with status:', response.status, errorData);
+        throw new Error(errorData.message || 'Login failed');
       }
     } catch (error) {
       console.error('Login error:', error);

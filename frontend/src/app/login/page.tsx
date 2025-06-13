@@ -24,13 +24,13 @@ export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
   
-  // DISABLED - Automatic redirect causing infinite loop
-  // useEffect(() => {
-  //   // If user is already logged in, redirect to dashboard
-  //   if (user) {
-  //     router.push('/dashboard');
-  //   }
-  // }, [user, router]);
+  useEffect(() => {
+    // Only redirect if we have a user and we're not in a loading state
+    if (user && !isLoading) {
+      console.log('Login page - User authenticated, redirecting to dashboard');
+      router.replace('/dashboard');
+    }
+  }, [user, isLoading, router]);
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,13 +46,12 @@ export default function LoginPage() {
       } else {
         await login(email, password);
         toast({
-          title: 'Welcome back',
-          description: 'You have successfully logged in.',
+          title: 'Login successful',
+          description: 'Welcome back!',
         });
       }
-      // DISABLED - Redirect after login causing infinite loop
-      // router.push('/dashboard');
     } catch (error) {
+      console.error('Login error:', error);
       toast({
         title: 'Authentication failed',
         description: error instanceof Error ? error.message : 'Failed to authenticate. Please try again.',
@@ -64,16 +63,22 @@ export default function LoginPage() {
   };
   
   const handleGoogleSignIn = async () => {
+    setIsLoading(true);
     try {
       await loginWithGoogle();
-      // DISABLED - Redirect after Google login causing infinite loop
-      // router.push('/dashboard');
+      toast({
+        title: 'Login successful',
+        description: 'Welcome back!',
+      });
     } catch (error) {
+      console.error('Google login error:', error);
       toast({
         title: 'Google authentication failed',
         description: error instanceof Error ? error.message : 'Failed to authenticate with Google. Please try again.',
         variant: 'destructive',
       });
+    } finally {
+      setIsLoading(false);
     }
   };
   
@@ -166,6 +171,7 @@ export default function LoginPage() {
               variant="outline" 
               className="w-full" 
               onClick={handleGoogleSignIn}
+              disabled={isLoading}
             >
               <span className="mr-2">
                 <svg width="18" height="18" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512">
@@ -173,7 +179,7 @@ export default function LoginPage() {
                     fill="#4285f4"/>
                 </svg>
               </span>
-              Continue with Google
+              {isLoading ? 'Processing...' : 'Continue with Google'}
             </Button>
           </CardContent>
         </form>

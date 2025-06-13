@@ -11,12 +11,48 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // Temporarily using standalone layout for dashboard page
-  // to preserve original working CSS styling
-  
+  const { user, isAuthenticated, isLoading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    console.log('Dashboard Layout - Current State:', {
+      user,
+      isAuthenticated,
+      isLoading,
+      hasToken: !!localStorage.getItem('authToken'),
+      hasUserData: !!localStorage.getItem('userData')
+    });
+    
+    if (!isLoading) {
+      if (!isAuthenticated || !user) {
+        console.log('User not authenticated or missing user data, redirecting to login');
+        router.replace('/login');
+      } else {
+        console.log('User authenticated, rendering dashboard');
+      }
+    }
+  }, [isLoading, isAuthenticated, user, router]);
+
+  if (isLoading) {
+    console.log('Dashboard Layout - Loading state');
+    return <div>Loading...</div>;
+  }
+
+  if (!isAuthenticated || !user) {
+    console.log('Dashboard Layout - Not authenticated or missing user data');
+    return null;
+  }
+
+  console.log('Dashboard Layout - Rendering authenticated content for user:', user.email);
   return (
     <div>
-      {children}
+      <Navbar />
+      <div className="flex">
+        <Sidebar />
+        <main className="flex-1">
+          {children}
+        </main>
+      </div>
     </div>
   );
 }
