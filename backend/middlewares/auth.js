@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const { db } = require('../db');
+const { db, supabase } = require('../db');
 const { users } = require('../db/schema');
 const { eq } = require('drizzle-orm');
 
@@ -9,29 +9,21 @@ const auth = async (req, res, next) => {
     const token = req.cookies.token;
     
     if (!token) {
-      // Development bypass: use first available user for testing
-      try {
-        const [user] = await db.select().from(users).limit(1);
-        if (user) {
-          const { password: _, ...userWithoutPassword } = user;
-          req.user = userWithoutPassword;
-          console.log('Auth bypass successful for user:', userWithoutPassword.id);
-          return next();
-        }
-      } catch (error) {
-        console.error('Auth bypass failed:', error);
-      }
       return res.status(401).json({ message: 'Access denied. No token provided.' });
     }
 
-    // Verify token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    // Verify token with Supabase
+    const { data: { user: supabaseUser }, error } = await supabase.auth.getUser(token);
     
+    if (error || !supabaseUser) {
+      return res.status(401).json({ message: 'Invalid token.' });
+    }
+
     // Get user from database
-    const [user] = await db.select().from(users).where(eq(users.id, decoded.id));
+    const [user] = await db.select().from(users).where(eq(users.id, supabaseUser.id));
     
     if (!user) {
-      return res.status(401).json({ message: 'Invalid token. User not found.' });
+      return res.status(401).json({ message: 'User not found.' });
     }
 
     // Remove password from user object

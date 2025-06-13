@@ -1,11 +1,18 @@
 const { drizzle } = require('drizzle-orm/node-postgres');
 const { Pool } = require('pg');
+const { createClient } = require('@supabase/supabase-js');
 const schema = require('./schema');
 
+// Initialize Supabase client
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_KEY;
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+// Initialize PostgreSQL pool for direct database access
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: {
-    rejectUnauthorized: false
+    rejectUnauthorized: false // Required for Supabase
   }
 });
 
@@ -16,7 +23,7 @@ async function connectToDatabase() {
     // Test the connection without creating a persistent client
     const client = await pool.connect();
     client.release(); // Release the test connection immediately
-    console.log('Connected to PostgreSQL database');
+    console.log('Connected to Supabase PostgreSQL database');
     return db;
   } catch (error) {
     console.error('Failed to connect to database:', error);
@@ -41,6 +48,7 @@ async function applyMigrations() {
 
 module.exports = {
   db,
+  supabase,
   connectToDatabase,
   applyMigrations
 };

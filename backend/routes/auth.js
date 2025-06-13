@@ -1,179 +1,147 @@
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
 const { auth } = require('../middlewares/auth');
 const { validateSignup, validateLogin } = require('../utils/validate');
-const { db } = require('../db');
+const { db, supabase } = require('../db');
 const { users } = require('../db/schema');
 const { eq } = require('drizzle-orm');
-const admin = require('firebase-admin');
 
-// Initialize Firebase Admin if not already initialized and if we have the required credentials
-if (!admin.apps.length) {
-  try {
-    if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY) {
-      admin.initializeApp({
-        credential: admin.credential.cert({
-          projectId: process.env.FIREBASE_PROJECT_ID,
-          clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-          privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-        }),
-      });
-      console.log('Firebase Admin initialized successfully');
-    } else {
-      console.warn('Firebase credentials are missing. Google authentication will not be available.');
-      // Create a mock Firebase admin for non-critical paths
-      global.firebaseInitialized = false;
-    }
-  } catch (error) {
-    console.error('Firebase admin initialization error:', error);
-    global.firebaseInitialized = false;
-  }
-} else {
-  global.firebaseInitialized = true;
-}
-
-// JWT token generation
-const generateToken = (user) => {
-  return jwt.sign(
-    { id: user.id, email: user.email, subscription: user.subscription },
-    process.env.JWT_SECRET,
-    { expiresIn: '7d' }
-  );
-};
-
-// Set cookie with token
+// Set token cookie
 const setTokenCookie = (res, token) => {
   res.cookie('token', token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    sameSite: 'strict',
+    maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
   });
 };
 
-// User signup
-router.post('/signup', async (req, res, next) => {
+// Signup
+router.post('/signup', async (req, res) => {
   try {
     const { name, email, password, company } = req.body;
     
     // Validate input
-    const { error } = validateSignup({ name, email, password });
-    if (error) {
-      return res.status(400).json({ message: error.details[0].message });
+    const validationError = validateSignup({ name, email, password, company });
+    if (validationError) {
+      return res.status(400).json({ message: validationError });
     }
     
-    // Check if user already exists
-    const existingUser = await db.select().from(users).where(eq(users.email, email));
-    if (existingUser.length > 0) {
-      return res.status(400).json({ message: 'User with this email already exists' });
+    // Check if user exists
+    const [existingUser] = await db.select().from(users).where(eq(users.email, email));
+    if (existingUser) {
+      return res.status(400).json({ message: 'User already exists' });
     }
     
-    // Hash password
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-    
-    // Create user
-    const [newUser] = await db.insert(users).values({
-      id: uuidv4(),
+    // Create user in Supabase
+    const { data: supabaseUser, error: supabaseError } = await supabase.auth.signUp({
       email,
-      password: hashedPassword,
+      password,
+    });
+    
+    if (supabaseError) {
+      throw supabaseError;
+    }
+    
+    // Create user in our database
+    const [user] = await db.insert(users).values({
+      id: supabaseUser.user.id,
+      email,
       displayName: name,
-      company: company || null,
-      subscription: 'basic', // Default subscription tier
+      company,
+      subscription: 'basic',
       createdAt: new Date(),
     }).returning();
     
-    // Generate JWT token
-    const token = generateToken(newUser);
-    
     // Set cookie
-    setTokenCookie(res, token);
+    setTokenCookie(res, supabaseUser.session.access_token);
     
-    // Return user info (without password)
-    const { password: _, ...userWithoutPassword } = newUser;
+    // Return user info
+    const { password: _, ...userWithoutPassword } = user;
     res.status(201).json({ user: userWithoutPassword });
   } catch (error) {
-    next(error);
+    console.error('Signup error:', error);
+    res.status(500).json({ message: 'Failed to create account' });
   }
 });
 
-// User login
-router.post('/login', async (req, res, next) => {
+// Login
+router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
     
     // Validate input
-    const { error } = validateLogin({ email, password });
-    if (error) {
-      return res.status(400).json({ message: error.details[0].message });
+    const validationError = validateLogin({ email, password });
+    if (validationError) {
+      return res.status(400).json({ message: validationError });
     }
     
-    // Find user
-    const [user] = await db.select().from(users).where(eq(users.email, email));
+    // Sign in with Supabase
+    const { data: supabaseUser, error: supabaseError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    
+    if (supabaseError) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+    
+    // Get user from our database
+    const [user] = await db.select().from(users).where(eq(users.id, supabaseUser.user.id));
+    
     if (!user) {
-      return res.status(400).json({ message: 'Invalid email or password' });
+      return res.status(401).json({ message: 'User not found' });
     }
-    
-    // Verify password
-    const validPassword = await bcrypt.compare(password, user.password);
-    if (!validPassword) {
-      return res.status(400).json({ message: 'Invalid email or password' });
-    }
-    
-    // Generate JWT token
-    const token = generateToken(user);
     
     // Set cookie
-    setTokenCookie(res, token);
+    setTokenCookie(res, supabaseUser.session.access_token);
     
-    // Return user info (without password)
+    // Return user info
     const { password: _, ...userWithoutPassword } = user;
     res.status(200).json({ user: userWithoutPassword });
   } catch (error) {
-    next(error);
+    console.error('Login error:', error);
+    res.status(500).json({ message: 'Failed to login' });
   }
 });
 
 // Google login
-router.post('/google', async (req, res, next) => {
+router.post('/google', async (req, res) => {
   try {
-    // Check if Firebase is properly initialized
-    if (!global.firebaseInitialized) {
-      return res.status(503).json({ 
-        message: 'Google authentication is not available. Please try email/password login instead.',
-        reason: 'missing_firebase_credentials'
-      });
-    }
-
     const { idToken } = req.body;
     
-    // Verify the token
-    const decodedToken = await admin.auth().verifyIdToken(idToken);
-    const { email, name, picture } = decodedToken;
+    // Sign in with Google using Supabase
+    const { data: supabaseUser, error: supabaseError } = await supabase.auth.signInWithIdToken({
+      provider: 'google',
+      token: idToken,
+    });
     
-    // Check if user exists
-    let [user] = await db.select().from(users).where(eq(users.email, email));
+    if (supabaseError) {
+      return res.status(401).json({ 
+        message: 'Google authentication failed',
+        reason: supabaseError.message
+      });
+    }
+    
+    // Check if user exists in our database
+    let [user] = await db.select().from(users).where(eq(users.email, supabaseUser.user.email));
     
     if (!user) {
       // Create new user
       [user] = await db.insert(users).values({
-        id: uuidv4(),
-        email,
-        displayName: name,
-        profileImageUrl: picture,
-        subscription: 'basic', // Default subscription tier
+        id: supabaseUser.user.id,
+        email: supabaseUser.user.email,
+        displayName: supabaseUser.user.user_metadata.full_name,
+        profileImageUrl: supabaseUser.user.user_metadata.avatar_url,
+        subscription: 'basic',
         createdAt: new Date(),
       }).returning();
     }
     
-    // Generate JWT token
-    const token = generateToken(user);
-    
     // Set cookie
-    setTokenCookie(res, token);
+    setTokenCookie(res, supabaseUser.session.access_token);
     
     // Return user info
     const { password: _, ...userWithoutPassword } = user;
@@ -182,50 +150,45 @@ router.post('/google', async (req, res, next) => {
     console.error('Google auth error:', error);
     res.status(401).json({ 
       message: 'Authentication failed',
-      reason: error.code || 'unknown_error'
+      reason: error.message
     });
   }
 });
 
-// Get current user
-router.get('/me', auth, async (req, res) => {
-  // User is already attached to req by auth middleware
-  res.status(200).json({ user: req.user });
-});
-
-// Get current user (alternative endpoint for frontend compatibility)
-router.get('/user', auth, async (req, res) => {
-  // User is already attached to req by auth middleware
-  res.status(200).json(req.user);
-});
-
-// Update user profile
-router.patch('/profile', auth, async (req, res, next) => {
+// Logout
+router.post('/logout', auth, async (req, res) => {
   try {
-    const { name, company, position } = req.body;
-    const userId = req.user.id;
+    // Sign out from Supabase
+    const { error } = await supabase.auth.signOut();
     
-    const [updatedUser] = await db.update(users)
-      .set({
-        displayName: name || req.user.displayName,
-        company: company !== undefined ? company : req.user.company,
-        position: position !== undefined ? position : req.user.position,
-        updatedAt: new Date(),
-      })
-      .where(eq(users.id, userId))
-      .returning();
+    if (error) {
+      throw error;
+    }
     
-    const { password: _, ...userWithoutPassword } = updatedUser;
-    res.status(200).json({ user: userWithoutPassword });
+    // Clear cookie
+    res.clearCookie('token');
+    res.status(200).json({ message: 'Logged out successfully' });
   } catch (error) {
-    next(error);
+    console.error('Logout error:', error);
+    res.status(500).json({ message: 'Failed to logout' });
   }
 });
 
-// Logout
-router.post('/logout', (req, res) => {
-  res.clearCookie('token');
-  res.status(200).json({ message: 'Logged out successfully' });
+// Get current user
+router.get('/user', auth, async (req, res) => {
+  try {
+    const [user] = await db.select().from(users).where(eq(users.id, req.user.id));
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    const { password: _, ...userWithoutPassword } = user;
+    res.status(200).json({ user: userWithoutPassword });
+  } catch (error) {
+    console.error('Get user error:', error);
+    res.status(500).json({ message: 'Failed to get user' });
+  }
 });
 
 module.exports = router;
