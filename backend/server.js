@@ -8,6 +8,12 @@ const path = require('path');
 const { WebSocketServer } = require('ws');
 const { setupWebSocketServer } = require('./services/websocket');
 
+// Debug environment variables
+console.log('Environment Variables:');
+console.log('SUPABASE_URL:', process.env.SUPABASE_URL ? 'exists' : 'missing');
+console.log('SUPABASE_KEY:', process.env.SUPABASE_KEY ? 'exists' : 'missing');
+console.log('DATABASE_URL:', process.env.DATABASE_URL ? 'exists' : 'missing');
+
 // Initialize Express app
 const app = express();
 

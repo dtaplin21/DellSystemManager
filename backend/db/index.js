@@ -3,11 +3,6 @@ const { Pool } = require('pg');
 const { createClient } = require('@supabase/supabase-js');
 const schema = require('./schema');
 
-// Initialize Supabase client
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_KEY;
-const supabase = createClient(supabaseUrl, supabaseKey);
-
 // Initialize PostgreSQL pool for direct database access
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -17,9 +12,20 @@ const pool = new Pool({
 });
 
 const db = drizzle(pool, { schema });
+let supabase = null;
 
 async function connectToDatabase() {
   try {
+    // Initialize Supabase client
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_KEY;
+    
+    if (!supabaseUrl || !supabaseKey) {
+      throw new Error('Supabase URL and Key are required in environment variables');
+    }
+    
+    supabase = createClient(supabaseUrl, supabaseKey);
+    
     // Test the connection without creating a persistent client
     const client = await pool.connect();
     client.release(); // Release the test connection immediately
@@ -48,7 +54,7 @@ async function applyMigrations() {
 
 module.exports = {
   db,
-  supabase,
+  getSupabase: () => supabase,
   connectToDatabase,
   applyMigrations
 };

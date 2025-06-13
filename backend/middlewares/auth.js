@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const { db, supabase } = require('../db');
+const { db, getSupabase } = require('../db');
 const { users } = require('../db/schema');
 const { eq } = require('drizzle-orm');
 
@@ -10,6 +10,12 @@ const auth = async (req, res, next) => {
     
     if (!token) {
       return res.status(401).json({ message: 'Access denied. No token provided.' });
+    }
+
+    // Get Supabase client
+    const supabase = getSupabase();
+    if (!supabase) {
+      throw new Error('Supabase client not initialized');
     }
 
     // Verify token with Supabase

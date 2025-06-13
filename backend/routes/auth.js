@@ -4,7 +4,7 @@ const bcrypt = require('bcrypt');
 const { v4: uuidv4 } = require('uuid');
 const { auth } = require('../middlewares/auth');
 const { validateSignup, validateLogin } = require('../utils/validate');
-const { db, supabase } = require('../db');
+const { db, getSupabase } = require('../db');
 const { users } = require('../db/schema');
 const { eq } = require('drizzle-orm');
 
@@ -33,6 +33,12 @@ router.post('/signup', async (req, res) => {
     const [existingUser] = await db.select().from(users).where(eq(users.email, email));
     if (existingUser) {
       return res.status(400).json({ message: 'User already exists' });
+    }
+    
+    // Get Supabase client
+    const supabase = getSupabase();
+    if (!supabase) {
+      throw new Error('Supabase client not initialized');
     }
     
     // Create user in Supabase
@@ -78,6 +84,12 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ message: validationError });
     }
     
+    // Get Supabase client
+    const supabase = getSupabase();
+    if (!supabase) {
+      throw new Error('Supabase client not initialized');
+    }
+    
     // Sign in with Supabase
     const { data: supabaseUser, error: supabaseError } = await supabase.auth.signInWithPassword({
       email,
@@ -111,6 +123,12 @@ router.post('/login', async (req, res) => {
 router.post('/google', async (req, res) => {
   try {
     const { idToken } = req.body;
+    
+    // Get Supabase client
+    const supabase = getSupabase();
+    if (!supabase) {
+      throw new Error('Supabase client not initialized');
+    }
     
     // Sign in with Google using Supabase
     const { data: supabaseUser, error: supabaseError } = await supabase.auth.signInWithIdToken({
@@ -158,6 +176,12 @@ router.post('/google', async (req, res) => {
 // Logout
 router.post('/logout', auth, async (req, res) => {
   try {
+    // Get Supabase client
+    const supabase = getSupabase();
+    if (!supabase) {
+      throw new Error('Supabase client not initialized');
+    }
+    
     // Sign out from Supabase
     const { error } = await supabase.auth.signOut();
     
