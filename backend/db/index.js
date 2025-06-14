@@ -8,31 +8,52 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: {
     rejectUnauthorized: false // Required for Supabase
-  }
+  },
+  max: 20, // Maximum number of clients in the pool
+  idleTimeoutMillis: 30000, // How long a client is allowed to remain idle before being closed
+  connectionTimeoutMillis: 2000, // How long to wait for a connection
+  application_name: 'dell-system-manager' // Add application name for better monitoring
 });
 
 const db = drizzle(pool, { schema });
-let supabase = null;
+
+// Initialize Supabase client
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_KEY;
+
+// Debug environment variables
+console.log('Checking Supabase credentials...');
+console.log('SUPABASE_URL:', supabaseUrl ? '✓ Present' : '✗ Missing');
+console.log('SUPABASE_KEY:', supabaseKey ? '✓ Present' : '✗ Missing');
+console.log('DATABASE_URL:', process.env.DATABASE_URL ? '✓ Present' : '✗ Missing');
+
+if (!supabaseUrl || !supabaseKey) {
+  console.error('\nMissing Supabase credentials. Please check your .env file.');
+  console.error('Required environment variables:');
+  console.error('1. SUPABASE_URL - Your Supabase project URL');
+  console.error('2. SUPABASE_KEY - Your Supabase anon/public key');
+  console.error('3. DATABASE_URL - Your Supabase database connection string\n');
+  process.exit(1);
+}
+
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function connectToDatabase() {
   try {
-    // Initialize Supabase client
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_KEY;
-    
-    if (!supabaseUrl || !supabaseKey) {
-      throw new Error('Supabase URL and Key are required in environment variables');
-    }
-    
-    supabase = createClient(supabaseUrl, supabaseKey);
-    
     // Test the connection without creating a persistent client
     const client = await pool.connect();
+    console.log('Successfully connected to Supabase PostgreSQL database');
     client.release(); // Release the test connection immediately
-    console.log('Connected to Supabase PostgreSQL database');
     return db;
   } catch (error) {
     console.error('Failed to connect to database:', error);
+    console.error('Connection details:', {
+      host: pool.options.host,
+      port: pool.options.port,
+      database: pool.options.database,
+      user: pool.options.user,
+      ssl: pool.options.ssl ? 'enabled' : 'disabled'
+    });
     throw error;
   }
 }
@@ -54,7 +75,7 @@ async function applyMigrations() {
 
 module.exports = {
   db,
-  getSupabase: () => supabase,
+  supabase,
   connectToDatabase,
   applyMigrations
 };

@@ -58,10 +58,22 @@ export default function ProjectForm({ onProjectCreated }: ProjectFormProps) {
       });
       
       onProjectCreated(newProject);
-    } catch (error) {
+      
+      // Reset form
+      setFormData({
+        name: '',
+        description: '',
+        client: '',
+        location: '',
+        startDate: new Date().toISOString().split('T')[0],
+        endDate: '',
+        area: '',
+      });
+    } catch (error: any) {
+      console.error('Project creation error:', error);
       toast({
         title: 'Error',
-        description: 'Failed to create project. Please try again.',
+        description: error.message || 'Failed to create project. Please try again.',
         variant: 'destructive',
       });
     } finally {

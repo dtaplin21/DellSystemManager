@@ -176,11 +176,13 @@ export async function createProject(data: {
     headers: {
       'Content-Type': 'application/json'
     },
+    credentials: 'include',
     body: JSON.stringify(data)
   });
 
   if (!response.ok) {
-    throw new Error('Failed to create project');
+    const error = await response.json().catch(() => ({ message: 'Failed to create project' }));
+    throw new Error(error.message || 'Failed to create project');
   }
 
   return response.json();
