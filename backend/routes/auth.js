@@ -71,36 +71,50 @@ router.post('/signup', async (req, res) => {
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
+    console.log('Login attempt for email:', email);
     
     // Validate input
     const validationError = validateLogin({ email, password });
     if (validationError) {
+      console.log('Validation error:', validationError);
       return res.status(400).json({ message: validationError });
     }
     
     // Sign in with Supabase
+    console.log('Attempting Supabase sign in...');
     const { data: supabaseUser, error: supabaseError } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
     
     if (supabaseError) {
+      console.error('Supabase auth error:', supabaseError);
       return res.status(401).json({ message: 'Invalid credentials' });
     }
+    
+    console.log('Supabase auth successful, user ID:', supabaseUser.user.id);
     
     // Get user from our database
     const [user] = await db.select().from(users).where(eq(users.id, supabaseUser.user.id));
     
     if (!user) {
+      console.error('User not found in database:', supabaseUser.user.id);
       return res.status(401).json({ message: 'User not found' });
     }
+    
+    console.log('User found in database:', user.id);
     
     // Set cookie
     setTokenCookie(res, supabaseUser.session.access_token);
     
-    // Return user info
+    // Return user info and token
     const { password: _, ...userWithoutPassword } = user;
-    res.status(200).json({ user: userWithoutPassword });
+    const response = { 
+      user: userWithoutPassword,
+      token: supabaseUser.session.access_token 
+    };
+    console.log('Sending response:', { ...response, token: '[REDACTED]' });
+    res.status(200).json(response);
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ message: 'Failed to login' });
