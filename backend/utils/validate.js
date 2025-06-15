@@ -37,13 +37,27 @@ const validateLogin = (data) => {
 
 const validateProject = (data) => {
   const schema = Joi.object({
-    name: Joi.string().min(2).max(100).required(),
+    name: Joi.string().min(2).max(100).required().messages({
+      'string.empty': 'Project name is required',
+      'string.min': 'Project name must be at least 2 characters long',
+      'string.max': 'Project name must be less than 100 characters long'
+    }),
     description: Joi.string().allow('', null).optional(),
-    client: Joi.string().allow('', null).optional(),
-    location: Joi.string().allow('', null).optional(),
-    startDate: Joi.date().optional(),
-    endDate: Joi.date().optional(),
-    area: Joi.number().optional()
+    client: Joi.string().min(2).max(100).required().messages({
+      'string.empty': 'Client name is required',
+      'string.min': 'Client name must be at least 2 characters long',
+      'string.max': 'Client name must be less than 100 characters long'
+    }),
+    location: Joi.string().min(2).max(200).required().messages({
+      'string.empty': 'Location is required',
+      'string.min': 'Location must be at least 2 characters long',
+      'string.max': 'Location must be less than 200 characters long'
+    }),
+    startDate: Joi.date().allow('', null).optional(),
+    endDate: Joi.date().allow('', null).optional(),
+    status: Joi.string().valid('Active', 'Completed', 'On Hold', 'Delayed').default('Active'),
+    progress: Joi.number().min(0).max(100).default(0),
+    area: Joi.number().allow(null).optional()
   });
 
   return schema.validate(data);

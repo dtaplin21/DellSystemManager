@@ -84,46 +84,41 @@ export function useAuth() {
         body: JSON.stringify({ email, password }),
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Raw login response data:', data);
-        
-        // Extract user data from the nested structure
-        const userData = data.user;
-        console.log('Extracted user data:', userData);
-        
-        // Ensure we have the required data
-        if (!userData?.id || !userData?.email) {
-          console.error('Missing required fields:', {
-            hasId: !!userData?.id,
-            hasEmail: !!userData?.email,
-            userData
-          });
-          throw new Error('Invalid response data from server');
-        }
+      const data = await response.json();
+      console.log('Login response:', { ...data, token: data.token ? '[REDACTED]' : undefined });
 
-        const processedUserData: User = {
-          id: userData.id,
-          email: userData.email,
-          displayName: userData.displayName || userData.name || null,
-          company: userData.company || null,
-          position: userData.position || null,
-          subscription: userData.subscription || 'basic'
-        };
-
-        console.log('Processed user data:', processedUserData);
-        setUser(processedUserData);
-        localStorage.setItem('userData', JSON.stringify(processedUserData));
-        localStorage.setItem('authToken', data.token);
-
-        // Verify the user data was set correctly
-        const storedUser = localStorage.getItem('userData');
-        console.log('Stored user data:', storedUser);
-      } else {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('Login failed with status:', response.status, errorData);
-        throw new Error(errorData.message || 'Login failed');
+      if (!response.ok) {
+        throw new Error(data.message || 'Login failed');
       }
+
+      // Extract user data from the nested structure
+      const userData = data.user;
+      if (!userData?.id || !userData?.email) {
+        console.error('Missing required fields:', {
+          hasId: !!userData?.id,
+          hasEmail: !!userData?.email,
+          userData
+        });
+        throw new Error('Invalid response data from server');
+      }
+
+      const processedUserData: User = {
+        id: userData.id,
+        email: userData.email,
+        displayName: userData.displayName || userData.name || null,
+        company: userData.company || null,
+        position: userData.position || null,
+        subscription: userData.subscription || 'basic'
+      };
+
+      console.log('Processed user data:', processedUserData);
+      setUser(processedUserData);
+      localStorage.setItem('userData', JSON.stringify(processedUserData));
+      localStorage.setItem('authToken', data.token);
+
+      // Verify the user data was set correctly
+      const storedUser = localStorage.getItem('userData');
+      console.log('Stored user data:', storedUser);
     } catch (error) {
       console.error('Login error:', error);
       throw error;
@@ -143,21 +138,47 @@ export function useAuth() {
         body: JSON.stringify({ name, email, password, company }),
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        const userData: User = {
-          id: data.id,
-          email: data.email,
-          displayName: data.name || null,
-          company: data.company,
-          position: data.position,
-          subscription: data.subscription
-        };
-        setUser(userData);
-        localStorage.setItem('userData', JSON.stringify(userData));
-      } else {
-        throw new Error('Signup failed');
+      const data = await response.json();
+      console.log('Signup response:', { ...data, token: data.token ? '[REDACTED]' : undefined });
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Signup failed');
       }
+
+      const userData = data.user;
+      if (!userData?.id || !userData?.email) {
+        console.error('Missing required fields:', {
+          hasId: !!userData?.id,
+          hasEmail: !!userData?.email,
+          userData
+        });
+        throw new Error('Invalid response data from server');
+      }
+
+      const processedUserData: User = {
+        id: userData.id,
+        email: userData.email,
+        displayName: userData.displayName || userData.name || null,
+        company: userData.company || null,
+        position: userData.position || null,
+        subscription: userData.subscription || 'basic'
+      };
+
+      setUser(processedUserData);
+      localStorage.setItem('userData', JSON.stringify(processedUserData));
+      
+      // Only set token if it's available
+      if (data.token) {
+        localStorage.setItem('authToken', data.token);
+      }
+
+      // If we have a message, show it to the user
+      if (data.message) {
+        // You might want to show this message in a toast or notification
+        console.log('Signup message:', data.message);
+      }
+
+      return data;
     } catch (error) {
       console.error('Signup error:', error);
       throw error;

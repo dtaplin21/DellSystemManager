@@ -32,9 +32,11 @@ export default function LoginForm() {
       await login(email, password);
       router.replace('/dashboard');
     } catch (error) {
+      console.error('Login error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to login. Please try again.';
       toast({
         title: 'Error',
-        description: 'Invalid email or password. Please try again.',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {

@@ -68,10 +68,12 @@ router.get('/:id', auth, async (req, res, next) => {
 router.post('/', auth, async (req, res, next) => {
   try {
     const projectData = req.body;
+    console.log('Received project data:', projectData); // Debug log
     
     // Validate project data
     const { error } = validateProject(projectData);
     if (error) {
+      console.error('Validation error:', error.details[0].message); // Debug log
       return res.status(400).json({ message: error.details[0].message });
     }
     
@@ -83,18 +85,20 @@ router.post('/', auth, async (req, res, next) => {
         userId: req.user.id,
         name: projectData.name,
         description: projectData.description || '',
-        status: 'active',
+        status: projectData.status || 'active',
         client: projectData.client,
         location: projectData.location || '',
-        startDate: projectData.startDate,
+        startDate: projectData.startDate || null,
         endDate: projectData.endDate || null,
         area: projectData.area || null,
-        progress: 0,
+        progress: projectData.progress || 0,
         subscription: req.user.subscription,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       })
       .returning();
+    
+    console.log('Created project:', newProject); // Debug log
     
     // Create an initial empty panel layout
     await db.insert(panels).values({
@@ -113,6 +117,7 @@ router.post('/', auth, async (req, res, next) => {
       lastUpdated: newProject.updatedAt || newProject.createdAt,
     });
   } catch (error) {
+    console.error('Project creation error:', error); // Debug log
     next(error);
   }
 });

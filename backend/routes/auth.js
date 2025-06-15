@@ -24,9 +24,10 @@ router.post('/signup', async (req, res) => {
     const { name, email, password, company } = req.body;
     
     // Validate input
-    const validationError = validateSignup({ name, email, password, company });
+    const { error: validationError } = validateSignup({ name, email, password, company });
     if (validationError) {
-      return res.status(400).json({ message: validationError });
+      console.log('Validation error:', validationError.details[0].message);
+      return res.status(400).json({ message: validationError.details[0].message });
     }
     
     // Check if user exists
@@ -42,9 +43,18 @@ router.post('/signup', async (req, res) => {
     });
     
     if (supabaseError) {
-      throw supabaseError;
+      console.error('Supabase signup error:', supabaseError);
+      return res.status(400).json({ 
+        message: supabaseError.message || 'Failed to create account',
+        error: supabaseError
+      });
     }
     
+    if (!supabaseUser?.user) {
+      console.error('No user returned from Supabase signup');
+      return res.status(400).json({ message: 'Failed to create account' });
+    }
+
     // Create user in our database
     const [user] = await db.insert(users).values({
       id: supabaseUser.user.id,
@@ -54,16 +64,42 @@ router.post('/signup', async (req, res) => {
       subscription: 'basic',
       createdAt: new Date(),
     }).returning();
+
+    // Sign in the user to get a session
+    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (signInError) {
+      console.error('Failed to sign in after signup:', signInError);
+      // Still return success but without session
+      return res.status(201).json({ 
+        user: user,
+        message: 'Account created successfully. Please check your email to verify your account.'
+      });
+    }
+
+    // Set cookie if we have a session
+    if (signInData?.session?.access_token) {
+      setTokenCookie(res, signInData.session.access_token);
+    }
     
-    // Set cookie
-    setTokenCookie(res, supabaseUser.session.access_token);
-    
-    // Return user info
+    // Return user info and token if available
     const { password: _, ...userWithoutPassword } = user;
-    res.status(201).json({ user: userWithoutPassword });
+    const response = { 
+      user: userWithoutPassword,
+      token: signInData?.session?.access_token,
+      message: 'Account created successfully'
+    };
+    console.log('Sending signup response:', { ...response, token: response.token ? '[REDACTED]' : undefined });
+    res.status(201).json(response);
   } catch (error) {
     console.error('Signup error:', error);
-    res.status(500).json({ message: 'Failed to create account' });
+    res.status(500).json({ 
+      message: error.message || 'An unexpected error occurred during signup',
+      error: error.toString()
+    });
   }
 });
 
@@ -74,10 +110,10 @@ router.post('/login', async (req, res) => {
     console.log('Login attempt for email:', email);
     
     // Validate input
-    const validationError = validateLogin({ email, password });
+    const { error: validationError } = validateLogin({ email, password });
     if (validationError) {
-      console.log('Validation error:', validationError);
-      return res.status(400).json({ message: validationError });
+      console.log('Validation error:', validationError.details[0].message);
+      return res.status(400).json({ message: validationError.details[0].message });
     }
     
     // Sign in with Supabase
@@ -89,7 +125,15 @@ router.post('/login', async (req, res) => {
     
     if (supabaseError) {
       console.error('Supabase auth error:', supabaseError);
-      return res.status(401).json({ message: 'Invalid credentials' });
+      return res.status(401).json({ 
+        message: supabaseError.message || 'Invalid credentials',
+        error: supabaseError
+      });
+    }
+    
+    if (!supabaseUser?.user) {
+      console.error('No user returned from Supabase');
+      return res.status(401).json({ message: 'Authentication failed' });
     }
     
     console.log('Supabase auth successful, user ID:', supabaseUser.user.id);
@@ -99,7 +143,7 @@ router.post('/login', async (req, res) => {
     
     if (!user) {
       console.error('User not found in database:', supabaseUser.user.id);
-      return res.status(401).json({ message: 'User not found' });
+      return res.status(401).json({ message: 'User not found in database' });
     }
     
     console.log('User found in database:', user.id);
@@ -117,7 +161,10 @@ router.post('/login', async (req, res) => {
     res.status(200).json(response);
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ message: 'Failed to login' });
+    res.status(500).json({ 
+      message: error.message || 'An unexpected error occurred during login',
+      error: error.toString()
+    });
   }
 });
 

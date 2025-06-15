@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation';
 
 export default function SignupForm() {
   const [name, setName] = useState('');
@@ -16,11 +17,12 @@ export default function SignupForm() {
   
   const { signup, loginWithGoogle } = useAuth();
   const { toast } = useToast();
+  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!name || !email || !password || !confirmPassword) {
+    if (!name || !email || !password) {
       toast({
         title: 'Error',
         description: 'Please fill in all required fields',
@@ -29,26 +31,35 @@ export default function SignupForm() {
       return;
     }
     
-    if (password !== confirmPassword) {
-      toast({
-        title: 'Error',
-        description: 'Passwords do not match',
-        variant: 'destructive',
-      });
-      return;
-    }
-    
     try {
       setIsLoading(true);
-      await signup(name, email, password, company);
+      const result = await signup(name, email, password, company);
+      
+      // Show success message
       toast({
         title: 'Success',
-        description: 'Account created successfully',
+        description: result.message || 'Account created successfully',
+        variant: 'default',
       });
+
+      // If we have a token, redirect to dashboard
+      if (result.token) {
+        router.replace('/dashboard');
+      } else {
+        // If no token, show verification message
+        toast({
+          title: 'Verification Required',
+          description: 'Please check your email to verify your account before logging in.',
+          variant: 'default',
+        });
+        router.replace('/login');
+      }
     } catch (error) {
+      console.error('Signup error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create account';
       toast({
         title: 'Error',
-        description: 'Failed to create account. Please try again.',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {

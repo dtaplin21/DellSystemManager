@@ -14,18 +14,46 @@ if (!connectionString) {
 const pool = new Pool({
   connectionString,
   ssl: {
-    rejectUnauthorized: false // Required for Supabase
+    rejectUnauthorized: false,
+    sslmode: 'require'
   },
-  max: 20, // Maximum number of clients in the pool
-  idleTimeoutMillis: 30000, // How long a client is allowed to remain idle before being closed
-  connectionTimeoutMillis: 2000, // How long to wait for a connection
-  application_name: 'dell-system-manager' // Add application name for better monitoring
+  max: 10, // Reduced from 20 to prevent too many connections
+  min: 2, // Keep at least 2 connections ready
+  idleTimeoutMillis: 60000, // Increased from 30000 to 60000 (1 minute)
+  connectionTimeoutMillis: 5000, // Increased from 2000 to 5000 (5 seconds)
+  application_name: 'dell-system-manager',
+  keepAlive: true, // Enable keep-alive
+  keepAliveInitialDelayMillis: 10000 // Send keep-alive after 10 seconds
 });
 
 // Add error handler for the pool
 pool.on('error', (err) => {
   console.error('Unexpected error on idle client', err);
-  process.exit(-1);
+  // Don't exit the process, just log the error
+  console.error('Error details:', {
+    code: err.code,
+    message: err.message,
+    stack: err.stack
+  });
+});
+
+// Add connection handler
+pool.on('connect', (client) => {
+  console.log('New client connected to database');
+  // Set a longer statement timeout
+  client.query('SET statement_timeout = 30000'); // 30 seconds
+});
+
+pool.on('acquire', (client) => {
+  console.log('Client acquired from pool');
+});
+
+pool.on('remove', (client) => {
+  console.log('Client removed from pool');
+  // Log the reason if available
+  if (client._ending) {
+    console.log('Client was removed due to pool ending');
+  }
 });
 
 const db = drizzle(pool, { schema });

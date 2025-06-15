@@ -19,6 +19,14 @@ export default function ProjectsPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [formData, setFormData] = useState({
+    name: '',
+    client: '',
+    location: '',
+    description: '',
+    status: 'Active',
+    progress: 0
+  });
 
   useEffect(() => {
     const fetchProjects = async () => {
@@ -31,7 +39,7 @@ export default function ProjectsPage() {
         
         if (response.ok) {
           const data = await response.json();
-          setProjects(data.projects || []);
+          setProjects(data);
         } else {
           console.error('Failed to fetch projects:', response.status);
         }
@@ -45,9 +53,47 @@ export default function ProjectsPage() {
     fetchProjects();
   }, [isAuthenticated]);
 
-  const handleCreateProject = () => {
-    alert('Project creation functionality ready! This will connect to your backend when ready.');
-    setShowCreateModal(false);
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleCreateProject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      const response = await fetch('/api/projects', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(formData)
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to create project');
+      }
+
+      const newProject = await response.json();
+      setProjects(prev => [...prev, newProject]);
+      setShowCreateModal(false);
+      setFormData({
+        name: '',
+        client: '',
+        location: '',
+        description: '',
+        status: 'Active',
+        progress: 0
+      });
+    } catch (error) {
+      console.error('Error creating project:', error);
+      alert(error instanceof Error ? error.message : 'Failed to create project');
+    }
   };
 
   const getStatusClass = (status: string) => {
@@ -91,11 +137,14 @@ export default function ProjectsPage() {
                   ×
                 </button>
               </div>
-              <form onSubmit={(e) => { e.preventDefault(); handleCreateProject(); }}>
+              <form onSubmit={handleCreateProject}>
                 <div className="form-group">
                   <label className="form-label">Project Name *</label>
                   <input 
                     type="text" 
+                    name="name"
+                    value={formData.name}
+                    onChange={handleInputChange}
                     placeholder="Enter project name"
                     className="form-input"
                     required 
@@ -105,6 +154,9 @@ export default function ProjectsPage() {
                   <label className="form-label">Client *</label>
                   <input 
                     type="text" 
+                    name="client"
+                    value={formData.client}
+                    onChange={handleInputChange}
                     placeholder="Enter client name"
                     className="form-input"
                     required 
@@ -114,9 +166,23 @@ export default function ProjectsPage() {
                   <label className="form-label">Location *</label>
                   <input 
                     type="text" 
+                    name="location"
+                    value={formData.location}
+                    onChange={handleInputChange}
                     placeholder="Enter project location"
                     className="form-input"
                     required 
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Description</label>
+                  <textarea 
+                    name="description"
+                    value={formData.description}
+                    onChange={handleInputChange}
+                    placeholder="Enter project description (optional)"
+                    className="form-input"
+                    rows={3}
                   />
                 </div>
                 <div className="form-actions">
