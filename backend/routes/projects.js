@@ -77,6 +77,8 @@ router.post('/', auth, async (req, res, next) => {
       return res.status(400).json({ message: error.details[0].message });
     }
     
+    const now = new Date();
+    
     // Create new project
     const [newProject] = await db
       .insert(projects)
@@ -88,13 +90,13 @@ router.post('/', auth, async (req, res, next) => {
         status: projectData.status || 'active',
         client: projectData.client,
         location: projectData.location || '',
-        startDate: projectData.startDate || null,
-        endDate: projectData.endDate || null,
+        startDate: projectData.startDate ? new Date(projectData.startDate) : null,
+        endDate: projectData.endDate ? new Date(projectData.endDate) : null,
         area: projectData.area || null,
         progress: projectData.progress || 0,
         subscription: req.user.subscription,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        createdAt: now,
+        updatedAt: now,
       })
       .returning();
     
@@ -108,7 +110,7 @@ router.post('/', auth, async (req, res, next) => {
       width: '100',
       height: '100',
       scale: '1',
-      lastUpdated: new Date(),
+      lastUpdated: now,
     });
     
     // Return the new project

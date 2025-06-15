@@ -1,21 +1,31 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useAuth } from '@/hooks/use-auth';
+import { useWebSocket } from '@/hooks/use-websocket';
+import { useToast } from '@/hooks/use-toast';
+import { fetchProjectById, fetchPanelLayout } from '@/lib/api';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import PanelGrid from '@/components/panel-layout/panel-grid';
 import ControlToolbar from '@/components/panel-layout/control-toolbar';
 import ExportDialog from '@/components/panel-layout/export-dialog';
-import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/hooks/use-auth';
-import { useWebSocket } from '@/hooks/use-websocket';
-import { fetchProjectById, fetchPanelLayout } from '@/lib/api';
+import { generateId } from '@/lib/utils';
 
 interface Project {
   id: string;
   name: string;
-  subscription: string;
+  description?: string;
+  status: string;
+  client?: string;
+  location?: string;
+  startDate?: string;
+  endDate?: string;
+  area?: number;
+  progress: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface PanelLayout {
@@ -28,6 +38,11 @@ interface PanelLayout {
   lastUpdated: string;
 }
 
+// Default layout dimensions (5000ft x 5000ft)
+const DEFAULT_LAYOUT_WIDTH = 5000;
+const DEFAULT_LAYOUT_HEIGHT = 5000;
+const DEFAULT_SCALE = 0.1; // 1 unit = 0.1ft for better visualization
+
 export default function PanelLayoutPage({ params }: { params: Promise<{ id: string }> }) {
   const [project, setProject] = useState<Project | null>(null);
   const [layout, setLayout] = useState<PanelLayout | null>(null);
@@ -38,6 +53,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
   const { user } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
+  
   const { isConnected, sendMessage } = useWebSocket({
     onMessage: (message) => {
       if (message.type === 'PANEL_UPDATE' && message.data.projectId === id) {
@@ -49,6 +65,14 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
             lastUpdated: message.data.timestamp || new Date().toISOString()
           };
         });
+      }
+    },
+    onConnect: () => {
+      // Authenticate the WebSocket connection
+      if (user?.id) {
+        sendMessage('AUTH', { userId: user.id });
+        // Join the panel layout room
+        sendMessage('JOIN_ROOM', { room: `panel_layout_${id}` });
       }
     }
   });
@@ -72,12 +96,21 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
         const projectData = await fetchProjectById(id);
         setProject(projectData);
         
-        // Panel layout features are available to all users
-        // Note: Premium features may have additional capabilities
-        
         // Load panel layout
         const layoutData = await fetchPanelLayout(id);
-        setLayout(layoutData);
+        
+        // If no layout exists or dimensions are too small, use default dimensions
+        if (!layoutData || layoutData.width < DEFAULT_LAYOUT_WIDTH || layoutData.height < DEFAULT_LAYOUT_HEIGHT) {
+          setLayout({
+            ...layoutData,
+            width: DEFAULT_LAYOUT_WIDTH,
+            height: DEFAULT_LAYOUT_HEIGHT,
+            scale: DEFAULT_SCALE,
+            panels: layoutData?.panels || []
+          });
+        } else {
+          setLayout(layoutData);
+        }
       } catch (error) {
         toast({
           title: 'Error',
@@ -91,6 +124,35 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
 
     loadProjectAndLayout();
   }, [id, toast, router]);
+
+  const handlePanelUpdate = (updatedPanels: any[]) => {
+    // Update local state
+    setLayout((prev) => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        panels: updatedPanels,
+        lastUpdated: new Date().toISOString()
+      };
+    });
+    
+    // Send update via WebSocket
+    if (isConnected) {
+      sendMessage('PANEL_UPDATE', {
+        projectId: id,
+        panels: updatedPanels,
+        userId: user?.id,
+        timestamp: new Date().toISOString()
+      });
+    }
+  };
+
+  const handleAddPanel = (panel: any) => {
+    if (!layout) return;
+    
+    const newPanels = [...layout.panels, panel];
+    handlePanelUpdate(newPanels);
+  };
 
   if (isLoading) {
     return (
@@ -113,25 +175,6 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
       </div>
     );
   }
-
-  const handlePanelUpdate = (updatedPanels: any[]) => {
-    // Update local state
-    setLayout({
-      ...layout,
-      panels: updatedPanels,
-      lastUpdated: new Date().toISOString()
-    });
-    
-    // Send update via WebSocket
-    if (isConnected) {
-      sendMessage('PANEL_UPDATE', {
-        projectId: id,
-        panels: updatedPanels,
-        userId: user?.id,
-        timestamp: new Date().toISOString()
-      });
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -161,17 +204,20 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
         <CardHeader>
           <ControlToolbar 
             scale={layout.scale}
-            onScaleChange={(newScale) => setLayout({...layout, scale: newScale})}
+            onScaleChange={(newScale: number) => setLayout({...layout, scale: newScale})}
+            onAddPanel={handleAddPanel}
           />
         </CardHeader>
         <CardContent>
-          <PanelGrid 
-            panels={layout.panels}
-            width={layout.width}
-            height={layout.height}
-            scale={layout.scale}
-            onPanelUpdate={handlePanelUpdate}
-          />
+          <div className="relative w-full h-[80vh] overflow-auto">
+            <PanelGrid 
+              panels={layout.panels}
+              width={layout.width}
+              height={layout.height}
+              scale={layout.scale}
+              onPanelUpdate={handlePanelUpdate}
+            />
+          </div>
         </CardContent>
       </Card>
 

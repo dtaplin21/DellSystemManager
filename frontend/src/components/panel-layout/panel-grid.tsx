@@ -1,20 +1,27 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { Stage, Layer, Rect, Group, Transformer, RegularPolygon } from 'react-konva';
+import type { KonvaEventObject } from 'konva/lib/Node';
+import type { Stage as KonvaStage } from 'konva/lib/Stage';
+import type { Transformer as KonvaTransformer } from 'konva/lib/shapes/Transformer';
+import type { Group as GroupType } from 'konva/lib/Group';
+import type { Rect as RectType } from 'konva/lib/shapes/Rect';
+import type { RegularPolygon as RegularPolygonType } from 'konva/lib/shapes/RegularPolygon';
+import Konva from 'konva';
 
 interface Panel {
   id: string;
+  type: 'rectangle' | 'triangle';
   x: number;
   y: number;
   width: number;
   height: number;
-  label: string;
-  color?: string;
-  qcStatus?: string;
-  // Support for arbitrary polygon shapes
-  corners?: number[][];
-  shape?: 'rectangle' | 'polygon';
+  rotation: number;
+  fill: string;
+  stroke: string;
+  strokeWidth: number;
 }
 
 interface PanelGridProps {
@@ -26,325 +33,154 @@ interface PanelGridProps {
 }
 
 export default function PanelGrid({ panels, width, height, scale, onPanelUpdate }: PanelGridProps) {
-  const [localPanels, setLocalPanels] = useState<Panel[]>(panels);
-  const [selectedPanelId, setSelectedPanelId] = useState<string | null>(null);
-  const [dragInfo, setDragInfo] = useState<{
-    isDragging: boolean;
-    startX: number;
-    startY: number;
-    panelId: string | null;
-    isResizing: boolean;
-    resizeHandle: string | null;
-    offsetX?: number;
-    offsetY?: number;
-  }>({
-    isDragging: false,
-    startX: 0,
-    startY: 0,
-    panelId: null,
-    isResizing: false,
-    resizeHandle: null,
-  });
-  
-  const gridRef = useRef<HTMLDivElement>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const stageRef = useRef<any>(null);
+  const transformerRef = useRef<any>(null);
   const { toast } = useToast();
   
-  // Update local panels when prop changes
   useEffect(() => {
-    setLocalPanels(panels);
-  }, [panels]);
-  
-  // Apply visual grid for scale
-  const gridSize = 10 * scale; // 10px base grid size
-  
-  const handleMouseDown = (e: React.MouseEvent, panelId: string, isResizeHandle = false, handle: string | null = null) => {
-    e.preventDefault();
-    
-    // Get the current target element and its bounding rect
-    const gridRect = gridRef.current?.getBoundingClientRect();
-    if (!gridRect) return;
-    
-    // Get the panel element's bounding rect
-    const panelElement = e.currentTarget as HTMLElement;
-    const panelRect = panelElement.getBoundingClientRect();
-    
-    // Calculate mouse position relative to grid and panel
-    const mouseX = e.clientX - gridRect.left;
-    const mouseY = e.clientY - gridRect.top;
-    
-    // Calculate the offset within the panel (this is key to fixing the drag issue)
-    const offsetX = e.clientX - panelRect.left;
-    const offsetY = e.clientY - panelRect.top;
-    
-    setSelectedPanelId(panelId);
-    setDragInfo({
-      isDragging: true,
-      startX: mouseX,
-      startY: mouseY,
-      panelId,
-      isResizing: isResizeHandle,
-      resizeHandle: handle,
-      offsetX: offsetX,  // Store offset to keep the cursor at the same relative position
-      offsetY: offsetY
-    });
-  };
-  
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!dragInfo.isDragging || !dragInfo.panelId) return;
-    
-    const gridRect = gridRef.current?.getBoundingClientRect();
-    if (!gridRect) return;
-    
-    // Calculate mouse position relative to grid
-    const mouseX = e.clientX - gridRect.left;
-    const mouseY = e.clientY - gridRect.top;
-    
-    setLocalPanels(prevPanels => {
-      // Create a copy of the panels array
-      const newPanels = [...prevPanels];
-      
-      // Find the panel being modified
-      const panelIndex = newPanels.findIndex(p => p.id === dragInfo.panelId);
-      if (panelIndex === -1) return prevPanels;
-      
-      const panel = { ...newPanels[panelIndex] };
-      
-      if (dragInfo.isResizing && dragInfo.resizeHandle) {
-        // Calculate movement delta for resizing
-        const deltaX = mouseX - dragInfo.startX;
-        const deltaY = mouseY - dragInfo.startY;
-        
-        // Handle resizing based on the handle being dragged
-        switch (dragInfo.resizeHandle) {
-          case 'nw':
-            panel.x += deltaX;
-            panel.y += deltaY;
-            panel.width -= deltaX;
-            panel.height -= deltaY;
-            break;
-          case 'ne':
-            panel.y += deltaY;
-            panel.width += deltaX;
-            panel.height -= deltaY;
-            break;
-          case 'sw':
-            panel.x += deltaX;
-            panel.width -= deltaX;
-            panel.height += deltaY;
-            break;
-          case 'se':
-            panel.width += deltaX;
-            panel.height += deltaY;
-            break;
-        }
-        
-        // Ensure minimum dimensions
-        if (panel.width < 50) panel.width = 50;
-        if (panel.height < 50) panel.height = 50;
-      } else {
-        // Handle moving (dragging) - this is the key change!
-        // Use absolute positioning instead of deltas to follow the mouse pointer
-        // Subtract the offset within the panel so the drag point stays under cursor
-        panel.x = mouseX - (dragInfo.offsetX || 0);
-        panel.y = mouseY - (dragInfo.offsetY || 0);
-        
-        // Ensure panel stays within grid boundaries
-        if (panel.x < 0) panel.x = 0;
-        if (panel.y < 0) panel.y = 0;
-        if (panel.x + panel.width > width * scale) {
-          panel.x = width * scale - panel.width;
-        }
-        if (panel.y + panel.height > height * scale) {
-          panel.y = height * scale - panel.height;
-        }
-      }
-      
-      newPanels[panelIndex] = panel;
-      
-      return newPanels;
-    });
-    
-    // Update drag start position for next move
-    setDragInfo(prev => ({
-      ...prev,
-      startX: mouseX,
-      startY: mouseY,
-    }));
-  };
-  
-  const handleMouseUp = () => {
-    if (dragInfo.isDragging) {
-      // Notify parent of panel updates
-      onPanelUpdate(localPanels);
-      
-      // Reset drag state
-      setDragInfo({
-        isDragging: false,
-        startX: 0,
-        startY: 0,
-        panelId: null,
-        isResizing: false,
-        resizeHandle: null,
-      });
-    }
-  };
-  
-  const handleDoubleClick = (e: React.MouseEvent, panel: Panel) => {
-    // Get new label from user
-    const newLabel = prompt('Enter panel label:', panel.label);
-    if (newLabel !== null) {
-      const updatedPanels = localPanels.map(p => 
-        p.id === panel.id ? { ...p, label: newLabel } : p
-      );
-      setLocalPanels(updatedPanels);
-      onPanelUpdate(updatedPanels);
-    }
-  };
-  
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Delete' && selectedPanelId) {
-      if (confirm('Are you sure you want to delete this panel?')) {
-        const updatedPanels = localPanels.filter(p => p.id !== selectedPanelId);
-        setLocalPanels(updatedPanels);
-        onPanelUpdate(updatedPanels);
-        setSelectedPanelId(null);
+    if (selectedId && transformerRef.current) {
+      const node = stageRef.current?.findOne(`#${selectedId}`);
+      if (node) {
+        transformerRef.current.nodes([node]);
+        transformerRef.current.getLayer()?.batchDraw();
       }
     }
+  }, [selectedId]);
+
+  const handlePanelDragEnd = (e: KonvaEventObject<DragEvent>) => {
+    const id = e.target.id();
+    const newPanels = panels.map(panel => {
+      if (panel.id === id) {
+        return {
+          ...panel,
+          x: e.target.x(),
+          y: e.target.y()
+        };
+      }
+      return panel;
+    });
+    onPanelUpdate(newPanels);
   };
-  
-  const getPanelStatusColor = (status?: string) => {
-    if (!status) return '';
-    
-    switch (status.toLowerCase()) {
-      case 'pass':
-        return 'bg-green-100 border-green-500';
-      case 'fail':
-        return 'bg-red-100 border-red-500';
-      case 'pending':
-        return 'bg-yellow-100 border-yellow-500';
-      default:
-        return '';
+
+  const handlePanelTransformEnd = (e: KonvaEventObject<Event>) => {
+    const id = e.target.id();
+    const node = stageRef.current?.findOne(`#${id}`);
+    if (!node) return;
+
+    const newPanels = panels.map(panel => {
+      if (panel.id === id) {
+        return {
+          ...panel,
+          x: node.x(),
+          y: node.y(),
+          width: node.width() * node.scaleX(),
+          height: node.height() * node.scaleY(),
+          rotation: node.rotation()
+        };
+      }
+      return panel;
+    });
+    onPanelUpdate(newPanels);
+  };
+
+  const handlePanelClick = (e: KonvaEventObject<MouseEvent>) => {
+    const id = e.target.id();
+    setSelectedId(id);
+  };
+
+  const handleStageClick = (e: KonvaEventObject<MouseEvent>) => {
+    if (e.target === e.target.getStage()) {
+      setSelectedId(null);
     }
   };
-  
-  // Helper function to render a polygon panel
-  const renderPolygonPanel = (panel: Panel) => {
-    if (!panel.corners || panel.corners.length < 3) return null;
-    
-    // Calculate SVG viewBox based on panel dimensions
-    const width = panel.width;
-    const height = panel.height;
-    
-    // Convert corners to SVG points format
-    const pointsStr = panel.corners.map(point => `${point[0]},${point[1]}`).join(' ');
-    
-    return (
-      <div
-        key={panel.id}
-        className={`panel ${selectedPanelId === panel.id ? 'selected' : ''} ${getPanelStatusColor(panel.qcStatus)}`}
-        style={{
-          left: `${panel.x}px`,
-          top: `${panel.y}px`,
-          width: `${width}px`,
-          height: `${height}px`,
-          backgroundColor: 'transparent', // Use transparent background for SVG
-        }}
-        onMouseDown={(e) => handleMouseDown(e, panel.id)}
-        onDoubleClick={(e) => handleDoubleClick(e, panel)}
-      >
-        <svg width="100%" height="100%" style={{ position: 'absolute', top: 0, left: 0 }}>
-          <polygon
-            points={pointsStr}
-            fill={panel.color || 'rgba(10, 36, 99, 0.15)'}
-            stroke={selectedPanelId === panel.id ? '#ff7f11' : '#102a43'}
-            strokeWidth="2"
+
+  const renderPanel = (panel: Panel) => {
+    const commonProps = {
+      id: panel.id,
+      x: panel.x,
+      y: panel.y,
+      width: panel.width,
+      height: panel.height,
+      rotation: panel.rotation,
+      fill: panel.fill,
+      stroke: panel.stroke,
+      strokeWidth: panel.strokeWidth,
+      draggable: true,
+      onClick: handlePanelClick,
+      onDragEnd: handlePanelDragEnd,
+      onTransformEnd: handlePanelTransformEnd
+    };
+
+    if (panel.type === 'triangle') {
+      return (
+        <Group
+          key={panel.id}
+          {...commonProps}
+          onTransformEnd={handlePanelTransformEnd}
+        >
+          <RegularPolygon
+            sides={3}
+            radius={panel.width / 2}
+            fill={panel.fill}
+            stroke={panel.stroke}
+            strokeWidth={panel.strokeWidth}
           />
-        </svg>
-        
-        <span style={{ position: 'relative', zIndex: 2 }}>{panel.label}</span>
-        
-        {/* Resize handles */}
-        <div 
-          className="panel-resize-handle nw" 
-          onMouseDown={(e) => handleMouseDown(e, panel.id, true, 'nw')}
-        />
-        <div 
-          className="panel-resize-handle ne" 
-          onMouseDown={(e) => handleMouseDown(e, panel.id, true, 'ne')}
-        />
-        <div 
-          className="panel-resize-handle sw" 
-          onMouseDown={(e) => handleMouseDown(e, panel.id, true, 'sw')}
-        />
-        <div 
-          className="panel-resize-handle se" 
-          onMouseDown={(e) => handleMouseDown(e, panel.id, true, 'se')}
-        />
-      </div>
-    );
-  };
-  
-  // Helper function to render a rectangular panel
-  const renderRectangularPanel = (panel: Panel) => {
-    return (
-      <div
-        key={panel.id}
-        className={`panel ${selectedPanelId === panel.id ? 'selected' : ''} ${getPanelStatusColor(panel.qcStatus)}`}
-        style={{
-          left: `${panel.x}px`,
-          top: `${panel.y}px`,
-          width: `${panel.width}px`,
-          height: `${panel.height}px`,
-          backgroundColor: panel.color ? panel.color : undefined,
-        }}
-        onMouseDown={(e) => handleMouseDown(e, panel.id)}
-        onDoubleClick={(e) => handleDoubleClick(e, panel)}
-      >
-        <span>{panel.label}</span>
-        
-        {/* Resize handles */}
-        <div 
-          className="panel-resize-handle nw" 
-          onMouseDown={(e) => handleMouseDown(e, panel.id, true, 'nw')}
-        />
-        <div 
-          className="panel-resize-handle ne" 
-          onMouseDown={(e) => handleMouseDown(e, panel.id, true, 'ne')}
-        />
-        <div 
-          className="panel-resize-handle sw" 
-          onMouseDown={(e) => handleMouseDown(e, panel.id, true, 'sw')}
-        />
-        <div 
-          className="panel-resize-handle se" 
-          onMouseDown={(e) => handleMouseDown(e, panel.id, true, 'se')}
-        />
-      </div>
-    );
+        </Group>
+      );
+    }
+
+    return <Rect key={panel.id} {...commonProps} />;
   };
 
   return (
-    <div 
-      ref={gridRef}
-      className="panel-grid border border-gray-300 relative"
-      style={{ 
-        width: '100%', 
-        height: '70vh',
-        backgroundSize: `${gridSize}px ${gridSize}px`,
-        maxWidth: `${width * scale}px`,
-        maxHeight: `${height * scale}px`,
-      }}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
-      onKeyDown={handleKeyDown}
-      tabIndex={0} // Make div focusable for keyboard events
+    <Stage
+      ref={stageRef}
+      width={width * scale}
+      height={height * scale}
+      scale={{ x: scale, y: scale }}
+      onClick={handleStageClick}
+      className="bg-white"
     >
-      {localPanels.map(panel => 
-        panel.shape === 'polygon' || (panel.corners && panel.corners.length >= 3) 
-          ? renderPolygonPanel(panel) 
-          : renderRectangularPanel(panel)
-      )}
-    </div>
+      <Layer>
+        {/* Grid lines */}
+        {Array.from({ length: Math.ceil(width / 100) }).map((_, i) => (
+          <Rect
+            key={`grid-v-${i}`}
+            x={i * 100}
+            y={0}
+            width={1}
+            height={height}
+            fill="#e5e7eb"
+          />
+        ))}
+        {Array.from({ length: Math.ceil(height / 100) }).map((_, i) => (
+          <Rect
+            key={`grid-h-${i}`}
+            x={0}
+            y={i * 100}
+            width={width}
+            height={1}
+            fill="#e5e7eb"
+          />
+        ))}
+        
+        {/* Panels */}
+        {panels.map(renderPanel)}
+        
+        {/* Transformer for selected panel */}
+        <Transformer
+          ref={transformerRef}
+          boundBoxFunc={(oldBox: { width: number; height: number }, newBox: { width: number; height: number }) => {
+            // Limit resize
+            const minSize = 50;
+            if (newBox.width < minSize || newBox.height < minSize) {
+              return oldBox;
+            }
+            return newBox;
+          }}
+        />
+      </Layer>
+    </Stage>
   );
 }
