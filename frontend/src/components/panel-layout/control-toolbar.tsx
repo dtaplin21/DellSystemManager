@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Slider } from "@/components/ui/slider";
@@ -16,10 +16,9 @@ import { generateId } from '@/lib/utils';
 
 // Constants for scaling
 const PIXELS_PER_FOOT = 200; // 100 pixels = 0.5ft, so 200 pixels = 1ft
-const BASE_SCALE = 0.005; // Base scale for 0.5ft per cell
-const MIN_SCALE = BASE_SCALE; // Minimum zoom level
-const MAX_SCALE = 0.1; // Maximum zoom level
-const ZOOM_STEP = 0.001; // Smaller step for finer control
+const MIN_SCALE = 0.0005; // Reduced minimum scale
+const ZOOM_STEP = 0.0005; // Smaller step for finer control
+const MAX_SCALE = 0.05; // Reduced maximum scale
 
 interface ControlToolbarProps {
   scale: number;
@@ -41,21 +40,28 @@ export default function ControlToolbar({
   });
 
   const handleScaleChange = (newScale: number) => {
+    console.log('Scale change requested:', newScale);
     // Ensure scale stays within bounds
     const clampedScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, newScale));
+    console.log('Clamped scale:', clampedScale);
     onScaleChange(clampedScale);
   };
 
   const handleZoomIn = () => {
-    handleScaleChange(scale + ZOOM_STEP);
+    console.log('Zoom in clicked, current scale:', scale);
+    const newScale = scale + ZOOM_STEP;
+    handleScaleChange(newScale);
   };
 
   const handleZoomOut = () => {
-    handleScaleChange(scale - ZOOM_STEP);
+    console.log('Zoom out clicked, current scale:', scale);
+    const newScale = scale - ZOOM_STEP;
+    handleScaleChange(newScale);
   };
 
   const handleResetZoom = () => {
-    handleScaleChange(BASE_SCALE);
+    console.log('Reset zoom clicked');
+    handleScaleChange(0.0005); // Reset to default scale
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -106,32 +112,17 @@ export default function ControlToolbar({
       widthFeet: width,
       heightFeet: height,
     };
+
     onAddPanel(newPanel);
-  };
-
-  const handleAddTriangle = () => {
-    if (!validateForm()) return;
-
-    const width = parseFloat(panelForm.width);
-    const height = parseFloat(panelForm.height);
     
-    const newPanel = {
-      id: generateId(),
-      type: 'triangle',
-      x: 100,
-      y: 100,
-      width: width * PIXELS_PER_FOOT,
-      height: height * PIXELS_PER_FOOT,
-      rotation: 0,
-      fill: '#3b82f6',
-      stroke: '#1d4ed8',
-      strokeWidth: 2,
-      rollNumber: panelForm.rollNumber,
-      panelNumber: panelForm.panelNumber,
-      widthFeet: width,
-      heightFeet: height,
-    };
-    onAddPanel(newPanel);
+    // Reset form after adding panel
+    setPanelForm({
+      label: '',
+      width: '',
+      height: '',
+      rollNumber: '',
+      panelNumber: '',
+    });
   };
 
   return (
@@ -151,7 +142,10 @@ export default function ControlToolbar({
             min={MIN_SCALE}
             max={MAX_SCALE}
             step={ZOOM_STEP}
-            onValueChange={([value]) => handleScaleChange(value)}
+            onValueChange={([value]) => {
+              console.log('Slider value changed:', value);
+              handleScaleChange(value);
+            }}
             className="w-[100px]"
           />
           <Button
@@ -225,14 +219,6 @@ export default function ControlToolbar({
           >
             <Square className="h-4 w-4" />
             <span>Add Rectangle</span>
-          </Button>
-          <Button
-            variant="outline"
-            onClick={handleAddTriangle}
-            className="flex items-center space-x-2"
-          >
-            <Triangle className="h-4 w-4" />
-            <span>Add Triangle</span>
           </Button>
         </div>
       </div>

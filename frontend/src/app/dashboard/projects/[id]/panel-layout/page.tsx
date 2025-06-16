@@ -38,10 +38,11 @@ interface PanelLayout {
   lastUpdated: string;
 }
 
-// Default layout dimensions (5000ft x 5000ft)
-const DEFAULT_LAYOUT_WIDTH = 5000;
-const DEFAULT_LAYOUT_HEIGHT = 5000;
-const DEFAULT_SCALE = 0.005; // 1 unit = 0.005ft (100 pixels = 0.5ft)
+// Default layout dimensions (15000ft x 15000ft)
+const DEFAULT_LAYOUT_WIDTH = 15000;
+const DEFAULT_LAYOUT_HEIGHT = 15000;
+const PIXELS_PER_FOOT = 200; // 100 pixels = 0.5ft, so 200 pixels = 1ft
+const DEFAULT_SCALE = 0.0025; // Halved from 0.005 to make panels take up half the space
 
 export default function PanelLayoutPage({ params }: { params: Promise<{ id: string }> }) {
   const [project, setProject] = useState<Project | null>(null);
@@ -68,10 +69,8 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
       }
     },
     onConnect: () => {
-      // Authenticate the WebSocket connection
       if (user?.id) {
         sendMessage('AUTH', { userId: user.id });
-        // Join the panel layout room
         sendMessage('JOIN_ROOM', { room: `panel_layout_${id}` });
       }
     }
@@ -86,20 +85,17 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
   }, [params]);
 
   useEffect(() => {
-    if (!id) return; // Don't run until id is resolved
+    if (!id) return;
 
     const loadProjectAndLayout = async () => {
       try {
         setIsLoading(true);
         
-        // Load project details
         const projectData = await fetchProjectById(id);
         setProject(projectData);
         
-        // Load panel layout
         const layoutData = await fetchPanelLayout(id);
         
-        // If no layout exists or dimensions are too small, use default dimensions
         if (!layoutData || layoutData.width < DEFAULT_LAYOUT_WIDTH || layoutData.height < DEFAULT_LAYOUT_HEIGHT) {
           setLayout({
             ...layoutData,
@@ -125,8 +121,18 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
     loadProjectAndLayout();
   }, [id, toast, router]);
 
+  const handleScaleChange = (newScale: number) => {
+    console.log('Scale change in parent:', newScale);
+    setLayout(prev => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        scale: newScale
+      };
+    });
+  };
+
   const handlePanelUpdate = (updatedPanels: any[]) => {
-    // Update local state
     setLayout((prev) => {
       if (!prev) return null;
       return {
@@ -136,7 +142,6 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
       };
     });
     
-    // Send update via WebSocket
     if (isConnected) {
       sendMessage('PANEL_UPDATE', {
         projectId: id,
@@ -149,7 +154,6 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
 
   const handleAddPanel = (panel: any) => {
     if (!layout) return;
-    
     const newPanels = [...layout.panels, panel];
     handlePanelUpdate(newPanels);
   };
@@ -204,16 +208,16 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
         <CardHeader>
           <ControlToolbar
             scale={layout.scale}
-            onScaleChange={(newScale: number) => setLayout({...layout, scale: newScale})}
+            onScaleChange={handleScaleChange}
             onAddPanel={handleAddPanel}
           />
         </CardHeader>
         <CardContent>
-          <div className="relative w-full h-[80vh] overflow-auto">
+          <div style={{ width: '100vw', height: '100vh' }}>
             <PanelGrid
               panels={layout.panels}
-              width={layout.width}
-              height={layout.height}
+              width={window.innerWidth}
+              height={window.innerHeight}
               scale={layout.scale}
               onPanelUpdate={handlePanelUpdate}
             />

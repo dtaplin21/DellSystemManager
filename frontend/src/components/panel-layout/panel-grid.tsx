@@ -28,6 +28,8 @@ interface Panel {
   fill: string;
   stroke: string;
   strokeWidth: number;
+  rollNumber: string;
+  panelNumber: string;
 }
 
 interface PanelGridProps {
@@ -43,6 +45,11 @@ export default function PanelGrid({ panels, width, height, scale, onPanelUpdate 
   const stageRef = useRef<any>(null);
   const transformerRef = useRef<any>(null);
   const { toast } = useToast();
+  
+  // Log scale changes for debugging
+  useEffect(() => {
+    console.log('PanelGrid scale changed:', scale);
+  }, [scale]);
   
   // Memoize grid lines calculation
   const gridLines = useMemo(() => {
@@ -175,19 +182,80 @@ export default function PanelGrid({ panels, width, height, scale, onPanelUpdate 
             stroke={panel.stroke}
             strokeWidth={panel.strokeWidth}
           />
+          <Rect
+            x={panel.width / 4}
+            y={panel.height / 2 - 20}
+            width={panel.width / 2}
+            height={40}
+            fill="rgba(255, 255, 255, 0.8)"
+          />
+          <Group
+            x={panel.width / 4}
+            y={panel.height / 2 - 20}
+            width={panel.width / 2}
+            height={40}
+          >
+            <Rect
+              width={panel.width / 2}
+              height={20}
+              fill="transparent"
+            />
+            <Rect
+              y={20}
+              width={panel.width / 2}
+              height={20}
+              fill="transparent"
+            />
+          </Group>
         </Group>
       );
     }
 
-    return <Rect key={panel.id} {...commonProps} />;
+    return (
+      <Group key={panel.id} {...commonProps}>
+        <Rect
+          width={panel.width}
+          height={panel.height}
+          fill={panel.fill}
+          stroke={panel.stroke}
+          strokeWidth={panel.strokeWidth}
+        />
+        <Rect
+          x={0}
+          y={panel.height / 2 - 20}
+          width={panel.width}
+          height={40}
+          fill="rgba(255, 255, 255, 0.8)"
+        />
+        <Group
+          x={0}
+          y={panel.height / 2 - 20}
+          width={panel.width}
+          height={40}
+        >
+          <Rect
+            width={panel.width}
+            height={20}
+            fill="transparent"
+          />
+          <Rect
+            y={20}
+            width={panel.width}
+            height={20}
+            fill="transparent"
+          />
+        </Group>
+      </Group>
+    );
   }, [handlePanelClick, handlePanelDragEnd, handlePanelTransformEnd]);
 
   return (
     <Stage
       ref={stageRef}
-      width={width * scale}
-      height={height * scale}
-      scale={{ x: scale, y: scale }}
+      width={width}
+      height={height}
+      scaleX={scale}
+      scaleY={scale}
       onClick={handleStageClick}
       className="bg-white"
     >
@@ -218,8 +286,24 @@ export default function PanelGrid({ panels, width, height, scale, onPanelUpdate 
             }
             return newBox;
           }}
-          enabledAnchors={['top-left', 'top-right', 'bottom-left', 'bottom-right']}
+          enabledAnchors={[
+            'top-left',
+            'top-center',
+            'top-right',
+            'middle-right',
+            'bottom-right',
+            'bottom-center',
+            'bottom-left',
+            'middle-left'
+          ]}
           keepRatio={false}
+          rotateEnabled={true}
+          borderStroke="#3b82f6"
+          borderStrokeWidth={2}
+          anchorStroke="#3b82f6"
+          anchorFill="#ffffff"
+          anchorSize={8}
+          anchorCornerRadius={4}
         />
       </Layer>
     </Stage>
