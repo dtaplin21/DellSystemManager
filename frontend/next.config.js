@@ -17,6 +17,19 @@ const nextConfig = {
       use: 'node-loader',
     });
 
+    // Add alias for konva
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      'konva/lib/index-node': 'konva/lib/index',
+      'canvas': false,
+    };
+
+    // Exclude canvas from client bundle
+    config.externals = config.externals || [];
+    if (!isServer) {
+      config.externals.push('canvas');
+    }
+
     return config;
   },
   async rewrites() {

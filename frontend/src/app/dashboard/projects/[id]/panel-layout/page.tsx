@@ -41,7 +41,7 @@ interface PanelLayout {
 // Default layout dimensions (5000ft x 5000ft)
 const DEFAULT_LAYOUT_WIDTH = 5000;
 const DEFAULT_LAYOUT_HEIGHT = 5000;
-const DEFAULT_SCALE = 0.1; // 1 unit = 0.1ft for better visualization
+const DEFAULT_SCALE = 0.005; // 1 unit = 0.005ft (100 pixels = 0.5ft)
 
 export default function PanelLayoutPage({ params }: { params: Promise<{ id: string }> }) {
   const [project, setProject] = useState<Project | null>(null);
@@ -202,7 +202,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
 
       <Card>
         <CardHeader>
-          <ControlToolbar 
+          <ControlToolbar
             scale={layout.scale}
             onScaleChange={(newScale: number) => setLayout({...layout, scale: newScale})}
             onAddPanel={handleAddPanel}
@@ -210,7 +210,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
         </CardHeader>
         <CardContent>
           <div className="relative w-full h-[80vh] overflow-auto">
-            <PanelGrid 
+            <PanelGrid
               panels={layout.panels}
               width={layout.width}
               height={layout.height}
@@ -221,7 +221,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
         </CardContent>
       </Card>
 
-      <ExportDialog 
+      <ExportDialog
         open={exportDialogOpen}
         onOpenChange={setExportDialogOpen}
         projectId={id}
