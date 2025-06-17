@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { Stage, Layer, Rect, Group, Transformer, RegularPolygon, Line } from 'react-konva';
+import { Stage, Layer, Rect, Group, Transformer, RegularPolygon } from 'react-konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import type { Stage as KonvaStage } from 'konva/lib/Stage';
 import type { Transformer as KonvaTransformer } from 'konva/lib/shapes/Transformer';
@@ -194,13 +194,24 @@ export default function PanelGrid({ panels, width, height, scale, onPanelUpdate 
       const centerX = panel.x + radiusX;
       const centerY = panel.y + radiusY;
       
+      // Pick a base radius so the polygon "fits"
+      const baseRadius = Math.min(radiusX, radiusY);
+      
+      // Compute how much we need to stretch along each axis
+      const scaleX = radiusX / baseRadius;
+      const scaleY = radiusY / baseRadius;
+      
       return (
         <RegularPolygon
           id={panel.id}
           x={centerX}
           y={centerY}
           sides={3}
-          radius={Math.max(radiusX, radiusY)} // Use the larger radius to ensure the triangle fits
+          radius={baseRadius}
+          scaleX={scaleX}
+          scaleY={scaleY}
+          offsetX={0}      // because we're already drawing at the center
+          offsetY={0}
           rotation={panel.rotation}
           fill={panel.fill}
           stroke={panel.stroke}
