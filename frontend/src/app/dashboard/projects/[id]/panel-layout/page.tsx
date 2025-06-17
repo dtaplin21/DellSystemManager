@@ -181,8 +181,8 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="w-full max-w-full overflow-x-hidden px-4">
+      <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold">Panel Layout: {project.name}</h1>
           <p className="text-gray-500">
@@ -204,7 +204,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
         </div>
       </div>
 
-      <Card>
+      <Card className="w-full">
         <CardHeader>
           <ControlToolbar
             scale={layout.scale}
@@ -212,12 +212,12 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
             onAddPanel={handleAddPanel}
           />
         </CardHeader>
-        <CardContent>
-          <div style={{ width: '100vw', height: '100vh' }}>
+        <CardContent className="p-0">
+          <div className="w-full h-[calc(100vh-300px)] overflow-hidden">
             <PanelGrid
               panels={layout.panels}
-              width={window.innerWidth}
-              height={window.innerHeight}
+              width={window.innerWidth - 64}
+              height={window.innerHeight - 300}
               scale={layout.scale}
               onPanelUpdate={handlePanelUpdate}
             />

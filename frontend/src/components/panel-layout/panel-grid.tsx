@@ -153,6 +153,7 @@ export default function PanelGrid({ panels, width, height, scale, onPanelUpdate 
 
   // Memoize panel rendering
   const renderPanel = useCallback((panel: Panel) => {
+    const isSelected = selectedId === panel.id;
     const commonProps = {
       id: panel.id,
       x: panel.x,
@@ -164,148 +165,127 @@ export default function PanelGrid({ panels, width, height, scale, onPanelUpdate 
       stroke: panel.stroke,
       strokeWidth: panel.strokeWidth,
       draggable: true,
-      onClick: handlePanelClick,
-      onDragEnd: handlePanelDragEnd,
-      onTransformEnd: handlePanelTransformEnd
+      onClick: (e: KonvaEventObject<MouseEvent>) => {
+        e.cancelBubble = true;
+        setSelectedId(panel.id);
+      },
+      onDragEnd: (e: KonvaEventObject<DragEvent>) => {
+        const node = e.target;
+        const newX = Math.round(node.x() / GRID_CELL_SIZE) * GRID_CELL_SIZE;
+        const newY = Math.round(node.y() / GRID_CELL_SIZE) * GRID_CELL_SIZE;
+        node.position({ x: newX, y: newY });
+        onPanelUpdate(panels.map(p =>
+          p.id === panel.id ? { ...p, x: newX, y: newY } : p
+        ));
+      },
+      onTransformEnd: (e: KonvaEventObject<Event>) => {
+        const node = e.target;
+        const scaleX = node.scaleX();
+        const scaleY = node.scaleY();
+        const rotation = node.rotation();
+        
+        // Reset scale
+        node.scaleX(1);
+        node.scaleY(1);
+        
+        // Calculate new dimensions
+        const newWidth = Math.round((panel.width * scaleX) / GRID_CELL_SIZE) * GRID_CELL_SIZE;
+        const newHeight = Math.round((panel.height * scaleY) / GRID_CELL_SIZE) * GRID_CELL_SIZE;
+        
+        // Update panel
+        onPanelUpdate(panels.map(p =>
+          p.id === panel.id ? { ...p, width: newWidth, height: newHeight, rotation: rotation } : p
+        ));
+      }
     };
 
     if (panel.type === 'triangle') {
       return (
-        <Group
+        <RegularPolygon
           key={panel.id}
           {...commonProps}
-        >
-          <RegularPolygon
-            sides={3}
-            radius={panel.width / 2}
-            fill={panel.fill}
-            stroke={panel.stroke}
-            strokeWidth={panel.strokeWidth}
-          />
-          <Rect
-            x={panel.width / 4}
-            y={panel.height / 2 - 20}
-            width={panel.width / 2}
-            height={40}
-            fill="rgba(255, 255, 255, 0.8)"
-          />
-          <Group
-            x={panel.width / 4}
-            y={panel.height / 2 - 20}
-            width={panel.width / 2}
-            height={40}
-          >
-            <Rect
-              width={panel.width / 2}
-              height={20}
-              fill="transparent"
-            />
-            <Rect
-              y={20}
-              width={panel.width / 2}
-              height={20}
-              fill="transparent"
-            />
-          </Group>
-        </Group>
+          sides={3}
+          radius={panel.width / 2}
+          offsetX={panel.width / 2}
+          offsetY={panel.height / 2}
+        />
       );
     }
 
     return (
-      <Group key={panel.id} {...commonProps}>
-        <Rect
-          width={panel.width}
-          height={panel.height}
-          fill={panel.fill}
-          stroke={panel.stroke}
-          strokeWidth={panel.strokeWidth}
-        />
-        <Rect
-          x={0}
-          y={panel.height / 2 - 20}
-          width={panel.width}
-          height={40}
-          fill="rgba(255, 255, 255, 0.8)"
-        />
-        <Group
-          x={0}
-          y={panel.height / 2 - 20}
-          width={panel.width}
-          height={40}
-        >
-          <Rect
-            width={panel.width}
-            height={20}
-            fill="transparent"
-          />
-          <Rect
-            y={20}
-            width={panel.width}
-            height={20}
-            fill="transparent"
-          />
-        </Group>
-      </Group>
+      <Rect
+        key={panel.id}
+        {...commonProps}
+      />
     );
-  }, [handlePanelClick, handlePanelDragEnd, handlePanelTransformEnd]);
+  }, [selectedId, panels, onPanelUpdate]);
 
   return (
-    <Stage
-      ref={stageRef}
-      width={width}
-      height={height}
-      scaleX={scale}
-      scaleY={scale}
-      onClick={handleStageClick}
-      className="bg-white"
-    >
-      <Layer>
-        {/* Grid lines */}
-        {gridLines.map(line => (
-          <Rect
-            key={line.key}
-            x={line.x}
-            y={line.y}
-            width={line.width}
-            height={line.height}
-            fill={GRID_LINE_COLOR}
+    <div className="w-full h-full overflow-hidden">
+      <Stage
+        ref={stageRef}
+        width={width}
+        height={height}
+        scaleX={scale}
+        scaleY={scale}
+        onClick={handleStageClick}
+        className="bg-white"
+        style={{
+          maxWidth: '100%',
+          maxHeight: '100%',
+          overflow: 'hidden',
+          transformOrigin: '0 0',
+          position: 'relative'
+        }}
+      >
+        <Layer>
+          {/* Grid lines */}
+          {gridLines.map(line => (
+            <Rect
+              key={line.key}
+              x={line.x}
+              y={line.y}
+              width={line.width}
+              height={line.height}
+              fill={GRID_LINE_COLOR}
+            />
+          ))}
+          
+          {/* Panels */}
+          {panels.map(renderPanel)}
+          
+          {/* Transformer for selected panel */}
+          <Transformer
+            ref={transformerRef}
+            boundBoxFunc={(oldBox: { width: number; height: number }, newBox: { width: number; height: number }) => {
+              // Limit resize
+              const minSize = 50;
+              if (newBox.width < minSize || newBox.height < minSize) {
+                return oldBox;
+              }
+              return newBox;
+            }}
+            enabledAnchors={[
+              'top-left',
+              'top-center',
+              'top-right',
+              'middle-right',
+              'bottom-right',
+              'bottom-center',
+              'bottom-left',
+              'middle-left'
+            ]}
+            keepRatio={false}
+            rotateEnabled={true}
+            borderStroke="#3b82f6"
+            borderStrokeWidth={2}
+            anchorStroke="#3b82f6"
+            anchorFill="#ffffff"
+            anchorSize={8}
+            anchorCornerRadius={4}
           />
-        ))}
-        
-        {/* Panels */}
-        {panels.map(renderPanel)}
-        
-        {/* Transformer for selected panel */}
-        <Transformer
-          ref={transformerRef}
-          boundBoxFunc={(oldBox: { width: number; height: number }, newBox: { width: number; height: number }) => {
-            // Limit resize
-            const minSize = 50;
-            if (newBox.width < minSize || newBox.height < minSize) {
-              return oldBox;
-            }
-            return newBox;
-          }}
-          enabledAnchors={[
-            'top-left',
-            'top-center',
-            'top-right',
-            'middle-right',
-            'bottom-right',
-            'bottom-center',
-            'bottom-left',
-            'middle-left'
-          ]}
-          keepRatio={false}
-          rotateEnabled={true}
-          borderStroke="#3b82f6"
-          borderStrokeWidth={2}
-          anchorStroke="#3b82f6"
-          anchorFill="#ffffff"
-          anchorSize={8}
-          anchorCornerRadius={4}
-        />
-      </Layer>
-    </Stage>
+        </Layer>
+      </Stage>
+    </div>
   );
 }

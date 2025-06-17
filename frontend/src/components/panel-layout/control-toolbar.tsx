@@ -125,6 +125,41 @@ export default function ControlToolbar({
     });
   };
 
+  const handleAddTriangle = () => {
+    if (!validateForm()) return;
+
+    const width = parseFloat(panelForm.width);
+    const height = parseFloat(panelForm.height);
+    
+    const newPanel = {
+      id: generateId(),
+      type: 'triangle',
+      x: 100,
+      y: 100,
+      width: width * PIXELS_PER_FOOT,
+      height: height * PIXELS_PER_FOOT,
+      rotation: 0,
+      fill: '#3b82f6',
+      stroke: '#1d4ed8',
+      strokeWidth: 2,
+      rollNumber: panelForm.rollNumber,
+      panelNumber: panelForm.panelNumber,
+      widthFeet: width,
+      heightFeet: height,
+    };
+
+    onAddPanel(newPanel);
+    
+    // Reset form after adding panel
+    setPanelForm({
+      label: '',
+      width: '',
+      height: '',
+      rollNumber: '',
+      panelNumber: '',
+    });
+  };
+
   return (
     <div className="flex items-center justify-between p-4 border-b">
       <div className="flex items-center space-x-4">
@@ -219,6 +254,14 @@ export default function ControlToolbar({
           >
             <Square className="h-4 w-4" />
             <span>Add Rectangle</span>
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handleAddTriangle}
+            className="flex items-center space-x-2"
+          >
+            <Triangle className="h-4 w-4" />
+            <span>Add Triangle</span>
           </Button>
         </div>
       </div>
