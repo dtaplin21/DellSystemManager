@@ -17,13 +17,15 @@ const pool = new Pool({
     rejectUnauthorized: false,
     sslmode: 'require'
   },
-  max: 10, // Reduced from 20 to prevent too many connections
-  min: 2, // Keep at least 2 connections ready
-  idleTimeoutMillis: 60000, // Increased from 30000 to 60000 (1 minute)
-  connectionTimeoutMillis: 5000, // Increased from 2000 to 5000 (5 seconds)
+  max: 5, // Reduced from 10 to prevent too many connections
+  min: 1, // Keep at least 1 connection ready
+  idleTimeoutMillis: 30000, // Reduced to 30 seconds
+  connectionTimeoutMillis: 10000, // Increased to 10 seconds
   application_name: 'dell-system-manager',
-  keepAlive: true, // Enable keep-alive
-  keepAliveInitialDelayMillis: 10000 // Send keep-alive after 10 seconds
+  keepAlive: true,
+  keepAliveInitialDelayMillis: 5000, // Send keep-alive after 5 seconds
+  maxUses: 7500, // Close and replace a connection after it has been used 7500 times
+  allowExitOnIdle: true // Allow the pool to close idle connections
 });
 
 // Add error handler for the pool
@@ -40,14 +42,16 @@ pool.on('error', (err) => {
 // Add connection handler
 pool.on('connect', (client) => {
   console.log('New client connected to database');
-  // Set a longer statement timeout
+  // Set statement timeout to prevent long-running queries
   client.query('SET statement_timeout = 30000'); // 30 seconds
 });
 
+// Add acquire handler
 pool.on('acquire', (client) => {
   console.log('Client acquired from pool');
 });
 
+// Add remove handler
 pool.on('remove', (client) => {
   console.log('Client removed from pool');
   // Log the reason if available

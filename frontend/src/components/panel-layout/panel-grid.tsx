@@ -169,40 +169,13 @@ export default function PanelGrid({ panels, width, height, scale, onPanelUpdate 
         e.cancelBubble = true;
         setSelectedId(panel.id);
       },
-      onDragEnd: (e: KonvaEventObject<DragEvent>) => {
-        const node = e.target;
-        const newX = Math.round(node.x() / GRID_CELL_SIZE) * GRID_CELL_SIZE;
-        const newY = Math.round(node.y() / GRID_CELL_SIZE) * GRID_CELL_SIZE;
-        node.position({ x: newX, y: newY });
-        onPanelUpdate(panels.map(p =>
-          p.id === panel.id ? { ...p, x: newX, y: newY } : p
-        ));
-      },
-      onTransformEnd: (e: KonvaEventObject<Event>) => {
-        const node = e.target;
-        const scaleX = node.scaleX();
-        const scaleY = node.scaleY();
-        const rotation = node.rotation();
-        
-        // Reset scale
-        node.scaleX(1);
-        node.scaleY(1);
-        
-        // Calculate new dimensions
-        const newWidth = Math.round((panel.width * scaleX) / GRID_CELL_SIZE) * GRID_CELL_SIZE;
-        const newHeight = Math.round((panel.height * scaleY) / GRID_CELL_SIZE) * GRID_CELL_SIZE;
-        
-        // Update panel
-        onPanelUpdate(panels.map(p =>
-          p.id === panel.id ? { ...p, width: newWidth, height: newHeight, rotation: rotation } : p
-        ));
-      }
+      onDragEnd: handlePanelDragEnd,
+      onTransformEnd: handlePanelTransformEnd
     };
 
     if (panel.type === 'triangle') {
       return (
         <RegularPolygon
-          key={panel.id}
           {...commonProps}
           sides={3}
           radius={panel.width / 2}
@@ -212,13 +185,8 @@ export default function PanelGrid({ panels, width, height, scale, onPanelUpdate 
       );
     }
 
-    return (
-      <Rect
-        key={panel.id}
-        {...commonProps}
-      />
-    );
-  }, [selectedId, panels, onPanelUpdate]);
+    return <Rect {...commonProps} />;
+  }, [selectedId, handlePanelDragEnd, handlePanelTransformEnd]);
 
   return (
     <div className="w-full h-full overflow-hidden">
