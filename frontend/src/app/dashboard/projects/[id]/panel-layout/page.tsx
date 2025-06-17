@@ -133,13 +133,16 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
   };
 
   const handlePanelUpdate = (updatedPanels: any[]) => {
+    console.log('Updating layout with panels:', updatedPanels);
     setLayout((prev) => {
       if (!prev) return null;
-      return {
+      const newLayout = {
         ...prev,
         panels: updatedPanels,
         lastUpdated: new Date().toISOString()
       };
+      console.log('New layout state:', newLayout);
+      return newLayout;
     });
     
     if (isConnected) {
@@ -154,7 +157,9 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
 
   const handleAddPanel = (panel: any) => {
     if (!layout) return;
+    console.log('Adding new panel:', panel);
     const newPanels = [...layout.panels, panel];
+    console.log('Updated panels array:', newPanels);
     handlePanelUpdate(newPanels);
   };
 

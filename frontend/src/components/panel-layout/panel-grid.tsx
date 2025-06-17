@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { Stage, Layer, Rect, Group, Transformer, RegularPolygon } from 'react-konva';
+import { Stage, Layer, Rect, Group, Transformer, RegularPolygon, Line } from 'react-konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import type { Stage as KonvaStage } from 'konva/lib/Stage';
 import type { Transformer as KonvaTransformer } from 'konva/lib/shapes/Transformer';
@@ -16,6 +16,7 @@ const GRID_CELL_SIZE = 100; // Size of each grid cell in pixels
 const GRID_LINE_WIDTH = 1;
 const GRID_LINE_COLOR = '#e5e7eb';
 const MIN_GRID_VISIBILITY_SCALE = 0.2; // Hide grid when zoomed out too far
+const MIN_PANEL_SIZE = 50; // Minimum panel size
 
 interface Panel {
   id: string;
@@ -96,6 +97,14 @@ export default function PanelGrid({ panels, width, height, scale, onPanelUpdate 
     // Update the panel position
     const newPanels = panels.map(panel => {
       if (panel.id === id) {
+        if (panel.type === 'triangle') {
+          // For triangles, we need to convert from center position to top-left position
+          return {
+            ...panel,
+            x: node.x() - panel.width / 2,
+            y: node.y() - panel.height / 2
+          };
+        }
         return {
           ...panel,
           x: node.x(),
@@ -110,32 +119,55 @@ export default function PanelGrid({ panels, width, height, scale, onPanelUpdate 
 
   // Optimize panel transform end handler
   const handlePanelTransformEnd = useCallback((e: KonvaEventObject<Event>) => {
-    const id = e.target.id();
     const node = e.target;
-    
-    // Get the current scale
     const scaleX = node.scaleX();
     const scaleY = node.scaleY();
     
-    // Reset scale to 1 and update width/height
-    node.scaleX(1);
-    node.scaleY(1);
-    
-    const newPanels = panels.map(panel => {
-      if (panel.id === id) {
+    const updatedPanels = panels.map(panel => {
+      if (panel.id === node.id()) {
+        if (panel.type === 'triangle') {
+          // Get the current radius before resetting scale
+          const oldRadius = (node as Konva.RegularPolygon).radius() ?? (panel.width / 2);
+          // Use both scaleX and scaleY for non-uniform scaling
+          const newRadiusX = oldRadius * scaleX;
+          const newRadiusY = oldRadius * scaleY;
+          
+          // Reset scale after getting the radius
+          node.scaleX(1);
+          node.scaleY(1);
+          
+          return {
+            ...panel,
+            // Keep center position by adjusting x/y based on new radius
+            x: node.x() - newRadiusX,
+            y: node.y() - newRadiusY,
+            width: newRadiusX * 2,
+            height: newRadiusY * 2,
+            rotation: node.rotation()
+          };
+        }
+        
+        // For rectangles, work with width/height
+        const newWidth = node.width() * scaleX;
+        const newHeight = node.height() * scaleY;
+        
+        // Reset scale after getting dimensions
+        node.scaleX(1);
+        node.scaleY(1);
+        
         return {
           ...panel,
           x: node.x(),
           y: node.y(),
-          width: node.width() * scaleX,
-          height: node.height() * scaleY,
+          width: newWidth,
+          height: newHeight,
           rotation: node.rotation()
         };
       }
       return panel;
     });
     
-    onPanelUpdate(newPanels);
+    onPanelUpdate(updatedPanels);
   }, [panels, onPanelUpdate]);
 
   // Optimize panel click handler
@@ -154,38 +186,56 @@ export default function PanelGrid({ panels, width, height, scale, onPanelUpdate 
   // Memoize panel rendering
   const renderPanel = useCallback((panel: Panel) => {
     const isSelected = selectedId === panel.id;
-    const commonProps = {
-      id: panel.id,
-      x: panel.x,
-      y: panel.y,
-      width: panel.width,
-      height: panel.height,
-      rotation: panel.rotation,
-      fill: panel.fill,
-      stroke: panel.stroke,
-      strokeWidth: panel.strokeWidth,
-      draggable: true,
-      onClick: (e: KonvaEventObject<MouseEvent>) => {
-        e.cancelBubble = true;
-        setSelectedId(panel.id);
-      },
-      onDragEnd: handlePanelDragEnd,
-      onTransformEnd: handlePanelTransformEnd
-    };
-
+    
     if (panel.type === 'triangle') {
+      // For triangle, use radius as the primary property
+      const radiusX = panel.width / 2;
+      const radiusY = panel.height / 2;
+      const centerX = panel.x + radiusX;
+      const centerY = panel.y + radiusY;
+      
       return (
         <RegularPolygon
-          {...commonProps}
+          id={panel.id}
+          x={centerX}
+          y={centerY}
           sides={3}
-          radius={panel.width / 2}
-          offsetX={panel.width / 2}
-          offsetY={panel.height / 2}
+          radius={Math.max(radiusX, radiusY)} // Use the larger radius to ensure the triangle fits
+          rotation={panel.rotation}
+          fill={panel.fill}
+          stroke={panel.stroke}
+          strokeWidth={panel.strokeWidth}
+          draggable={true}
+          onClick={(e: KonvaEventObject<MouseEvent>) => {
+            e.cancelBubble = true;
+            setSelectedId(panel.id);
+          }}
+          onDragEnd={handlePanelDragEnd}
+          onTransformEnd={handlePanelTransformEnd}
         />
       );
     }
 
-    return <Rect {...commonProps} />;
+    return (
+      <Rect
+        id={panel.id}
+        x={panel.x}
+        y={panel.y}
+        width={panel.width}
+        height={panel.height}
+        rotation={panel.rotation}
+        fill={panel.fill}
+        stroke={panel.stroke}
+        strokeWidth={panel.strokeWidth}
+        draggable={true}
+        onClick={(e: KonvaEventObject<MouseEvent>) => {
+          e.cancelBubble = true;
+          setSelectedId(panel.id);
+        }}
+        onDragEnd={handlePanelDragEnd}
+        onTransformEnd={handlePanelTransformEnd}
+      />
+    );
   }, [selectedId, handlePanelDragEnd, handlePanelTransformEnd]);
 
   return (
@@ -199,11 +249,7 @@ export default function PanelGrid({ panels, width, height, scale, onPanelUpdate 
         onClick={handleStageClick}
         className="bg-white"
         style={{
-          maxWidth: '100%',
-          maxHeight: '100%',
-          overflow: 'hidden',
-          transformOrigin: '0 0',
-          position: 'relative'
+          touchAction: 'none'
         }}
       >
         <Layer>
@@ -222,7 +268,7 @@ export default function PanelGrid({ panels, width, height, scale, onPanelUpdate 
           {/* Panels */}
           {panels.map(renderPanel)}
           
-          {/* Transformer for selected panel */}
+          {/* Transformer */}
           <Transformer
             ref={transformerRef}
             boundBoxFunc={(oldBox: { width: number; height: number }, newBox: { width: number; height: number }) => {
