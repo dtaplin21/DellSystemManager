@@ -189,6 +189,15 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
     setSelectedPanel(updatedPanel);
   };
 
+  const handleDeletePanel = (panelId: string) => {
+    console.log('Deleting panel:', panelId);
+    if (!layout) return;
+    
+    const updatedPanels = layout.panels.filter(panel => panel.id !== panelId);
+    handlePanelUpdate(updatedPanels);
+    setSelectedPanel(null);
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center py-8">
@@ -272,6 +281,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
         onOpenChange={setEditDialogOpen}
         panel={selectedPanel}
         onSave={handleSavePanel}
+        onDelete={handleDeletePanel}
       />
     </div>
   );
