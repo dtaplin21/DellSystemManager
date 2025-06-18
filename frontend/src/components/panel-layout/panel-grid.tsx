@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { Stage, Layer, Rect, Group, Transformer, RegularPolygon } from 'react-konva';
+import { Text } from 'react-konva/lib/ReactKonvaCore';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import type { Stage as KonvaStage } from 'konva/lib/Stage';
 import type { Transformer as KonvaTransformer } from 'konva/lib/shapes/Transformer';
@@ -10,6 +11,19 @@ import type { Group as GroupType } from 'konva/lib/Group';
 import type { Rect as RectType } from 'konva/lib/shapes/Rect';
 import type { RegularPolygon as RegularPolygonType } from 'konva/lib/shapes/RegularPolygon';
 import Konva from 'konva';
+
+interface TextProps {
+  text: string;
+  x: number;
+  y: number;
+  fontSize: number;
+  fontFamily: string;
+  fill: string;
+  align: string;
+  verticalAlign: string;
+  offsetX: number;
+  offsetY: number;
+}
 
 // Constants for grid optimization
 const GRID_CELL_SIZE = 100; // Size of each grid cell in pixels
@@ -89,33 +103,40 @@ export default function PanelGrid({ panels, width, height, scale, onPanelUpdate 
     }
   }, [selectedId]);
 
+  // Add snap to grid helper
+  const snapToGrid = useCallback((value: number) => {
+    return Math.round(value / GRID_CELL_SIZE) * GRID_CELL_SIZE;
+  }, []);
+
   // Optimize panel drag end handler
   const handlePanelDragEnd = useCallback((e: KonvaEventObject<DragEvent>) => {
     const id = e.target.id();
     const node = e.target;
     
-    // Update the panel position
+    // Update the panel position with snapping
     const newPanels = panels.map(panel => {
       if (panel.id === id) {
         if (panel.type === 'triangle') {
-          // For triangles, we need to convert from center position to top-left position
+          // For triangles, snap the center position
+          const snappedX = snapToGrid(node.x());
+          const snappedY = snapToGrid(node.y());
           return {
             ...panel,
-            x: node.x() - panel.width / 2,
-            y: node.y() - panel.height / 2
+            x: snappedX - panel.width / 2,
+            y: snappedY - panel.height / 2
           };
         }
         return {
           ...panel,
-          x: node.x(),
-          y: node.y()
+          x: snapToGrid(node.x()),
+          y: snapToGrid(node.y())
         };
       }
       return panel;
     });
     
     onPanelUpdate(newPanels);
-  }, [panels, onPanelUpdate]);
+  }, [panels, onPanelUpdate, snapToGrid]);
 
   // Optimize panel transform end handler
   const handlePanelTransformEnd = useCallback((e: KonvaEventObject<Event>) => {
@@ -136,11 +157,15 @@ export default function PanelGrid({ panels, width, height, scale, onPanelUpdate 
           node.scaleX(1);
           node.scaleY(1);
           
+          // Snap the center position
+          const snappedX = snapToGrid(node.x());
+          const snappedY = snapToGrid(node.y());
+          
           return {
             ...panel,
             // Keep center position by adjusting x/y based on new radius
-            x: node.x() - newRadiusX,
-            y: node.y() - newRadiusY,
+            x: snappedX - newRadiusX,
+            y: snappedY - newRadiusY,
             width: newRadiusX * 2,
             height: newRadiusY * 2,
             rotation: node.rotation()
@@ -155,12 +180,18 @@ export default function PanelGrid({ panels, width, height, scale, onPanelUpdate 
         node.scaleX(1);
         node.scaleY(1);
         
+        // Snap position and dimensions to grid
+        const snappedX = snapToGrid(node.x());
+        const snappedY = snapToGrid(node.y());
+        const snappedWidth = snapToGrid(newWidth);
+        const snappedHeight = snapToGrid(newHeight);
+        
         return {
           ...panel,
-          x: node.x(),
-          y: node.y(),
-          width: newWidth,
-          height: newHeight,
+          x: snappedX,
+          y: snappedY,
+          width: snappedWidth,
+          height: snappedHeight,
           rotation: node.rotation()
         };
       }
@@ -168,7 +199,15 @@ export default function PanelGrid({ panels, width, height, scale, onPanelUpdate 
     });
     
     onPanelUpdate(updatedPanels);
-  }, [panels, onPanelUpdate]);
+  }, [panels, onPanelUpdate, snapToGrid]);
+
+  // Add drag move handler for live snapping
+  const handlePanelDragMove = useCallback((e: KonvaEventObject<DragEvent>) => {
+    const node = e.target;
+    const snappedX = snapToGrid(node.x());
+    const snappedY = snapToGrid(node.y());
+    node.position({ x: snappedX, y: snappedY });
+  }, [snapToGrid]);
 
   // Optimize panel click handler
   const handlePanelClick = useCallback((e: KonvaEventObject<MouseEvent>) => {
@@ -187,12 +226,17 @@ export default function PanelGrid({ panels, width, height, scale, onPanelUpdate 
   const renderPanel = useCallback((panel: Panel) => {
     const isSelected = selectedId === panel.id;
     
+    // Compute shape center
+    const centerX = panel.x + panel.width / 2;
+    const centerY = panel.y + panel.height / 2;
+
+    // Build a single "label" string
+    const label = `${panel.rollNumber} / ${panel.panelNumber}`;
+
     if (panel.type === 'triangle') {
       // For triangle, use radius as the primary property
       const radiusX = panel.width / 2;
       const radiusY = panel.height / 2;
-      const centerX = panel.x + radiusX;
-      const centerY = panel.y + radiusY;
       
       // Pick a base radius so the polygon "fits"
       const baseRadius = Math.min(radiusX, radiusY);
@@ -202,52 +246,80 @@ export default function PanelGrid({ panels, width, height, scale, onPanelUpdate 
       const scaleY = radiusY / baseRadius;
       
       return (
-        <RegularPolygon
+        <Group key={panel.id}>
+          <RegularPolygon
+            id={panel.id}
+            x={centerX}
+            y={centerY}
+            sides={3}
+            radius={baseRadius}
+            scaleX={scaleX}
+            scaleY={scaleY}
+            rotation={panel.rotation}
+            fill={panel.fill}
+            stroke="black"
+            strokeWidth={100}
+            draggable={true}
+            onClick={(e: KonvaEventObject<MouseEvent>) => {
+              e.cancelBubble = true;
+              setSelectedId(panel.id);
+            }}
+            onDragMove={handlePanelDragMove}
+            onDragEnd={handlePanelDragEnd}
+            onTransformEnd={handlePanelTransformEnd}
+          />
+          <Text
+            text={label}
+            x={centerX}
+            y={centerY}
+            fontSize={100}
+            fontFamily="Arial"
+            fill="#000000"
+            align="center"
+            verticalAlign="middle"
+            offsetX={0}
+            offsetY={15}
+          />
+        </Group>
+      );
+    }
+
+    return (
+      <Group key={panel.id}>
+        <Rect
           id={panel.id}
-          x={centerX}
-          y={centerY}
-          sides={3}
-          radius={baseRadius}
-          scaleX={scaleX}
-          scaleY={scaleY}
-          offsetX={0}      // because we're already drawing at the center
-          offsetY={0}
+          x={panel.x}
+          y={panel.y}
+          width={panel.width}
+          height={panel.height}
           rotation={panel.rotation}
           fill={panel.fill}
-          stroke={panel.stroke}
-          strokeWidth={panel.strokeWidth}
+          stroke="black"
+          strokeWidth={100}
           draggable={true}
           onClick={(e: KonvaEventObject<MouseEvent>) => {
             e.cancelBubble = true;
             setSelectedId(panel.id);
           }}
+          onDragMove={handlePanelDragMove}
           onDragEnd={handlePanelDragEnd}
           onTransformEnd={handlePanelTransformEnd}
         />
-      );
-    }
-
-    return (
-      <Rect
-        id={panel.id}
-        x={panel.x}
-        y={panel.y}
-        width={panel.width}
-        height={panel.height}
-        rotation={panel.rotation}
-        fill={panel.fill}
-        stroke={panel.stroke}
-        strokeWidth={panel.strokeWidth}
-        draggable={true}
-        onClick={(e: KonvaEventObject<MouseEvent>) => {
-          e.cancelBubble = true;
-          setSelectedId(panel.id);
-        }}
-        onDragEnd={handlePanelDragEnd}
-        onTransformEnd={handlePanelTransformEnd}
-      />
+        <Text
+          text={label}
+          x={centerX}
+          y={centerY}
+          fontSize={100}
+          fontFamily="Arial"
+          fill="#000000"
+          align="center"
+          verticalAlign="middle"
+          offsetX={0}
+          offsetY={15}
+        />
+      </Group>
     );
-  }, [selectedId, handlePanelDragEnd, handlePanelTransformEnd]);
+  }, [selectedId, handlePanelDragEnd, handlePanelTransformEnd, handlePanelDragMove]);
 
   return (
     <div className="w-full h-full overflow-hidden">

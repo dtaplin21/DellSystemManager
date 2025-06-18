@@ -10,7 +10,8 @@ import {
   RotateCcw,
   Square,
   Triangle,
-  Plus
+  Plus,
+  Pencil
 } from "lucide-react";
 import { generateId } from '@/lib/utils';
 
@@ -262,6 +263,13 @@ export default function ControlToolbar({
           >
             <Triangle className="h-4 w-4" />
             <span>Add Triangle</span>
+          </Button>
+          <Button
+            variant="outline"
+            className="flex items-center space-x-2"
+          >
+            <Pencil className="h-4 w-4" />
+            <span>Edit Panel</span>
           </Button>
         </div>
       </div>
