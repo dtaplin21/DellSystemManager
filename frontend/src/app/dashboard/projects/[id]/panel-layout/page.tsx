@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import PanelGrid from '@/components/panel-layout/panel-grid';
 import ControlToolbar from '@/components/panel-layout/control-toolbar';
 import ExportDialog from '@/components/panel-layout/export-dialog';
+import EditPanelDialog from '@/components/panel-layout/edit-panel-dialog';
 import { generateId } from '@/lib/utils';
 
 interface Project {
@@ -50,6 +51,8 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
   const [isLoading, setIsLoading] = useState(true);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [id, setId] = useState<string>('');
+  const [selectedPanel, setSelectedPanel] = useState<any>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
   
   const { user } = useAuth();
   const { toast } = useToast();
@@ -163,6 +166,29 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
     handlePanelUpdate(newPanels);
   };
 
+  const handleEditPanel = (panel: any) => {
+    console.log('Edit panel requested:', panel);
+    setSelectedPanel(panel);
+    setEditDialogOpen(true);
+  };
+
+  const handlePanelSelect = (panel: any) => {
+    console.log('Panel selected:', panel);
+    setSelectedPanel(panel);
+  };
+
+  const handleSavePanel = (updatedPanel: any) => {
+    console.log('Saving updated panel:', updatedPanel);
+    if (!layout) return;
+    
+    const updatedPanels = layout.panels.map(panel => 
+      panel.id === updatedPanel.id ? updatedPanel : panel
+    );
+    
+    handlePanelUpdate(updatedPanels);
+    setSelectedPanel(updatedPanel);
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center py-8">
@@ -215,6 +241,8 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
             scale={layout.scale}
             onScaleChange={handleScaleChange}
             onAddPanel={handleAddPanel}
+            selectedPanel={selectedPanel}
+            onEditPanel={handleEditPanel}
           />
         </CardHeader>
         <CardContent className="p-0">
@@ -225,6 +253,8 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
               height={window.innerHeight - 300}
               scale={layout.scale}
               onPanelUpdate={handlePanelUpdate}
+              selectedPanel={selectedPanel}
+              onEditPanel={handlePanelSelect}
             />
           </div>
         </CardContent>
@@ -235,6 +265,13 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
         onOpenChange={setExportDialogOpen}
         projectId={id}
         layout={layout}
+      />
+
+      <EditPanelDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        panel={selectedPanel}
+        onSave={handleSavePanel}
       />
     </div>
   );

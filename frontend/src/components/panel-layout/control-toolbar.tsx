@@ -25,12 +25,16 @@ interface ControlToolbarProps {
   scale: number;
   onScaleChange: (scale: number) => void;
   onAddPanel: (panel: any) => void;
+  selectedPanel?: any;
+  onEditPanel?: (panel: any) => void;
 }
 
 export default function ControlToolbar({ 
   scale, 
   onScaleChange,
-  onAddPanel
+  onAddPanel,
+  selectedPanel,
+  onEditPanel
 }: ControlToolbarProps) {
   const [panelForm, setPanelForm] = useState({
     label: '',
@@ -161,6 +165,17 @@ export default function ControlToolbar({
     });
   };
 
+  const handleEditPanel = () => {
+    if (!selectedPanel) {
+      alert('Please select a panel to edit');
+      return;
+    }
+    
+    if (onEditPanel) {
+      onEditPanel(selectedPanel);
+    }
+  };
+
   return (
     <div className="flex items-center justify-between p-4 border-b">
       <div className="flex items-center space-x-4">
@@ -266,6 +281,8 @@ export default function ControlToolbar({
           </Button>
           <Button
             variant="outline"
+            onClick={handleEditPanel}
+            disabled={!selectedPanel}
             className="flex items-center space-x-2"
           >
             <Pencil className="h-4 w-4" />

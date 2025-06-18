@@ -53,9 +53,19 @@ interface PanelGridProps {
   height: number;
   scale: number;
   onPanelUpdate: (panels: Panel[]) => void;
+  selectedPanel?: any;
+  onEditPanel?: (panel: any) => void;
 }
 
-export default function PanelGrid({ panels, width, height, scale, onPanelUpdate }: PanelGridProps) {
+export default function PanelGrid({ 
+  panels, 
+  width, 
+  height, 
+  scale, 
+  onPanelUpdate,
+  selectedPanel,
+  onEditPanel
+}: PanelGridProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const stageRef = useRef<any>(null);
   const transformerRef = useRef<any>(null);
@@ -222,6 +232,18 @@ export default function PanelGrid({ panels, width, height, scale, onPanelUpdate 
     }
   }, []);
 
+  // ADDED:
+  const handleEditPanel = () => {
+    if (!selectedPanel) {
+      alert('Please select a panel to edit');
+      return;
+    }
+    
+    if (onEditPanel) {
+      onEditPanel(selectedPanel);
+    }
+  };
+
   // Memoize panel rendering
   const renderPanel = useCallback((panel: Panel) => {
     const isSelected = selectedId === panel.id;
@@ -263,6 +285,9 @@ export default function PanelGrid({ panels, width, height, scale, onPanelUpdate 
             onClick={(e: KonvaEventObject<MouseEvent>) => {
               e.cancelBubble = true;
               setSelectedId(panel.id);
+              if (onEditPanel) {
+                onEditPanel(panel);
+              }
             }}
             onDragMove={handlePanelDragMove}
             onDragEnd={handlePanelDragEnd}
@@ -300,6 +325,9 @@ export default function PanelGrid({ panels, width, height, scale, onPanelUpdate 
           onClick={(e: KonvaEventObject<MouseEvent>) => {
             e.cancelBubble = true;
             setSelectedId(panel.id);
+            if (onEditPanel) {
+              onEditPanel(panel);
+            }
           }}
           onDragMove={handlePanelDragMove}
           onDragEnd={handlePanelDragEnd}
@@ -319,7 +347,7 @@ export default function PanelGrid({ panels, width, height, scale, onPanelUpdate 
         />
       </Group>
     );
-  }, [selectedId, handlePanelDragEnd, handlePanelTransformEnd, handlePanelDragMove]);
+  }, [selectedId, handlePanelDragEnd, handlePanelTransformEnd, handlePanelDragMove, onEditPanel]);
 
   return (
     <div className="w-full h-full overflow-hidden">
