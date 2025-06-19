@@ -13,6 +13,12 @@ import ControlToolbar from '@/components/panel-layout/control-toolbar';
 import ExportDialog from '@/components/panel-layout/export-dialog';
 import EditPanelDialog from '@/components/panel-layout/edit-panel-dialog';
 import { generateId } from '@/lib/utils';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 interface Project {
   id: string;
@@ -27,6 +33,10 @@ interface Project {
   progress: number;
   createdAt: string;
   updatedAt: string;
+  scale?: number;
+  layoutWidth?: number;
+  layoutHeight?: number;
+  panels?: any[];
 }
 
 interface PanelLayout {
@@ -198,6 +208,126 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
     setSelectedPanel(null);
   };
 
+  const handleProjectLoad = async (projectData: any) => {
+    try {
+      setIsLoading(true);
+      
+      // Update the project state
+      setProject(projectData);
+      
+      // Convert Supabase panel format to our internal format
+      const convertedPanels = (projectData.panels || []).map((panel: any) => ({
+        id: panel.id,
+        type: panel.type,
+        x: panel.x,
+        y: panel.y,
+        width: panel.width_feet * PIXELS_PER_FOOT,
+        height: panel.height_feet * PIXELS_PER_FOOT,
+        rotation: panel.rotation || 0,
+        fill: panel.fill || '#3b82f6',
+        stroke: panel.stroke || '#1d4ed8',
+        strokeWidth: panel.stroke_width || 2,
+        rollNumber: panel.roll_number,
+        panelNumber: panel.panel_number,
+        widthFeet: panel.width_feet,
+        heightFeet: panel.height_feet,
+      }));
+
+      // Create or update layout
+      const newLayout: PanelLayout = {
+        id: projectData.id,
+        projectId: projectData.id,
+        panels: convertedPanels,
+        width: projectData.layoutWidth || DEFAULT_LAYOUT_WIDTH,
+        height: projectData.layoutHeight || DEFAULT_LAYOUT_HEIGHT,
+        scale: projectData.scale || DEFAULT_SCALE,
+        lastUpdated: new Date().toISOString()
+      };
+
+      setLayout(newLayout);
+      
+      // Update the URL to reflect the new project
+      router.push(`/dashboard/projects/${projectData.id}/panel-layout`);
+      
+      toast({
+        title: 'Project Loaded',
+        description: `Successfully loaded project: ${projectData.name}`,
+      });
+    } catch (error) {
+      console.error('Error loading project:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load project data.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const saveProjectToSupabase = async () => {
+    if (!project || !layout || !user) return;
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast({
+          title: 'Error',
+          description: 'No active session. Please log in again.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Convert panels back to Supabase format
+      const supabasePanels = layout.panels.map(panel => ({
+        project_id: project.id,
+        type: panel.type,
+        x: panel.x,
+        y: panel.y,
+        width_feet: panel.widthFeet,
+        height_feet: panel.heightFeet,
+        roll_number: panel.rollNumber,
+        panel_number: panel.panelNumber,
+        fill: panel.fill,
+        stroke: panel.stroke,
+        stroke_width: panel.strokeWidth,
+        rotation: panel.rotation || 0
+      }));
+
+      // Update project metadata
+      const response = await fetch(`/api/projects/${project.id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          scale: layout.scale,
+          layoutWidth: layout.width,
+          layoutHeight: layout.height,
+          panels: supabasePanels
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save project');
+      }
+
+      toast({
+        title: 'Project Saved',
+        description: 'Project data saved successfully.',
+      });
+    } catch (error) {
+      console.error('Error saving project:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to save project data.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center py-8">
@@ -238,6 +368,9 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
           <Button variant="outline" onClick={() => router.push(`/dashboard/projects/${id}`)}>
             Back to Project
           </Button>
+          <Button variant="outline" onClick={saveProjectToSupabase}>
+            Save Project
+          </Button>
           <Button onClick={() => setExportDialogOpen(true)}>
             Export to CAD
           </Button>
@@ -252,6 +385,8 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
             onAddPanel={handleAddPanel}
             selectedPanel={selectedPanel}
             onEditPanel={handleEditPanel}
+            onProjectLoad={handleProjectLoad}
+            currentProject={project}
           />
         </CardHeader>
         <CardContent className="p-0">

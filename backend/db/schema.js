@@ -16,33 +16,38 @@ const users = pgTable('users', {
   updatedAt: timestamp('updated_at').defaultNow()
 });
 
-// Projects table
+// Projects table (updated for Supabase)
 const projects = pgTable('projects', {
   id: uuid('id').primaryKey(),
+  ownerId: uuid('owner_id').notNull().references(() => users.id),
   name: text('name').notNull(),
   description: text('description'),
-  status: varchar('status', { length: 20 }).default('active'),
-  client: text('client'),
   location: text('location'),
-  startDate: timestamp('start_date'),
-  endDate: timestamp('end_date'),
-  area: decimal('area'),
-  progress: integer('progress').default(0),
-  subscription: varchar('subscription', { length: 20 }).default('basic'),
-  userId: uuid('user_id').notNull().references(() => users.id),
+  status: varchar('status', { length: 20 }).default('active'),
+  scale: decimal('scale').default('0.0025'),
+  layoutWidth: integer('layout_width').default(10000),
+  layoutHeight: integer('layout_height').default(15000),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow()
 });
 
-// Panel layouts table
-const panels = pgTable('panel_layouts', {
+// Panels table (new structure)
+const panels = pgTable('panels', {
   id: uuid('id').primaryKey(),
-  projectId: uuid('project_id').notNull().references(() => projects.id),
-  panels: text('panels').notNull(), // JSON string of panels data
-  width: decimal('width').notNull(),
-  height: decimal('height').notNull(),
-  scale: decimal('scale').notNull().default('1'),
-  lastUpdated: timestamp('last_updated').notNull(),
+  projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  type: varchar('type', { length: 20 }).notNull(), // 'rectangle' or 'triangle'
+  x: integer('x').notNull(),
+  y: integer('y').notNull(),
+  widthFeet: decimal('width_feet').notNull(),
+  heightFeet: decimal('height_feet').notNull(),
+  rollNumber: text('roll_number').notNull(),
+  panelNumber: text('panel_number').notNull(),
+  fill: text('fill').default('#3b82f6'),
+  stroke: text('stroke').default('#1d4ed8'),
+  strokeWidth: integer('stroke_width').default(2),
+  rotation: decimal('rotation').default('0'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow()
 });
 
 // Documents table

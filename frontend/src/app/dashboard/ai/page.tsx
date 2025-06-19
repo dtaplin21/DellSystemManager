@@ -3,7 +3,21 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../../../hooks/use-auth';
+import ProjectSelector from '@/components/projects/project-selector';
 import './ai.css';
+
+// Check if Supabase environment variables are available
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+// Only create Supabase client if environment variables are available
+let supabase: any = null;
+if (supabaseUrl && supabaseAnonKey) {
+  const { createClient } = require('@supabase/supabase-js');
+  supabase = createClient(supabaseUrl, supabaseAnonKey);
+} else {
+  console.warn('Supabase environment variables are not configured. Please set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in your .env.local file.');
+}
 
 interface Message {
   id: string;
@@ -65,7 +79,7 @@ export default function AIAssistantPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [documents, setDocuments] = useState<Document[]>([]);
-  const [selectedProject, setSelectedProject] = useState<string | null>(null);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [jobStatus, setJobStatus] = useState<JobStatus>({ status: 'idle' });
   const [isGeneratingLayout, setIsGeneratingLayout] = useState(false);
@@ -73,8 +87,7 @@ export default function AIAssistantPage() {
   const [isProcessingHandwriting, setIsProcessingHandwriting] = useState(false);
   const [handwritingResult, setHandwritingResult] = useState<HandwritingScanResult | null>(null);
   const [showHandwritingPreview, setShowHandwritingPreview] = useState(false);
-  const [showCreateProject, setShowCreateProject] = useState(false);
-  const [isCreatingProject, setIsCreatingProject] = useState(false);
+  const [showProjectSelector, setShowProjectSelector] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const handwritingInputRef = useRef<HTMLInputElement>(null);
@@ -82,16 +95,27 @@ export default function AIAssistantPage() {
   // Fetch available projects
   useEffect(() => {
     const fetchProjects = async () => {
-      if (!isAuthenticated) return;
+      if (!isAuthenticated || !user) return;
       
       try {
+        if (!supabase) {
+          console.warn('Supabase not configured, skipping project fetch');
+          return;
+        }
+
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+
         const response = await fetch('/api/projects', {
-          credentials: 'include',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
         });
         
         if (response.ok) {
           const data = await response.json();
-          setProjects(data.projects || []);
+          setProjects(data || []);
         }
       } catch (error) {
         console.error('Error fetching projects:', error);
@@ -99,15 +123,18 @@ export default function AIAssistantPage() {
     };
 
     fetchProjects();
-  }, [isAuthenticated]);
+  }, [isAuthenticated, user]);
 
   // Get project ID from URL params
   useEffect(() => {
     const projectId = searchParams?.get('projectId');
-    if (projectId) {
-      setSelectedProject(projectId);
+    if (projectId && projects.length > 0) {
+      const project = projects.find(p => p.id === projectId);
+      if (project) {
+        setSelectedProject(project);
+      }
     }
-  }, [searchParams]);
+  }, [searchParams, projects]);
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -120,7 +147,7 @@ export default function AIAssistantPage() {
     if (selectedProject && jobStatus.status === 'processing') {
       interval = setInterval(async () => {
         try {
-          const response = await fetch(`/api/ai/job-status/${selectedProject}`, {
+          const response = await fetch(`/api/ai/job-status/${selectedProject.id}`, {
             credentials: 'include',
           });
           if (response.ok) {
@@ -191,7 +218,7 @@ export default function AIAssistantPage() {
         },
         credentials: 'include',
         body: JSON.stringify({
-          projectId: selectedProject,
+          projectId: selectedProject.id,
           question: inputValue,
           documents: documents.map(doc => ({
             id: doc.id,
@@ -204,7 +231,7 @@ export default function AIAssistantPage() {
       if (response.ok) {
         const aiResponse = await response.json();
         const aiMessage: Message = {
-          id: (Date.now() + 1).toString(),
+          id: Date.now().toString() + 'ai',
           type: 'ai',
           content: aiResponse.answer,
           timestamp: new Date(),
@@ -217,9 +244,9 @@ export default function AIAssistantPage() {
     } catch (error) {
       console.error('Error sending message:', error);
       const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
+        id: Date.now().toString() + 'error',
         type: 'ai',
-        content: 'Sorry, I encountered an error processing your request. Please try again.',
+        content: 'Sorry, I encountered an error. Please try again.',
         timestamp: new Date()
       };
       setMessages(prev => [...prev, errorMessage]);
@@ -230,16 +257,13 @@ export default function AIAssistantPage() {
     const files = event.target.files;
     if (!files?.length || !selectedProject) return;
 
-    const file = files[0];
     setIsProcessingHandwriting(true);
-    setHandwritingResult(null);
+    const formData = new FormData();
+    formData.append('file', files[0]);
+    formData.append('projectId', selectedProject.id);
 
     try {
-      const formData = new FormData();
-      formData.append('qcForm', file);
-      formData.append('projectId', selectedProject);
-
-      const response = await fetch('/api/handwriting/scan', {
+      const response = await fetch('/api/ai/scan-handwriting', {
         method: 'POST',
         credentials: 'include',
         body: formData
@@ -247,56 +271,27 @@ export default function AIAssistantPage() {
 
       if (response.ok) {
         const result = await response.json();
-        setHandwritingResult(result.data);
+        setHandwritingResult(result);
         setShowHandwritingPreview(true);
-        
-        // Add a message about the successful scan
-        const aiMessage: Message = {
-          id: Date.now().toString(),
-          type: 'ai',
-          content: `Successfully processed handwritten QC form "${file.name}". 
-          ${result.data.validation.isValid ? 
-            `Extracted ${Object.keys(result.data.qcData.panels || {}).length} panels and ${Object.keys(result.data.qcData.tests || {}).length} tests with ${(result.data.validation.confidence * 100).toFixed(1)}% confidence.` :
-            `Found ${result.data.validation.issues.length} validation issues that may need review.`
-          } Excel report is ready for download.`,
-          timestamp: new Date()
-        };
-        setMessages(prev => [...prev, aiMessage]);
-        
       } else {
-        throw new Error('Failed to process handwriting scan');
+        throw new Error('Failed to process handwriting');
       }
     } catch (error) {
       console.error('Error processing handwriting:', error);
-      const errorMessage: Message = {
-        id: Date.now().toString(),
-        type: 'ai',
-        content: 'Sorry, I encountered an error processing the handwritten form. Please ensure the image is clear and try again.',
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, errorMessage]);
+      alert('Failed to process handwriting. Please try again.');
     } finally {
       setIsProcessingHandwriting(false);
-      if (handwritingInputRef.current) {
-        handwritingInputRef.current.value = '';
-      }
     }
   };
 
   const handleDownloadExcel = () => {
-    if (!handwritingResult) return;
-    
-    // Create a download link
-    const link = document.createElement('a');
-    link.href = handwritingResult.excelUrl;
-    link.download = handwritingResult.filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    if (handwritingResult?.excelUrl) {
+      window.open(handwritingResult.excelUrl, '_blank');
+    }
   };
 
   const handleGenerateLayout = async () => {
-    if (!selectedProject || documents.length === 0) return;
+    if (!selectedProject) return;
 
     setIsGeneratingLayout(true);
     setJobStatus({ status: 'processing' });
@@ -309,7 +304,7 @@ export default function AIAssistantPage() {
         },
         credentials: 'include',
         body: JSON.stringify({
-          projectId: selectedProject,
+          projectId: selectedProject.id,
           documents: documents.map(doc => ({
             id: doc.id,
             filename: doc.filename,
@@ -323,7 +318,7 @@ export default function AIAssistantPage() {
         setJobStatus({ status: 'completed' });
         
         // Navigate to the panel layout page with the generated layout
-        router.push(`/dashboard/projects/${selectedProject}/panel-layout?generated=true`);
+        router.push(`/dashboard/projects/${selectedProject.id}/panel-layout?generated=true`);
       } else {
         throw new Error('Failed to generate layout');
       }
@@ -334,47 +329,10 @@ export default function AIAssistantPage() {
     }
   };
 
-  const handleCreateProject = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-    
-    const projectData = {
-      name: formData.get('name') as string,
-      client: formData.get('client') as string,
-      location: formData.get('location') as string,
-      startDate: formData.get('startDate') as string,
-      description: formData.get('description') as string,
-    };
-
-    setIsCreatingProject(true);
-    
-    try {
-      const response = await fetch('/api/projects', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify(projectData)
-      });
-
-      if (response.ok) {
-        const newProject = await response.json();
-        setProjects(prev => [newProject, ...prev]);
-        setSelectedProject(newProject.id);
-        setShowCreateProject(false);
-        
-        // Reset form
-        event.currentTarget.reset();
-      } else {
-        throw new Error('Failed to create project');
-      }
-    } catch (error) {
-      console.error('Error creating project:', error);
-      alert('Failed to create project. Please try again.');
-    } finally {
-      setIsCreatingProject(false);
-    }
+  const handleProjectSelect = (project: Project & { panels: any[] }) => {
+    setSelectedProject(project);
+    // Update URL to reflect selected project
+    router.push(`/dashboard/ai?projectId=${project.id}`);
   };
 
   if (!isAuthenticated) {
@@ -383,6 +341,30 @@ export default function AIAssistantPage() {
         <div className="auth-required">
           <h2>Authentication Required</h2>
           <p>Please log in to access the AI Assistant.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show configuration warning if Supabase is not available
+  if (!supabase) {
+    return (
+      <div className="ai-page">
+        <div className="ai-header">
+          <h1>AI Assistant</h1>
+          <p>Upload documents, ask questions, and generate optimized panel layouts</p>
+        </div>
+
+        <div className="configuration-warning">
+          <div className="warning-content">
+            <h2>Configuration Required</h2>
+            <p>Supabase is not configured. Please add the following environment variables to your <code>.env.local</code> file:</p>
+            <div className="env-vars">
+              <p><strong>NEXT_PUBLIC_SUPABASE_URL</strong>=your_supabase_project_url</p>
+              <p><strong>NEXT_PUBLIC_SUPABASE_ANON_KEY</strong>=your_supabase_anon_key</p>
+            </div>
+            <p>After adding these variables, restart your development server.</p>
+          </div>
         </div>
       </div>
     );
@@ -401,7 +383,7 @@ export default function AIAssistantPage() {
           <h2>Project Selection</h2>
           {selectedProject && (
             <span className="selected-project-info">
-              Working on: {projects.find(p => p.id === selectedProject)?.name || selectedProject}
+              Working on: {selectedProject.name}
             </span>
           )}
         </div>
@@ -412,16 +394,10 @@ export default function AIAssistantPage() {
               <p>No projects found. Create a project first to use AI features.</p>
               <div className="project-actions">
                 <button 
-                  onClick={() => setShowCreateProject(true)}
+                  onClick={() => setShowProjectSelector(true)}
                   className="btn-create-project"
                 >
-                  Create Project
-                </button>
-                <button 
-                  onClick={() => router.push('/dashboard/projects')}
-                  className="btn-secondary"
-                >
-                  Go to Projects
+                  Choose Project
                 </button>
               </div>
             </div>
@@ -429,8 +405,14 @@ export default function AIAssistantPage() {
             <div className="project-dropdown">
               <label className="dropdown-label">Select a project to enable AI features:</label>
               <select 
-                value={selectedProject || ''} 
-                onChange={(e) => setSelectedProject(e.target.value || null)}
+                value={selectedProject?.id || ''} 
+                onChange={(e) => {
+                  const project = projects.find(p => p.id === e.target.value);
+                  setSelectedProject(project || null);
+                  if (project) {
+                    router.push(`/dashboard/ai?projectId=${project.id}`);
+                  }
+                }}
                 className="project-select"
               >
                 <option value="">Choose a project...</option>
@@ -441,102 +423,14 @@ export default function AIAssistantPage() {
                 ))}
               </select>
               <button 
-                onClick={() => setShowCreateProject(true)}
+                onClick={() => setShowProjectSelector(true)}
                 className="btn-new-project"
               >
-                Create New Project
+                Choose Project
               </button>
             </div>
           )}
         </div>
-
-        {/* Create Project Modal */}
-        {showCreateProject && (
-          <div className="modal-overlay">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h3>Create New Project</h3>
-                <button 
-                  onClick={() => setShowCreateProject(false)}
-                  className="modal-close"
-                >
-                  ×
-                </button>
-              </div>
-              
-              <form onSubmit={handleCreateProject} className="create-project-form">
-                <div className="form-group">
-                  <label htmlFor="name">Project Name *</label>
-                  <input 
-                    type="text" 
-                    id="name" 
-                    name="name" 
-                    required 
-                    placeholder="Enter project name"
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label htmlFor="client">Client *</label>
-                  <input 
-                    type="text" 
-                    id="client" 
-                    name="client" 
-                    required 
-                    placeholder="Enter client name"
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label htmlFor="location">Location</label>
-                  <input 
-                    type="text" 
-                    id="location" 
-                    name="location" 
-                    placeholder="Enter project location"
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label htmlFor="startDate">Start Date *</label>
-                  <input 
-                    type="date" 
-                    id="startDate" 
-                    name="startDate" 
-                    required 
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label htmlFor="description">Description</label>
-                  <textarea 
-                    id="description" 
-                    name="description" 
-                    rows={3}
-                    placeholder="Optional project description"
-                  />
-                </div>
-                
-                <div className="form-actions">
-                  <button 
-                    type="button" 
-                    onClick={() => setShowCreateProject(false)}
-                    className="btn-cancel"
-                  >
-                    Cancel
-                  </button>
-                  <button 
-                    type="submit" 
-                    disabled={isCreatingProject}
-                    className="btn-create-project"
-                  >
-                    {isCreatingProject ? 'Creating...' : 'Create Project'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
       </div>
 
       <div className="ai-content">
@@ -585,7 +479,7 @@ export default function AIAssistantPage() {
           <div className="chat-header">
             <h2>Ask Questions</h2>
             {selectedProject ? (
-              <span className="project-indicator">Project: {selectedProject.substring(0, 8)}...</span>
+              <span className="project-indicator">Project: {selectedProject.name}</span>
             ) : (
               <span className="project-warning">No project selected</span>
             )}
@@ -703,16 +597,15 @@ export default function AIAssistantPage() {
                   </div>
                   <div className="stat">
                     <span className="label">Status:</span>
-                    <span className={`value ${handwritingResult.validation.isValid ? 'valid' : 'invalid'}`}>
-                      {handwritingResult.validation.isValid ? 'Valid' : `${handwritingResult.validation.issues.length} issues`}
+                    <span className={`value status-${handwritingResult.validation.isValid ? 'valid' : 'invalid'}`}>
+                      {handwritingResult.validation.isValid ? 'Valid' : 'Invalid'}
                     </span>
                   </div>
                 </div>
 
-                {/* Validation Issues */}
-                {!handwritingResult.validation.isValid && (
+                {handwritingResult.validation.issues.length > 0 && (
                   <div className="validation-issues">
-                    <h4>Validation Issues:</h4>
+                    <h4>Issues Found:</h4>
                     <ul>
                       {handwritingResult.validation.issues.map((issue, index) => (
                         <li key={index} className="issue-item">{issue}</li>
@@ -721,148 +614,69 @@ export default function AIAssistantPage() {
                   </div>
                 )}
 
-                {/* Action Buttons */}
                 <div className="results-actions">
-                  <button 
-                    onClick={handleDownloadExcel}
-                    className="btn-download"
-                  >
+                  <button onClick={handleDownloadExcel} className="btn-download">
                     Download Excel Report
                   </button>
                   <button 
-                    onClick={() => setShowHandwritingPreview(!showHandwritingPreview)}
+                    onClick={() => setShowHandwritingPreview(true)}
                     className="btn-preview"
                   >
-                    {showHandwritingPreview ? 'Hide' : 'Show'} Preview
+                    Preview Data
                   </button>
                 </div>
-
-                {/* Data Preview */}
-                {showHandwritingPreview && (
-                  <div className="data-preview">
-                    <div className="preview-tabs">
-                      <div className="tab-content">
-                        <h4>Project Information</h4>
-                        <div className="preview-data">
-                          <p><strong>Name:</strong> {handwritingResult.qcData.projectInfo?.name || 'N/A'}</p>
-                          <p><strong>Location:</strong> {handwritingResult.qcData.projectInfo?.location || 'N/A'}</p>
-                          <p><strong>Date:</strong> {handwritingResult.qcData.projectInfo?.date || 'N/A'}</p>
-                          <p><strong>Inspector:</strong> {handwritingResult.qcData.projectInfo?.inspector || 'N/A'}</p>
-                        </div>
-
-                        {handwritingResult.qcData.panels && handwritingResult.qcData.panels.length > 0 && (
-                          <>
-                            <h4>Panels ({handwritingResult.qcData.panels.length})</h4>
-                            <div className="preview-table">
-                              <table>
-                                <thead>
-                                  <tr>
-                                    <th>Panel ID</th>
-                                    <th>Width</th>
-                                    <th>Height</th>
-                                    <th>Patches</th>
-                                    <th>Welder</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {handwritingResult.qcData.panels.slice(0, 5).map((panel: any, index: number) => (
-                                    <tr key={index}>
-                                      <td>{panel.panelId || 'N/A'}</td>
-                                      <td>{panel.width || 'N/A'}</td>
-                                      <td>{panel.height || 'N/A'}</td>
-                                      <td>{panel.patches || 0}</td>
-                                      <td>{panel.seamWelder || 'N/A'}</td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                              {handwritingResult.qcData.panels.length > 5 && (
-                                <p className="more-data">... and {handwritingResult.qcData.panels.length - 5} more panels</p>
-                              )}
-                            </div>
-                          </>
-                        )}
-
-                        {handwritingResult.qcData.tests && handwritingResult.qcData.tests.length > 0 && (
-                          <>
-                            <h4>Tests ({handwritingResult.qcData.tests.length})</h4>
-                            <div className="preview-table">
-                              <table>
-                                <thead>
-                                  <tr>
-                                    <th>Test ID</th>
-                                    <th>Type</th>
-                                    <th>Value</th>
-                                    <th>Result</th>
-                                    <th>Operator</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {handwritingResult.qcData.tests.slice(0, 5).map((test: any, index: number) => (
-                                    <tr key={index}>
-                                      <td>{test.testId || 'N/A'}</td>
-                                      <td>{test.type || 'N/A'}</td>
-                                      <td>{test.value} {test.unit}</td>
-                                      <td className={`result ${test.result?.toLowerCase()}`}>{test.result || 'N/A'}</td>
-                                      <td>{test.operator || 'N/A'}</td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                              {handwritingResult.qcData.tests.length > 5 && (
-                                <p className="more-data">... and {handwritingResult.qcData.tests.length - 5} more tests</p>
-                              )}
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           )}
-
-          {!selectedProject && (
-            <p className="requirement-note">Select a project to enable handwriting scanning</p>
-          )}
         </div>
 
-        {/* Auto-Layout Section */}
+        {/* Layout Generation Section */}
         <div className="layout-section">
           <div className="section-header">
-            <h2>AI Panel Layout Generation</h2>
-            <div className="layout-status">
-              {jobStatus.status === 'processing' && (
-                <span className="status processing">Generating layout...</span>
-              )}
-              {jobStatus.status === 'completed' && (
-                <span className="status completed">Layout generated successfully</span>
-              )}
-              {jobStatus.status === 'failed' && (
-                <span className="status failed">Layout generation failed</span>
-              )}
-            </div>
-          </div>
-          
-          <div className="layout-controls">
-            <button
+            <h2>Panel Layout Generation</h2>
+            <button 
               onClick={handleGenerateLayout}
-              disabled={!selectedProject || documents.length === 0 || isGeneratingLayout}
+              disabled={!selectedProject || isGeneratingLayout}
               className="btn-generate-layout"
             >
-              {isGeneratingLayout ? 'Generating Layout...' : 'Generate Layout from Docs'}
+              {isGeneratingLayout ? 'Generating...' : 'Generate Layout'}
             </button>
-            
-            {!selectedProject && (
-              <p className="requirement-note">Select a project to enable layout generation</p>
+          </div>
+          
+          <div className="layout-info">
+            <p>Generate optimized panel layouts based on your project requirements and uploaded documents.</p>
+            {jobStatus.status === 'processing' && (
+              <div className="generation-status">
+                <div className="loading-spinner"></div>
+                <span>Generating optimized panel layout...</span>
+              </div>
             )}
-            {selectedProject && documents.length === 0 && (
-              <p className="requirement-note">Upload documents to enable layout generation</p>
+            {jobStatus.status === 'completed' && (
+              <div className="generation-complete">
+                <span className="success-message">✓ Layout generated successfully!</span>
+                <button 
+                  onClick={() => router.push(`/dashboard/projects/${selectedProject?.id}/panel-layout`)}
+                  className="btn-view-layout"
+                >
+                  View Layout
+                </button>
+              </div>
+            )}
+            {jobStatus.status === 'failed' && (
+              <div className="generation-failed">
+                <span className="error-message">✗ Failed to generate layout. Please try again.</span>
+              </div>
             )}
           </div>
         </div>
       </div>
+
+      {/* Project Selector Modal */}
+      <ProjectSelector
+        isOpen={showProjectSelector}
+        onClose={() => setShowProjectSelector(false)}
+        onProjectSelect={handleProjectSelect}
+      />
     </div>
   );
 }

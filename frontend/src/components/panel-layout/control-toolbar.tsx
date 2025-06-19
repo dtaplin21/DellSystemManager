@@ -11,9 +11,11 @@ import {
   Square,
   Triangle,
   Plus,
-  Pencil
+  Pencil,
+  FolderOpen
 } from "lucide-react";
 import { generateId } from '@/lib/utils';
+import ProjectSelector from '@/components/projects/project-selector';
 
 // Constants for scaling
 const PIXELS_PER_FOOT = 200; // 100 pixels = 0.5ft, so 200 pixels = 1ft
@@ -27,6 +29,8 @@ interface ControlToolbarProps {
   onAddPanel: (panel: any) => void;
   selectedPanel?: any;
   onEditPanel?: (panel: any) => void;
+  onProjectLoad?: (project: any) => void;
+  currentProject?: any;
 }
 
 export default function ControlToolbar({ 
@@ -34,7 +38,9 @@ export default function ControlToolbar({
   onScaleChange,
   onAddPanel,
   selectedPanel,
-  onEditPanel
+  onEditPanel,
+  onProjectLoad,
+  currentProject
 }: ControlToolbarProps) {
   const [panelForm, setPanelForm] = useState({
     label: '',
@@ -43,6 +49,7 @@ export default function ControlToolbar({
     rollNumber: '',
     panelNumber: '',
   });
+  const [showProjectSelector, setShowProjectSelector] = useState(false);
 
   const handleScaleChange = (newScale: number) => {
     console.log('Scale change requested:', newScale);
@@ -176,120 +183,144 @@ export default function ControlToolbar({
     }
   };
 
+  const handleProjectSelect = (project: any) => {
+    if (onProjectLoad) {
+      onProjectLoad(project);
+    }
+  };
+
   return (
-    <div className="flex items-center justify-between p-4 border-b">
-      <div className="flex items-center space-x-4">
-        <div className="flex items-center space-x-2">
+    <>
+      <div className="flex items-center justify-between p-4 border-b">
+        <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleZoomOut}
+              disabled={scale <= MIN_SCALE}
+            >
+              <ZoomOut className="h-4 w-4" />
+            </Button>
+            <Slider
+              value={[scale]}
+              min={MIN_SCALE}
+              max={MAX_SCALE}
+              step={ZOOM_STEP}
+              onValueChange={([value]) => {
+                console.log('Slider value changed:', value);
+                handleScaleChange(value);
+              }}
+              className="w-[100px]"
+            />
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleZoomIn}
+              disabled={scale >= MAX_SCALE}
+            >
+              <ZoomIn className="h-4 w-4" />
+            </Button>
+          </div>
+
           <Button
             variant="outline"
             size="icon"
-            onClick={handleZoomOut}
-            disabled={scale <= MIN_SCALE}
+            onClick={handleResetZoom}
           >
-            <ZoomOut className="h-4 w-4" />
-          </Button>
-          <Slider
-            value={[scale]}
-            min={MIN_SCALE}
-            max={MAX_SCALE}
-            step={ZOOM_STEP}
-            onValueChange={([value]) => {
-              console.log('Slider value changed:', value);
-              handleScaleChange(value);
-            }}
-            className="w-[100px]"
-          />
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={handleZoomIn}
-            disabled={scale >= MAX_SCALE}
-          >
-            <ZoomIn className="h-4 w-4" />
+            <RotateCcw className="h-4 w-4" />
           </Button>
         </div>
 
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={handleResetZoom}
-        >
-          <RotateCcw className="h-4 w-4" />
-        </Button>
-      </div>
+        <div className="flex items-center space-x-4">
+          {/* Project Selection Button */}
+          <Button
+            variant="outline"
+            onClick={() => setShowProjectSelector(true)}
+            className="flex items-center space-x-2"
+          >
+            <FolderOpen className="h-4 w-4" />
+            <span>{currentProject ? currentProject.name : 'Choose Project'}</span>
+          </Button>
 
-      <div className="flex items-center space-x-4">
-        <div className="flex items-center space-x-2">
-          <Input
-            type="text"
-            name="rollNumber"
-            value={panelForm.rollNumber}
-            onChange={handleInputChange}
-            placeholder="Roll Number"
-            className="w-[120px]"
-            required
-          />
-          <Input
-            type="text"
-            name="panelNumber"
-            value={panelForm.panelNumber}
-            onChange={handleInputChange}
-            placeholder="Panel Number"
-            className="w-[120px]"
-            required
-          />
-          <Input
-            type="number"
-            name="width"
-            value={panelForm.width}
-            onChange={handleInputChange}
-            placeholder="Width (ft)"
-            className="w-[100px]"
-            required
-            min="0"
-            step="0.1"
-          />
-          <Input
-            type="number"
-            name="height"
-            value={panelForm.height}
-            onChange={handleInputChange}
-            placeholder="Height (ft)"
-            className="w-[100px]"
-            required
-            min="0"
-            step="0.1"
-          />
-        </div>
+          <div className="flex items-center space-x-2">
+            <Input
+              type="text"
+              name="rollNumber"
+              value={panelForm.rollNumber}
+              onChange={handleInputChange}
+              placeholder="Roll Number"
+              className="w-[120px]"
+              required
+            />
+            <Input
+              type="text"
+              name="panelNumber"
+              value={panelForm.panelNumber}
+              onChange={handleInputChange}
+              placeholder="Panel Number"
+              className="w-[120px]"
+              required
+            />
+            <Input
+              type="number"
+              name="width"
+              value={panelForm.width}
+              onChange={handleInputChange}
+              placeholder="Width (ft)"
+              className="w-[100px]"
+              required
+              min="0"
+              step="0.1"
+            />
+            <Input
+              type="number"
+              name="height"
+              value={panelForm.height}
+              onChange={handleInputChange}
+              placeholder="Height (ft)"
+              className="w-[100px]"
+              required
+              min="0"
+              step="0.1"
+            />
+          </div>
 
-        <div className="flex items-center space-x-2">
-          <Button
-            variant="outline"
-            onClick={handleAddRectangle}
-            className="flex items-center space-x-2"
-          >
-            <Square className="h-4 w-4" />
-            <span>Add Rectangle</span>
-          </Button>
-          <Button
-            variant="outline"
-            onClick={handleAddTriangle}
-            className="flex items-center space-x-2"
-          >
-            <Triangle className="h-4 w-4" />
-            <span>Add Triangle</span>
-          </Button>
-          <Button
-            variant="outline"
-            onClick={handleEditPanel}
-            disabled={!selectedPanel}
-            className="flex items-center space-x-2"
-          >
-            <Pencil className="h-4 w-4" />
-            <span>Edit Panel</span>
-          </Button>
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="outline"
+              onClick={handleAddRectangle}
+              className="flex items-center space-x-2"
+            >
+              <Square className="h-4 w-4" />
+              <span>Add Rectangle</span>
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleAddTriangle}
+              className="flex items-center space-x-2"
+            >
+              <Triangle className="h-4 w-4" />
+              <span>Add Triangle</span>
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleEditPanel}
+              disabled={!selectedPanel}
+              className="flex items-center space-x-2"
+            >
+              <Pencil className="h-4 w-4" />
+              <span>Edit Panel</span>
+            </Button>
+          </div>
         </div>
       </div>
-    </div>
+
+      <ProjectSelector
+        isOpen={showProjectSelector}
+        onClose={() => setShowProjectSelector(false)}
+        onProjectSelect={handleProjectSelect}
+      />
+    </>
   );
 }
