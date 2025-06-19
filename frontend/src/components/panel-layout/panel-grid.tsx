@@ -266,8 +266,8 @@ export default function PanelGrid({
       // Compute how much we need to stretch along each axis
       const scaleX = radiusX / baseRadius;
       const scaleY = radiusY / baseRadius;
-      
-      return (
+    
+    return (
         <Group key={panel.id}>
           <RegularPolygon
             id={panel.id}
@@ -349,7 +349,7 @@ export default function PanelGrid({
     );
   }, [selectedId, handlePanelDragEnd, handlePanelTransformEnd, handlePanelDragMove, onEditPanel]);
 
-  return (
+    return (
     <div className="w-full h-full overflow-hidden">
       <Stage
         ref={stageRef}

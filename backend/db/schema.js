@@ -20,10 +20,15 @@ const users = pgTable('users', {
 const projects = pgTable('projects', {
   id: uuid('id').primaryKey(),
   userId: uuid('user_id').notNull().references(() => users.id),
+  client: varchar('client', { length: 255 }),
   name: text('name').notNull(),
   description: text('description'),
   location: text('location'),
   status: varchar('status', { length: 20 }).default('active'),
+  startDate: timestamp('start_date'),       // ← new
+  endDate: timestamp('end_date'),         // ← new
+  area: decimal('area'),               // ← new
+  progress: integer('progress').default(0),           // ← new
   scale: decimal('scale').default('0.0025'),
   layoutWidth: integer('layout_width').default(10000),
   layoutHeight: integer('layout_height').default(15000),

@@ -180,13 +180,22 @@ router.delete('/:id', auth, async (req, res, next) => {
       return res.status(404).json({ message: 'Project not found' });
     }
     
-    // Delete project (in a real app, consider soft delete or cascading delete)
-    await db
-      .delete(projects)
-      .where(eq(projects.id, id));
+    // Use transaction to delete children first, then project
+    await db.transaction(async (tx) => {
+      // 1) Delete all panel layouts for that project
+      await tx
+        .delete(panels)
+        .where(eq(panels.projectId, id));
+
+      // 2) Now delete the project
+      await tx
+        .delete(projects)
+        .where(eq(projects.id, id));
+    });
     
-    res.status(200).json({ message: 'Project deleted successfully' });
+    res.status(200).json({ message: 'Project and all related data deleted successfully' });
   } catch (error) {
+    console.error('Error deleting project:', error);
     next(error);
   }
 });

@@ -17,8 +17,11 @@ interface Project {
 export default function ProjectsPage() {
   const { user, isAuthenticated } = useAuth();
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     client: '',
@@ -94,6 +97,43 @@ export default function ProjectsPage() {
       console.error('Error creating project:', error);
       alert(error instanceof Error ? error.message : 'Failed to create project');
     }
+  };
+
+  const handleDeleteProject = async () => {
+    if (!projectToDelete) return;
+    
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`/api/projects/${projectToDelete.id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to delete project');
+      }
+
+      // Remove the project from the local state
+      setProjects(prev => prev.filter(p => p.id !== projectToDelete.id));
+      setShowDeleteModal(false);
+      setProjectToDelete(null);
+    } catch (error) {
+      console.error('Error deleting project:', error);
+      alert(error instanceof Error ? error.message : 'Failed to delete project');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const openDeleteModal = (project: Project) => {
+    setProjectToDelete(project);
+    setShowDeleteModal(true);
+  };
+
+  const closeDeleteModal = () => {
+    setShowDeleteModal(false);
+    setProjectToDelete(null);
   };
 
   const getStatusClass = (status: string) => {
@@ -204,6 +244,45 @@ export default function ProjectsPage() {
             </div>
           </div>
         )}
+
+        {/* Delete Project Modal */}
+        {showDeleteModal && projectToDelete && (
+          <div className="modal-overlay">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h2 className="modal-title">Delete Project</h2>
+                <button 
+                  onClick={closeDeleteModal}
+                  className="modal-close"
+                >
+                  ×
+                </button>
+              </div>
+              <div className="modal-body">
+                <p>Are you sure you want to delete the project <strong>"{projectToDelete.name}"</strong>?</p>
+                <p className="warning-text">This action cannot be undone. All project data, panel layouts, QC data, and documents will be permanently deleted.</p>
+              </div>
+              <div className="form-actions">
+                <button
+                  type="button"
+                  onClick={closeDeleteModal}
+                  className="btn-cancel"
+                  disabled={isDeleting}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteProject}
+                  className="btn-delete"
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? 'Deleting...' : 'Delete Project'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         
         {isLoading ? (
           <div className="loading-state">
@@ -258,6 +337,13 @@ export default function ProjectsPage() {
                   <a href={`/dashboard/projects/${project.id}/panel-layout`} className="btn-action btn-layout">
                     Panel Layout
                   </a>
+                  <button
+                    onClick={() => openDeleteModal(project)}
+                    className="btn-action btn-delete"
+                    title="Delete Project"
+                  >
+                    Delete
+                  </button>
                 </div>
               </div>
             ))}
