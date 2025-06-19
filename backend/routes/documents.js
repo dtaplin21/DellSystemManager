@@ -50,7 +50,7 @@ router.get('/:projectId', auth, async (req, res, next) => {
       return res.status(400).json({ message: 'Invalid project ID' });
     }
     
-    // Verify project access
+    // Verify project belongs to user
     const [project] = await db
       .select()
       .from(projects)
@@ -85,7 +85,7 @@ router.post('/:projectId/upload', auth, upload.array('documents', 5), async (req
       return res.status(400).json({ message: 'Invalid project ID' });
     }
     
-    // Verify project access
+    // Verify project belongs to user
     const [project] = await db
       .select()
       .from(projects)
@@ -159,7 +159,7 @@ router.delete('/:documentId', auth, async (req, res, next) => {
       return res.status(404).json({ message: 'Document not found' });
     }
     
-    // Verify project access
+    // Verify project belongs to user
     const [project] = await db
       .select()
       .from(projects)
@@ -203,7 +203,7 @@ router.post('/:projectId/analyze', auth, async (req, res, next) => {
       return res.status(400).json({ message: 'Document IDs are required' });
     }
     
-    // Verify project access
+    // Verify project belongs to user
     const [project] = await db
       .select()
       .from(projects)

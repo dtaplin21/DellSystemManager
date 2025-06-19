@@ -19,7 +19,7 @@ const users = pgTable('users', {
 // Projects table (updated for Supabase)
 const projects = pgTable('projects', {
   id: uuid('id').primaryKey(),
-  ownerId: uuid('owner_id').notNull().references(() => users.id),
+  userId: uuid('user_id').notNull().references(() => users.id),
   name: text('name').notNull(),
   description: text('description'),
   location: text('location'),
@@ -31,23 +31,15 @@ const projects = pgTable('projects', {
   updatedAt: timestamp('updated_at').defaultNow()
 });
 
-// Panels table (new structure)
-const panels = pgTable('panels', {
+// Panel layouts table (matches actual database structure)
+const panels = pgTable('panel_layouts', {
   id: uuid('id').primaryKey(),
   projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
-  type: varchar('type', { length: 20 }).notNull(), // 'rectangle' or 'triangle'
-  x: integer('x').notNull(),
-  y: integer('y').notNull(),
-  widthFeet: decimal('width_feet').notNull(),
-  heightFeet: decimal('height_feet').notNull(),
-  rollNumber: text('roll_number').notNull(),
-  panelNumber: text('panel_number').notNull(),
-  fill: text('fill').default('#3b82f6'),
-  stroke: text('stroke').default('#1d4ed8'),
-  strokeWidth: integer('stroke_width').default(2),
-  rotation: decimal('rotation').default('0'),
-  createdAt: timestamp('created_at').defaultNow(),
-  updatedAt: timestamp('updated_at').defaultNow()
+  panels: text('panels').notNull(), // JSON string of panel data
+  width: decimal('width').notNull(),
+  height: decimal('height').notNull(),
+  scale: decimal('scale').notNull().default('1'),
+  lastUpdated: timestamp('last_updated').notNull(),
 });
 
 // Documents table

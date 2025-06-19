@@ -51,7 +51,7 @@ router.get('/:projectId', auth, async (req, res, next) => {
       return res.status(400).json({ message: 'Invalid project ID' });
     }
     
-    // Verify project access
+    // Verify project belongs to user
     const [project] = await db
       .select()
       .from(projects)
@@ -93,7 +93,7 @@ router.post('/:projectId', auth, async (req, res, next) => {
       return res.status(400).json({ message: error.details[0].message });
     }
     
-    // Verify project access
+    // Verify project belongs to user
     const [project] = await db
       .select()
       .from(projects)
@@ -194,7 +194,7 @@ router.post('/:projectId/import', auth, upload.single('file'), async (req, res, 
       return res.status(400).json({ message: 'Invalid project ID' });
     }
     
-    // Verify project access
+    // Verify project belongs to user
     const [project] = await db
       .select()
       .from(projects)
