@@ -6,19 +6,6 @@ import { useAuth } from '../../../hooks/use-auth';
 import ProjectSelector from '@/components/projects/project-selector';
 import './ai.css';
 
-// Check if Supabase environment variables are available
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-// Only create Supabase client if environment variables are available
-let supabase: any = null;
-if (supabaseUrl && supabaseAnonKey) {
-  const { createClient } = require('@supabase/supabase-js');
-  supabase = createClient(supabaseUrl, supabaseAnonKey);
-} else {
-  console.warn('Supabase environment variables are not configured. Please set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in your .env.local file.');
-}
-
 interface Message {
   id: string;
   type: 'user' | 'ai';
@@ -73,7 +60,7 @@ interface Project {
 }
 
 export default function AIAssistantPage() {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -95,35 +82,37 @@ export default function AIAssistantPage() {
   // Fetch available projects
   useEffect(() => {
     const fetchProjects = async () => {
-      if (!isAuthenticated || !user) return;
+      console.log('AI Page: fetchProjects called, isAuthenticated:', isAuthenticated, 'isLoading:', isLoading);
+      if (!isAuthenticated || isLoading) {
+        console.log('AI Page: Not authenticated or still loading, skipping fetch');
+        return;
+      }
       
       try {
-        if (!supabase) {
-          console.warn('Supabase not configured, skipping project fetch');
-          return;
-        }
-
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) return;
-
+        console.log('AI Page: Making fetch request to /api/projects');
         const response = await fetch('/api/projects', {
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json',
-          },
+          credentials: 'include',
         });
         
+        console.log('AI Page: Response status:', response.status);
         if (response.ok) {
           const data = await response.json();
+          console.log('AI Page: Projects data received:', data);
+          console.log('AI Page: Number of projects:', data?.length || 0);
+          console.log('AI Page: Active projects:', data?.filter((p: Project) => p.status === 'active').length || 0);
           setProjects(data || []);
+        } else {
+          console.error('AI Page: Failed to fetch projects:', response.status);
+          const errorText = await response.text();
+          console.error('AI Page: Error response:', errorText);
         }
       } catch (error) {
-        console.error('Error fetching projects:', error);
+        console.error('AI Page: Error fetching projects:', error);
       }
     };
 
     fetchProjects();
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, isLoading]);
 
   // Get project ID from URL params
   useEffect(() => {
@@ -346,25 +335,17 @@ export default function AIAssistantPage() {
     );
   }
 
-  // Show configuration warning if Supabase is not available
-  if (!supabase) {
+  // Show loading state while authentication is being verified
+  if (isLoading) {
     return (
       <div className="ai-page">
         <div className="ai-header">
           <h1>AI Assistant</h1>
           <p>Upload documents, ask questions, and generate optimized panel layouts</p>
         </div>
-
-        <div className="configuration-warning">
-          <div className="warning-content">
-            <h2>Configuration Required</h2>
-            <p>Supabase is not configured. Please add the following environment variables to your <code>.env.local</code> file:</p>
-            <div className="env-vars">
-              <p><strong>NEXT_PUBLIC_SUPABASE_URL</strong>=your_supabase_project_url</p>
-              <p><strong>NEXT_PUBLIC_SUPABASE_ANON_KEY</strong>=your_supabase_anon_key</p>
-            </div>
-            <p>After adding these variables, restart your development server.</p>
-          </div>
+        <div className="loading-state">
+          <div className="loading-spinner"></div>
+          <p>Loading authentication...</p>
         </div>
       </div>
     );
@@ -403,7 +384,9 @@ export default function AIAssistantPage() {
             </div>
           ) : (
             <div className="project-dropdown">
-              <label className="dropdown-label">Select a project to enable AI features:</label>
+              <label className="dropdown-label">
+                Select a project to enable AI features ({projects.filter(p => p.status === 'active').length} active projects available):
+              </label>
               <select 
                 value={selectedProject?.id || ''} 
                 onChange={(e) => {
@@ -416,11 +399,13 @@ export default function AIAssistantPage() {
                 className="project-select"
               >
                 <option value="">Choose a project...</option>
-                {projects.map(project => (
-                  <option key={project.id} value={project.id}>
-                    {project.name} - {project.location || 'No location'}
-                  </option>
-                ))}
+                {projects
+                  .filter(project => project.status === 'active')
+                  .map(project => (
+                    <option key={project.id} value={project.id}>
+                      {project.name} - {project.location || 'No location'}
+                    </option>
+                  ))}
               </select>
               <button 
                 onClick={() => setShowProjectSelector(true)}

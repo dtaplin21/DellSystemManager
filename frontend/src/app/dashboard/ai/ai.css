@@ -959,3 +959,14 @@
 .auth-required p {
   font-size: 1.1rem;
 }
+
+.loading-state {
+  text-align: center;
+  padding: 48px;
+  color: #6b7280;
+}
+
+.loading-state p {
+  font-size: 1.1rem;
+  margin-top: 16px;
+}
