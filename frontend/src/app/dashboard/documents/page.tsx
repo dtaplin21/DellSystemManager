@@ -1,107 +1,138 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useProjects } from '@/contexts/ProjectsProvider';
+import NoProjectSelected from '@/components/ui/no-project-selected';
 import './documents.css';
 
+interface Document {
+  id: string;
+  name: string;
+  filename: string;
+  uploadedAt: string;
+  projectId: string;
+  fileSize?: number;
+  mimeType?: string;
+  status?: string;
+}
+
 export default function DocumentsPage() {
+  const { selectedProjectId, selectedProject } = useProjects();
   const [searchQuery, setSearchQuery] = useState('');
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   
-  // Sample document data
-  const documents = [
-    {
-      id: 1,
-      name: 'Project Specifications',
-      type: 'PDF',
-      size: '2.4 MB',
-      uploadedAt: '2025-05-01',
-      project: 'Highway 101 Expansion',
-    },
-    {
-      id: 2,
-      name: 'QC Test Results',
-      type: 'Excel',
-      size: '1.8 MB',
-      uploadedAt: '2025-05-03',
-      project: 'Highway 101 Expansion',
-    },
-    {
-      id: 3,
-      name: 'Installation Guidelines',
-      type: 'PDF',
-      size: '3.2 MB',
-      uploadedAt: '2025-04-28',
-      project: 'Riverside Containment',
-    },
-    {
-      id: 4,
-      name: 'Material Certifications',
-      type: 'PDF',
-      size: '5.1 MB',
-      uploadedAt: '2025-05-07',
-      project: 'Airport Runway Expansion',
-    },
-    {
-      id: 5,
-      name: 'Panel Layout',
-      type: 'CAD',
-      size: '8.6 MB',
-      uploadedAt: '2025-05-02',
-      project: 'City Reservoir Project',
-    },
-  ];
+  // Project selection guard
+  if (!selectedProjectId || !selectedProject) {
+    return <NoProjectSelected message="Select a project to view documents." />;
+  }
+
+  // Fetch documents for the selected project
+  useEffect(() => {
+    const fetchDocuments = async () => {
+      if (!selectedProjectId) return;
+      
+      setIsLoading(true);
+      try {
+        const response = await fetch(`/api/documents?projectId=${selectedProjectId}`, {
+          credentials: 'include',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('supabase.auth.token') || ''}`,
+          },
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setDocuments(data);
+        } else {
+          console.error('Failed to fetch documents:', response.status);
+          setDocuments([]);
+        }
+      } catch (error) {
+        console.error('Error fetching documents:', error);
+        setDocuments([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchDocuments();
+  }, [selectedProjectId]);
   
   // Filter documents based on search query
   const filteredDocuments = documents.filter(doc => 
     doc.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    doc.project.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    doc.type.toLowerCase().includes(searchQuery.toLowerCase())
+    doc.filename.toLowerCase().includes(searchQuery.toLowerCase())
   );
   
-  const getDocumentIcon = (type: string) => {
-    switch (type.toLowerCase()) {
+  const getDocumentIcon = (filename: string) => {
+    const extension = filename.split('.').pop()?.toLowerCase();
+    switch (extension) {
       case 'pdf':
         return '📄';
-      case 'excel':
+      case 'xlsx':
+      case 'xls':
         return '📊';
-      case 'cad':
+      case 'dwg':
+      case 'dxf':
         return '📐';
       default:
         return '📋';
     }
   };
 
-  const getDocumentIconClass = (type: string) => {
-    switch (type.toLowerCase()) {
+  const getDocumentIconClass = (filename: string) => {
+    const extension = filename.split('.').pop()?.toLowerCase();
+    switch (extension) {
       case 'pdf':
         return 'document-icon pdf';
-      case 'excel':
+      case 'xlsx':
+      case 'xls':
         return 'document-icon excel';
-      case 'cad':
+      case 'dwg':
+      case 'dxf':
         return 'document-icon cad';
       default:
         return 'document-icon default';
     }
   };
 
-  const getTypeClass = (type: string) => {
-    switch (type.toLowerCase()) {
+  const getTypeClass = (filename: string) => {
+    const extension = filename.split('.').pop()?.toLowerCase();
+    switch (extension) {
       case 'pdf':
         return 'document-type-badge type-pdf';
-      case 'excel':
+      case 'xlsx':
+      case 'xls':
         return 'document-type-badge type-excel';
-      case 'cad':
+      case 'dwg':
+      case 'dxf':
         return 'document-type-badge type-cad';
       default:
         return 'document-type-badge type-default';
     }
   };
 
-  const handleDownload = (docId: number) => {
+  const getFileType = (filename: string) => {
+    const extension = filename.split('.').pop()?.toUpperCase();
+    return extension || 'FILE';
+  };
+
+  const getFileSize = (fileSize?: number) => {
+    if (!fileSize) return 'Unknown size';
+    const bytes = fileSize;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    if (bytes === 0) return '0 Bytes';
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+  };
+
+  const handleDownload = (docId: string) => {
     alert(`Download functionality ready! This will download document ${docId} when connected to backend.`);
   };
 
-  const handleViewDetails = (docId: number) => {
+  const handleViewDetails = (docId: string) => {
     alert(`View details functionality ready! This will show document ${docId} details when connected to backend.`);
   };
 
@@ -142,19 +173,19 @@ export default function DocumentsPage() {
               <div key={doc.id} className="document-card">
                 <div className="document-card-header">
                   <div className="document-header-content">
-                    <div className={getDocumentIconClass(doc.type)}>
-                      {getDocumentIcon(doc.type)}
+                    <div className={getDocumentIconClass(doc.filename)}>
+                      {getDocumentIcon(doc.filename)}
                     </div>
                     <div>
                       <h3 className="document-title">{doc.name}</h3>
-                      <p className="document-project">{doc.project}</p>
+                      <p className="document-project">{doc.filename}</p>
                     </div>
                   </div>
                 </div>
                 <div className="document-card-body">
                   <div className="document-details">
-                    <span className={getTypeClass(doc.type)}>{doc.type}</span>
-                    <span>{doc.size}</span>
+                    <span className={getTypeClass(doc.filename)}>{getFileType(doc.filename)}</span>
+                    <span>{getFileSize(doc.fileSize)}</span>
                   </div>
                   <div className="document-uploaded">
                     Uploaded: {new Date(doc.uploadedAt).toLocaleDateString()}

@@ -22,8 +22,20 @@ interface Panel {
   [key: string]: any;
 }
 
+interface Document {
+  id: string;
+  name: string;
+  filename: string;
+  uploadedAt: string;
+  projectId: string;
+  fileSize?: number;
+  mimeType?: string;
+  status?: string;
+}
+
 interface ProjectDetail extends ProjectSummary {
   panels: Panel[];
+  documents: Document[];
   panelLayout?: {
     width: number;
     height: number;
@@ -65,6 +77,9 @@ export function ProjectsProvider({ children }: ProjectsProviderProps) {
       console.log('ProjectsProvider: Fetching projects...');
       const response = await fetch('/api/projects', {
         credentials: 'include',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('supabase.auth.token') || ''}`,
+        },
       });
       
       console.log('ProjectsProvider: Response status:', response.status);
@@ -99,6 +114,9 @@ export function ProjectsProvider({ children }: ProjectsProviderProps) {
       // Fetch project details
       const projectResponse = await fetch(`/api/projects/${id}`, {
         credentials: 'include',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('supabase.auth.token') || ''}`,
+        },
       });
       
       if (!projectResponse.ok) {
@@ -110,16 +128,35 @@ export function ProjectsProvider({ children }: ProjectsProviderProps) {
       // Fetch panel layout
       const panelsResponse = await fetch(`/api/panels/layout/${id}`, {
         credentials: 'include',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('supabase.auth.token') || ''}`,
+        },
       });
       
       let panelLayout = null;
+      let panels: Panel[] = [];
       if (panelsResponse.ok) {
         panelLayout = await panelsResponse.json();
+        panels = panelLayout?.panels ? JSON.parse(panelLayout.panels) : [];
+      }
+      
+      // Fetch documents
+      const documentsResponse = await fetch(`/api/documents?projectId=${id}`, {
+        credentials: 'include',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('supabase.auth.token') || ''}`,
+        },
+      });
+      
+      let documents: Document[] = [];
+      if (documentsResponse.ok) {
+        documents = await documentsResponse.json();
       }
       
       const projectDetail: ProjectDetail = {
         ...projectData,
-        panels: panelLayout?.panels ? JSON.parse(panelLayout.panels) : [],
+        panels,
+        documents,
         panelLayout: panelLayout || undefined,
       };
       

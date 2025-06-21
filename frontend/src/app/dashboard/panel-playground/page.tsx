@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { useProjects } from '@/contexts/ProjectsProvider';
+import NoProjectSelected from '@/components/ui/no-project-selected';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -43,6 +45,7 @@ interface PanelLayoutSettings {
 }
 
 export default function PanelPlaygroundPage() {
+  const { selectedProjectId, selectedProject } = useProjects();
   const [panels, setPanels] = useState<Panel[]>([]);
   const [selectedShape, setSelectedShape] = useState('rectangle');
   const [rollNumber, setRollNumber] = useState('');
@@ -72,6 +75,33 @@ export default function PanelPlaygroundPage() {
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Project selection guard
+  if (!selectedProjectId || !selectedProject) {
+    return <NoProjectSelected message="Select a project to access the panel playground." />;
+  }
+
+  // Load panels from selected project
+  useEffect(() => {
+    if (selectedProject?.panels) {
+      // Convert project panels to playground format
+      const playgroundPanels: Panel[] = selectedProject.panels.map((panel: any) => ({
+        id: panel.id,
+        rollNumber: panel.roll_number || '',
+        panelNumber: panel.panel_number || '',
+        width: panel.width_feet || panel.width || 15,
+        length: panel.height_feet || panel.length || 100,
+        shape: panel.type || 'rectangle',
+        x: panel.x || 0,
+        y: panel.y || 0,
+        color: panel.fill || '#3b82f6',
+        rotation: panel.rotation || 0,
+        material: panel.material || '',
+        thickness: panel.thickness || 0
+      }));
+      setPanels(playgroundPanels);
+    }
+  }, [selectedProject]);
 
   useEffect(() => {
     drawCanvas();

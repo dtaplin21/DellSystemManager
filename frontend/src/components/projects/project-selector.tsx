@@ -1,90 +1,33 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { ChevronDown, FolderOpen, Plus } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
-
-interface Project {
-  id: string;
-  name: string;
-  description?: string;
-  location?: string;
-  status: string;
-  created_at: string;
-  updated_at: string;
-}
+import { useProjects } from '@/contexts/ProjectsProvider';
 
 interface ProjectSelectorProps {
-  onProjectSelect: (project: Project & { panels: any[] }) => void;
+  onProjectSelect: (project: any) => void;
   isOpen: boolean;
   onClose: () => void;
 }
 
 export default function ProjectSelector({ onProjectSelect, isOpen, onClose }: ProjectSelectorProps) {
   const { user, isAuthenticated } = useAuth();
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { projects, selectProject, isLoading, error } = useProjects();
   const [newProjectName, setNewProjectName] = useState('');
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [creatingProject, setCreatingProject] = useState(false);
 
-  // Fetch projects on mount
-  useEffect(() => {
-    if (isOpen && isAuthenticated) {
-      fetchProjects();
-    }
-  }, [isOpen, isAuthenticated]);
-
-  const fetchProjects = async () => {
+  const handleProjectSelect = async (project: any) => {
     if (!isAuthenticated) return;
 
-    setLoading(true);
-    setError(null);
-
     try {
-      const response = await fetch('/api/projects', {
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch projects');
-      }
-
-      const projectsData = await response.json();
-      setProjects(projectsData);
-    } catch (err) {
-      console.error('Error fetching projects:', err);
-      setError('Failed to load projects');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleProjectSelect = async (project: Project) => {
-    if (!isAuthenticated) return;
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const response = await fetch(`/api/projects/${project.id}`, {
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch project details');
-      }
-
-      const projectData = await response.json();
-      onProjectSelect(projectData);
+      await selectProject(project.id);
+      onProjectSelect(project);
       onClose();
     } catch (err) {
-      console.error('Error fetching project details:', err);
-      setError('Failed to load project details');
-    } finally {
-      setLoading(false);
+      console.error('Error selecting project:', err);
     }
   };
 
@@ -92,7 +35,6 @@ export default function ProjectSelector({ onProjectSelect, isOpen, onClose }: Pr
     if (!isAuthenticated || !newProjectName.trim()) return;
 
     setCreatingProject(true);
-    setError(null);
 
     try {
       const response = await fetch('/api/projects', {
@@ -115,7 +57,6 @@ export default function ProjectSelector({ onProjectSelect, isOpen, onClose }: Pr
       }
 
       const newProject = await response.json();
-      setProjects([newProject, ...projects]);
       setNewProjectName('');
       setShowCreateForm(false);
       
@@ -123,7 +64,6 @@ export default function ProjectSelector({ onProjectSelect, isOpen, onClose }: Pr
       await handleProjectSelect(newProject);
     } catch (err) {
       console.error('Error creating project:', err);
-      setError('Failed to create project');
     } finally {
       setCreatingProject(false);
     }
@@ -167,7 +107,7 @@ export default function ProjectSelector({ onProjectSelect, isOpen, onClose }: Pr
                   </div>
 
                   <div className="space-y-2 max-h-64 overflow-y-auto">
-                    {loading ? (
+                    {isLoading ? (
                       <div className="text-center py-4">
                         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
                         <p className="text-sm text-gray-500 mt-2">Loading projects...</p>
@@ -185,7 +125,7 @@ export default function ProjectSelector({ onProjectSelect, isOpen, onClose }: Pr
                           <button
                             key={project.id}
                             onClick={() => handleProjectSelect(project)}
-                            disabled={loading}
+                            disabled={isLoading}
                             className="w-full text-left p-3 border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-colors disabled:opacity-50"
                           >
                             <div className="flex items-center justify-between">
