@@ -1,8 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
-import { AuthProvider } from '../contexts/auth-context';
-import { WebSocketProvider } from '../contexts/websocket-context';
-import { Toaster } from '../components/ui/toast';
+import { ClientProviders } from '@/components/providers/ClientProviders';
 
 export const metadata: Metadata = {
   title: 'GeoQC - Geosynthetic Quality Control Management',
@@ -17,12 +15,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="font-sans antialiased">
-        <AuthProvider>
-          <WebSocketProvider>
-            {children}
-            <Toaster />
-          </WebSocketProvider>
-        </AuthProvider>
+        <ClientProviders>
+          {children}
+        </ClientProviders>
       </body>
     </html>
   );
