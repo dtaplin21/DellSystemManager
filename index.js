@@ -70,6 +70,33 @@ async function initDatabase() {
         updated_at TIMESTAMP DEFAULT NOW()
       )
     `);
+    
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS projects (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        name TEXT NOT NULL,
+        description TEXT,
+        location TEXT,
+        status TEXT DEFAULT 'Active',
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ai_jobs (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        type TEXT NOT NULL,
+        status TEXT DEFAULT 'idle',
+        created_at TIMESTAMP DEFAULT NOW(),
+        completed_at TIMESTAMP,
+        UNIQUE(project_id, type)
+      )
+    `);
+    
     console.log('Database tables initialized');
   } catch (error) {
     console.error('Database initialization error:', error);
@@ -277,6 +304,58 @@ app.get('/api/projects/:id', validateToken, async (req, res) => {
   } catch (error) {
     console.error('Error fetching project:', error);
     res.status(500).json({ message: 'Failed to fetch project' });
+  }
+});
+
+// Create new project endpoint
+app.post('/api/projects', validateToken, async (req, res) => {
+  try {
+    const { name, description, location, status = 'Active' } = req.body;
+    
+    // Validate required fields
+    if (!name) {
+      return res.status(400).json({ message: 'Project name is required' });
+    }
+    
+    // Create new project in database
+    const result = await pool.query(`
+      INSERT INTO projects (id, name, description, location, status, user_id, created_at, updated_at)
+      VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, NOW(), NOW())
+      RETURNING id, name, description, location, status, created_at, updated_at
+    `, [name, description || null, location || null, status, req.user.id]);
+    
+    const newProject = result.rows[0];
+    
+    console.log('Created new project:', newProject);
+    res.status(201).json(newProject);
+  } catch (error) {
+    console.error('Error creating project:', error);
+    res.status(500).json({ message: 'Failed to create project' });
+  }
+});
+
+// Delete project endpoint
+app.delete('/api/projects/:id', validateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Verify project exists and belongs to user
+    const projectResult = await pool.query(`
+      SELECT id FROM projects WHERE id = $1 AND user_id = $2
+    `, [id, req.user.id]);
+    
+    if (projectResult.rows.length === 0) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
+    
+    // Delete the project
+    await pool.query('DELETE FROM projects WHERE id = $1 AND user_id = $2', [id, req.user.id]);
+    
+    console.log('Deleted project:', id);
+    res.status(200).json({ message: 'Project deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting project:', error);
+    res.status(500).json({ message: 'Failed to delete project' });
   }
 });
 

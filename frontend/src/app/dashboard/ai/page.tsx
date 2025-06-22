@@ -108,9 +108,6 @@ export default function AIAssistantPage() {
         try {
           const response = await fetch(`/api/ai/job-status/${selectedProject.id}`, {
             credentials: 'include',
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('supabase.auth.token') || ''}`,
-            },
           });
           if (response.ok) {
             const status = await response.json();
@@ -237,7 +234,6 @@ export default function AIAssistantPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('supabase.auth.token') || ''}`,
         },
         credentials: 'include',
         body: JSON.stringify({

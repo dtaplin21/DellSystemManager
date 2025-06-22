@@ -77,9 +77,6 @@ export function ProjectsProvider({ children }: ProjectsProviderProps) {
       console.log('ProjectsProvider: Fetching projects...');
       const response = await fetch('/api/projects', {
         credentials: 'include',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('supabase.auth.token') || ''}`,
-        },
       });
       
       console.log('ProjectsProvider: Response status:', response.status);
@@ -96,7 +93,7 @@ export function ProjectsProvider({ children }: ProjectsProviderProps) {
       
       const data = await response.json();
       console.log('ProjectsProvider: Projects loaded:', data.length);
-      setProjects(data);
+      setProjects(data.projects || data);
     } catch (err) {
       console.error('ProjectsProvider: Error fetching projects:', err);
       setError(err instanceof Error ? err.message : 'Failed to load projects');
@@ -114,9 +111,6 @@ export function ProjectsProvider({ children }: ProjectsProviderProps) {
       // Fetch project details
       const projectResponse = await fetch(`/api/projects/${id}`, {
         credentials: 'include',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('supabase.auth.token') || ''}`,
-        },
       });
       
       if (!projectResponse.ok) {
@@ -128,9 +122,6 @@ export function ProjectsProvider({ children }: ProjectsProviderProps) {
       // Fetch panel layout
       const panelsResponse = await fetch(`/api/panels/layout/${id}`, {
         credentials: 'include',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('supabase.auth.token') || ''}`,
-        },
       });
       
       let panelLayout = null;
@@ -143,9 +134,6 @@ export function ProjectsProvider({ children }: ProjectsProviderProps) {
       // Fetch documents
       const documentsResponse = await fetch(`/api/documents?projectId=${id}`, {
         credentials: 'include',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('supabase.auth.token') || ''}`,
-        },
       });
       
       let documents: Document[] = [];
