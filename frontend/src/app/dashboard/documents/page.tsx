@@ -37,9 +37,6 @@ export default function DocumentsPage() {
       try {
         const response = await fetch(`/api/documents?projectId=${selectedProjectId}`, {
           credentials: 'include',
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('supabase.auth.token') || ''}`,
-          },
         });
         
         if (response.ok) {

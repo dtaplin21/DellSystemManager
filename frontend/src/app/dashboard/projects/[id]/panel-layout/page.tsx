@@ -298,8 +298,8 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
       // Update project metadata
       const response = await fetch(`/api/projects/${project.id}`, {
         method: 'PUT',
+        credentials: 'include',
         headers: {
-          'Authorization': `Bearer ${session.access_token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({

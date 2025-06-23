@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../hooks/use-auth';
 import './projects.css';
 
@@ -16,6 +17,7 @@ interface Project {
 
 export default function ProjectsPage() {
   const { user, isAuthenticated } = useAuth();
+  const router = useRouter();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
@@ -55,6 +57,12 @@ export default function ProjectsPage() {
 
     fetchProjects();
   }, [isAuthenticated]);
+
+  const handleProjectSelect = (projectId: string) => {
+    if (projectId) {
+      router.push(`/dashboard/projects/${projectId}`);
+    }
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -164,6 +172,26 @@ export default function ProjectsPage() {
           </button>
         </div>
         
+        {/* Project Selector Dropdown */}
+        {!isLoading && projects.length > 0 && (
+          <div className="project-selector-container">
+            <label htmlFor="project-select" className="project-select-label">Quick Select</label>
+            <select
+              id="project-select"
+              className="project-select"
+              onChange={(e) => handleProjectSelect(e.target.value)}
+              defaultValue=""
+            >
+              <option value="" disabled>Select a project to view</option>
+              {projects.map((project) => (
+                <option key={project.id} value={project.id}>
+                  {project.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         {/* Create Project Modal */}
         {showCreateModal && (
           <div className="modal-overlay">
@@ -290,7 +318,14 @@ export default function ProjectsPage() {
           </div>
         ) : projects.length === 0 ? (
           <div className="empty-state">
-            <p>No projects found. Create your first project to get started.</p>
+            <h2 className="empty-state-title">No Projects Yet</h2>
+            <p className="empty-state-message">It looks like you haven't created any projects. Get started by creating your first one!</p>
+            <button 
+              onClick={() => setShowCreateModal(true)}
+              className="btn-create-empty"
+            >
+              + Create Your First Project
+            </button>
           </div>
         ) : (
           <div className="projects-grid">

@@ -93,6 +93,7 @@ export function ProjectsProvider({ children }: ProjectsProviderProps) {
       
       const data = await response.json();
       console.log('ProjectsProvider: Projects loaded:', data.length);
+      console.log('ProjectsProvider: Project statuses:', data.map((p: any) => ({ id: p.id, name: p.name, status: p.status })));
       setProjects(data.projects || data);
     } catch (err) {
       console.error('ProjectsProvider: Error fetching projects:', err);
