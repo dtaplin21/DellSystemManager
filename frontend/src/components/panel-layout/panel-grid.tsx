@@ -31,6 +31,7 @@ const GRID_LINE_WIDTH = 1;
 const GRID_LINE_COLOR = '#e5e7eb';
 const MIN_GRID_VISIBILITY_SCALE = 0.2; // Hide grid when zoomed out too far
 const MIN_PANEL_SIZE = 50; // Minimum panel size
+const SNAP_THRESHOLD = 4; // px - even more user-friendly for easier snapping
 
 interface Panel {
   id: string;
@@ -40,7 +41,7 @@ interface Panel {
   width: number;
   height: number;
   rotation: number;
-  fill: string;
+  fill: string; 
   stroke: string;
   strokeWidth: number;
   rollNumber: string;
@@ -67,6 +68,8 @@ export default function PanelGrid({
   onEditPanel
 }: PanelGridProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [snappedPairs, setSnappedPairs] = useState<Set<string>>(new Set());
+  const [preSnapPairs, setPreSnapPairs] = useState<Set<string>>(new Set());
   const stageRef = useRef<any>(null);
   const transformerRef = useRef<any>(null);
   const { toast } = useToast();
@@ -118,18 +121,87 @@ export default function PanelGrid({
     return Math.round(value / GRID_CELL_SIZE) * GRID_CELL_SIZE;
   }, []);
 
-  // Optimize panel drag end handler
+  // Helper function to check if two panels are snapped together
+  const arePanelsSnapped = useCallback((id1: string, id2: string) => {
+    const pairKey1 = `${id1}-${id2}`;
+    const pairKey2 = `${id2}-${id1}`;
+    return snappedPairs.has(pairKey1) || snappedPairs.has(pairKey2);
+  }, [snappedPairs]);
+
+  // Optimize panel drag end handler with enhanced sticky snapping
   const handlePanelDragEnd = useCallback((e: KonvaEventObject<DragEvent>) => {
     const id = e.target.id();
     const node = e.target;
+    const x = node.x();
+    const y = node.y();
     
-    // Update the panel position with snapping
+    // Build bounding boxes for all other panels
+    const others = panels
+      .filter(p => p.id !== id)
+      .map(p => ({
+        id: p.id,
+        left:   p.x,
+        right:  p.x + p.width,
+        top:    p.y,
+        bottom: p.y + p.height
+      }));
+
+    let newX = x;
+    let newY = y;
+    let snappedToId: string | null = null;
+
+    // Current moving panel bounds
+    const w = panels.find(p => p.id === id)!.width;
+    const h = panels.find(p => p.id === id)!.height;
+    const left   = x;
+    const right  = x + w;
+    const top    = y;
+    const bottom = y + h;
+
+    // Check each other panel for edge proximity with sticky snapping
+    others.forEach(o => {
+      // Snap left edge to other's right
+      if (Math.abs(left - o.right) <= SNAP_THRESHOLD) {
+        newX = o.right;
+        snappedToId = o.id;
+      }
+      // Snap right edge to other's left
+      if (Math.abs(right - o.left) <= SNAP_THRESHOLD) {
+        newX = o.left - w;
+        snappedToId = o.id;
+      }
+      // Snap top edge to other's bottom
+      if (Math.abs(top - o.bottom) <= SNAP_THRESHOLD) {
+        newY = o.bottom;
+        snappedToId = o.id;
+      }
+      // Snap bottom edge to other's top
+      if (Math.abs(bottom - o.top) <= SNAP_THRESHOLD) {
+        newY = o.top - h;
+        snappedToId = o.id;
+      }
+    });
+
+    // Update snapped pairs for visual feedback
+    if (snappedToId) {
+      const pairKey = `${id}-${snappedToId}`;
+      setSnappedPairs(prev => new Set([...Array.from(prev), pairKey]));
+    }
+
+    // Clear pre-snap pairs when drag ends
+    setPreSnapPairs(new Set());
+
+    // Finally, snap to grid as a fallback
+    newX = snapToGrid(newX);
+    newY = snapToGrid(newY);
+    
+    // Update the panel position with sticky snapping
     const newPanels = panels.map(panel => {
       if (panel.id === id) {
         if (panel.type === 'triangle') {
           // For triangles, snap the center position
-          const snappedX = snapToGrid(node.x());
-          const snappedY = snapToGrid(node.y());
+          const snappedX = snapToGrid(newX);
+          const snappedY = snapToGrid(newY);
           return {
             ...panel,
             x: snappedX - panel.width / 2,
@@ -138,8 +210,8 @@ export default function PanelGrid({
         }
         return {
           ...panel,
-          x: snapToGrid(node.x()),
-          y: snapToGrid(node.y())
+          x: newX,
+          y: newY
         };
       }
       return panel;
@@ -211,13 +283,94 @@ export default function PanelGrid({
     onPanelUpdate(updatedPanels);
   }, [panels, onPanelUpdate, snapToGrid]);
 
-  // Add drag move handler for live snapping
+  // Add drag move handler for live snapping with improved panel-to-panel snapping
   const handlePanelDragMove = useCallback((e: KonvaEventObject<DragEvent>) => {
     const node = e.target;
-    const snappedX = snapToGrid(node.x());
-    const snappedY = snapToGrid(node.y());
-    node.position({ x: snappedX, y: snappedY });
-  }, [snapToGrid]);
+    const movingId = node.id();
+    const x = node.x();
+    const y = node.y();
+
+    // Build bounding boxes for all other panels
+    const others = panels
+      .filter(p => p.id !== movingId)
+      .map(p => ({
+        id: p.id,
+        left:   p.x,
+        right:  p.x + p.width,
+        top:    p.y,
+        bottom: p.y + p.height
+      }));
+
+    let newX = x;
+    let newY = y;
+    let isSnappedToAny = false;
+
+    // Current moving panel bounds
+    const w = panels.find(p => p.id === movingId)!.width;
+    const h = panels.find(p => p.id === movingId)!.height;
+    const left   = x;
+    const right  = x + w;
+    const top    = y;
+    const bottom = y + h;
+
+    // Check each other panel for edge proximity
+    others.forEach(o => {
+      // Snap left edge to other's right
+      if (Math.abs(left - o.right) <= SNAP_THRESHOLD) {
+        newX = o.right;
+        isSnappedToAny = true;
+        setPreSnapPairs(prev => new Set([...Array.from(prev), `${movingId}-${o.id}`]));
+      }
+      // Snap right edge to other's left
+      if (Math.abs(right - o.left) <= SNAP_THRESHOLD) {
+        newX = o.left - w;
+        isSnappedToAny = true;
+        setPreSnapPairs(prev => new Set([...Array.from(prev), `${movingId}-${o.id}`]));
+      }
+      // Snap top edge to other's bottom
+      if (Math.abs(top - o.bottom) <= SNAP_THRESHOLD) {
+        newY = o.bottom;
+        isSnappedToAny = true;
+        setPreSnapPairs(prev => new Set([...Array.from(prev), `${movingId}-${o.id}`]));
+      }
+      // Snap bottom edge to other's top
+      if (Math.abs(bottom - o.top) <= SNAP_THRESHOLD) {
+        newY = o.top - h;
+        isSnappedToAny = true;
+        setPreSnapPairs(prev => new Set([...Array.from(prev), `${movingId}-${o.id}`]));
+      }
+    });
+
+    // Clear snapped pairs if not snapped to any panel
+    if (!isSnappedToAny) {
+      setSnappedPairs(prev => {
+        const newSet = new Set(Array.from(prev));
+        // Remove all pairs involving the moving panel
+        Array.from(newSet).forEach(pairKey => {
+          if (pairKey.includes(movingId)) {
+            newSet.delete(pairKey);
+          }
+        });
+        return newSet;
+      });
+      setPreSnapPairs(prev => {
+        const newSet = new Set(Array.from(prev));
+        // Remove all pairs involving the moving panel
+        Array.from(newSet).forEach(pairKey => {
+          if (pairKey.includes(movingId)) {
+            newSet.delete(pairKey);
+          }
+        });
+        return newSet;
+      });
+    }
+
+    // Finally, snap to grid as a fallback
+    newX = snapToGrid(newX);
+    newY = snapToGrid(newY);
+
+    node.position({ x: newX, y: newY });
+  }, [panels, snapToGrid]);
 
   // Optimize panel click handler
   const handlePanelClick = useCallback((e: KonvaEventObject<MouseEvent>) => {
@@ -248,12 +401,37 @@ export default function PanelGrid({
   const renderPanel = useCallback((panel: Panel) => {
     const isSelected = selectedId === panel.id;
     
+    // Check if this panel is snapped to any other panel for visual feedback
+    const isSnapped = panels.some(otherPanel => 
+      otherPanel.id !== panel.id && arePanelsSnapped(panel.id, otherPanel.id)
+    );
+    
+    // Check if this panel is about to snap (during dragging)
+    const isPreSnap = panels.some(otherPanel => {
+      if (otherPanel.id === panel.id) return false;
+      const pairKey1 = `${panel.id}-${otherPanel.id}`;
+      const pairKey2 = `${otherPanel.id}-${panel.id}`;
+      return preSnapPairs.has(pairKey1) || preSnapPairs.has(pairKey2);
+    });
+    
     // Compute shape center
     const centerX = panel.x + panel.width / 2;
     const centerY = panel.y + panel.height / 2;
 
     // Build a single "label" string
     const label = `${panel.rollNumber} / ${panel.panelNumber}`;
+
+    // Determine stroke color and width based on snap state
+    let strokeColor = "black";
+    let strokeWidth = 100;
+    
+    if (isSnapped) {
+      strokeColor = "#00ff00"; // Green for snapped
+      strokeWidth = 200;
+    } else if (isPreSnap) {
+      strokeColor = "#ffff00"; // Yellow for about to snap
+      strokeWidth = 150;
+    }
 
     if (panel.type === 'triangle') {
       // For triangle, use radius as the primary property
@@ -279,8 +457,8 @@ export default function PanelGrid({
             scaleY={scaleY}
             rotation={panel.rotation}
             fill={panel.fill}
-            stroke="black"
-            strokeWidth={100}
+            stroke={strokeColor}
+            strokeWidth={strokeWidth}
             draggable={true}
             onClick={(e: KonvaEventObject<MouseEvent>) => {
               e.cancelBubble = true;
@@ -319,8 +497,8 @@ export default function PanelGrid({
           height={panel.height}
           rotation={panel.rotation}
           fill={panel.fill}
-          stroke="black"
-          strokeWidth={100}
+          stroke={strokeColor}
+          strokeWidth={strokeWidth}
           draggable={true}
           onClick={(e: KonvaEventObject<MouseEvent>) => {
             e.cancelBubble = true;
