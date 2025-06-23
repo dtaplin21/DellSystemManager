@@ -10,33 +10,41 @@ const { eq, and, desc, sql } = require('drizzle-orm');
 // Get all projects for the current user
 router.get('/', auth, async (req, res, next) => {
   try {
-    const userProjects = await db
-      .select({
-        id: projects.id,
-        name: projects.name,
-        description: projects.description,
-        status: projects.status,
-        client: projects.client,
-        location: projects.location,
-        startDate: projects.startDate,
-        endDate: projects.endDate,
-        area: projects.area,
-        progress: projects.progress,
-        createdAt: projects.createdAt,
-        updatedAt: projects.updatedAt,
-      })
-      .from(projects)
-      .where(eq(projects.userId, req.user.id))
-      .orderBy(desc(projects.updatedAt));
+    console.log('Projects route: Fetching projects for user:', req.user.id);
+    
+    // Use raw SQL query to match the actual database schema
+    const result = await db.execute(sql`
+      SELECT 
+        id, 
+        name, 
+        description, 
+        location, 
+        status, 
+        created_at, 
+        updated_at
+      FROM projects 
+      WHERE user_id = ${req.user.id}
+      ORDER BY updated_at DESC
+    `);
+    
+    console.log('Projects route: Found projects:', result.rows.length);
+    console.log('Projects route: Project statuses:', result.rows.map(p => ({ id: p.id, name: p.name, status: p.status })));
     
     // Format the data for the frontend
-    const formattedProjects = userProjects.map(project => ({
-      ...project,
-      lastUpdated: project.updatedAt || project.createdAt,
+    const formattedProjects = result.rows.map(project => ({
+      id: project.id,
+      name: project.name,
+      description: project.description,
+      location: project.location,
+      status: project.status,
+      createdAt: project.created_at,
+      updatedAt: project.updated_at,
+      lastUpdated: project.updated_at || project.created_at,
     }));
     
     res.status(200).json(formattedProjects);
   } catch (error) {
+    console.error('Projects route: Error fetching projects:', error);
     next(error);
   }
 });
@@ -46,19 +54,26 @@ router.get('/:id', auth, async (req, res, next) => {
   try {
     const { id } = req.params;
     
-    const [project] = await db
-      .select()
-      .from(projects)
-      .where(and(
-        eq(projects.id, id),
-        eq(projects.userId, req.user.id)
-      ));
+    const result = await db.execute(sql`
+      SELECT * FROM projects 
+      WHERE id = ${id} AND user_id = ${req.user.id}
+    `);
     
-    if (!project) {
+    if (result.rows.length === 0) {
       return res.status(404).json({ message: 'Project not found' });
     }
     
-    res.status(200).json(project);
+    const project = result.rows[0];
+    
+    res.status(200).json({
+      id: project.id,
+      name: project.name,
+      description: project.description,
+      status: project.status,
+      location: project.location,
+      createdAt: project.created_at,
+      updatedAt: project.updated_at,
+    });
   } catch (error) {
     next(error);
   }
@@ -79,44 +94,42 @@ router.post('/', auth, async (req, res, next) => {
     
     const now = new Date();
     
-    // Create new project
-    const [newProject] = await db
-      .insert(projects)
-      .values({
-        id: uuidv4(),
-        userId: req.user.id,
-        name: projectData.name,
-        description: projectData.description || '',
-        status: projectData.status || 'active',
-        client: projectData.client,
-        location: projectData.location || '',
-        startDate: projectData.startDate ? new Date(projectData.startDate) : null,
-        endDate: projectData.endDate ? new Date(projectData.endDate) : null,
-        area: projectData.area || null,
-        progress: projectData.progress || 0,
-        subscription: req.user.subscription,
-        createdAt: now,
-        updatedAt: now,
-      })
-      .returning();
+    // Create new project using raw SQL to match database schema
+    const result = await db.execute(sql`
+      INSERT INTO projects (
+        id, 
+        user_id, 
+        name, 
+        description, 
+        status, 
+        location, 
+        created_at, 
+        updated_at
+      ) VALUES (
+        ${uuidv4()}, 
+        ${req.user.id}, 
+        ${projectData.name}, 
+        ${projectData.description || ''}, 
+        ${projectData.status || 'active'}, 
+        ${projectData.location || ''}, 
+        ${now}, 
+        ${now}
+      ) RETURNING *
+    `);
     
+    const newProject = result.rows[0];
     console.log('Created project:', newProject); // Debug log
-    
-    // Create an initial empty panel layout
-    await db.insert(panels).values({
-      id: uuidv4(),
-      projectId: newProject.id,
-      panels: '[]', // Empty panels array as string
-      width: 100,
-      height: 100,
-      scale: 1,
-      lastUpdated: now,
-    });
     
     // Return the new project
     res.status(201).json({
-      ...newProject,
-      lastUpdated: newProject.updatedAt || newProject.createdAt,
+      id: newProject.id,
+      name: newProject.name,
+      description: newProject.description,
+      status: newProject.status,
+      location: newProject.location,
+      createdAt: newProject.created_at,
+      updatedAt: newProject.updated_at,
+      lastUpdated: newProject.updated_at || newProject.created_at,
     });
   } catch (error) {
     console.error('Project creation error:', error); // Debug log
@@ -131,31 +144,39 @@ router.patch('/:id', auth, async (req, res, next) => {
     const updateData = req.body;
     
     // Check if project exists and belongs to user
-    const [existingProject] = await db
-      .select()
-      .from(projects)
-      .where(and(
-        eq(projects.id, id),
-        eq(projects.userId, req.user.id)
-      ));
+    const checkResult = await db.execute(sql`
+      SELECT * FROM projects 
+      WHERE id = ${id} AND user_id = ${req.user.id}
+    `);
     
-    if (!existingProject) {
+    if (checkResult.rows.length === 0) {
       return res.status(404).json({ message: 'Project not found' });
     }
     
-    // Update project
-    const [updatedProject] = await db
-      .update(projects)
-      .set({
-        ...updateData,
-        updatedAt: new Date().toISOString(),
-      })
-      .where(eq(projects.id, id))
-      .returning();
+    // Update project using raw SQL
+    const result = await db.execute(sql`
+      UPDATE projects 
+      SET 
+        name = COALESCE(${updateData.name}, name),
+        description = COALESCE(${updateData.description}, description),
+        status = COALESCE(${updateData.status}, status),
+        location = COALESCE(${updateData.location}, location),
+        updated_at = ${new Date()}
+      WHERE id = ${id} AND user_id = ${req.user.id}
+      RETURNING *
+    `);
+    
+    const updatedProject = result.rows[0];
     
     res.status(200).json({
-      ...updatedProject,
-      lastUpdated: updatedProject.updatedAt,
+      id: updatedProject.id,
+      name: updatedProject.name,
+      description: updatedProject.description,
+      status: updatedProject.status,
+      location: updatedProject.location,
+      createdAt: updatedProject.created_at,
+      updatedAt: updatedProject.updated_at,
+      lastUpdated: updatedProject.updated_at,
     });
   } catch (error) {
     next(error);
@@ -168,30 +189,20 @@ router.delete('/:id', auth, async (req, res, next) => {
     const { id } = req.params;
     
     // Check if project exists and belongs to user
-    const [existingProject] = await db
-      .select()
-      .from(projects)
-      .where(and(
-        eq(projects.id, id),
-        eq(projects.userId, req.user.id)
-      ));
+    const checkResult = await db.execute(sql`
+      SELECT * FROM projects 
+      WHERE id = ${id} AND user_id = ${req.user.id}
+    `);
     
-    if (!existingProject) {
+    if (checkResult.rows.length === 0) {
       return res.status(404).json({ message: 'Project not found' });
     }
     
-    // Use transaction to delete children first, then project
-    await db.transaction(async (tx) => {
-      // 1) Delete all panel layouts for that project
-      await tx
-        .delete(panels)
-        .where(eq(panels.projectId, id));
-
-      // 2) Now delete the project
-      await tx
-        .delete(projects)
-        .where(eq(projects.id, id));
-    });
+    // Delete project (panels will be deleted automatically due to CASCADE)
+    await db.execute(sql`
+      DELETE FROM projects 
+      WHERE id = ${id} AND user_id = ${req.user.id}
+    `);
     
     res.status(200).json({ message: 'Project and all related data deleted successfully' });
   } catch (error) {

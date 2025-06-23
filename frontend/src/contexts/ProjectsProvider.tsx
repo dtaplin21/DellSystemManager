@@ -74,12 +74,9 @@ export function ProjectsProvider({ children }: ProjectsProviderProps) {
     setError(null);
     
     try {
-      console.log('ProjectsProvider: Fetching projects...');
       const response = await fetch('/api/projects', {
         credentials: 'include',
       });
-      
-      console.log('ProjectsProvider: Response status:', response.status);
       
       if (!response.ok) {
         if (response.status === 401) {
@@ -93,8 +90,7 @@ export function ProjectsProvider({ children }: ProjectsProviderProps) {
       
       const data = await response.json();
       console.log('ProjectsProvider: Projects loaded:', data.length);
-      console.log('ProjectsProvider: Project statuses:', data.map((p: any) => ({ id: p.id, name: p.name, status: p.status })));
-      setProjects(data.projects || data);
+      setProjects(data);
     } catch (err) {
       console.error('ProjectsProvider: Error fetching projects:', err);
       setError(err instanceof Error ? err.message : 'Failed to load projects');

@@ -11,15 +11,6 @@ export default function NoProjectSelected({ message = "Please select a project t
   const { projects, selectProject, isLoading, error } = useProjects();
   const router = useRouter();
 
-  // Debug logging
-  console.log('NoProjectSelected Debug:', {
-    projects,
-    projectsLength: projects?.length,
-    isLoading,
-    error,
-    projectStatuses: projects?.map(p => ({ id: p.id, name: p.name, status: p.status }))
-  });
-
   const handleSelectProject = (projectId: string) => {
     if (!projectId) return;
     selectProject(projectId);
@@ -28,10 +19,8 @@ export default function NoProjectSelected({ message = "Please select a project t
     router.push(`/dashboard?projectId=${projectId}`);
   };
 
-  // Temporarily show all projects for debugging
-  const activeProjects = projects.filter(p => p.status === 'active');
-  console.log('Active projects:', activeProjects);
-  console.log('All projects statuses:', projects.map(p => p.status));
+  // Filter for active projects (case-insensitive)
+  const activeProjects = projects.filter(p => p.status && p.status.toLowerCase() === 'active');
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[400px] p-8">
