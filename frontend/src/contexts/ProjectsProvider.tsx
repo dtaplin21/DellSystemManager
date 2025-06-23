@@ -124,8 +124,50 @@ export function ProjectsProvider({ children }: ProjectsProviderProps) {
       let panelLayout = null;
       let panels: Panel[] = [];
       if (panelsResponse.ok) {
-        panelLayout = await panelsResponse.json();
-        panels = panelLayout?.panels ? JSON.parse(panelLayout.panels) : [];
+        try {
+          // Log the raw response for debugging
+          const responseText = await panelsResponse.text();
+          console.log('ProjectsProvider: Raw panel layout response:', responseText);
+          
+          if (responseText && responseText.trim()) {
+            panelLayout = JSON.parse(responseText);
+            
+            // Safely parse the panels JSON string
+            if (panelLayout?.panels) {
+              if (typeof panelLayout.panels === 'string') {
+                // Backend might return panels as a JSON string (legacy)
+                try {
+                  panels = JSON.parse(panelLayout.panels);
+                } catch (panelParseErr) {
+                  console.warn('ProjectsProvider: Could not parse panel layout panels JSON string:', panelParseErr);
+                  console.warn('ProjectsProvider: Raw panels string:', panelLayout.panels);
+                  panels = [];
+                }
+              } else if (Array.isArray(panelLayout.panels)) {
+                // Backend returns panels as an array (current)
+                panels = panelLayout.panels;
+              } else {
+                console.warn('ProjectsProvider: Unexpected panels format:', typeof panelLayout.panels);
+                panels = [];
+              }
+            } else {
+              panels = [];
+            }
+          } else {
+            console.log('ProjectsProvider: Empty panel layout response, using defaults');
+            panelLayout = { panels: '[]', width: 0, height: 0, scale: 1 };
+            panels = [];
+          }
+        } catch (parseErr) {
+          console.warn('ProjectsProvider: Could not parse panel layout JSON:', parseErr);
+          console.warn('ProjectsProvider: Using default panel layout');
+          panelLayout = { panels: '[]', width: 0, height: 0, scale: 1 };
+          panels = [];
+        }
+      } else {
+        console.log('ProjectsProvider: Panel layout response not ok, using defaults');
+        panelLayout = { panels: '[]', width: 0, height: 0, scale: 1 };
+        panels = [];
       }
       
       // Fetch documents
@@ -135,7 +177,16 @@ export function ProjectsProvider({ children }: ProjectsProviderProps) {
       
       let documents: Document[] = [];
       if (documentsResponse.ok) {
-        documents = await documentsResponse.json();
+        try {
+          const documentsData = await documentsResponse.json();
+          documents = Array.isArray(documentsData) ? documentsData : [];
+        } catch (docParseErr) {
+          console.warn('ProjectsProvider: Could not parse documents JSON:', docParseErr);
+          documents = [];
+        }
+      } else {
+        console.log('ProjectsProvider: Documents response not ok, using empty array');
+        documents = [];
       }
       
       const projectDetail: ProjectDetail = {

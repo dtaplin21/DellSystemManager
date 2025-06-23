@@ -1,23 +1,28 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { FolderOpen } from 'lucide-react';
 import { useProjects } from '@/contexts/ProjectsProvider';
 import { useRouter } from 'next/navigation';
+import AIDashboard from '@/components/dashboard/ai-dashboard';
 
 interface NoProjectSelectedProps {
   message?: string;
 }
 
 export default function NoProjectSelected({ message = "Please select a project to continue." }: NoProjectSelectedProps) {
-  const { projects, selectProject, isLoading, error } = useProjects();
+  const { projects, selectProject, selectedProject, isLoading, error } = useProjects();
   const router = useRouter();
+  const [showAIDashboard, setShowAIDashboard] = useState(false);
 
-  const handleSelectProject = (projectId: string) => {
+  const handleSelectProject = async (projectId: string) => {
     if (!projectId) return;
-    selectProject(projectId);
-    // After selecting, navigate to the dashboard with the project ID in the URL
-    // to ensure all components react correctly.
-    router.push(`/dashboard?projectId=${projectId}`);
+    await selectProject(projectId);
+    setShowAIDashboard(true);
   };
+
+  // If a project is selected and we should show AI dashboard, render it
+  if (selectedProject && showAIDashboard) {
+    return <AIDashboard />;
+  }
 
   // Filter for active projects (case-insensitive)
   const activeProjects = projects.filter(p => p.status && p.status.toLowerCase() === 'active');

@@ -70,11 +70,7 @@ export default function AIAssistantPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const handwritingInputRef = useRef<HTMLInputElement>(null);
 
-  // Project selection guard
-  if (!selectedProjectId || !selectedProject) {
-    return <NoProjectSelected message="Select a project to use AI features." />;
-  }
-
+  // All hooks must be called before any conditional logic
   // Get project ID from URL params and sync with context
   useEffect(() => {
     const projectId = searchParams?.get('projectId');
@@ -292,314 +288,320 @@ export default function AIAssistantPage() {
   }
 
   return (
-    <div className="ai-page">
-      <div className="ai-header">
-        <h1>AI Assistant</h1>
-        <p>Upload documents, ask questions, and generate optimized panel layouts</p>
-      </div>
+    <>
+      {!selectedProjectId || !selectedProject ? (
+        <NoProjectSelected message="Select a project to use AI features." />
+      ) : (
+        <div className="ai-page">
+          <div className="ai-header">
+            <h1>AI Assistant</h1>
+            <p>Upload documents, ask questions, and generate optimized panel layouts</p>
+          </div>
 
-      {/* Project Selection Section */}
-      <div className="project-selection-section">
-        <div className="section-header">
-          <h2>Project Selection</h2>
-          {selectedProject && (
-            <span className="selected-project-info">
-              Working on: {selectedProject.name}
-            </span>
-          )}
-        </div>
-        
-        <div className="project-selector">
-          {projects.length === 0 ? (
-            <div className="no-projects">
-              <p>No projects found. Create a project first to use AI features.</p>
-              <div className="project-actions">
+          {/* Project Selection Section */}
+          <div className="project-selection-section">
+            <div className="section-header">
+              <h2>Project Selection</h2>
+              {selectedProject && (
+                <span className="selected-project-info">
+                  Working on: {selectedProject.name}
+                </span>
+              )}
+            </div>
+            
+            <div className="project-selector">
+              {projects.length === 0 ? (
+                <div className="no-projects">
+                  <p>No projects found. Create a project first to use AI features.</p>
+                  <div className="project-actions">
+                    <button 
+                      onClick={() => setShowProjectSelector(true)}
+                      className="btn-create-project"
+                    >
+                      Choose Project
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="project-dropdown">
+                  <label className="dropdown-label">
+                    Select a project to enable AI features ({projects.filter(p => p.status === 'active').length} active projects available):
+                  </label>
+                  <select 
+                    value={selectedProject?.id || ''} 
+                    onChange={(e) => {
+                      const project = projects.find(p => p.id === e.target.value);
+                      selectProject(project?.id || '');
+                      if (project) {
+                        router.push(`/dashboard/ai?projectId=${project.id}`);
+                      }
+                    }}
+                    className="project-select"
+                  >
+                    <option value="">Choose a project...</option>
+                    {projects
+                      .filter(project => project.status === 'active')
+                      .map(project => (
+                        <option key={project.id} value={project.id}>
+                          {project.name} - {project.location || 'No location'}
+                        </option>
+                      ))}
+                  </select>
+                  <button 
+                    onClick={() => setShowProjectSelector(true)}
+                    className="btn-new-project"
+                  >
+                    Choose Project
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="ai-content">
+            {/* Document Upload Section */}
+            <div className="document-section">
+              <div className="section-header">
+                <h2>Documents</h2>
                 <button 
-                  onClick={() => setShowProjectSelector(true)}
-                  className="btn-create-project"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="btn-upload"
+                  disabled={isUploadingDoc}
                 >
-                  Choose Project
+                  {isUploadingDoc ? 'Uploading...' : 'Upload Documents'}
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept=".pdf,.docx"
+                  onChange={handleFileUpload}
+                  style={{ display: 'none' }}
+                />
+              </div>
+              
+              <div className="document-list">
+                {documents.length === 0 ? (
+                  <p className="empty-state">No documents uploaded yet. Upload PDFs or Word documents to get started.</p>
+                ) : (
+                  documents.map(doc => (
+                    <div key={doc.id} className="document-item">
+                      <div className="doc-info">
+                        <span className="doc-name">{doc.filename}</span>
+                        <span className="doc-date">
+                          {new Date(doc.uploadDate).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <button className="btn-read-ai">Read with AI</button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* Chat Interface */}
+            <div className="chat-section">
+              <div className="chat-header">
+                <h2>Ask Questions</h2>
+                {selectedProject && (
+                  <span className="project-indicator">Project: {selectedProject.name}</span>
+                )}
+              </div>
+              
+              <div className="chat-messages">
+                {messages.length === 0 ? (
+                  <div className="empty-chat">
+                    <p>Start a conversation with the AI assistant. Ask questions about your documents or project requirements.</p>
+                  </div>
+                ) : (
+                  messages.map(message => (
+                    <div key={message.id} className={`message ${message.type}`}>
+                      <div className="message-content">
+                        <p>{message.content}</p>
+                        {message.references && message.references.length > 0 && (
+                          <div className="references">
+                            <h4>Sources:</h4>
+                            {message.references.map((ref, index) => (
+                              <div key={index} className="reference-item">
+                                <span className="ref-source">
+                                  Document: {documents.find(d => d.id === ref.docId)?.filename || 'Unknown'} (Page {ref.page})
+                                </span>
+                                <p className="ref-excerpt">"{ref.excerpt}"</p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <span className="message-time">
+                        {message.timestamp ? new Date(message.timestamp).toLocaleTimeString() : ''}
+                      </span>
+                    </div>
+                  ))
+                )}
+                <div ref={messagesEndRef} />
+              </div>
+              
+              <div className="chat-input">
+                <input
+                  type="text"
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                  placeholder={selectedProject ? "Ask a question about your documents..." : "Select a project first"}
+                  disabled={!selectedProject}
+                />
+                <button 
+                  onClick={handleSendMessage}
+                  disabled={!inputValue.trim() || !selectedProject}
+                  className="btn-send"
+                >
+                  Send
                 </button>
               </div>
             </div>
-          ) : (
-            <div className="project-dropdown">
-              <label className="dropdown-label">
-                Select a project to enable AI features ({projects.filter(p => p.status === 'active').length} active projects available):
-              </label>
-              <select 
-                value={selectedProject.id || ''} 
-                onChange={(e) => {
-                  const project = projects.find(p => p.id === e.target.value);
-                  selectProject(project?.id || '');
-                  if (project) {
-                    router.push(`/dashboard/ai?projectId=${project.id}`);
-                  }
-                }}
-                className="project-select"
-              >
-                <option value="">Choose a project...</option>
-                {projects
-                  .filter(project => project.status === 'active')
-                  .map(project => (
-                    <option key={project.id} value={project.id}>
-                      {project.name} - {project.location || 'No location'}
-                    </option>
-                  ))}
-              </select>
-              <button 
-                onClick={() => setShowProjectSelector(true)}
-                className="btn-new-project"
-              >
-                Choose Project
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
 
-      <div className="ai-content">
-        {/* Document Upload Section */}
-        <div className="document-section">
-          <div className="section-header">
-            <h2>Documents</h2>
-            <button 
-              onClick={() => fileInputRef.current?.click()}
-              className="btn-upload"
-              disabled={isUploadingDoc}
-            >
-              {isUploadingDoc ? 'Uploading...' : 'Upload Documents'}
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              accept=".pdf,.docx"
-              onChange={handleFileUpload}
-              style={{ display: 'none' }}
-            />
-          </div>
-          
-          <div className="document-list">
-            {documents.length === 0 ? (
-              <p className="empty-state">No documents uploaded yet. Upload PDFs or Word documents to get started.</p>
-            ) : (
-              documents.map(doc => (
-                <div key={doc.id} className="document-item">
-                  <div className="doc-info">
-                    <span className="doc-name">{doc.filename}</span>
-                    <span className="doc-date">
-                      {new Date(doc.uploadDate).toLocaleDateString()}
-                    </span>
-                  </div>
-                  <button className="btn-read-ai">Read with AI</button>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* Chat Interface */}
-        <div className="chat-section">
-          <div className="chat-header">
-            <h2>Ask Questions</h2>
-            {selectedProject && (
-              <span className="project-indicator">Project: {selectedProject.name}</span>
-            )}
-          </div>
-          
-          <div className="chat-messages">
-            {messages.length === 0 ? (
-              <div className="empty-chat">
-                <p>Start a conversation with the AI assistant. Ask questions about your documents or project requirements.</p>
+            {/* Handwriting OCR Section */}
+            <div className="handwriting-section">
+              <div className="section-header">
+                <h2>QC Form Scanner</h2>
+                <button 
+                  onClick={() => handwritingInputRef.current?.click()}
+                  className="btn-upload"
+                  disabled={isProcessingHandwriting || !selectedProject}
+                >
+                  {isProcessingHandwriting ? 'Processing...' : 'Scan Handwritten Form'}
+                </button>
+                <input
+                  ref={handwritingInputRef}
+                  type="file"
+                  accept="image/*,.pdf"
+                  onChange={handleHandwritingUpload}
+                  style={{ display: 'none' }}
+                />
               </div>
-            ) : (
-              messages.map(message => (
-                <div key={message.id} className={`message ${message.type}`}>
-                  <div className="message-content">
-                    <p>{message.content}</p>
-                    {message.references && message.references.length > 0 && (
-                      <div className="references">
-                        <h4>Sources:</h4>
-                        {message.references.map((ref, index) => (
-                          <div key={index} className="reference-item">
-                            <span className="ref-source">
-                              Document: {documents.find(d => d.id === ref.docId)?.filename || 'Unknown'} (Page {ref.page})
-                            </span>
-                            <p className="ref-excerpt">"{ref.excerpt}"</p>
-                          </div>
-                        ))}
+              
+              <div className="handwriting-info">
+                <p>Upload scanned images or PDFs of handwritten QC forms to automatically extract data and generate Excel reports.</p>
+                <div className="supported-formats">
+                  <span>Supported: JPG, PNG, PDF</span>
+                  <span>Best results: Clear, high-contrast scans</span>
+                </div>
+              </div>
+
+              {/* Processing Status */}
+              {isProcessingHandwriting && (
+                <div className="processing-status">
+                  <div className="loading-spinner"></div>
+                  <span>Processing handwritten form with AI...</span>
+                </div>
+              )}
+
+              {/* Results Preview */}
+              {handwritingResult && (
+                <div className="handwriting-results">
+                  <div className="results-header">
+                    <h3>Scan Results</h3>
+                    <div className="confidence-indicator">
+                      <span className={`confidence ${handwritingResult.validation.confidence > 0.8 ? 'high' : handwritingResult.validation.confidence > 0.6 ? 'medium' : 'low'}`}>
+                        {(handwritingResult.validation.confidence * 100).toFixed(1)}% confidence
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="results-summary">
+                    <div className="summary-stats">
+                      <div className="stat">
+                        <span className="label">Panels:</span>
+                        <span className="value">{handwritingResult.qcData.panels?.length || 0}</span>
+                      </div>
+                      <div className="stat">
+                        <span className="label">Tests:</span>
+                        <span className="value">{handwritingResult.qcData.tests?.length || 0}</span>
+                      </div>
+                      <div className="stat">
+                        <span className="label">Status:</span>
+                        <span className={`value status-${handwritingResult.validation.isValid ? 'valid' : 'invalid'}`}>
+                          {handwritingResult.validation.isValid ? 'Valid' : 'Invalid'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {handwritingResult.validation.issues.length > 0 && (
+                      <div className="validation-issues">
+                        <h4>Issues Found:</h4>
+                        <ul>
+                          {handwritingResult.validation.issues.map((issue, index) => (
+                            <li key={index} className="issue-item">{issue}</li>
+                          ))}
+                        </ul>
                       </div>
                     )}
-                  </div>
-                  <span className="message-time">
-                    {message.timestamp ? new Date(message.timestamp).toLocaleTimeString() : ''}
-                  </span>
-                </div>
-              ))
-            )}
-            <div ref={messagesEndRef} />
-          </div>
-          
-          <div className="chat-input">
-            <input
-              type="text"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-              placeholder={selectedProject ? "Ask a question about your documents..." : "Select a project first"}
-              disabled={!selectedProject}
-            />
-            <button 
-              onClick={handleSendMessage}
-              disabled={!inputValue.trim() || !selectedProject}
-              className="btn-send"
-            >
-              Send
-            </button>
-          </div>
-        </div>
 
-        {/* Handwriting OCR Section */}
-        <div className="handwriting-section">
-          <div className="section-header">
-            <h2>QC Form Scanner</h2>
-            <button 
-              onClick={() => handwritingInputRef.current?.click()}
-              className="btn-upload"
-              disabled={isProcessingHandwriting || !selectedProject}
-            >
-              {isProcessingHandwriting ? 'Processing...' : 'Scan Handwritten Form'}
-            </button>
-            <input
-              ref={handwritingInputRef}
-              type="file"
-              accept="image/*,.pdf"
-              onChange={handleHandwritingUpload}
-              style={{ display: 'none' }}
-            />
-          </div>
-          
-          <div className="handwriting-info">
-            <p>Upload scanned images or PDFs of handwritten QC forms to automatically extract data and generate Excel reports.</p>
-            <div className="supported-formats">
-              <span>Supported: JPG, PNG, PDF</span>
-              <span>Best results: Clear, high-contrast scans</span>
+                    <div className="results-actions">
+                      <button onClick={handleDownloadExcel} className="btn-download">
+                        Download Excel Report
+                      </button>
+                      <button 
+                        onClick={() => setShowHandwritingPreview(true)}
+                        className="btn-preview"
+                      >
+                        Preview Data
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
 
-          {/* Processing Status */}
-          {isProcessingHandwriting && (
-            <div className="processing-status">
-              <div className="loading-spinner"></div>
-              <span>Processing handwritten form with AI...</span>
-            </div>
-          )}
-
-          {/* Results Preview */}
-          {handwritingResult && (
-            <div className="handwriting-results">
-              <div className="results-header">
-                <h3>Scan Results</h3>
-                <div className="confidence-indicator">
-                  <span className={`confidence ${handwritingResult.validation.confidence > 0.8 ? 'high' : handwritingResult.validation.confidence > 0.6 ? 'medium' : 'low'}`}>
-                    {(handwritingResult.validation.confidence * 100).toFixed(1)}% confidence
-                  </span>
-                </div>
-              </div>
-
-              <div className="results-summary">
-                <div className="summary-stats">
-                  <div className="stat">
-                    <span className="label">Panels:</span>
-                    <span className="value">{handwritingResult.qcData.panels?.length || 0}</span>
-                  </div>
-                  <div className="stat">
-                    <span className="label">Tests:</span>
-                    <span className="value">{handwritingResult.qcData.tests?.length || 0}</span>
-                  </div>
-                  <div className="stat">
-                    <span className="label">Status:</span>
-                    <span className={`value status-${handwritingResult.validation.isValid ? 'valid' : 'invalid'}`}>
-                      {handwritingResult.validation.isValid ? 'Valid' : 'Invalid'}
-                    </span>
-                  </div>
-                </div>
-
-                {handwritingResult.validation.issues.length > 0 && (
-                  <div className="validation-issues">
-                    <h4>Issues Found:</h4>
-                    <ul>
-                      {handwritingResult.validation.issues.map((issue, index) => (
-                        <li key={index} className="issue-item">{issue}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                <div className="results-actions">
-                  <button onClick={handleDownloadExcel} className="btn-download">
-                    Download Excel Report
-                  </button>
-                  <button 
-                    onClick={() => setShowHandwritingPreview(true)}
-                    className="btn-preview"
-                  >
-                    Preview Data
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Layout Generation Section */}
-        <div className="layout-section">
-          <div className="section-header">
-            <h2>Panel Layout Generation</h2>
-            <button 
-              onClick={handleGenerateLayout}
-              disabled={!selectedProject || isGeneratingLayout}
-              className="btn-generate-layout"
-            >
-              {isGeneratingLayout ? 'Generating...' : 'Generate Layout'}
-            </button>
-          </div>
-          
-          <div className="layout-info">
-            <p>Generate optimized panel layouts based on your project requirements and uploaded documents.</p>
-            {jobStatus.status === 'processing' && (
-              <div className="generation-status">
-                <div className="loading-spinner"></div>
-                <span>Generating optimized panel layout...</span>
-              </div>
-            )}
-            {jobStatus.status === 'completed' && (
-              <div className="generation-complete">
-                <span className="success-message">✓ Layout generated successfully!</span>
+            {/* Layout Generation Section */}
+            <div className="layout-section">
+              <div className="section-header">
+                <h2>Panel Layout Generation</h2>
                 <button 
-                  onClick={() => router.push(`/dashboard/projects/${selectedProject?.id}/panel-layout`)}
-                  className="btn-view-layout"
+                  onClick={handleGenerateLayout}
+                  disabled={!selectedProject || isGeneratingLayout}
+                  className="btn-generate-layout"
                 >
-                  View Layout
+                  {isGeneratingLayout ? 'Generating...' : 'Generate Layout'}
                 </button>
               </div>
-            )}
-            {jobStatus.status === 'failed' && (
-              <div className="generation-failed">
-                <span className="error-message">✗ Failed to generate layout. Please try again.</span>
+              
+              <div className="layout-info">
+                <p>Generate optimized panel layouts based on your project requirements and uploaded documents.</p>
+                {jobStatus.status === 'processing' && (
+                  <div className="generation-status">
+                    <div className="loading-spinner"></div>
+                    <span>Generating optimized panel layout...</span>
+                  </div>
+                )}
+                {jobStatus.status === 'completed' && (
+                  <div className="generation-complete">
+                    <span className="success-message">✓ Layout generated successfully!</span>
+                    <button 
+                      onClick={() => router.push(`/dashboard/projects/${selectedProject?.id}/panel-layout`)}
+                      className="btn-view-layout"
+                    >
+                      View Layout
+                    </button>
+                  </div>
+                )}
+                {jobStatus.status === 'failed' && (
+                  <div className="generation-failed">
+                    <span className="error-message">✗ Failed to generate layout. Please try again.</span>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
-        </div>
-      </div>
 
-      {/* Project Selector Modal */}
-      <ProjectSelector
-        isOpen={showProjectSelector}
-        onClose={() => setShowProjectSelector(false)}
-        onProjectSelect={handleProjectSelect}
-      />
-    </div>
+          {/* Project Selector Modal */}
+          <ProjectSelector
+            isOpen={showProjectSelector}
+            onClose={() => setShowProjectSelector(false)}
+            onProjectSelect={handleProjectSelect}
+          />
+        </div>
+      )}
+    </>
   );
 }
