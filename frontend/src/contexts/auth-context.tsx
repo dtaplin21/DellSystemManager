@@ -52,6 +52,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             // Verify token with backend
             const response = await fetch('/api/auth/user', {
               credentials: 'include',
+              headers: {
+                'Authorization': `Bearer ${storedToken}`,
+                'Content-Type': 'application/json',
+              },
             });
             
             if (response.ok) {
