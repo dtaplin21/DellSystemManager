@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
+import { useAuth } from '@/hooks/use-auth';
 import { useWebSocket } from '@/hooks/use-websocket';
 import { useToast } from '@/hooks/use-toast';
-import { fetchProjectById, fetchPanelLayout, updateProject } from '@/lib/api';
+import { fetchProjectById, fetchPanelLayout } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import PanelGrid from '@/components/panel-layout/panel-grid';
@@ -58,7 +58,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
   const [selectedPanel, setSelectedPanel] = useState<any>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   
-  const { user } = useSupabaseAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
   
@@ -289,14 +289,37 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
 
       console.log('Converted panels:', supabasePanels);
 
-      // Update project using the API client
-      const result = await updateProject(project.id, {
-        scale: layout.scale,
-        layoutWidth: layout.width,
-        layoutHeight: layout.height,
-        panels: supabasePanels
+      // Get auth token from localStorage
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      // Update project using the API with proper auth headers
+      const response = await fetch(`/api/projects/${project.id}`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          scale: layout.scale,
+          layoutWidth: layout.width,
+          layoutHeight: layout.height,
+          panels: supabasePanels
+        }),
       });
 
+      console.log('Response status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
+        throw new Error(`Failed to save project: ${response.status} ${response.statusText}`);
+      }
+
+      const result = await response.json();
       console.log('Save result:', result);
 
       toast({
@@ -355,7 +378,8 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
           </Button>
           <Button variant="outline" onClick={() => {
             console.log('Current user:', user);
-            console.log('Current session:', user ? 'User logged in' : 'No user');
+            console.log('Auth token exists:', !!localStorage.getItem('authToken'));
+            console.log('User data exists:', !!localStorage.getItem('userData'));
             toast({
               title: 'Auth Status',
               description: user ? `Logged in as ${user.email}` : 'Not logged in',
