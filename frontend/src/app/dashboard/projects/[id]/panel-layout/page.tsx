@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/hooks/use-auth';
+import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
 import { useWebSocket } from '@/hooks/use-websocket';
 import { useToast } from '@/hooks/use-toast';
-import { fetchProjectById, fetchPanelLayout } from '@/lib/api';
+import { fetchProjectById, fetchPanelLayout, updateProject } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import PanelGrid from '@/components/panel-layout/panel-grid';
@@ -13,12 +13,6 @@ import ControlToolbar from '@/components/panel-layout/control-toolbar';
 import ExportDialog from '@/components/panel-layout/export-dialog';
 import EditPanelDialog from '@/components/panel-layout/edit-panel-dialog';
 import { generateId } from '@/lib/utils';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 interface Project {
   id: string;
@@ -64,7 +58,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
   const [selectedPanel, setSelectedPanel] = useState<any>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   
-  const { user } = useAuth();
+  const { user } = useSupabaseAuth();
   const { toast } = useToast();
   const router = useRouter();
   
@@ -266,18 +260,16 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
   };
 
   const saveProjectToSupabase = async () => {
-    if (!project || !layout || !user) return;
+    if (!project || !layout || !user) {
+      console.log('Missing required data:', { project: !!project, layout: !!layout, user: !!user });
+      return;
+    }
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        toast({
-          title: 'Error',
-          description: 'No active session. Please log in again.',
-          variant: 'destructive',
-        });
-        return;
-      }
+      console.log('Starting save process...');
+      console.log('Project ID:', project.id);
+      console.log('Layout data:', layout);
+      console.log('User:', user);
 
       // Convert panels back to Supabase format
       const supabasePanels = layout.panels.map(panel => ({
@@ -295,24 +287,17 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
         rotation: panel.rotation || 0
       }));
 
-      // Update project metadata
-      const response = await fetch(`/api/projects/${project.id}`, {
-        method: 'PUT',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          scale: layout.scale,
-          layoutWidth: layout.width,
-          layoutHeight: layout.height,
-          panels: supabasePanels
-        }),
+      console.log('Converted panels:', supabasePanels);
+
+      // Update project using the API client
+      const result = await updateProject(project.id, {
+        scale: layout.scale,
+        layoutWidth: layout.width,
+        layoutHeight: layout.height,
+        panels: supabasePanels
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to save project');
-      }
+      console.log('Save result:', result);
 
       toast({
         title: 'Project Saved',
@@ -322,7 +307,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
       console.error('Error saving project:', error);
       toast({
         title: 'Error',
-        description: 'Failed to save project data.',
+        description: `Failed to save project data: ${error instanceof Error ? error.message : 'Unknown error'}`,
         variant: 'destructive',
       });
     }
@@ -367,6 +352,16 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
         <div className="flex space-x-2">
           <Button variant="outline" onClick={() => router.push(`/dashboard/projects/${id}`)}>
             Back to Project
+          </Button>
+          <Button variant="outline" onClick={() => {
+            console.log('Current user:', user);
+            console.log('Current session:', user ? 'User logged in' : 'No user');
+            toast({
+              title: 'Auth Status',
+              description: user ? `Logged in as ${user.email}` : 'Not logged in',
+            });
+          }}>
+            Test Auth
           </Button>
           <Button variant="outline" onClick={saveProjectToSupabase}>
             Save Project

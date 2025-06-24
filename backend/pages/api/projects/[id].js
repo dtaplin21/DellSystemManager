@@ -1,9 +1,18 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_KEY
-);
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseServiceKey) {
+  throw new Error('Missing Supabase environment variables');
+}
+
+const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false
+  }
+});
 
 export default async function handler(req, res) {
   const { id } = req.query;
@@ -28,12 +37,12 @@ export default async function handler(req, res) {
 
   if (req.method === 'GET') {
     try {
-      // Fetch project with panels
+      // Fetch project with panels using RLS
       const { data: project, error: projectError } = await supabase
         .from('projects')
         .select('*')
         .eq('id', id)
-        .eq('owner_id', user.id)
+        .eq('user_id', user.id)
         .single();
 
       if (projectError) {
@@ -82,7 +91,7 @@ export default async function handler(req, res) {
         .from('projects')
         .update(projectUpdate)
         .eq('id', id)
-        .eq('owner_id', user.id)
+        .eq('user_id', user.id)
         .select()
         .single();
 
@@ -142,7 +151,7 @@ export default async function handler(req, res) {
         .from('projects')
         .delete()
         .eq('id', id)
-        .eq('owner_id', user.id);
+        .eq('user_id', user.id);
 
       if (error) {
         console.error('Error deleting project:', error);
