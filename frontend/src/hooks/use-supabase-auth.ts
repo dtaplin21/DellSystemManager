@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, ensureValidSession } from '../lib/supabase';
 import type { User, Session } from '@supabase/supabase-js';
 
 interface Profile {
@@ -29,7 +29,7 @@ export function useSupabaseAuth() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Get initial session
+    // Get initial session with refresh if needed
     getSession();
 
     // Listen for auth changes
@@ -52,7 +52,8 @@ export function useSupabaseAuth() {
 
   const getSession = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      // Use ensureValidSession to get a fresh session
+      const session = await ensureValidSession();
       setSession(session);
       
       if (session?.user) {
@@ -179,6 +180,42 @@ export function useSupabaseAuth() {
     }
   };
 
+  // Function to manually refresh session
+  const refreshSession = async () => {
+    try {
+      const session = await ensureValidSession();
+      setSession(session);
+      if (session?.user) {
+        await loadUserProfile(session.user);
+      }
+      return session;
+    } catch (error) {
+      console.error('Error refreshing session:', error);
+      return null;
+    }
+  };
+
+  // Function to clear session and force fresh login
+  const clearSessionAndRedirect = async () => {
+    try {
+      console.log('🧹 Clearing session and redirecting to login...');
+      await supabase.auth.signOut();
+      setUser(null);
+      setSession(null);
+      
+      // Clear any stored session data
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('supabase-auth-token');
+        localStorage.removeItem('sb-chfdozvsvltdmglcuoqf-auth-token');
+      }
+      
+      // Redirect to login
+      window.location.href = '/login';
+    } catch (error) {
+      console.error('Error clearing session:', error);
+    }
+  };
+
   return {
     user,
     session,
@@ -189,5 +226,7 @@ export function useSupabaseAuth() {
     signOut,
     updateProfile,
     resetPassword,
+    refreshSession,
+    clearSessionAndRedirect,
   };
 } 

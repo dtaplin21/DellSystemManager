@@ -11,7 +11,7 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, isAuthenticated, loading } = useSupabaseAuth();
+  const { user, isAuthenticated, loading, refreshSession, clearSessionAndRedirect } = useSupabaseAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -27,9 +27,15 @@ export default function DashboardLayout({
         router.replace('/login');
       } else {
         console.log('User authenticated, rendering dashboard');
+        // Refresh session to ensure we have a valid token
+        refreshSession().catch((error) => {
+          console.error('Failed to refresh session:', error);
+          // If refresh fails, clear session and redirect to login
+          clearSessionAndRedirect();
+        });
       }
     }
-  }, [loading, isAuthenticated, user, router]);
+  }, [loading, isAuthenticated, user, router, refreshSession, clearSessionAndRedirect]);
 
   if (loading) {
     console.log('Dashboard Layout - Loading state');

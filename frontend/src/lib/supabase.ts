@@ -48,12 +48,14 @@ const isValidUrl = (url: string | undefined): boolean => {
 let supabase: SupabaseClient;
 try {
   if (isValidUrl(supabaseUrl) && supabaseAnonKey && supabaseUrl) {
-    console.log('✅ Creating real Supabase client');
+    console.log('✅ Creating real Supabase client with auto-refresh enabled');
     supabase = createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
         autoRefreshToken: true,
         persistSession: true,
-        detectSessionInUrl: true
+        detectSessionInUrl: true,
+        storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+        storageKey: 'supabase-auth-token'
       }
     });
   } else {
@@ -67,6 +69,76 @@ try {
 }
 
 export { supabase };
+
+// Helper function to ensure we have a valid session
+export const ensureValidSession = async () => {
+  try {
+    console.log('🔍 ensureValidSession: Starting session check...');
+    
+    // First, try to get the current session
+    const { data: { session }, error } = await supabase.auth.getSession();
+    
+    if (error) {
+      console.error('❌ ensureValidSession: Error getting session:', error);
+      return null;
+    }
+    
+    if (!session) {
+      console.log('⚠️ ensureValidSession: No session found');
+      return null;
+    }
+    
+    console.log('✅ ensureValidSession: Session found:', {
+      userId: session.user?.id,
+      expiresAt: session.expires_at,
+      hasAccessToken: !!session.access_token,
+      hasRefreshToken: !!session.refresh_token
+    });
+    
+    // Check if token is expired or about to expire (within 5 minutes)
+    const expiresAt = session.expires_at;
+    const now = Math.floor(Date.now() / 1000);
+    const fiveMinutes = 5 * 60;
+    
+    console.log('🔍 ensureValidSession: Token expiration check:', {
+      expiresAt,
+      now,
+      timeUntilExpiry: expiresAt ? expiresAt - now : 'unknown',
+      needsRefresh: expiresAt ? (expiresAt - now) < fiveMinutes : false
+    });
+    
+    if (expiresAt && (expiresAt - now) < fiveMinutes) {
+      console.log('🔄 ensureValidSession: Token expiring soon, refreshing session...');
+      
+      // Try to refresh the session
+      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+      
+      if (refreshError) {
+        console.error('❌ ensureValidSession: Error refreshing session:', refreshError);
+        // If refresh fails, clear the session and return null
+        await supabase.auth.signOut();
+        return null;
+      }
+      
+      if (refreshData.session) {
+        console.log('✅ ensureValidSession: Session refreshed successfully:', {
+          userId: refreshData.session.user?.id,
+          expiresAt: refreshData.session.expires_at
+        });
+        return refreshData.session;
+      } else {
+        console.log('⚠️ ensureValidSession: No session returned from refresh');
+        return null;
+      }
+    }
+    
+    console.log('✅ ensureValidSession: Using existing valid session');
+    return session;
+  } catch (error) {
+    console.error('❌ ensureValidSession: Error ensuring valid session:', error);
+    return null;
+  }
+};
 
 // Types for better TypeScript support
 export type Database = {

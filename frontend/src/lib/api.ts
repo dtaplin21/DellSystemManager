@@ -1,13 +1,18 @@
-import { supabase } from './supabase';
+import { supabase, ensureValidSession } from './supabase';
 
 // Helper function to get auth headers
 const getAuthHeaders = async () => {
   try {
-    const { data: { session } } = await supabase.auth.getSession();
-    console.log('Session data:', session ? { 
+    console.log('🔍 getAuthHeaders: Getting auth headers...');
+    
+    // Ensure we have a valid session (this will refresh if needed)
+    const session = await ensureValidSession();
+    
+    console.log('🔍 getAuthHeaders: Session data:', session ? { 
       hasAccessToken: !!session.access_token,
       expiresAt: session.expires_at,
-      userId: session.user?.id 
+      userId: session.user?.id,
+      tokenPreview: session.access_token ? session.access_token.substring(0, 20) + '...' : 'none'
     } : 'No session');
     
     const headers = {
@@ -17,23 +22,78 @@ const getAuthHeaders = async () => {
       })
     };
     
-    console.log('Generated headers:', headers);
+    console.log('✅ getAuthHeaders: Generated headers:', {
+      hasAuthorization: !!headers.Authorization,
+      authorizationPreview: headers.Authorization ? headers.Authorization.substring(0, 30) + '...' : 'none'
+    });
+    
     return headers;
   } catch (error) {
-    console.error('Error getting auth headers:', error);
+    console.error('❌ getAuthHeaders: Error getting auth headers:', error);
     return {
       'Content-Type': 'application/json'
     };
   }
 };
 
+// Helper function to make authenticated API calls with automatic retry
+const makeAuthenticatedRequest = async (
+  url: string, 
+  options: RequestInit = {}, 
+  retryCount = 0
+): Promise<Response> => {
+  try {
+    console.log(`🔍 makeAuthenticatedRequest: Making request to ${url} (retry: ${retryCount})`);
+    
+    const headers = await getAuthHeaders();
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        ...headers,
+        ...options.headers,
+      },
+      credentials: 'include',
+    });
+
+    console.log(`🔍 makeAuthenticatedRequest: Response status: ${response.status} for ${url}`);
+
+    // If we get a 401 and haven't retried yet, try to refresh the session
+    if (response.status === 401 && retryCount < 1) {
+      console.log('🔄 makeAuthenticatedRequest: Received 401, attempting to refresh session and retry...');
+      
+      // Try to refresh the session
+      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+      
+      if (!refreshError && refreshData.session) {
+        console.log('✅ makeAuthenticatedRequest: Session refreshed, retrying request...');
+        // Retry the request with the new token
+        return makeAuthenticatedRequest(url, options, retryCount + 1);
+      } else {
+        console.log('❌ makeAuthenticatedRequest: Session refresh failed, clearing session and redirecting...');
+        // Clear session and redirect to login
+        await supabase.auth.signOut();
+        
+        // Clear any stored session data
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('supabase-auth-token');
+          localStorage.removeItem('sb-chfdozvsvltdmglcuoqf-auth-token');
+        }
+        
+        window.location.href = '/login';
+        throw new Error('Session expired. Please log in again.');
+      }
+    }
+
+    return response;
+  } catch (error) {
+    console.error('❌ makeAuthenticatedRequest: Error making authenticated request:', error);
+    throw error;
+  }
+};
+
 export async function fetchProjectById(id: string): Promise<any> {
   try {
-    const headers = await getAuthHeaders();
-    const response = await fetch(`/api/projects/${id}`, {
-      credentials: 'include',
-      headers,
-    });
+    const response = await makeAuthenticatedRequest(`http://localhost:8003/api/projects/${id}`);
     
     if (!response.ok) {
       if (response.status === 401) {
@@ -54,11 +114,7 @@ export async function fetchProjectById(id: string): Promise<any> {
 
 export async function fetchProjects(): Promise<any> {
   try {
-    const headers = await getAuthHeaders();
-    const response = await fetch('/api/projects', {
-      credentials: 'include',
-      headers,
-    });
+    const response = await makeAuthenticatedRequest('http://localhost:8003/api/projects');
     
     if (!response.ok) {
       if (response.status === 401) {
@@ -76,11 +132,7 @@ export async function fetchProjects(): Promise<any> {
 
 export async function fetchPanelLayout(projectId: string): Promise<any> {
   try {
-    const headers = await getAuthHeaders();
-    const response = await fetch(`/api/panels/layout/${projectId}`, {
-      credentials: 'include',
-      headers,
-    });
+    const response = await makeAuthenticatedRequest(`http://localhost:8003/api/panels/layout/${projectId}`);
     
     if (!response.ok) {
       if (response.status === 401) {
@@ -101,10 +153,8 @@ export async function fetchPanelLayout(projectId: string): Promise<any> {
 
 export async function exportPanelLayoutToCAD(projectId: string, format: string): Promise<Blob | null> {
   try {
-    const headers = await getAuthHeaders();
-    const response = await fetch(`/panel-api/api/panel-layout/export`, {
+    const response = await makeAuthenticatedRequest(`http://localhost:8003/api/panel-layout/export`, {
       method: 'POST',
-      headers,
       body: JSON.stringify({ projectId, format })
     });
     
@@ -120,11 +170,7 @@ export async function exportPanelLayoutToCAD(projectId: string, format: string):
 
 export async function fetchNotifications(): Promise<any> {
   try {
-    const headers = await getAuthHeaders();
-    const response = await fetch('/api/notifications', {
-      credentials: 'include',
-      headers,
-    });
+    const response = await makeAuthenticatedRequest('http://localhost:8003/api/notifications');
     
     if (!response.ok) {
       if (response.status === 401) {
@@ -142,11 +188,7 @@ export async function fetchNotifications(): Promise<any> {
 
 export async function fetchProjectStats(): Promise<any> {
   try {
-    const headers = await getAuthHeaders();
-    const response = await fetch('/api/projects/stats', {
-      credentials: 'include',
-      headers,
-    });
+    const response = await makeAuthenticatedRequest('http://localhost:8003/api/projects/stats');
     
     if (!response.ok) {
       throw new Error('Failed to fetch project stats');
@@ -161,11 +203,8 @@ export async function fetchProjectStats(): Promise<any> {
 
 export async function analyzeDocuments(projectId: string, documentIds: string[], question: string): Promise<any> {
   try {
-    const headers = await getAuthHeaders();
-    const response = await fetch('/api/documents/analyze', {
+    const response = await makeAuthenticatedRequest('http://localhost:8003/api/documents/analyze', {
       method: 'POST',
-      credentials: 'include',
-      headers,
       body: JSON.stringify({ projectId, documentIds, question }),
     });
     
@@ -181,10 +220,8 @@ export async function analyzeDocuments(projectId: string, documentIds: string[],
 }
 
 export async function deleteDocument(documentId: string): Promise<void> {
-  const headers = await getAuthHeaders();
-  const response = await fetch(`/api/documents/${documentId}`, {
+  const response = await makeAuthenticatedRequest(`http://localhost:8003/api/documents/${documentId}`, {
     method: 'DELETE',
-    headers,
   });
 
   if (!response.ok) {
@@ -200,7 +237,7 @@ export async function uploadDocument(projectId: string, file: File): Promise<any
   // Remove Content-Type for FormData
   const { 'Content-Type': _, ...formHeaders } = headers;
 
-  const response = await fetch(`/api/documents/${projectId}/upload`, {
+  const response = await fetch(`http://localhost:8003/api/documents/${projectId}/upload`, {
     method: 'POST',
     headers: formHeaders,
     body: formData
@@ -223,11 +260,8 @@ export async function createProject(data: {
   endDate?: string;
   area?: string;
 }): Promise<any> {
-  const headers = await getAuthHeaders();
-  const response = await fetch('/api/projects', {
+  const response = await makeAuthenticatedRequest('http://localhost:8003/api/projects', {
     method: 'POST',
-    headers,
-    credentials: 'include',
     body: JSON.stringify(data)
   });
 
@@ -240,11 +274,8 @@ export async function createProject(data: {
 }
 
 export async function deleteProject(projectId: string): Promise<void> {
-  const headers = await getAuthHeaders();
-  const response = await fetch(`/api/projects/${projectId}`, {
+  const response = await makeAuthenticatedRequest(`http://localhost:8003/api/projects/${projectId}`, {
     method: 'DELETE',
-    headers,
-    credentials: 'include',
   });
 
   if (!response.ok) {
@@ -266,18 +297,12 @@ export async function updateProject(projectId: string, data: {
   try {
     console.log('updateProject called with:', { projectId, data });
     
-    const headers = await getAuthHeaders();
-    console.log('Auth headers:', headers);
-    
-    const response = await fetch(`/api/projects/${projectId}`, {
-      method: 'PUT',
-      headers,
-      credentials: 'include',
+    const response = await makeAuthenticatedRequest(`http://localhost:8003/api/projects/${projectId}`, {
+      method: 'PATCH',
       body: JSON.stringify(data)
     });
 
     console.log('Response status:', response.status);
-    console.log('Response headers:', Object.fromEntries(response.headers.entries()));
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -311,7 +336,7 @@ export async function importQCDataFromExcel(projectId: string, file: File, optio
   // Remove Content-Type for FormData
   const { 'Content-Type': _, ...formHeaders } = headers;
 
-  const response = await fetch(`/api/qc-data/${projectId}/import`, {
+  const response = await fetch(`http://localhost:8003/api/qc-data/${projectId}/import`, {
     method: 'POST',
     headers: formHeaders,
     body: formData
@@ -335,11 +360,8 @@ export async function addQCData(projectId: string, data: {
   speed?: number;
   notes?: string;
 }): Promise<any> {
-  const headers = await getAuthHeaders();
-  const response = await fetch(`/api/qc-data/${projectId}`, {
+  const response = await makeAuthenticatedRequest(`http://localhost:8003/api/qc-data/${projectId}`, {
     method: 'POST',
-    headers,
-    credentials: 'include',
     body: JSON.stringify(data)
   });
 
@@ -351,11 +373,8 @@ export async function addQCData(projectId: string, data: {
 }
 
 export async function createCheckoutSession(plan: 'basic' | 'premium'): Promise<{ sessionId: string }> {
-  const headers = await getAuthHeaders();
-  const response = await fetch('/api/subscription/create-checkout-session', {
+  const response = await makeAuthenticatedRequest('http://localhost:8003/api/subscription/create-checkout-session', {
     method: 'POST',
-    headers,
-    credentials: 'include',
     body: JSON.stringify({ plan })
   });
 
@@ -368,11 +387,7 @@ export async function createCheckoutSession(plan: 'basic' | 'premium'): Promise<
 
 export async function fetchDocuments(projectId: string): Promise<any> {
   try {
-    const headers = await getAuthHeaders();
-    const response = await fetch(`/api/documents/${projectId}`, {
-      credentials: 'include',
-      headers,
-    });
+    const response = await makeAuthenticatedRequest(`http://localhost:8003/api/documents/${projectId}`);
     
     if (!response.ok) {
       if (response.status === 401) {
@@ -390,11 +405,7 @@ export async function fetchDocuments(projectId: string): Promise<any> {
 
 export async function fetchQCData(projectId: string): Promise<any> {
   try {
-    const headers = await getAuthHeaders();
-    const response = await fetch(`/api/qc-data/${projectId}`, {
-      credentials: 'include',
-      headers,
-    });
+    const response = await makeAuthenticatedRequest(`http://localhost:8003/api/qc-data/${projectId}`);
     
     if (!response.ok) {
       if (response.status === 401) {

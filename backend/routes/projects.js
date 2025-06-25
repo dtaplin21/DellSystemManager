@@ -2,9 +2,7 @@ const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const router = express.Router();
 const { auth } = require('../middlewares/auth');
-const { db } = require('../db');
-const { projects, panels, qcData } = require('../db/schema');
-const { eq, and, desc, sql } = require('drizzle-orm');
+const { supabase } = require('../db');
 
 // Simple validation function
 const validateProject = (projectData) => {
@@ -26,26 +24,22 @@ router.get('/', auth, async (req, res, next) => {
   try {
     console.log('Projects route: Fetching projects for user:', req.user.id);
     
-    // Use raw SQL query to match the actual database schema
-    const result = await db.execute(sql`
-      SELECT 
-        id, 
-        name, 
-        description, 
-        location, 
-        status, 
-        created_at, 
-        updated_at
-      FROM projects 
-      WHERE user_id = ${req.user.id}
-      ORDER BY updated_at DESC
-    `);
+    // Use Supabase to fetch projects
+    const { data: projects, error } = await supabase
+      .from('projects')
+      .select('id, name, description, location, status, created_at, updated_at')
+      .eq('user_id', req.user.id)
+      .order('updated_at', { ascending: false });
     
-    console.log('Projects route: Found projects:', result.rows.length);
-    console.log('Projects route: Project statuses:', result.rows.map(p => ({ id: p.id, name: p.name, status: p.status })));
+    if (error) {
+      console.error('Error fetching projects from Supabase:', error);
+      return res.status(500).json({ message: 'Failed to fetch projects' });
+    }
+    
+    console.log('Projects route: Found projects:', projects?.length || 0);
     
     // Format the data for the frontend
-    const formattedProjects = result.rows.map(project => ({
+    const formattedProjects = (projects || []).map(project => ({
       id: project.id,
       name: project.name,
       description: project.description,
@@ -68,25 +62,25 @@ router.get('/:id', auth, async (req, res, next) => {
   try {
     const { id } = req.params;
     
-    const result = await db.execute(sql`
-      SELECT * FROM projects 
-      WHERE id = ${id} AND user_id = ${req.user.id}
-    `);
+    const { data: projects, error } = await supabase
+      .from('projects')
+      .select('*')
+      .eq('id', id)
+      .eq('user_id', req.user.id)
+      .single();
     
-    if (result.rows.length === 0) {
+    if (error || !projects) {
       return res.status(404).json({ message: 'Project not found' });
     }
     
-    const project = result.rows[0];
-    
     res.status(200).json({
-      id: project.id,
-      name: project.name,
-      description: project.description,
-      status: project.status,
-      location: project.location,
-      createdAt: project.created_at,
-      updatedAt: project.updated_at,
+      id: projects.id,
+      name: projects.name,
+      description: projects.description,
+      status: projects.status,
+      location: projects.location,
+      createdAt: projects.created_at,
+      updatedAt: projects.updated_at,
     });
   } catch (error) {
     next(error);
@@ -106,32 +100,29 @@ router.post('/', auth, async (req, res, next) => {
       return res.status(400).json({ message: error.details[0].message });
     }
     
-    const now = new Date();
+    const now = new Date().toISOString();
     
-    // Create new project using raw SQL to match database schema
-    const result = await db.execute(sql`
-      INSERT INTO projects (
-        id, 
-        user_id, 
-        name, 
-        description, 
-        status, 
-        location, 
-        created_at, 
-        updated_at
-      ) VALUES (
-        ${uuidv4()}, 
-        ${req.user.id}, 
-        ${projectData.name}, 
-        ${projectData.description || ''}, 
-        ${projectData.status || 'active'}, 
-        ${projectData.location || ''}, 
-        ${now}, 
-        ${now}
-      ) RETURNING *
-    `);
+    // Create new project using Supabase
+    const { data: newProject, error: insertError } = await supabase
+      .from('projects')
+      .insert({
+        id: uuidv4(),
+        user_id: req.user.id,
+        name: projectData.name,
+        description: projectData.description || '',
+        status: projectData.status || 'active',
+        location: projectData.location || '',
+        created_at: now,
+        updated_at: now
+      })
+      .select()
+      .single();
     
-    const newProject = result.rows[0];
+    if (insertError) {
+      console.error('Error creating project in Supabase:', insertError);
+      return res.status(500).json({ message: 'Failed to create project' });
+    }
+    
     console.log('Created project:', newProject); // Debug log
     
     // Return the new project
@@ -158,29 +149,36 @@ router.patch('/:id', auth, async (req, res, next) => {
     const updateData = req.body;
     
     // Check if project exists and belongs to user
-    const checkResult = await db.execute(sql`
-      SELECT * FROM projects 
-      WHERE id = ${id} AND user_id = ${req.user.id}
-    `);
+    const { data: existingProject, error: checkError } = await supabase
+      .from('projects')
+      .select('*')
+      .eq('id', id)
+      .eq('user_id', req.user.id)
+      .single();
     
-    if (checkResult.rows.length === 0) {
+    if (checkError || !existingProject) {
       return res.status(404).json({ message: 'Project not found' });
     }
     
-    // Update project using raw SQL
-    const result = await db.execute(sql`
-      UPDATE projects 
-      SET 
-        name = COALESCE(${updateData.name}, name),
-        description = COALESCE(${updateData.description}, description),
-        status = COALESCE(${updateData.status}, status),
-        location = COALESCE(${updateData.location}, location),
-        updated_at = ${new Date()}
-      WHERE id = ${id} AND user_id = ${req.user.id}
-      RETURNING *
-    `);
+    // Update project using Supabase
+    const { data: updatedProject, error: updateError } = await supabase
+      .from('projects')
+      .update({
+        name: updateData.name || existingProject.name,
+        description: updateData.description !== undefined ? updateData.description : existingProject.description,
+        status: updateData.status || existingProject.status,
+        location: updateData.location !== undefined ? updateData.location : existingProject.location,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .eq('user_id', req.user.id)
+      .select()
+      .single();
     
-    const updatedProject = result.rows[0];
+    if (updateError) {
+      console.error('Error updating project in Supabase:', updateError);
+      return res.status(500).json({ message: 'Failed to update project' });
+    }
     
     res.status(200).json({
       id: updatedProject.id,
@@ -203,56 +201,30 @@ router.delete('/:id', auth, async (req, res, next) => {
     const { id } = req.params;
     
     // Check if project exists and belongs to user
-    const checkResult = await db.execute(sql`
-      SELECT * FROM projects 
-      WHERE id = ${id} AND user_id = ${req.user.id}
-    `);
+    const { data: existingProject, error: checkError } = await supabase
+      .from('projects')
+      .select('*')
+      .eq('id', id)
+      .eq('user_id', req.user.id)
+      .single();
     
-    if (checkResult.rows.length === 0) {
+    if (checkError || !existingProject) {
       return res.status(404).json({ message: 'Project not found' });
     }
     
-    // Delete the project
-    await db.execute(sql`
-      DELETE FROM projects 
-      WHERE id = ${id} AND user_id = ${req.user.id}
-    `);
+    // Delete project using Supabase
+    const { error: deleteError } = await supabase
+      .from('projects')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', req.user.id);
+    
+    if (deleteError) {
+      console.error('Error deleting project from Supabase:', deleteError);
+      return res.status(500).json({ message: 'Failed to delete project' });
+    }
     
     res.status(200).json({ message: 'Project deleted successfully' });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// Get project statistics
-router.get('/stats', auth, async (req, res, next) => {
-  try {
-    // Get counts of projects by status
-    const stats = {
-      total: 0,
-      active: 0,
-      completed: 0,
-      onHold: 0,
-      overdue: 0,
-    };
-    
-    // Get all projects for the user
-    const userProjects = await db
-      .select()
-      .from(projects)
-      .where(eq(projects.userId, req.user.id));
-    
-    // Count by status
-    stats.total = userProjects.length;
-    stats.active = userProjects.filter(p => p.status === 'active').length;
-    stats.completed = userProjects.filter(p => p.status === 'completed').length;
-    stats.onHold = userProjects.filter(p => p.status === 'on hold').length;
-    
-    // Get number of overdue tasks
-    // This is a placeholder - in a real app, you'd check due dates on tasks
-    stats.overdue = 0;
-    
-    res.status(200).json(stats);
   } catch (error) {
     next(error);
   }

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSupabaseAuth } from '../../../hooks/use-supabase-auth';
+import { useToast } from '../../../hooks/use-toast';
 import { fetchProjects, createProject, deleteProject } from '../../../lib/api';
 import './projects.css';
 
@@ -18,6 +19,7 @@ interface Project {
 
 export default function ProjectsPage() {
   const { user, isAuthenticated } = useSupabaseAuth();
+  const { toast } = useToast();
   const router = useRouter();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -43,13 +45,18 @@ export default function ProjectsPage() {
         setProjects(data);
       } catch (error) {
         console.error('Error fetching projects:', error);
+        toast({
+          title: 'Error',
+          description: error instanceof Error ? error.message : 'Failed to fetch projects',
+          variant: 'destructive'
+        });
       } finally {
         setIsLoading(false);
       }
     };
 
     loadProjects();
-  }, [isAuthenticated]);
+  }, [isAuthenticated, toast]);
 
   const handleProjectSelect = (projectId: string) => {
     if (projectId) {
@@ -80,9 +87,18 @@ export default function ProjectsPage() {
         status: 'Active',
         progress: 0
       });
+      toast({
+        title: 'Success',
+        description: 'Project created successfully!',
+        variant: 'success'
+      });
     } catch (error) {
       console.error('Error creating project:', error);
-      alert(error instanceof Error ? error.message : 'Failed to create project');
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to create project',
+        variant: 'destructive'
+      });
     }
   };
 
@@ -97,9 +113,18 @@ export default function ProjectsPage() {
       setProjects(prev => prev.filter(p => p.id !== projectToDelete.id));
       setShowDeleteModal(false);
       setProjectToDelete(null);
+      toast({
+        title: 'Success',
+        description: 'Project deleted successfully!',
+        variant: 'success'
+      });
     } catch (error) {
       console.error('Error deleting project:', error);
-      alert(error instanceof Error ? error.message : 'Failed to delete project');
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to delete project',
+        variant: 'destructive'
+      });
     } finally {
       setIsDeleting(false);
     }

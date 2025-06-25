@@ -8,6 +8,8 @@ const nextConfig = {
         'canvas-prebuilt': false,
         fs: false,
         path: false,
+        'utf-8-validate': false,
+        'bufferutil': false
       };
     }
     
@@ -30,15 +32,15 @@ const nextConfig = {
       config.externals.push('canvas');
     }
 
-    return config;
-  },
-  async rewrites() {
-    return [
+    // Ignore harmless Webpack warnings from Supabase
+    config.ignoreWarnings = [
       {
-        source: '/api/:path*',
-        destination: 'http://localhost:8003/api/:path*',
-      },
+        module: /@supabase\/realtime-js/,
+        message: /Critical dependency: the request of a dependency is an expression/,
+      }
     ];
+
+    return config;
   },
 }
 
