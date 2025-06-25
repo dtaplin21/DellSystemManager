@@ -52,6 +52,28 @@ export async function fetchProjectById(id: string): Promise<any> {
   }
 }
 
+export async function fetchProjects(): Promise<any> {
+  try {
+    const headers = await getAuthHeaders();
+    const response = await fetch('/api/projects', {
+      credentials: 'include',
+      headers,
+    });
+    
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error('Authentication required. Please log in.');
+      }
+      throw new Error(`Failed to fetch projects: ${response.statusText}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Fetch projects error:', error);
+    throw error;
+  }
+}
+
 export async function fetchPanelLayout(projectId: string): Promise<any> {
   try {
     const headers = await getAuthHeaders();
@@ -193,12 +215,13 @@ export async function uploadDocument(projectId: string, file: File): Promise<any
 
 export async function createProject(data: {
   name: string;
-  description: string;
-  client: string;
-  location: string;
-  startDate: string;
-  endDate: string;
-  area: string;
+  description?: string;
+  client?: string;
+  location?: string;
+  status?: string;
+  startDate?: string;
+  endDate?: string;
+  area?: string;
 }): Promise<any> {
   const headers = await getAuthHeaders();
   const response = await fetch('/api/projects', {
@@ -214,6 +237,20 @@ export async function createProject(data: {
   }
 
   return response.json();
+}
+
+export async function deleteProject(projectId: string): Promise<void> {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`/api/projects/${projectId}`, {
+    method: 'DELETE',
+    headers,
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Failed to delete project' }));
+    throw new Error(error.message || 'Failed to delete project');
+  }
 }
 
 export async function updateProject(projectId: string, data: {

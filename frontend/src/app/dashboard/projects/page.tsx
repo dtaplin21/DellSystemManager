@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSupabaseAuth } from '../../../hooks/use-supabase-auth';
+import { fetchProjects, createProject, deleteProject } from '../../../lib/api';
 import './projects.css';
 
 interface Project {
@@ -34,20 +35,12 @@ export default function ProjectsPage() {
   });
 
   useEffect(() => {
-    const fetchProjects = async () => {
+    const loadProjects = async () => {
       if (!isAuthenticated) return;
       
       try {
-        const response = await fetch('/api/projects', {
-          credentials: 'include',
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          setProjects(data);
-        } else {
-          console.error('Failed to fetch projects:', response.status);
-        }
+        const data = await fetchProjects();
+        setProjects(data);
       } catch (error) {
         console.error('Error fetching projects:', error);
       } finally {
@@ -55,7 +48,7 @@ export default function ProjectsPage() {
       }
     };
 
-    fetchProjects();
+    loadProjects();
   }, [isAuthenticated]);
 
   const handleProjectSelect = (projectId: string) => {
@@ -76,21 +69,7 @@ export default function ProjectsPage() {
     e.preventDefault();
     
     try {
-      const response = await fetch('/api/projects', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify(formData)
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to create project');
-      }
-
-      const newProject = await response.json();
+      const newProject = await createProject(formData);
       setProjects(prev => [...prev, newProject]);
       setShowCreateModal(false);
       setFormData({
@@ -112,16 +91,8 @@ export default function ProjectsPage() {
     
     setIsDeleting(true);
     try {
-      const response = await fetch(`/api/projects/${projectToDelete.id}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to delete project');
-      }
-
+      await deleteProject(projectToDelete.id);
+      
       // Remove the project from the local state
       setProjects(prev => prev.filter(p => p.id !== projectToDelete.id));
       setShowDeleteModal(false);

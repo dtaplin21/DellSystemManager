@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -14,7 +14,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 // Create a mock client if environment variables are missing
-const createMockClient = () => {
+const createMockClient = (): SupabaseClient => {
   console.warn('Using mock Supabase client - authentication features will not work');
   return {
     auth: {
@@ -30,7 +30,7 @@ const createMockClient = () => {
       update: () => Promise.resolve({ data: null, error: null }),
       delete: () => Promise.resolve({ data: null, error: null }),
     }),
-  } as any;
+  } as any as SupabaseClient;
 };
 
 // Validate URL format before creating client
@@ -45,7 +45,7 @@ const isValidUrl = (url: string | undefined): boolean => {
 };
 
 // Only create the real client if we have valid URL and key
-let supabase;
+let supabase: SupabaseClient;
 try {
   if (isValidUrl(supabaseUrl) && supabaseAnonKey && supabaseUrl) {
     console.log('✅ Creating real Supabase client');

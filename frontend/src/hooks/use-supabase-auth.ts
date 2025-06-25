@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { User, Session } from '@supabase/supabase-js';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '../lib/supabase';
+import type { User, Session } from '@supabase/supabase-js';
 
 interface Profile {
   id: string;
@@ -30,83 +30,67 @@ export function useSupabaseAuth() {
 
   useEffect(() => {
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session?.user) {
-        fetchUserProfile(session.user);
-      } else {
-        setUser(null);
-        setLoading(false);
-      }
-    });
+    getSession();
 
     // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      setSession(session);
-      if (session?.user) {
-        await fetchUserProfile(session.user);
-      } else {
-        setUser(null);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('Auth state changed:', event, session?.user?.id);
+        setSession(session);
+        
+        if (session?.user) {
+          await loadUserProfile(session.user);
+        } else {
+          setUser(null);
+        }
         setLoading(false);
       }
-    });
+    );
 
     return () => subscription.unsubscribe();
   }, []);
 
-  const fetchUserProfile = async (supabaseUser: User) => {
+  const getSession = async () => {
     try {
-      const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', supabaseUser.id)
-        .single();
-
-      if (error) {
-        console.error('Error fetching profile:', error);
-        // Create profile if it doesn't exist
-        await createProfile(supabaseUser);
-        return;
+      const { data: { session } } = await supabase.auth.getSession();
+      setSession(session);
+      
+      if (session?.user) {
+        await loadUserProfile(session.user);
       }
-
-      const authUser: AuthUser = {
-        id: supabaseUser.id,
-        email: supabaseUser.email!,
-        displayName: profile.display_name,
-        company: profile.company,
-        position: profile.position,
-        subscription: profile.subscription,
-        profileImageUrl: profile.profile_image_url,
-      };
-
-      setUser(authUser);
     } catch (error) {
-      console.error('Error in fetchUserProfile:', error);
+      console.error('Error getting session:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const createProfile = async (supabaseUser: User) => {
+  const loadUserProfile = async (supabaseUser: User) => {
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .insert({
-          id: supabaseUser.id,
-          display_name: supabaseUser.user_metadata?.display_name || null,
-          subscription: 'basic',
-        });
-
-      if (error) {
-        console.error('Error creating profile:', error);
-      } else {
-        // Fetch the profile again
-        await fetchUserProfile(supabaseUser);
-      }
+      // Create user object from Supabase user metadata
+      const userProfile: AuthUser = {
+        id: supabaseUser.id,
+        email: supabaseUser.email || '',
+        displayName: supabaseUser.user_metadata?.display_name || null,
+        company: supabaseUser.user_metadata?.company || null,
+        position: null,
+        subscription: 'basic',
+        profileImageUrl: supabaseUser.user_metadata?.avatar_url || null,
+      };
+      
+      setUser(userProfile);
     } catch (error) {
-      console.error('Error in createProfile:', error);
+      console.error('Error loading user profile:', error);
+      // Fallback: create basic user object from Supabase user
+      setUser({
+        id: supabaseUser.id,
+        email: supabaseUser.email || '',
+        displayName: supabaseUser.user_metadata?.display_name || null,
+        company: supabaseUser.user_metadata?.company || null,
+        position: null,
+        subscription: 'basic',
+        profileImageUrl: null,
+      });
     }
   };
 
@@ -118,12 +102,22 @@ export function useSupabaseAuth() {
       email,
       password,
       options: {
-        data: metadata,
-      },
+        data: {
+          display_name: metadata.display_name,
+          company: metadata.company,
+        }
+      }
     });
 
-    if (error) throw error;
-    return data;
+    if (error) {
+      throw new Error(error.message || 'Signup failed');
+    }
+
+    if (data.user) {
+      await loadUserProfile(data.user);
+    }
+
+    return { user: data.user, session: data.session };
   };
 
   const signIn = async (email: string, password: string) => {
@@ -132,43 +126,57 @@ export function useSupabaseAuth() {
       password,
     });
 
-    if (error) throw error;
-    return data;
+    if (error) {
+      throw new Error(error.message || 'Login failed');
+    }
+
+    if (data.user) {
+      await loadUserProfile(data.user);
+    }
+
+    return { user: data.user, session: data.session };
   };
 
   const signOut = async () => {
     const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+    if (error) {
+      console.error('Logout error:', error);
+    }
+    setUser(null);
+    setSession(null);
   };
 
   const updateProfile = async (updates: Partial<Profile>) => {
     if (!user) throw new Error('No user logged in');
 
-    const { data, error } = await supabase
-      .from('profiles')
-      .update(updates)
-      .eq('id', user.id)
-      .select()
-      .single();
+    // Update user metadata in Supabase
+    const { data, error } = await supabase.auth.updateUser({
+      data: {
+        display_name: updates.display_name,
+        company: updates.company,
+        position: updates.position,
+      }
+    });
 
-    if (error) throw error;
+    if (error) {
+      throw new Error(error.message || 'Profile update failed');
+    }
 
-    // Update local user state
-    setUser(prev => prev ? {
-      ...prev,
-      displayName: data.display_name,
-      company: data.company,
-      position: data.position,
-      subscription: data.subscription,
-      profileImageUrl: data.profile_image_url,
-    } : null);
+    if (data.user) {
+      await loadUserProfile(data.user);
+    }
 
-    return data;
+    return user;
   };
 
   const resetPassword = async (email: string) => {
-    const { error } = await supabase.auth.resetPasswordForEmail(email);
-    if (error) throw error;
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+
+    if (error) {
+      throw new Error(error.message || 'Password reset failed');
+    }
   };
 
   return {
