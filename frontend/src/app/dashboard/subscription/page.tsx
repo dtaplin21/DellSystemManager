@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/hooks/use-auth';
+import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
 import { loadStripe } from '@stripe/stripe-js';
 
 // NOTE: For the actual implementation, this would use the Stripe keys
@@ -15,7 +15,7 @@ import { loadStripe } from '@stripe/stripe-js';
 
 export default function SubscriptionPage() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user } = useSupabaseAuth();
   const { toast } = useToast();
   const [selectedPlan, setSelectedPlan] = useState<'basic' | 'premium'>(
     user?.subscription as 'basic' | 'premium' || 'basic'

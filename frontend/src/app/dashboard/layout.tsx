@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/hooks/use-auth';
+import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
 import Navbar from '@/components/layout/navbar';
 import Sidebar from '@/components/layout/sidebar';
 
@@ -11,19 +11,17 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, loading } = useSupabaseAuth();
   const router = useRouter();
 
   useEffect(() => {
     console.log('Dashboard Layout - Current State:', {
       user,
       isAuthenticated,
-      isLoading,
-      hasToken: !!localStorage.getItem('authToken'),
-      hasUserData: !!localStorage.getItem('userData')
+      loading,
     });
     
-    if (!isLoading) {
+    if (!loading) {
       if (!isAuthenticated || !user) {
         console.log('User not authenticated or missing user data, redirecting to login');
         router.replace('/login');
@@ -31,9 +29,9 @@ export default function DashboardLayout({
         console.log('User authenticated, rendering dashboard');
       }
     }
-  }, [isLoading, isAuthenticated, user, router]);
+  }, [loading, isAuthenticated, user, router]);
 
-  if (isLoading) {
+  if (loading) {
     console.log('Dashboard Layout - Loading state');
     return <div>Loading...</div>;
   }

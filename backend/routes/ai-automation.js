@@ -4,7 +4,6 @@ const { auth } = require('../middlewares/auth');
 const { db } = require('../db');
 const { projects, panels, qcData, documents } = require('../db/schema');
 const { eq, and } = require('drizzle-orm');
-const { validateObjectId } = require('../utils/validate');
 const { 
   analyzeDocuments, 
   analyzeQCData, 
@@ -12,6 +11,11 @@ const {
   generateProjectReport, 
   isOpenAIConfigured 
 } = require('../services/ai-connector');
+
+// Simple validation function
+const validateObjectId = (id) => {
+  return id && typeof id === 'string' && id.length > 0;
+};
 
 // Check if AI is available
 router.get('/status', (req, res) => {
@@ -204,32 +208,29 @@ router.post('/:projectId/recommendations', auth, async (req, res, next) => {
       return res.status(404).json({ message: 'Project not found' });
     }
     
-    // Get project data
-    const [panelLayout] = await db
+    // Get project data for recommendations
+    const [projectDocuments] = await db
       .select()
-      .from(panels)
-      .where(eq(panels.projectId, projectId));
+      .from(documents)
+      .where(eq(documents.projectId, projectId));
       
-    const projectQCData = await db
+    const [projectQCData] = await db
       .select()
       .from(qcData)
       .where(eq(qcData.projectId, projectId));
       
-    const projectDocuments = await db
+    const [panelLayout] = await db
       .select()
-      .from(documents)
-      .where(eq(documents.projectId, projectId));
-    
-    // Assemble project data for AI analysis
-    const projectData = {
-      project,
-      panelLayout: panelLayout || { width: 0, height: 0, panels: '[]' },
-      qcData: projectQCData || [],
-      documents: projectDocuments || []
-    };
+      .from(panels)
+      .where(eq(panels.projectId, projectId));
     
     // Generate recommendations
-    const recommendations = await generateRecommendations(projectData);
+    const recommendations = await generateRecommendations({
+      project,
+      documents: projectDocuments,
+      qcData: projectQCData,
+      panelLayout
+    });
     
     res.status(200).json(recommendations);
   } catch (error) {
@@ -238,19 +239,13 @@ router.post('/:projectId/recommendations', auth, async (req, res, next) => {
 });
 
 // Generate project report
-router.post('/:projectId/generate-report', auth, async (req, res, next) => {
+router.post('/:projectId/report', auth, async (req, res, next) => {
   try {
     const { projectId } = req.params;
-    const { reportType = 'summary' } = req.body;
     
     // Validate project ID
     if (!validateObjectId(projectId)) {
       return res.status(400).json({ message: 'Invalid project ID' });
-    }
-    
-    // Validate report type
-    if (!['summary', 'technical', 'compliance'].includes(reportType)) {
-      return res.status(400).json({ message: 'Invalid report type' });
     }
     
     // Check if user has access to this project
@@ -266,32 +261,29 @@ router.post('/:projectId/generate-report', auth, async (req, res, next) => {
       return res.status(404).json({ message: 'Project not found' });
     }
     
-    // Get project data
-    const [panelLayout] = await db
+    // Get all project data
+    const projectDocuments = await db
       .select()
-      .from(panels)
-      .where(eq(panels.projectId, projectId));
+      .from(documents)
+      .where(eq(documents.projectId, projectId));
       
     const projectQCData = await db
       .select()
       .from(qcData)
       .where(eq(qcData.projectId, projectId));
       
-    const projectDocuments = await db
+    const [panelLayout] = await db
       .select()
-      .from(documents)
-      .where(eq(documents.projectId, projectId));
+      .from(panels)
+      .where(eq(panels.projectId, projectId));
     
-    // Assemble project data for AI analysis
-    const projectData = {
+    // Generate comprehensive report
+    const report = await generateProjectReport({
       project,
-      panelLayout: panelLayout || { width: 0, height: 0, panels: '[]' },
-      qcData: projectQCData || [],
-      documents: projectDocuments || []
-    };
-    
-    // Generate report
-    const report = await generateProjectReport(projectData, reportType);
+      documents: projectDocuments,
+      qcData: projectQCData,
+      panelLayout
+    });
     
     res.status(200).json(report);
   } catch (error) {
@@ -299,264 +291,151 @@ router.post('/:projectId/generate-report', auth, async (req, res, next) => {
   }
 });
 
-// Helper function to optimize panel layout
+// Panel layout optimization functions
 function optimizePanelLayout(panels, settings, containerWidth, containerHeight) {
-  // Default settings
-  const defaults = {
-    minimumPanelWidth: 2,
-    minimumPanelHeight: 2,
-    wasteReduction: 90,
-    respectExisting: true,
-    panelAlignment: 75,
-    optimizationStrategy: 'material-efficient', // 'material-efficient', 'labor-efficient', 'balanced'
-    gridSize: 20,
-    marginBetweenPanels: 5
-  };
+  const optimizationMode = settings.mode || 'balanced';
   
-  // Merge with provided settings
-  const optimizationSettings = { ...defaults, ...settings };
-  
-  // Clone panels to avoid modifying the original
-  const optimizedPanels = JSON.parse(JSON.stringify(panels));
-  
-  // First pass: Apply basic constraints and align to grid
-  for (let panel of optimizedPanels) {
-    // Ensure minimum dimensions
-    if (panel.width < optimizationSettings.minimumPanelWidth) {
-      panel.width = optimizationSettings.minimumPanelWidth;
-    }
-    
-    if (panel.height < optimizationSettings.minimumPanelHeight) {
-      panel.height = optimizationSettings.minimumPanelHeight;
-    }
-    
-    // Panel alignment (snap to grid)
-    if (optimizationSettings.panelAlignment > 50) {
-      const gridSize = optimizationSettings.gridSize;
-      panel.x = Math.round(panel.x / gridSize) * gridSize;
-      panel.y = Math.round(panel.y / gridSize) * gridSize;
-      panel.width = Math.round(panel.width / gridSize) * gridSize;
-      panel.height = Math.round(panel.height / gridSize) * gridSize;
-    }
-    
-    // Respect container bounds
-    if (panel.x + panel.width > containerWidth) {
-      if (panel.x > containerWidth / 2) {
-        panel.x = containerWidth - panel.width;
-      } else {
-        panel.width = containerWidth - panel.x;
-      }
-    }
-    
-    if (panel.y + panel.height > containerHeight) {
-      if (panel.y > containerHeight / 2) {
-        panel.y = containerHeight - panel.height;
-      } else {
-        panel.height = containerHeight - panel.y;
-      }
-    }
-  }
-  
-  // Second pass: Apply optimization strategy
-  switch (optimizationSettings.optimizationStrategy) {
-    case 'material-efficient':
-      // Group panels by material type and organize them to minimize waste
-      optimizeMaterialEfficiency(optimizedPanels, containerWidth, containerHeight, optimizationSettings);
-      break;
-      
-    case 'labor-efficient':
-      // Organize panels to minimize seam lengths and optimize for installation
-      optimizeLaborEfficiency(optimizedPanels, containerWidth, containerHeight, optimizationSettings);
-      break;
-      
+  switch (optimizationMode) {
+    case 'material':
+      return optimizeMaterialEfficiency(panels, containerWidth, containerHeight, settings);
+    case 'labor':
+      return optimizeLaborEfficiency(panels, containerWidth, containerHeight, settings);
     case 'balanced':
     default:
-      // A compromise between material and labor efficiency
-      optimizeBalanced(optimizedPanels, containerWidth, containerHeight, optimizationSettings);
-      break;
+      return optimizeBalanced(panels, containerWidth, containerHeight, settings);
   }
+}
+
+function optimizeMaterialEfficiency(panels, containerWidth, containerHeight, settings) {
+  // Sort panels by area (largest first) to maximize material usage
+  const sortedPanels = [...panels].sort((a, b) => (b.width * b.height) - (a.width * a.height));
   
-  // Third pass: Resolve any panel overlaps
-  resolveOverlaps(optimizedPanels, optimizationSettings);
+  let currentX = 0;
+  let currentY = 0;
+  let maxHeightInRow = 0;
+  const optimizedPanels = [];
+  
+  for (const panel of sortedPanels) {
+    // Check if panel fits in current row
+    if (currentX + panel.width <= containerWidth) {
+      panel.x = currentX;
+      panel.y = currentY;
+      currentX += panel.width;
+      maxHeightInRow = Math.max(maxHeightInRow, panel.height);
+    } else {
+      // Move to next row
+      currentX = 0;
+      currentY += maxHeightInRow;
+      maxHeightInRow = 0;
+      
+      // Check if panel fits in new row
+      if (currentX + panel.width <= containerWidth) {
+        panel.x = currentX;
+        panel.y = currentY;
+        currentX += panel.width;
+        maxHeightInRow = panel.height;
+      } else {
+        // Panel is too wide, place it anyway and start new row
+        panel.x = 0;
+        panel.y = currentY;
+        currentX = panel.width;
+        maxHeightInRow = panel.height;
+      }
+    }
+    
+    optimizedPanels.push(panel);
+  }
   
   return optimizedPanels;
 }
 
-// Function to optimize for material efficiency
-function optimizeMaterialEfficiency(panels, containerWidth, containerHeight, settings) {
-  // Group panels by material type
-  const materialGroups = {};
-  
-  panels.forEach(panel => {
-    const material = panel.material || 'unknown';
-    if (!materialGroups[material]) {
-      materialGroups[material] = [];
-    }
-    materialGroups[material].push(panel);
-  });
-  
-  // For each material group, arrange panels in a grid pattern to minimize waste
-  let yOffset = 0;
-  const margin = settings.marginBetweenPanels;
-  
-  Object.keys(materialGroups).forEach(material => {
-    const groupPanels = materialGroups[material];
-    
-    // Sort panels by width (descending)
-    groupPanels.sort((a, b) => b.width - a.width);
-    
-    let currentRowWidth = 0;
-    let currentRowHeight = 0;
-    let xPosition = 0;
-    
-    groupPanels.forEach(panel => {
-      // Check if adding this panel exceeds container width
-      if (xPosition + panel.width > containerWidth) {
-        // Move to next row
-        xPosition = 0;
-        yOffset += currentRowHeight + margin;
-        currentRowHeight = 0;
-      }
-      
-      // Position the panel
-      panel.x = xPosition;
-      panel.y = yOffset;
-      
-      // Update current row info
-      currentRowWidth = xPosition + panel.width;
-      currentRowHeight = Math.max(currentRowHeight, panel.height);
-      
-      // Prepare for next panel
-      xPosition += panel.width + margin;
-    });
-    
-    // Move to next material group
-    yOffset += currentRowHeight + margin * 2;
-  });
-}
-
-// Function to optimize for labor efficiency
 function optimizeLaborEfficiency(panels, containerWidth, containerHeight, settings) {
-  // Group panels by seam type
-  const seamGroups = {};
+  // Group panels by type/size to minimize setup changes
+  const panelGroups = {};
   
   panels.forEach(panel => {
-    const seamType = panel.seamsType || 'unknown';
-    if (!seamGroups[seamType]) {
-      seamGroups[seamType] = [];
+    const key = `${panel.width}x${panel.height}`;
+    if (!panelGroups[key]) {
+      panelGroups[key] = [];
     }
-    seamGroups[seamType].push(panel);
+    panelGroups[key].push(panel);
   });
   
-  // For each seam group, arrange panels to minimize total seam length
-  let yOffset = 0;
-  const margin = settings.marginBetweenPanels;
+  const optimizedPanels = [];
+  let currentX = 0;
+  let currentY = 0;
+  let maxHeightInRow = 0;
   
-  Object.keys(seamGroups).forEach(seamType => {
-    const groupPanels = seamGroups[seamType];
-    
-    // For labor efficiency, we want to minimize the number of seams
-    // Larger panels should be placed first
-    groupPanels.sort((a, b) => (b.width * b.height) - (a.width * a.height));
-    
-    // Place panels in a spiral pattern starting from center
-    const centerX = containerWidth / 2;
-    const centerY = containerHeight / 2;
-    let angle = 0;
-    let radius = 0;
-    const radiusIncrement = 50;
-    
-    groupPanels.forEach((panel, index) => {
-      if (index === 0) {
-        // Place first (largest) panel at center
-        panel.x = centerX - panel.width / 2;
-        panel.y = centerY - panel.height / 2;
+  // Process each group together
+  Object.values(panelGroups).forEach(group => {
+    group.forEach(panel => {
+      if (currentX + panel.width <= containerWidth) {
+        panel.x = currentX;
+        panel.y = currentY;
+        currentX += panel.width;
+        maxHeightInRow = Math.max(maxHeightInRow, panel.height);
       } else {
-        // Place subsequent panels in a spiral
-        angle += Math.PI / 4;
-        if (index % 8 === 0) {
-          radius += radiusIncrement;
-        }
+        currentX = 0;
+        currentY += maxHeightInRow;
+        maxHeightInRow = 0;
         
-        panel.x = centerX + radius * Math.cos(angle) - panel.width / 2;
-        panel.y = centerY + radius * Math.sin(angle) - panel.height / 2;
-        
-        // Ensure panel stays within bounds
-        panel.x = Math.max(0, Math.min(containerWidth - panel.width, panel.x));
-        panel.y = Math.max(0, Math.min(containerHeight - panel.height, panel.y));
+        panel.x = currentX;
+        panel.y = currentY;
+        currentX += panel.width;
+        maxHeightInRow = panel.height;
       }
+      
+      optimizedPanels.push(panel);
     });
   });
+  
+  return optimizedPanels;
 }
 
-// Function for balanced optimization
 function optimizeBalanced(panels, containerWidth, containerHeight, settings) {
-  // Combination of both strategies
-  // Sort panels by area (largest first)
-  panels.sort((a, b) => (b.width * b.height) - (a.width * a.height));
+  // Combine material and labor efficiency
+  const materialOptimized = optimizeMaterialEfficiency(panels, containerWidth, containerHeight, settings);
   
-  const margin = settings.marginBetweenPanels;
-  let rowHeight = 0;
-  let xPosition = margin;
-  let yPosition = margin;
+  // Apply some labor optimization by grouping similar panels
+  const groupedPanels = [];
+  const panelGroups = {};
   
-  panels.forEach(panel => {
-    // Check if we need to start a new row
-    if (xPosition + panel.width + margin > containerWidth) {
-      xPosition = margin;
-      yPosition += rowHeight + margin;
-      rowHeight = 0;
+  materialOptimized.forEach(panel => {
+    const key = `${panel.width}x${panel.height}`;
+    if (!panelGroups[key]) {
+      panelGroups[key] = [];
     }
-    
-    // Position panel
-    panel.x = xPosition;
-    panel.y = yPosition;
-    
-    // Update position for next panel
-    xPosition += panel.width + margin;
-    rowHeight = Math.max(rowHeight, panel.height);
+    panelGroups[key].push(panel);
   });
+  
+  // Sort groups by frequency (most common first)
+  const sortedGroups = Object.entries(panelGroups)
+    .sort(([,a], [,b]) => b.length - a.length)
+    .flatMap(([, group]) => group);
+  
+  return sortedGroups;
 }
 
-// Function to resolve overlaps between panels
 function resolveOverlaps(panels, settings) {
-  const margin = settings.marginBetweenPanels;
+  const overlapThreshold = settings.overlapThreshold || 0.1;
   
-  // Check each pair of panels for overlap
   for (let i = 0; i < panels.length; i++) {
     for (let j = i + 1; j < panels.length; j++) {
-      const a = panels[i];
-      const b = panels[j];
+      const panelA = panels[i];
+      const panelB = panels[j];
       
-      // Check if panels overlap
-      if (a.x < b.x + b.width && a.x + a.width > b.x &&
-          a.y < b.y + b.height && a.y + a.height > b.y) {
-        
-        // Calculate overlap amounts in each direction
-        const overlapLeft = (a.x + a.width) - b.x;
-        const overlapRight = (b.x + b.width) - a.x;
-        const overlapTop = (a.y + a.height) - b.y;
-        const overlapBottom = (b.y + b.height) - a.y;
-        
-        // Find the smallest overlap direction
-        const minOverlap = Math.min(overlapLeft, overlapRight, overlapTop, overlapBottom);
-        
-        if (minOverlap === overlapLeft) {
-          // Move panel B to the right
-          b.x += overlapLeft + margin;
-        } else if (minOverlap === overlapRight) {
-          // Move panel A to the right
-          a.x += overlapRight + margin;
-        } else if (minOverlap === overlapTop) {
-          // Move panel B down
-          b.y += overlapTop + margin;
-        } else {
-          // Move panel A down
-          a.y += overlapBottom + margin;
-        }
+      // Check for overlap
+      const overlapX = Math.max(0, Math.min(panelA.x + panelA.width, panelB.x + panelB.width) - Math.max(panelA.x, panelB.x));
+      const overlapY = Math.max(0, Math.min(panelA.y + panelA.height, panelB.y + panelB.height) - Math.max(panelA.y, panelB.y));
+      
+      if (overlapX > overlapThreshold && overlapY > overlapThreshold) {
+        // Move panelB to avoid overlap
+        panelB.x = panelA.x + panelA.width + overlapThreshold;
       }
     }
   }
+  
+  return panels;
 }
 
 module.exports = router;

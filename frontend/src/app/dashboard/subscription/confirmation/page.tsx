@@ -4,12 +4,12 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useAuth } from '@/hooks/use-auth';
+import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
 
 export default function SubscriptionConfirmationPage() {
   const router = useRouter();
   const params = useSearchParams();
-  const { user } = useAuth();
+  const { user } = useSupabaseAuth();
   const [isLoading, setIsLoading] = useState(true);
   
   // Get status from query params (with null safety)

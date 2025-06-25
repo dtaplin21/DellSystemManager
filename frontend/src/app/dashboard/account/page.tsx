@@ -6,11 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/hooks/use-auth';
+import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 
 export default function AccountPage() {
-  const { user, updateProfile, logout } = useAuth();
+  const { user, updateProfile, signOut } = useSupabaseAuth();
   const [name, setName] = useState(user?.displayName || '');
   const [email, setEmail] = useState(user?.email || '');
   const [company, setCompany] = useState(user?.company || '');
@@ -56,7 +56,11 @@ export default function AccountPage() {
     
     setIsUpdating(true);
     try {
-      await updateProfile({ displayName: name, email, company, position });
+      await updateProfile({
+        display_name: name,
+        company: company || null,
+        position: position || null,
+      });
       toast({
         title: 'Profile Updated',
         description: 'Your profile has been successfully updated.',

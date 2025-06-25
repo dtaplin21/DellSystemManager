@@ -2,10 +2,24 @@ const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const router = express.Router();
 const { auth } = require('../middlewares/auth');
-const { validateProject } = require('../utils/validate');
 const { db } = require('../db');
 const { projects, panels, qcData } = require('../db/schema');
 const { eq, and, desc, sql } = require('drizzle-orm');
+
+// Simple validation function
+const validateProject = (projectData) => {
+  const errors = [];
+  
+  if (!projectData.name || projectData.name.trim().length === 0) {
+    errors.push('Project name is required');
+  }
+  
+  if (projectData.name && projectData.name.trim().length < 2) {
+    errors.push('Project name must be at least 2 characters long');
+  }
+  
+  return { error: errors.length > 0 ? { details: [{ message: errors.join(', ') }] } : null };
+};
 
 // Get all projects for the current user
 router.get('/', auth, async (req, res, next) => {
@@ -198,15 +212,14 @@ router.delete('/:id', auth, async (req, res, next) => {
       return res.status(404).json({ message: 'Project not found' });
     }
     
-    // Delete project (panels will be deleted automatically due to CASCADE)
+    // Delete the project
     await db.execute(sql`
       DELETE FROM projects 
       WHERE id = ${id} AND user_id = ${req.user.id}
     `);
     
-    res.status(200).json({ message: 'Project and all related data deleted successfully' });
+    res.status(200).json({ message: 'Project deleted successfully' });
   } catch (error) {
-    console.error('Error deleting project:', error);
     next(error);
   }
 });

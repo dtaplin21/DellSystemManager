@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/hooks/use-auth';
+import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
 import { useWebSocket } from '@/hooks/use-websocket';
 import { useToast } from '@/hooks/use-toast';
 import { fetchProjectById, fetchPanelLayout } from '@/lib/api';
@@ -58,7 +58,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
   const [selectedPanel, setSelectedPanel] = useState<any>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   
-  const { user } = useAuth();
+  const { user } = useSupabaseAuth();
   const { toast } = useToast();
   const router = useRouter();
   

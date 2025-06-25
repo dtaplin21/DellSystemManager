@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '../../../hooks/use-auth';
+import { useSupabaseAuth } from '../../../hooks/use-supabase-auth';
 import './projects.css';
 
 interface Project {
@@ -16,7 +16,7 @@ interface Project {
 }
 
 export default function ProjectsPage() {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated } = useSupabaseAuth();
   const router = useRouter();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);

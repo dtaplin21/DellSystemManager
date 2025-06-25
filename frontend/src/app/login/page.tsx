@@ -7,7 +7,7 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../../components/ui/card';
-import { useAuth } from '../../hooks/use-auth';
+import { useSupabaseAuth } from '../../hooks/use-supabase-auth';
 import { useToast } from '../../hooks/use-toast';
 
 export default function LoginPage() {
@@ -20,7 +20,7 @@ export default function LoginPage() {
   const [company, setCompany] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
-  const { user, login, signup, loginWithGoogle } = useAuth();
+  const { user, signIn, signUp } = useSupabaseAuth();
   const router = useRouter();
   const { toast } = useToast();
   
@@ -38,13 +38,16 @@ export default function LoginPage() {
     
     try {
       if (isSignUp) {
-        await signup(name, email, password, company);
+        await signUp(email, password, {
+          display_name: name,
+          company: company || undefined
+        });
         toast({
           title: 'Account created',
           description: 'Your account has been created successfully. Welcome!',
         });
       } else {
-        await login(email, password);
+        await signIn(email, password);
         toast({
           title: 'Login successful',
           description: 'Welcome back!',
@@ -65,10 +68,11 @@ export default function LoginPage() {
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
     try {
-      await loginWithGoogle();
+      // For now, we'll use a placeholder since Google auth isn't implemented in the hook
       toast({
-        title: 'Login successful',
-        description: 'Welcome back!',
+        title: 'Google authentication',
+        description: 'Google authentication is not yet implemented.',
+        variant: 'destructive',
       });
     } catch (error) {
       console.error('Google login error:', error);

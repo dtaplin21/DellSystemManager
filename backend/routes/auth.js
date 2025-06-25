@@ -3,10 +3,42 @@ const router = express.Router();
 const bcrypt = require('bcrypt');
 const { v4: uuidv4 } = require('uuid');
 const { auth } = require('../middlewares/auth');
-const { validateSignup, validateLogin } = require('../utils/validate');
 const { db, supabase } = require('../db');
 const { users } = require('../db/schema');
 const { eq } = require('drizzle-orm');
+
+// Simple validation functions
+const validateSignup = ({ name, email, password, company }) => {
+  const errors = [];
+  
+  if (!name || name.trim().length < 2) {
+    errors.push('Name must be at least 2 characters long');
+  }
+  
+  if (!email || !email.includes('@')) {
+    errors.push('Valid email is required');
+  }
+  
+  if (!password || password.length < 6) {
+    errors.push('Password must be at least 6 characters long');
+  }
+  
+  return { error: errors.length > 0 ? { details: [{ message: errors.join(', ') }] } : null };
+};
+
+const validateLogin = ({ email, password }) => {
+  const errors = [];
+  
+  if (!email || !email.includes('@')) {
+    errors.push('Valid email is required');
+  }
+  
+  if (!password) {
+    errors.push('Password is required');
+  }
+  
+  return { error: errors.length > 0 ? { details: [{ message: errors.join(', ') }] } : null };
+};
 
 // Set token cookie
 const setTokenCookie = (res, token) => {

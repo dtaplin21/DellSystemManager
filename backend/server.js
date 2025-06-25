@@ -7,7 +7,6 @@ const cookieParser = require('cookie-parser');
 const helmet = require('helmet');
 const { WebSocketServer } = require('ws');
 const { setupWebSocketServer } = require('./services/websocket');
-const { runMigrations } = require('./db/migrate');
 
 // Debug environment variables
 console.log('Environment Variables:');
@@ -71,9 +70,6 @@ async function startServer() {
   }
   
   try {
-    // Run migrations
-    await runMigrations();
-    
     // Start HTTP server on port 8003 (avoiding conflicts with gateway on 8000 and panel service on 8001)
     const PORT = process.env.PORT || 8003;
     const server = app.listen(PORT, '0.0.0.0', () => {

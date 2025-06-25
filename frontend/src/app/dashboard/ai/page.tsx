@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useAuth } from '../../../hooks/use-auth';
+import { useSupabaseAuth } from '../../../hooks/use-supabase-auth';
 import { useProjects } from '@/contexts/ProjectsProvider';
 import ProjectSelector from '@/components/projects/project-selector';
 import NoProjectSelected from '@/components/ui/no-project-selected';
@@ -52,7 +52,7 @@ interface HandwritingScanResult {
 }
 
 export default function AIAssistantPage() {
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, loading } = useSupabaseAuth();
   const { selectedProjectId, selectedProject, selectProject, projects } = useProjects();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -272,7 +272,7 @@ export default function AIAssistantPage() {
   }
 
   // Show loading state while authentication is being verified
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="ai-page">
         <div className="ai-header">

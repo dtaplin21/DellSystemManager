@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/hooks/use-auth';
+import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
 import { createCheckoutSession } from '@/lib/api';
 import { getStripe } from '@/lib/stripe';
 
@@ -14,7 +14,7 @@ interface CheckoutProps {
 
 export default function Checkout({ plan, onCancel }: CheckoutProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const { user } = useAuth();
+  const { user } = useSupabaseAuth();
   const { toast } = useToast();
   
   const planDetails = {

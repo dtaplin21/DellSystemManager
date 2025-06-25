@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { ChevronDown, FolderOpen, Plus } from 'lucide-react';
-import { useAuth } from '@/hooks/use-auth';
+import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
 import { useProjects } from '@/contexts/ProjectsProvider';
 
 interface ProjectSelectorProps {
@@ -13,7 +13,7 @@ interface ProjectSelectorProps {
 }
 
 export default function ProjectSelector({ onProjectSelect, isOpen, onClose }: ProjectSelectorProps) {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated } = useSupabaseAuth();
   const { projects, selectProject, isLoading, error } = useProjects();
   const [newProjectName, setNewProjectName] = useState('');
   const [showCreateForm, setShowCreateForm] = useState(false);

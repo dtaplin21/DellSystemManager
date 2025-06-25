@@ -6,11 +6,37 @@ const path = require('path');
 const fs = require('fs');
 const ExcelJS = require('exceljs');
 const { auth } = require('../middlewares/auth');
-const { validateObjectId, validateQCData } = require('../utils/validate');
 const { db } = require('../db');
 const { qcData, projects, panels } = require('../db/schema');
 const { eq, and } = require('drizzle-orm');
 const { wsSendToRoom } = require('../services/websocket');
+
+// Simple validation functions
+const validateObjectId = (id) => {
+  return id && typeof id === 'string' && id.length > 0;
+};
+
+const validateQCData = (qcDataInput) => {
+  const errors = [];
+  
+  if (!qcDataInput.type || qcDataInput.type.trim().length === 0) {
+    errors.push('QC type is required');
+  }
+  
+  if (!qcDataInput.panelId || qcDataInput.panelId.trim().length === 0) {
+    errors.push('Panel ID is required');
+  }
+  
+  if (!qcDataInput.date) {
+    errors.push('Date is required');
+  }
+  
+  if (!qcDataInput.result || qcDataInput.result.trim().length === 0) {
+    errors.push('Result is required');
+  }
+  
+  return { error: errors.length > 0 ? { details: [{ message: errors.join(', ') }] } : null };
+};
 
 // Configure multer for Excel file uploads
 const storage = multer.diskStorage({
@@ -207,124 +233,117 @@ router.post('/:projectId/import', auth, upload.single('file'), async (req, res, 
       return res.status(404).json({ message: 'Project not found' });
     }
     
-    // Check if file was uploaded
     if (!req.file) {
       return res.status(400).json({ message: 'No file uploaded' });
     }
     
-    // Validate required column mappings
-    if (!panelIdColumn || !dateColumn || !resultColumn) {
-      return res.status(400).json({ 
-        message: 'Required column mappings missing. Panel ID, Date, and Result columns are required.' 
-      });
-    }
-    
-    // Parse Excel file
     const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(req.file.path);
     
-    let parsedWorkbook;
-    if (req.file.originalname.endsWith('.csv')) {
-      parsedWorkbook = await workbook.csv.readFile(req.file.path);
-    } else {
-      parsedWorkbook = await workbook.xlsx.readFile(req.file.path);
-    }
-    
-    const worksheet = parsedWorkbook.worksheets[0];
-    
+    const worksheet = workbook.getWorksheet(1);
     if (!worksheet) {
-      return res.status(400).json({ message: 'The uploaded file has no worksheets' });
+      return res.status(400).json({ message: 'No worksheet found in file' });
     }
     
-    // Process rows
-    const qcDataRecords = [];
-    const includeHeader = hasHeaderRow === 'true';
+    const importedData = [];
+    const startRow = hasHeaderRow === 'true' ? 2 : 1;
     
-    let rowIndex = includeHeader ? 2 : 1; // Skip header row if applicable
-    
-    worksheet.eachRow({ includeEmpty: false }, (row, index) => {
-      if (includeHeader && index === 1) return; // Skip header
+    for (let rowNumber = startRow; rowNumber <= worksheet.rowCount; rowNumber++) {
+      const row = worksheet.getRow(rowNumber);
       
-      // Helper function to get cell value by column reference
+      // Skip empty rows
+      if (row.cellCount === 0) continue;
+      
       const getCellValue = (column) => {
-        // Column can be a letter (e.g., 'A') or a name (e.g., 'Type')
-        let cellValue;
-        
-        if (/^[A-Z]+$/.test(column)) {
-          // Column is a letter reference
-          const columnIndex = worksheet.getColumn(column).number;
-          cellValue = row.getCell(columnIndex).value;
-        } else if (includeHeader) {
-          // Column is a name, find it in the header row
-          const headerRow = worksheet.getRow(1);
-          let columnIndex = -1;
-          
-          headerRow.eachCell({ includeEmpty: false }, (cell, colIndex) => {
-            if (cell.value && cell.value.toString().toLowerCase() === column.toLowerCase()) {
-              columnIndex = colIndex;
-            }
-          });
-          
-          if (columnIndex > 0) {
-            cellValue = row.getCell(columnIndex).value;
-          }
-        }
-        
-        // Handle Excel date values
-        if (cellValue && cellValue.getTime && typeof cellValue.getTime === 'function') {
-          return cellValue.toISOString().split('T')[0]; // Format as YYYY-MM-DD
-        }
-        
-        return cellValue ? cellValue.toString() : null;
+        const cell = row.getCell(column);
+        return cell.value ? cell.value.toString().trim() : '';
       };
       
-      // Extract values using the column mappings
-      const type = typeColumn ? getCellValue(typeColumn) : 'destructive'; // Default type
-      const panelId = getCellValue(panelIdColumn);
-      const date = getCellValue(dateColumn);
-      const result = getCellValue(resultColumn);
-      const technician = technicianColumn ? getCellValue(technicianColumn) : null;
+      const qcRecord = {
+        type: getCellValue(typeColumn),
+        panelId: getCellValue(panelIdColumn),
+        date: getCellValue(dateColumn),
+        result: getCellValue(resultColumn),
+        technician: getCellValue(technicianColumn),
+      };
       
-      // Validate required fields
-      if (panelId && date && result) {
-        qcDataRecords.push({
-          id: uuidv4(),
-          projectId,
-          type: type || 'destructive',
-          panelId,
-          date: new Date(date).toISOString(),
-          result: result.toLowerCase(),
-          technician,
-          notes: `Imported from ${req.file.originalname}`,
-          createdAt: new Date().toISOString(),
-          createdBy: req.user.id,
-        });
+      // Only add if we have the required fields
+      if (qcRecord.type && qcRecord.panelId && qcRecord.date && qcRecord.result) {
+        importedData.push(qcRecord);
       }
-    });
-    
-    // Insert QC data records into database
-    if (qcDataRecords.length === 0) {
-      return res.status(400).json({ 
-        message: 'No valid QC data records found in the file' 
-      });
     }
     
-    const insertedRecords = await db
-      .insert(qcData)
-      .values(qcDataRecords)
-      .returning();
+    // Insert all imported data
+    const insertedData = [];
+    for (const record of importedData) {
+      const [newQCData] = await db
+        .insert(qcData)
+        .values({
+          id: uuidv4(),
+          projectId,
+          type: record.type,
+          panelId: record.panelId,
+          date: record.date,
+          result: record.result,
+          technician: record.technician || null,
+          createdAt: new Date().toISOString(),
+          createdBy: req.user.id,
+        })
+        .returning();
+      
+      insertedData.push(newQCData);
+    }
     
-    // Clean up temporary file
+    // Clean up uploaded file
     fs.unlinkSync(req.file.path);
     
-    res.status(200).json({ 
-      message: `Successfully imported ${insertedRecords.length} QC data records`,
-      data: insertedRecords
+    res.status(201).json({
+      message: `Successfully imported ${insertedData.length} QC records`,
+      importedCount: insertedData.length,
+      data: insertedData
     });
   } catch (error) {
-    // Clean up temp file if it exists
+    // Clean up uploaded file on error
     if (req.file && fs.existsSync(req.file.path)) {
       fs.unlinkSync(req.file.path);
     }
+    next(error);
+  }
+});
+
+// Delete QC data
+router.delete('/:projectId/:id', auth, async (req, res, next) => {
+  try {
+    const { projectId, id } = req.params;
+    
+    // Validate IDs
+    if (!validateObjectId(projectId) || !validateObjectId(id)) {
+      return res.status(400).json({ message: 'Invalid project or QC data ID' });
+    }
+    
+    // Verify project belongs to user
+    const [project] = await db
+      .select()
+      .from(projects)
+      .where(and(
+        eq(projects.id, projectId),
+        eq(projects.userId, req.user.id)
+      ));
+    
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
+    
+    // Delete QC data
+    await db
+      .delete(qcData)
+      .where(and(
+        eq(qcData.id, id),
+        eq(qcData.projectId, projectId)
+      ));
+    
+    res.status(200).json({ message: 'QC data deleted successfully' });
+  } catch (error) {
     next(error);
   }
 });

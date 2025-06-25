@@ -12,18 +12,17 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
-import { useAuth } from '@/hooks/use-auth';
-import type { User } from '@/types/auth';
+import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
 
 export default function Navbar() {
-  const { user, logout } = useAuth();
+  const { user, signOut } = useSupabaseAuth();
   const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const handleLogout = async () => {
     try {
       if (user) {
-        await logout();
+        await signOut();
       }
       // Simply refresh the page rather than pushing to login
       // since we've removed login restrictions
