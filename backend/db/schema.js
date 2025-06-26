@@ -9,6 +9,7 @@ const users = pgTable('users', {
   company: text('company'),
   position: text('position'),
   subscription: varchar('subscription', { length: 20 }).default('basic'),
+  isAdmin: boolean('is_admin').default(false),
   profileImageUrl: text('profile_image_url'),
   stripeCustomerId: text('stripe_customer_id'),
   stripeSubscriptionId: text('stripe_subscription_id'),

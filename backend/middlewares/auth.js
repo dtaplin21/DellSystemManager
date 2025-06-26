@@ -1,4 +1,6 @@
-const { supabase } = require('../db');
+const { supabase, db } = require('../db');
+const { users } = require('../db/schema');
+const { eq } = require('drizzle-orm');
 
 const auth = async (req, res, next) => {
   try {
@@ -55,17 +57,25 @@ const auth = async (req, res, next) => {
 
     console.log('✅ Token verified as Supabase token for user:', supabaseUser.id);
     
-    // Set user info from Supabase directly
+    // Fetch complete user profile from database
+    const [userProfile] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, supabaseUser.id));
+    
+    // Set user info combining Supabase data with database profile
     req.user = {
       id: supabaseUser.id,
       email: supabaseUser.email,
-      displayName: supabaseUser.user_metadata?.display_name || supabaseUser.email?.split('@')[0],
-      company: supabaseUser.user_metadata?.company || null,
-      subscription: supabaseUser.user_metadata?.subscription || 'basic',
-      profileImageUrl: supabaseUser.user_metadata?.avatar_url || null,
+      displayName: userProfile?.displayName || supabaseUser.user_metadata?.display_name || supabaseUser.email?.split('@')[0],
+      company: userProfile?.company || supabaseUser.user_metadata?.company || null,
+      subscription: userProfile?.subscription || supabaseUser.user_metadata?.subscription || 'basic',
+      isAdmin: userProfile?.isAdmin || false,
+      profileImageUrl: userProfile?.profileImageUrl || supabaseUser.user_metadata?.avatar_url || null,
     };
     
     console.log('✅ Auth successful with Supabase token for user:', req.user.id);
+    console.log('🔍 User admin status:', req.user.isAdmin);
     return next();
     
   } catch (error) {

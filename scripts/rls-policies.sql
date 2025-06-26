@@ -3,7 +3,7 @@
 
 -- Enable RLS on all tables
 ALTER TABLE public.projects ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.panels ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.panel_layouts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.documents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.qc_data ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
@@ -29,45 +29,45 @@ CREATE POLICY "Users can delete their own projects" ON public.projects
   FOR DELETE USING (auth.uid() = user_id);
 
 -- ============================================================================
--- PANELS TABLE POLICIES
+-- PANEL_LAYOUTS TABLE POLICIES
 -- ============================================================================
 
--- Users can view panels from their projects
-CREATE POLICY "Users can view panels from their projects" ON public.panels
+-- Users can view panel layouts from their projects
+CREATE POLICY "Users can view panel layouts from their projects" ON public.panel_layouts
   FOR SELECT USING (
     EXISTS (
       SELECT 1 FROM public.projects 
-      WHERE projects.id = panels.project_id 
+      WHERE projects.id = panel_layouts.project_id 
       AND projects.user_id = auth.uid()
     )
   );
 
--- Users can insert panels to their projects
-CREATE POLICY "Users can insert panels to their projects" ON public.panels
+-- Users can insert panel layouts to their projects
+CREATE POLICY "Users can insert panel layouts to their projects" ON public.panel_layouts
   FOR INSERT WITH CHECK (
     EXISTS (
       SELECT 1 FROM public.projects 
-      WHERE projects.id = panels.project_id 
+      WHERE projects.id = panel_layouts.project_id 
       AND projects.user_id = auth.uid()
     )
   );
 
--- Users can update panels from their projects
-CREATE POLICY "Users can update panels from their projects" ON public.panels
+-- Users can update panel layouts from their projects
+CREATE POLICY "Users can update panel layouts from their projects" ON public.panel_layouts
   FOR UPDATE USING (
     EXISTS (
       SELECT 1 FROM public.projects 
-      WHERE projects.id = panels.project_id 
+      WHERE projects.id = panel_layouts.project_id 
       AND projects.user_id = auth.uid()
     )
   );
 
--- Users can delete panels from their projects
-CREATE POLICY "Users can delete panels from their projects" ON public.panels
+-- Users can delete panel layouts from their projects
+CREATE POLICY "Users can delete panel layouts from their projects" ON public.panel_layouts
   FOR DELETE USING (
     EXISTS (
       SELECT 1 FROM public.projects 
-      WHERE projects.id = panels.project_id 
+      WHERE projects.id = panel_layouts.project_id 
       AND projects.user_id = auth.uid()
     )
   );
@@ -187,7 +187,7 @@ CREATE POLICY "Users can delete their own notifications" ON public.notifications
 -- Grant necessary permissions to authenticated users
 GRANT USAGE ON SCHEMA public TO authenticated;
 GRANT ALL ON public.projects TO authenticated;
-GRANT ALL ON public.panels TO authenticated;
+GRANT ALL ON public.panel_layouts TO authenticated;
 GRANT ALL ON public.documents TO authenticated;
 GRANT ALL ON public.qc_data TO authenticated;
 GRANT ALL ON public.notifications TO authenticated;

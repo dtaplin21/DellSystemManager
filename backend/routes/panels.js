@@ -13,14 +13,20 @@ const axios = require('axios');
 // Get panel layout for a project
 router.get('/layout/:projectId', auth, async (req, res, next) => {
   try {
+    console.log('🔍 GET /layout/:projectId called');
+    console.log('🔍 Project ID:', req.params.projectId);
+    console.log('🔍 User:', req.user);
+    
     const { projectId } = req.params;
     
     // Basic ID validation
     if (!projectId || projectId.length === 0) {
+      console.log('❌ Invalid project ID');
       return res.status(400).json({ message: 'Invalid project ID' });
     }
     
     // Verify project access
+    console.log('🔍 Checking project access...');
     const [project] = await db
       .select()
       .from(projects)
@@ -29,18 +35,25 @@ router.get('/layout/:projectId', auth, async (req, res, next) => {
         eq(projects.userId, req.user.id)
       ));
     
+    console.log('🔍 Project found:', !!project);
+    
     if (!project) {
+      console.log('❌ Project not found');
       return res.status(404).json({ message: 'Project not found' });
     }
     
     // Get panel layout
+    console.log('🔍 Getting panel layout...');
     let [panelLayout] = await db
       .select()
       .from(panels)
       .where(eq(panels.projectId, projectId));
     
+    console.log('🔍 Panel layout found:', !!panelLayout);
+    
     // If layout doesn't exist, create a default one
     if (!panelLayout) {
+      console.log('🔍 Creating default panel layout...');
       [panelLayout] = await db
         .insert(panels)
         .values({
@@ -53,6 +66,7 @@ router.get('/layout/:projectId', auth, async (req, res, next) => {
           lastUpdated: new Date(),
         })
         .returning();
+      console.log('🔍 Default layout created:', !!panelLayout);
     }
     
     // Parse the panels JSON string to an actual array
@@ -61,8 +75,10 @@ router.get('/layout/:projectId', auth, async (req, res, next) => {
       panels: JSON.parse(panelLayout.panels),
     };
     
+    console.log('✅ Panel layout retrieved successfully');
     res.status(200).json(parsedLayout);
   } catch (error) {
+    console.error('❌ Error in GET /layout/:projectId:', error);
     next(error);
   }
 });
@@ -70,15 +86,22 @@ router.get('/layout/:projectId', auth, async (req, res, next) => {
 // Update panel layout
 router.patch('/layout/:projectId', auth, subscriptionCheck('premium'), async (req, res, next) => {
   try {
+    console.log('🔍 PATCH /layout/:projectId called');
+    console.log('🔍 Project ID:', req.params.projectId);
+    console.log('🔍 Request body:', req.body);
+    console.log('🔍 User:', req.user);
+    
     const { projectId } = req.params;
     const updateData = req.body;
     
     // Basic ID validation
     if (!projectId || projectId.length === 0) {
+      console.log('❌ Invalid project ID');
       return res.status(400).json({ message: 'Invalid project ID' });
     }
     
     // Verify project access
+    console.log('🔍 Checking project access...');
     const [project] = await db
       .select()
       .from(projects)
@@ -87,17 +110,24 @@ router.patch('/layout/:projectId', auth, subscriptionCheck('premium'), async (re
         eq(projects.userId, req.user.id)
       ));
     
+    console.log('🔍 Project found:', !!project);
+    
     if (!project) {
+      console.log('❌ Project not found');
       return res.status(404).json({ message: 'Project not found' });
     }
     
     // Get existing layout
+    console.log('🔍 Getting existing layout...');
     const [existingLayout] = await db
       .select()
       .from(panels)
       .where(eq(panels.projectId, projectId));
     
+    console.log('🔍 Existing layout found:', !!existingLayout);
+    
     if (!existingLayout) {
+      console.log('❌ Panel layout not found');
       return res.status(404).json({ message: 'Panel layout not found' });
     }
     
@@ -115,14 +145,19 @@ router.patch('/layout/:projectId', auth, subscriptionCheck('premium'), async (re
     if (updateData.scale !== undefined) updateValues.scale = updateData.scale;
     
     // Always update lastUpdated timestamp
-    updateValues.lastUpdated = new Date().toISOString();
+    updateValues.lastUpdated = new Date();
+    
+    console.log('🔍 Update values:', updateValues);
     
     // Update panel layout
+    console.log('🔍 Updating panel layout...');
     const [updatedLayout] = await db
       .update(panels)
       .set(updateValues)
       .where(eq(panels.projectId, projectId))
       .returning();
+    
+    console.log('🔍 Update successful:', !!updatedLayout);
     
     // Parse the panels for the response
     const parsedLayout = {
@@ -139,8 +174,10 @@ router.patch('/layout/:projectId', auth, subscriptionCheck('premium'), async (re
       timestamp: updatedLayout.lastUpdated,
     });
     
+    console.log('✅ Panel layout updated successfully');
     res.status(200).json(parsedLayout);
   } catch (error) {
+    console.error('❌ Error in PATCH /layout/:projectId:', error);
     next(error);
   }
 });

@@ -88,6 +88,57 @@ export const getCurrentSession = async () => {
   }
 };
 
+// Helper function to ensure valid session and refresh if needed
+export const ensureValidSession = async () => {
+  try {
+    console.log('🔍 Checking current session...');
+    const { data: { session }, error } = await supabase.auth.getSession();
+    
+    if (error) {
+      console.error('❌ Error getting session:', error);
+      return null;
+    }
+    
+    if (!session) {
+      console.log('⚠️ No session found');
+      return null;
+    }
+    
+    // Check if token is expired (with 5 minute buffer)
+    const expiresAt = session.expires_at;
+    const now = Math.floor(Date.now() / 1000);
+    const buffer = 5 * 60; // 5 minutes
+    
+    if (expiresAt && (expiresAt - now) < buffer) {
+      console.log('🔄 Token expiring soon, refreshing...');
+      const { data: { session: newSession }, error: refreshError } = await supabase.auth.refreshSession();
+      
+      if (refreshError) {
+        console.error('❌ Error refreshing session:', refreshError);
+        return null;
+      }
+      
+      if (newSession) {
+        console.log('✅ Session refreshed successfully');
+        
+        // Store in localStorage
+        localStorage.setItem('supabase-auth-token', JSON.stringify(newSession));
+        
+        // Set cookie
+        document.cookie = `token=${newSession.access_token}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
+        
+        return newSession;
+      }
+    }
+    
+    console.log('✅ Session is valid');
+    return session;
+  } catch (error) {
+    console.error('❌ Error ensuring valid session:', error);
+    return null;
+  }
+};
+
 // Types for better TypeScript support
 export type Database = {
   public: {

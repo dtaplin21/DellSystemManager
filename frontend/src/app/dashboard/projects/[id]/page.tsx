@@ -114,7 +114,11 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
             </div>
             <div>
               <h3 className="text-sm font-medium text-gray-500">Area</h3>
-              <p>{project.area.toLocaleString()} sq ft</p>
+              <p>
+                {typeof project.area === 'number' 
+                  ? project.area.toLocaleString() + ' sq ft'
+                  : 'N/A'}
+              </p>
             </div>
             <div>
               <h3 className="text-sm font-medium text-gray-500">Status</h3>

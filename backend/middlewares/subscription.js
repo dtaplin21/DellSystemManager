@@ -6,6 +6,12 @@ const subscriptionCheck = (requiredTier) => {
       return res.status(401).json({ message: 'Authentication required' });
     }
     
+    // Admin users bypass all subscription checks
+    if (req.user.isAdmin === true) {
+      console.log('🔓 Admin user bypassing subscription check:', req.user.id);
+      return next();
+    }
+    
     // Basic checks for any valid subscription
     if (!req.user.subscription) {
       return res.status(403).json({ 

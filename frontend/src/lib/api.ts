@@ -1,5 +1,7 @@
 import { supabase, getCurrentSession } from './supabase';
 
+const BACKEND_URL = 'http://localhost:8003';
+
 // Helper function to get auth headers using Supabase's native token management
 const getAuthHeaders = async () => {
   try {
@@ -80,7 +82,7 @@ const makeAuthenticatedRequest = async (url: string, options: RequestInit = {}, 
 
 export async function fetchProjectById(id: string): Promise<any> {
   try {
-    const response = await makeAuthenticatedRequest(`http://localhost:8003/api/projects/${id}`);
+    const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/projects/${id}`);
     
     if (!response.ok) {
       if (response.status === 401) {
@@ -101,7 +103,7 @@ export async function fetchProjectById(id: string): Promise<any> {
 
 export async function fetchProjects(): Promise<any> {
   try {
-    const response = await makeAuthenticatedRequest('http://localhost:8003/api/projects');
+    const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/projects`);
     
     if (!response.ok) {
       if (response.status === 401) {
@@ -119,7 +121,7 @@ export async function fetchProjects(): Promise<any> {
 
 export async function fetchPanelLayout(projectId: string): Promise<any> {
   try {
-    const response = await makeAuthenticatedRequest(`http://localhost:8003/api/panels/layout/${projectId}`);
+    const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/panels/layout/${projectId}`);
     
     if (!response.ok) {
       if (response.status === 401) {
@@ -140,7 +142,7 @@ export async function fetchPanelLayout(projectId: string): Promise<any> {
 
 export async function exportPanelLayoutToCAD(projectId: string, format: string): Promise<Blob | null> {
   try {
-    const response = await makeAuthenticatedRequest(`http://localhost:8003/api/panel-layout/export`, {
+    const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/panel-layout/export`, {
       method: 'POST',
       body: JSON.stringify({ projectId, format })
     });
@@ -157,7 +159,7 @@ export async function exportPanelLayoutToCAD(projectId: string, format: string):
 
 export async function fetchNotifications(): Promise<any> {
   try {
-    const response = await makeAuthenticatedRequest('http://localhost:8003/api/notifications');
+    const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/notifications`);
     
     if (!response.ok) {
       if (response.status === 401) {
@@ -175,7 +177,7 @@ export async function fetchNotifications(): Promise<any> {
 
 export async function fetchProjectStats(): Promise<any> {
   try {
-    const response = await makeAuthenticatedRequest('http://localhost:8003/api/projects/stats');
+    const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/projects/stats`);
     
     if (!response.ok) {
       throw new Error('Failed to fetch project stats');
@@ -190,7 +192,7 @@ export async function fetchProjectStats(): Promise<any> {
 
 export async function analyzeDocuments(projectId: string, documentIds: string[], question: string): Promise<any> {
   try {
-    const response = await makeAuthenticatedRequest('http://localhost:8003/api/documents/analyze', {
+    const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/documents/analyze`, {
       method: 'POST',
       body: JSON.stringify({ projectId, documentIds, question }),
     });
@@ -207,7 +209,7 @@ export async function analyzeDocuments(projectId: string, documentIds: string[],
 }
 
 export async function deleteDocument(documentId: string): Promise<void> {
-  const response = await makeAuthenticatedRequest(`http://localhost:8003/api/documents/${documentId}`, {
+  const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/documents/${documentId}`, {
     method: 'DELETE',
   });
 
@@ -224,7 +226,7 @@ export async function uploadDocument(projectId: string, file: File): Promise<any
   // Remove Content-Type for FormData
   const { 'Content-Type': _, ...formHeaders } = headers;
 
-  const response = await fetch(`http://localhost:8003/api/documents/${projectId}/upload`, {
+  const response = await fetch(`${BACKEND_URL}/api/documents/${projectId}/upload`, {
     method: 'POST',
     headers: formHeaders,
     body: formData
@@ -247,7 +249,7 @@ export async function createProject(data: {
   endDate?: string;
   area?: string;
 }): Promise<any> {
-  const response = await makeAuthenticatedRequest('http://localhost:8003/api/projects', {
+  const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/projects`, {
     method: 'POST',
     body: JSON.stringify(data)
   });
@@ -261,7 +263,7 @@ export async function createProject(data: {
 }
 
 export async function deleteProject(projectId: string): Promise<void> {
-  const response = await makeAuthenticatedRequest(`http://localhost:8003/api/projects/${projectId}`, {
+  const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/projects/${projectId}`, {
     method: 'DELETE',
   });
 
@@ -282,27 +284,53 @@ export async function updateProject(projectId: string, data: {
   panels?: any[];
 }): Promise<any> {
   try {
-    console.log('updateProject called with:', { projectId, data });
-    
-    const response = await makeAuthenticatedRequest(`http://localhost:8003/api/projects/${projectId}`, {
+    const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/projects/${projectId}`, {
       method: 'PATCH',
       body: JSON.stringify(data)
     });
-
-    console.log('Response status:', response.status);
-
+    
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Error response:', errorText);
-      const error = JSON.parse(errorText).catch(() => ({ message: 'Failed to update project' }));
-      throw new Error(error.message || 'Failed to update project');
+      if (response.status === 401) {
+        throw new Error('Authentication required. Please log in.');
+      }
+      if (response.status === 404) {
+        throw new Error('Project not found.');
+      }
+      throw new Error(`Failed to update project: ${response.statusText}`);
     }
-
-    const result = await response.json();
-    console.log('Update result:', result);
-    return result;
+    
+    return await response.json();
   } catch (error) {
-    console.error('updateProject error:', error);
+    console.error('Update project error:', error);
+    throw error;
+  }
+}
+
+export async function updatePanelLayout(projectId: string, data: {
+  panels?: any[];
+  width?: number;
+  height?: number;
+  scale?: number;
+}): Promise<any> {
+  try {
+    const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/panels/layout/${projectId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data)
+    });
+    
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error('Authentication required. Please log in.');
+      }
+      if (response.status === 404) {
+        throw new Error('Panel layout not found.');
+      }
+      throw new Error(`Failed to update panel layout: ${response.statusText}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Update panel layout error:', error);
     throw error;
   }
 }
@@ -323,7 +351,7 @@ export async function importQCDataFromExcel(projectId: string, file: File, optio
   // Remove Content-Type for FormData
   const { 'Content-Type': _, ...formHeaders } = headers;
 
-  const response = await fetch(`http://localhost:8003/api/qc-data/${projectId}/import`, {
+  const response = await fetch(`${BACKEND_URL}/api/qc-data/${projectId}/import`, {
     method: 'POST',
     headers: formHeaders,
     body: formData
@@ -347,7 +375,7 @@ export async function addQCData(projectId: string, data: {
   speed?: number;
   notes?: string;
 }): Promise<any> {
-  const response = await makeAuthenticatedRequest(`http://localhost:8003/api/qc-data/${projectId}`, {
+  const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/qc-data/${projectId}`, {
     method: 'POST',
     body: JSON.stringify(data)
   });
@@ -360,7 +388,7 @@ export async function addQCData(projectId: string, data: {
 }
 
 export async function createCheckoutSession(plan: 'basic' | 'premium'): Promise<{ sessionId: string }> {
-  const response = await makeAuthenticatedRequest('http://localhost:8003/api/subscription/create-checkout-session', {
+  const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/subscription/create-checkout-session`, {
     method: 'POST',
     body: JSON.stringify({ plan })
   });
@@ -374,7 +402,7 @@ export async function createCheckoutSession(plan: 'basic' | 'premium'): Promise<
 
 export async function fetchDocuments(projectId: string): Promise<any> {
   try {
-    const response = await makeAuthenticatedRequest(`http://localhost:8003/api/documents/${projectId}`);
+    const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/documents/${projectId}`);
     
     if (!response.ok) {
       if (response.status === 401) {
@@ -392,7 +420,7 @@ export async function fetchDocuments(projectId: string): Promise<any> {
 
 export async function fetchQCData(projectId: string): Promise<any> {
   try {
-    const response = await makeAuthenticatedRequest(`http://localhost:8003/api/qc-data/${projectId}`);
+    const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/qc-data/${projectId}`);
     
     if (!response.ok) {
       if (response.status === 401) {
@@ -417,7 +445,7 @@ export async function scanHandwriting(file: File, projectId: string): Promise<an
     const authHeaders = await getAuthHeaders();
     const { 'Content-Type': _, ...headers } = authHeaders; // Remove Content-Type for FormData
 
-    const response = await fetch('http://localhost:8003/api/handwriting/scan', {
+    const response = await fetch(`${BACKEND_URL}/api/handwriting/scan`, {
       method: 'POST',
       headers,
       body: formData,
@@ -437,7 +465,7 @@ export async function scanHandwriting(file: File, projectId: string): Promise<an
 
 export async function automateLayout(projectId: string, panels: any[], documents: any[]): Promise<any> {
   try {
-    const response = await makeAuthenticatedRequest('http://localhost:8003/api/ai/automate-layout', {
+    const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/ai/automate-layout`, {
       method: 'POST',
       body: JSON.stringify({ projectId, panels, documents }),
     });
