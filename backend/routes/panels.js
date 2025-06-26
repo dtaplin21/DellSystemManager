@@ -10,6 +10,10 @@ const { eq, and } = require('drizzle-orm');
 const { wsSendToRoom } = require('../services/websocket');
 const axios = require('axios');
 
+const DEFAULT_LAYOUT_WIDTH = 15000;
+const DEFAULT_LAYOUT_HEIGHT = 15000;
+const DEFAULT_SCALE = 0.0025;
+
 // Get panel layout for a project
 router.get('/layout/:projectId', auth, async (req, res, next) => {
   try {
@@ -72,6 +76,9 @@ router.get('/layout/:projectId', auth, async (req, res, next) => {
     // Parse the panels JSON string to an actual array
     const parsedLayout = {
       ...panelLayout,
+      width: typeof panelLayout.width === 'number' ? panelLayout.width : DEFAULT_LAYOUT_WIDTH,
+      height: typeof panelLayout.height === 'number' ? panelLayout.height : DEFAULT_LAYOUT_HEIGHT,
+      scale: typeof panelLayout.scale === 'number' ? panelLayout.scale : DEFAULT_SCALE,
       panels: JSON.parse(panelLayout.panels),
     };
     
@@ -162,6 +169,9 @@ router.patch('/layout/:projectId', auth, subscriptionCheck('premium'), async (re
     // Parse the panels for the response
     const parsedLayout = {
       ...updatedLayout,
+      width: typeof updatedLayout.width === 'number' ? updatedLayout.width : DEFAULT_LAYOUT_WIDTH,
+      height: typeof updatedLayout.height === 'number' ? updatedLayout.height : DEFAULT_LAYOUT_HEIGHT,
+      scale: typeof updatedLayout.scale === 'number' ? updatedLayout.scale : DEFAULT_SCALE,
       panels: JSON.parse(updatedLayout.panels),
     };
     
