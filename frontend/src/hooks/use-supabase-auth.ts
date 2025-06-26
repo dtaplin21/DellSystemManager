@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { supabase, ensureValidSession } from '../lib/supabase';
+import { supabase, getCurrentSession } from '../lib/supabase';
 import type { User, Session } from '@supabase/supabase-js';
 
 interface Profile {
@@ -29,7 +29,7 @@ export function useSupabaseAuth() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Get initial session with refresh if needed
+    // Get initial session
     getSession();
 
     // Fallback: ensure loading is set to false after 15 seconds
@@ -40,6 +40,7 @@ export function useSupabaseAuth() {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('🔍 Auth state change:', event, session ? 'session present' : 'no session');
         setSession(session);
         
         if (session?.user) {
@@ -68,7 +69,7 @@ export function useSupabaseAuth() {
       
       // Race between session retrieval and timeout
       const session = await Promise.race([
-        ensureValidSession(),
+        getCurrentSession(),
         timeoutPromise
       ]);
       
@@ -199,17 +200,30 @@ export function useSupabaseAuth() {
     }
   };
 
-  // Function to manually refresh session
+  // Function to manually refresh session using Supabase's native refresh
   const refreshSession = async () => {
     try {
-      const session = await ensureValidSession();
-      setSession(session);
-      if (session?.user) {
-        await loadUserProfile(session.user);
+      console.log('🔄 Manually refreshing session...');
+      const { data: refreshed, error } = await supabase.auth.refreshSession();
+      
+      if (error) {
+        console.error('❌ Error refreshing session:', error);
+        return null;
       }
-      return session;
+      
+      if (refreshed.session) {
+        console.log('✅ Session refreshed successfully');
+        setSession(refreshed.session);
+        if (refreshed.session.user) {
+          await loadUserProfile(refreshed.session.user);
+        }
+        return refreshed.session;
+      } else {
+        console.log('⚠️ No session returned from refresh');
+        return null;
+      }
     } catch (error) {
-      console.error('Error refreshing session:', error);
+      console.error('❌ Error refreshing session:', error);
       return null;
     }
   };
@@ -221,13 +235,6 @@ export function useSupabaseAuth() {
       await supabase.auth.signOut();
       setUser(null);
       setSession(null);
-      
-      // ✅ Clear any stored session data
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('supabase-auth-token');
-        localStorage.removeItem('sb-chfdozvsvltdmglcuoqf-auth-token');
-        document.cookie = 'token=; Max-Age=0; path=/';
-      }
       
       // Redirect to login
       window.location.href = '/login';

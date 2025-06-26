@@ -1,12 +1,12 @@
-import { supabase, ensureValidSession } from './supabase';
+import { supabase, getCurrentSession } from './supabase';
 
-// Helper function to get auth headers
+// Helper function to get auth headers using Supabase's native token management
 const getAuthHeaders = async () => {
   try {
     console.log('🔍 getAuthHeaders: Getting auth headers...');
     
-    // Ensure we have a valid session (this will refresh if needed)
-    const session = await ensureValidSession();
+    // Get current session (Supabase handles refresh automatically)
+    const session = await getCurrentSession();
     
     console.log('🔍 getAuthHeaders: Session data:', session ? { 
       hasAccessToken: !!session.access_token,
@@ -39,6 +39,8 @@ const getAuthHeaders = async () => {
 // Helper function to make authenticated API calls with automatic retry
 const makeAuthenticatedRequest = async (url: string, options: RequestInit = {}, retryCount = 0) => {
   try {
+    console.log(`🔍 makeAuthenticatedRequest: Making request to ${url} (attempt ${retryCount + 1})`);
+    
     const headers = await getAuthHeaders();
     const response = await fetch(url, {
       ...options,
@@ -50,27 +52,28 @@ const makeAuthenticatedRequest = async (url: string, options: RequestInit = {}, 
     });
 
     if (response.status === 401 && retryCount < 1) {
+      console.log('🔄 Received 401, attempting token refresh...');
+      
+      // Try to refresh the session using Supabase's native refresh
       const { data: refreshed, error } = await supabase.auth.refreshSession();
+      
       if (!error && refreshed.session) {
-        // ✅ Update cookie with fresh token after successful refresh
-        if (typeof window !== 'undefined') {
-          document.cookie = `token=${refreshed.session.access_token}; path=/; max-age=604800; SameSite=Strict`;
-        }
+        console.log('✅ Token refreshed successfully, retrying request...');
         return makeAuthenticatedRequest(url, options, retryCount + 1);
       } else {
+        console.error('❌ Token refresh failed:', error);
+        // Clear session and redirect to login
         await supabase.auth.signOut();
         if (typeof window !== 'undefined') {
-          localStorage.removeItem('supabase-auth-token');
-          localStorage.removeItem('sb-chfdozvsvltdmglcuoqf-auth-token');
-          document.cookie = 'token=; Max-Age=0; path=/';
+          window.location.href = '/login';
         }
-        window.location.href = '/login';
         throw new Error('Session expired. Please log in again.');
       }
     }
 
     return response;
   } catch (error) {
+    console.error('❌ makeAuthenticatedRequest error:', error);
     throw error;
   }
 };

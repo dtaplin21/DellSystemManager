@@ -17,15 +17,18 @@ const pool = new Pool({
     rejectUnauthorized: false,
     sslmode: 'require'
   },
-  max: 5, // Reduced from 10 to prevent too many connections
-  min: 1, // Keep at least 1 connection ready
-  idleTimeoutMillis: 30000, // Reduced to 30 seconds
-  connectionTimeoutMillis: 10000, // Increased to 10 seconds
+  max: 3, // Reduced from 5 to prevent too many connections
+  min: 0, // Start with 0 connections, create as needed
+  idleTimeoutMillis: 60000, // Increased to 60 seconds
+  connectionTimeoutMillis: 15000, // Increased to 15 seconds
   application_name: 'dell-system-manager',
   keepAlive: true,
-  keepAliveInitialDelayMillis: 5000, // Send keep-alive after 5 seconds
-  maxUses: 7500, // Close and replace a connection after it has been used 7500 times
-  allowExitOnIdle: true // Allow the pool to close idle connections
+  keepAliveInitialDelayMillis: 10000, // Send keep-alive after 10 seconds
+  maxUses: 1000, // Close and replace a connection after it has been used 1000 times
+  allowExitOnIdle: true, // Allow the pool to close idle connections
+  // Add retry logic for connection failures
+  retryDelay: 1000,
+  maxRetries: 3
 });
 
 // Add error handler for the pool
@@ -64,20 +67,22 @@ const db = drizzle(pool, { schema });
 
 // Initialize Supabase client
 const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_KEY;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
 
 // Debug environment variables
 console.log('Checking Supabase credentials...');
 console.log('SUPABASE_URL:', supabaseUrl ? '✓ Present' : '✗ Missing');
-console.log('SUPABASE_KEY:', supabaseKey ? '✓ Present' : '✗ Missing');
+console.log('SUPABASE_SERVICE_ROLE_KEY:', process.env.SUPABASE_SERVICE_ROLE_KEY ? '✓ Present' : '✗ Missing');
+console.log('SUPABASE_KEY (fallback):', process.env.SUPABASE_KEY ? '✓ Present' : '✗ Missing');
 console.log('DATABASE_URL:', connectionString ? '✓ Present' : '✗ Missing');
 
 if (!supabaseUrl || !supabaseKey) {
   console.error('\nMissing Supabase credentials. Please check your .env file.');
   console.error('Required environment variables:');
   console.error('1. SUPABASE_URL - Your Supabase project URL');
-  console.error('2. SUPABASE_KEY - Your Supabase anon/public key');
-  console.error('3. DATABASE_URL - Your Supabase database connection string\n');
+  console.error('2. SUPABASE_SERVICE_ROLE_KEY - Your Supabase service role key (preferred)');
+  console.error('3. SUPABASE_KEY - Your Supabase anon key (fallback)');
+  console.error('4. DATABASE_URL - Your Supabase database connection string\n');
   process.exit(1);
 }
 

@@ -14,12 +14,15 @@ export default function DashboardLayout({
   const { user, isAuthenticated, loading, refreshSession, clearSessionAndRedirect } = useSupabaseAuth();
   const router = useRouter();
   const hasRefreshed = useRef(false);
+  const isRefreshing = useRef(false);
 
   useEffect(() => {
     console.log('Dashboard Layout - Current State:', {
       user,
       isAuthenticated,
       loading,
+      hasRefreshed: hasRefreshed.current,
+      isRefreshing: isRefreshing.current,
     });
     
     if (loading) return;
@@ -30,13 +33,15 @@ export default function DashboardLayout({
       return;
     }
 
-    // Only refresh session once per mount
-    if (!hasRefreshed.current) {
+    // Only refresh session once per mount and prevent concurrent refreshes
+    if (!hasRefreshed.current && !isRefreshing.current) {
       console.log('User authenticated, refreshing session...');
       hasRefreshed.current = true;
+      isRefreshing.current = true;
       
       refreshSession()
         .then((session) => {
+          isRefreshing.current = false;
           if (session) {
             console.log('✅ Dashboard: Session refreshed successfully');
           } else {
@@ -45,13 +50,14 @@ export default function DashboardLayout({
           }
         })
         .catch((error) => {
-          console.error('Failed to refresh session:', error);
+          isRefreshing.current = false;
+          console.error('❌ Dashboard: Failed to refresh session:', error);
           clearSessionAndRedirect();
         });
     }
-  }, [loading, isAuthenticated, user]); // Reduced dependencies
+  }, [loading, isAuthenticated, user, refreshSession, clearSessionAndRedirect, router]);
 
-  if (loading) {
+  if (loading || isRefreshing.current) {
     console.log('Dashboard Layout - Loading state');
     return <div>Loading...</div>;
   }
