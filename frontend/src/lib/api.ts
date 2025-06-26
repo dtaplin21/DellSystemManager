@@ -37,14 +37,8 @@ const getAuthHeaders = async () => {
 };
 
 // Helper function to make authenticated API calls with automatic retry
-const makeAuthenticatedRequest = async (
-  url: string, 
-  options: RequestInit = {}, 
-  retryCount = 0
-): Promise<Response> => {
+const makeAuthenticatedRequest = async (url: string, options: RequestInit = {}, retryCount = 0) => {
   try {
-    console.log(`🔍 makeAuthenticatedRequest: Making request to ${url} (retry: ${retryCount})`);
-    
     const headers = await getAuthHeaders();
     const response = await fetch(url, {
       ...options,
@@ -55,30 +49,21 @@ const makeAuthenticatedRequest = async (
       credentials: 'include',
     });
 
-    console.log(`🔍 makeAuthenticatedRequest: Response status: ${response.status} for ${url}`);
-
-    // If we get a 401 and haven't retried yet, try to refresh the session
     if (response.status === 401 && retryCount < 1) {
-      console.log('🔄 makeAuthenticatedRequest: Received 401, attempting to refresh session and retry...');
-      
-      // Try to refresh the session
-      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-      
-      if (!refreshError && refreshData.session) {
-        console.log('✅ makeAuthenticatedRequest: Session refreshed, retrying request...');
-        // Retry the request with the new token
+      const { data: refreshed, error } = await supabase.auth.refreshSession();
+      if (!error && refreshed.session) {
+        // ✅ Update cookie with fresh token after successful refresh
+        if (typeof window !== 'undefined') {
+          document.cookie = `token=${refreshed.session.access_token}; path=/; max-age=604800; SameSite=Strict`;
+        }
         return makeAuthenticatedRequest(url, options, retryCount + 1);
       } else {
-        console.log('❌ makeAuthenticatedRequest: Session refresh failed, clearing session and redirecting...');
-        // Clear session and redirect to login
         await supabase.auth.signOut();
-        
-        // Clear any stored session data
         if (typeof window !== 'undefined') {
           localStorage.removeItem('supabase-auth-token');
           localStorage.removeItem('sb-chfdozvsvltdmglcuoqf-auth-token');
+          document.cookie = 'token=; Max-Age=0; path=/';
         }
-        
         window.location.href = '/login';
         throw new Error('Session expired. Please log in again.');
       }
@@ -86,7 +71,6 @@ const makeAuthenticatedRequest = async (
 
     return response;
   } catch (error) {
-    console.error('❌ makeAuthenticatedRequest: Error making authenticated request:', error);
     throw error;
   }
 };
@@ -417,6 +401,51 @@ export async function fetchQCData(projectId: string): Promise<any> {
     return await response.json();
   } catch (error) {
     console.error('Fetch QC data error:', error);
+    throw error;
+  }
+}
+
+export async function scanHandwriting(file: File, projectId: string): Promise<any> {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('projectId', projectId);
+
+    const authHeaders = await getAuthHeaders();
+    const { 'Content-Type': _, ...headers } = authHeaders; // Remove Content-Type for FormData
+
+    const response = await fetch('http://localhost:8003/api/handwriting/scan', {
+      method: 'POST',
+      headers,
+      body: formData,
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to scan handwriting');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Scan handwriting error:', error);
+    throw error;
+  }
+}
+
+export async function automateLayout(projectId: string, panels: any[], documents: any[]): Promise<any> {
+  try {
+    const response = await makeAuthenticatedRequest('http://localhost:8003/api/ai/automate-layout', {
+      method: 'POST',
+      body: JSON.stringify({ projectId, panels, documents }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to automate layout');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Automate layout error:', error);
     throw error;
   }
 }

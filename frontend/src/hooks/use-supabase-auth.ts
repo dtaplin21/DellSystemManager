@@ -32,10 +32,14 @@ export function useSupabaseAuth() {
     // Get initial session with refresh if needed
     getSession();
 
+    // Fallback: ensure loading is set to false after 15 seconds
+    const fallbackTimeout = setTimeout(() => {
+      setLoading(false);
+    }, 15000);
+
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.id);
         setSession(session);
         
         if (session?.user) {
@@ -43,17 +47,31 @@ export function useSupabaseAuth() {
         } else {
           setUser(null);
         }
-        setLoading(false);
+        // Don't set loading to false here - let getSession handle it
       }
     );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(fallbackTimeout);
+    };
   }, []);
 
   const getSession = async () => {
     try {
-      // Use ensureValidSession to get a fresh session
-      const session = await ensureValidSession();
+      // Add timeout protection
+      const timeoutPromise = new Promise<null>((_, reject) => {
+        setTimeout(() => {
+          reject(new Error('Session retrieval timeout'));
+        }, 10000); // 10 second timeout
+      });
+      
+      // Race between session retrieval and timeout
+      const session = await Promise.race([
+        ensureValidSession(),
+        timeoutPromise
+      ]);
+      
       setSession(session);
       
       if (session?.user) {
@@ -61,6 +79,7 @@ export function useSupabaseAuth() {
       }
     } catch (error) {
       console.error('Error getting session:', error);
+      // Set loading to false even on error to prevent infinite loading
     } finally {
       setLoading(false);
     }
@@ -203,10 +222,11 @@ export function useSupabaseAuth() {
       setUser(null);
       setSession(null);
       
-      // Clear any stored session data
+      // ✅ Clear any stored session data
       if (typeof window !== 'undefined') {
         localStorage.removeItem('supabase-auth-token');
         localStorage.removeItem('sb-chfdozvsvltdmglcuoqf-auth-token');
+        document.cookie = 'token=; Max-Age=0; path=/';
       }
       
       // Redirect to login

@@ -1,5 +1,6 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
+// Force recompilation - token refresh fix
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -70,6 +71,23 @@ try {
 
 export { supabase };
 
+// Helper function to update cookie with fresh token
+const updateTokenCookie = (token: string) => {
+  if (typeof window !== 'undefined') {
+    // Set cookie for backend use
+    document.cookie = `token=${token}; path=/; max-age=604800; SameSite=Strict`;
+    console.log('🍪 Cookie updated with fresh token:', token.substring(0, 20) + '...');
+  }
+};
+
+// Helper function to clear token cookie
+const clearTokenCookie = () => {
+  if (typeof window !== 'undefined') {
+    document.cookie = 'token=; Max-Age=0; path=/';
+    console.log('🧹 Cookie cleared');
+  }
+};
+
 // Helper function to ensure we have a valid session
 export const ensureValidSession = async () => {
   try {
@@ -79,63 +97,65 @@ export const ensureValidSession = async () => {
     const { data: { session }, error } = await supabase.auth.getSession();
     
     if (error) {
-      console.error('❌ ensureValidSession: Error getting session:', error);
+      console.error('Error getting session:', error);
+      clearTokenCookie();
       return null;
     }
     
     if (!session) {
-      console.log('⚠️ ensureValidSession: No session found');
+      console.log('⚠️ No session found');
+      clearTokenCookie();
       return null;
     }
     
-    console.log('✅ ensureValidSession: Session found:', {
-      userId: session.user?.id,
-      expiresAt: session.expires_at,
-      hasAccessToken: !!session.access_token,
-      hasRefreshToken: !!session.refresh_token
-    });
+    console.log('✅ Session found, checking expiration...');
     
     // Check if token is expired or about to expire (within 5 minutes)
     const expiresAt = session.expires_at;
     const now = Math.floor(Date.now() / 1000);
     const fiveMinutes = 5 * 60;
     
-    console.log('🔍 ensureValidSession: Token expiration check:', {
+    console.log('🔍 Token expiration check:', {
       expiresAt,
       now,
       timeUntilExpiry: expiresAt ? expiresAt - now : 'unknown',
-      needsRefresh: expiresAt ? (expiresAt - now) < fiveMinutes : false
+      isExpired: expiresAt ? expiresAt < now : false
     });
     
-    if (expiresAt && (expiresAt - now) < fiveMinutes) {
-      console.log('🔄 ensureValidSession: Token expiring soon, refreshing session...');
+    // Refresh if token is expired OR expires within 5 minutes
+    if (expiresAt && (expiresAt < now || (expiresAt - now) < fiveMinutes)) {
+      console.log('🔄 Token needs refresh, attempting...');
       
       // Try to refresh the session
-      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+      const { data: refreshed, error } = await supabase.auth.refreshSession();
       
-      if (refreshError) {
-        console.error('❌ ensureValidSession: Error refreshing session:', refreshError);
+      if (error) {
+        console.error('Error refreshing session:', error);
         // If refresh fails, clear the session and return null
         await supabase.auth.signOut();
+        clearTokenCookie();
         return null;
       }
       
-      if (refreshData.session) {
-        console.log('✅ ensureValidSession: Session refreshed successfully:', {
-          userId: refreshData.session.user?.id,
-          expiresAt: refreshData.session.expires_at
-        });
-        return refreshData.session;
+      if (refreshed.session) {
+        console.log('✅ Session refreshed successfully');
+        // ✅ Update cookie with fresh token
+        updateTokenCookie(refreshed.session.access_token);
+        return refreshed.session;
       } else {
-        console.log('⚠️ ensureValidSession: No session returned from refresh');
+        console.log('⚠️ No session returned from refresh');
+        clearTokenCookie();
         return null;
       }
     }
     
-    console.log('✅ ensureValidSession: Using existing valid session');
+    console.log('✅ Using existing valid session');
+    // ✅ Update cookie with current valid token
+    updateTokenCookie(session.access_token);
     return session;
   } catch (error) {
-    console.error('❌ ensureValidSession: Error ensuring valid session:', error);
+    console.error('Error ensuring valid session:', error);
+    clearTokenCookie();
     return null;
   }
 };

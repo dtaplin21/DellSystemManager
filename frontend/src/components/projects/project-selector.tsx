@@ -5,6 +5,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { ChevronDown, FolderOpen, Plus } from 'lucide-react';
 import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
 import { useProjects } from '@/contexts/ProjectsProvider';
+import { createProject } from '@/lib/api';
 
 interface ProjectSelectorProps {
   onProjectSelect: (project: any) => void;
@@ -37,26 +38,14 @@ export default function ProjectSelector({ onProjectSelect, isOpen, onClose }: Pr
     setCreatingProject(true);
 
     try {
-      const response = await fetch('/api/projects', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          name: newProjectName.trim(),
-          description: '',
-          location: '',
-          status: 'active',
-          progress: 0
-        }),
+      console.log('ProjectSelector: Creating project using API helper...');
+      const newProject = await createProject({
+        name: newProjectName.trim(),
+        description: '',
+        location: '',
+        status: 'active'
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to create project');
-      }
-
-      const newProject = await response.json();
       setNewProjectName('');
       setShowCreateForm(false);
       

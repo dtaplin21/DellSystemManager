@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
 import Navbar from '@/components/layout/navbar';
@@ -13,6 +13,7 @@ export default function DashboardLayout({
 }) {
   const { user, isAuthenticated, loading, refreshSession, clearSessionAndRedirect } = useSupabaseAuth();
   const router = useRouter();
+  const hasRefreshed = useRef(false);
 
   useEffect(() => {
     console.log('Dashboard Layout - Current State:', {
@@ -21,21 +22,34 @@ export default function DashboardLayout({
       loading,
     });
     
-    if (!loading) {
-      if (!isAuthenticated || !user) {
-        console.log('User not authenticated or missing user data, redirecting to login');
-        router.replace('/login');
-      } else {
-        console.log('User authenticated, rendering dashboard');
-        // Refresh session to ensure we have a valid token
-        refreshSession().catch((error) => {
+    if (loading) return;
+
+    if (!isAuthenticated || !user) {
+      console.log('User not authenticated or missing user data, redirecting to login');
+      router.replace('/login');
+      return;
+    }
+
+    // Only refresh session once per mount
+    if (!hasRefreshed.current) {
+      console.log('User authenticated, refreshing session...');
+      hasRefreshed.current = true;
+      
+      refreshSession()
+        .then((session) => {
+          if (session) {
+            console.log('✅ Dashboard: Session refreshed successfully');
+          } else {
+            console.error('❌ Dashboard: Session refresh failed');
+            clearSessionAndRedirect();
+          }
+        })
+        .catch((error) => {
           console.error('Failed to refresh session:', error);
-          // If refresh fails, clear session and redirect to login
           clearSessionAndRedirect();
         });
-      }
     }
-  }, [loading, isAuthenticated, user, router, refreshSession, clearSessionAndRedirect]);
+  }, [loading, isAuthenticated, user]); // Reduced dependencies
 
   if (loading) {
     console.log('Dashboard Layout - Loading state');

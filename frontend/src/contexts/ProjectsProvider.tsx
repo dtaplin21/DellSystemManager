@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { fetchProjects as fetchProjectsAPI, fetchProjectById, fetchPanelLayout, fetchDocuments } from '../lib/api';
 
 interface ProjectSummary {
   id: string;
@@ -68,27 +69,14 @@ export function ProjectsProvider({ children }: ProjectsProviderProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch all projects
+  // Fetch all projects using the API helper
   const fetchProjects = async () => {
     setIsLoading(true);
     setError(null);
     
     try {
-      const response = await fetch('/api/projects', {
-        credentials: 'include',
-      });
-      
-      if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error('Authentication required. Please log in.');
-        } else if (response.status === 500) {
-          throw new Error('Server error. Please try again later.');
-        } else {
-          throw new Error(`Failed to load projects (${response.status})`);
-        }
-      }
-      
-      const data = await response.json();
+      console.log('ProjectsProvider: Fetching projects using API helper...');
+      const data = await fetchProjectsAPI();
       console.log('ProjectsProvider: Projects loaded:', data.length);
       setProjects(data);
     } catch (err) {
@@ -99,93 +87,55 @@ export function ProjectsProvider({ children }: ProjectsProviderProps) {
     }
   };
 
-  // Select a project and fetch its details
+  // Select a project and fetch its details using API helpers
   const selectProject = async (id: string) => {
     try {
       console.log('ProjectsProvider: Selecting project:', id);
       setSelectedProjectId(id);
       
-      // Fetch project details
-      const projectResponse = await fetch(`/api/projects/${id}`, {
-        credentials: 'include',
-      });
+      // Fetch project details using API helper
+      const projectData = await fetchProjectById(id);
       
-      if (!projectResponse.ok) {
-        throw new Error('Failed to load project details');
-      }
-      
-      const projectData = await projectResponse.json();
-      
-      // Fetch panel layout
-      const panelsResponse = await fetch(`/api/panels/layout/${id}`, {
-        credentials: 'include',
-      });
-      
+      // Fetch panel layout using API helper
       let panelLayout = null;
       let panels: Panel[] = [];
-      if (panelsResponse.ok) {
-        try {
-          // Log the raw response for debugging
-          const responseText = await panelsResponse.text();
-          console.log('ProjectsProvider: Raw panel layout response:', responseText);
-          
-          if (responseText && responseText.trim()) {
-            panelLayout = JSON.parse(responseText);
-            
-            // Safely parse the panels JSON string
-            if (panelLayout?.panels) {
-              if (typeof panelLayout.panels === 'string') {
-                // Backend might return panels as a JSON string (legacy)
-                try {
-                  panels = JSON.parse(panelLayout.panels);
-                } catch (panelParseErr) {
-                  console.warn('ProjectsProvider: Could not parse panel layout panels JSON string:', panelParseErr);
-                  console.warn('ProjectsProvider: Raw panels string:', panelLayout.panels);
-                  panels = [];
-                }
-              } else if (Array.isArray(panelLayout.panels)) {
-                // Backend returns panels as an array (current)
-                panels = panelLayout.panels;
-              } else {
-                console.warn('ProjectsProvider: Unexpected panels format:', typeof panelLayout.panels);
-                panels = [];
-              }
-            } else {
+      try {
+        const panelLayoutData = await fetchPanelLayout(id);
+        panelLayout = panelLayoutData;
+        
+        // Safely parse the panels
+        if (panelLayout?.panels) {
+          if (typeof panelLayout.panels === 'string') {
+            // Backend might return panels as a JSON string (legacy)
+            try {
+              panels = JSON.parse(panelLayout.panels);
+            } catch (panelParseErr) {
+              console.warn('ProjectsProvider: Could not parse panel layout panels JSON string:', panelParseErr);
               panels = [];
             }
+          } else if (Array.isArray(panelLayout.panels)) {
+            // Backend returns panels as an array (current)
+            panels = panelLayout.panels;
           } else {
-            console.log('ProjectsProvider: Empty panel layout response, using defaults');
-            panelLayout = { panels: '[]', width: 0, height: 0, scale: 1 };
+            console.warn('ProjectsProvider: Unexpected panels format:', typeof panelLayout.panels);
             panels = [];
           }
-        } catch (parseErr) {
-          console.warn('ProjectsProvider: Could not parse panel layout JSON:', parseErr);
-          console.warn('ProjectsProvider: Using default panel layout');
-          panelLayout = { panels: '[]', width: 0, height: 0, scale: 1 };
+        } else {
           panels = [];
         }
-      } else {
-        console.log('ProjectsProvider: Panel layout response not ok, using defaults');
+      } catch (panelErr) {
+        console.warn('ProjectsProvider: Could not fetch panel layout, using defaults:', panelErr);
         panelLayout = { panels: '[]', width: 0, height: 0, scale: 1 };
         panels = [];
       }
       
-      // Fetch documents
-      const documentsResponse = await fetch(`/api/documents?projectId=${id}`, {
-        credentials: 'include',
-      });
-      
+      // Fetch documents using API helper
       let documents: Document[] = [];
-      if (documentsResponse.ok) {
-        try {
-          const documentsData = await documentsResponse.json();
-          documents = Array.isArray(documentsData) ? documentsData : [];
-        } catch (docParseErr) {
-          console.warn('ProjectsProvider: Could not parse documents JSON:', docParseErr);
-          documents = [];
-        }
-      } else {
-        console.log('ProjectsProvider: Documents response not ok, using empty array');
+      try {
+        const documentsData = await fetchDocuments(id);
+        documents = Array.isArray(documentsData) ? documentsData : [];
+      } catch (docErr) {
+        console.warn('ProjectsProvider: Could not fetch documents:', docErr);
         documents = [];
       }
       

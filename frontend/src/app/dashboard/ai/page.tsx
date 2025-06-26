@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useSupabaseAuth } from '../../../hooks/use-supabase-auth';
+import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
 import { useProjects } from '@/contexts/ProjectsProvider';
 import ProjectSelector from '@/components/projects/project-selector';
 import NoProjectSelected from '@/components/ui/no-project-selected';
+import { scanHandwriting, automateLayout } from '@/lib/api';
 import './ai.css';
 
 interface Message {
@@ -184,27 +185,14 @@ export default function AIAssistantPage() {
 
   const handleHandwritingUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
-    if (!files?.length || !selectedProject) return;
+    if (!files || files.length === 0 || !selectedProject) return;
 
     setIsProcessingHandwriting(true);
-    const formData = new FormData();
-    formData.append('file', files[0]);
-    formData.append('projectId', selectedProject.id);
 
     try {
-      const response = await fetch('/api/ai/scan-handwriting', {
-        method: 'POST',
-        credentials: 'include',
-        body: formData
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        setHandwritingResult(result);
-        setShowHandwritingPreview(true);
-      } else {
-        throw new Error('Failed to process handwriting');
-      }
+      const result = await scanHandwriting(files[0], selectedProject.id);
+      setHandwritingResult(result);
+      setShowHandwritingPreview(true);
     } catch (error) {
       console.error('Error processing handwriting:', error);
       alert('Failed to process handwriting. Please try again.');
@@ -226,26 +214,13 @@ export default function AIAssistantPage() {
     setJobStatus({ status: 'processing' });
 
     try {
-      const response = await fetch('/api/ai/automate-layout', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          projectId: selectedProject.id,
-          panels: selectedProject.panels,
-          documents: selectedProject.documents
-        }),
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        console.log('Layout generation result:', result);
-        setJobStatus({ status: 'completed', created_at: new Date().toISOString() });
-      } else {
-        setJobStatus({ status: 'failed' });
-      }
+      const result = await automateLayout(
+        selectedProject.id,
+        selectedProject.panels,
+        selectedProject.documents
+      );
+      console.log('Layout generation result:', result);
+      setJobStatus({ status: 'completed', created_at: new Date().toISOString() });
     } catch (error) {
       console.error('Error generating layout:', error);
       setJobStatus({ status: 'failed' });
