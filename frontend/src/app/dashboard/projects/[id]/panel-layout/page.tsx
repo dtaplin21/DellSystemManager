@@ -98,12 +98,19 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
       try {
         setIsLoading(true);
         
+        console.log('🔍 [DEBUG] Loading project with ID:', id);
         const projectData = await fetchProjectById(id);
+        console.log('🔍 [DEBUG] Project data received:', projectData);
+        console.log('🔍 [DEBUG] Project name:', projectData?.name);
+        console.log('🔍 [DEBUG] Project object keys:', projectData ? Object.keys(projectData) : 'No project data');
+        
         setProject(projectData);
         
         const layoutData = await fetchPanelLayout(id);
+        console.log('🔍 [DEBUG] Layout data received:', layoutData);
         
         if (!layoutData || layoutData.width < DEFAULT_LAYOUT_WIDTH || layoutData.height < DEFAULT_LAYOUT_HEIGHT) {
+          console.log('🔍 [DEBUG] Using default layout dimensions');
           setLayout({
             ...layoutData,
             width: DEFAULT_LAYOUT_WIDTH,
@@ -112,9 +119,11 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
             panels: layoutData?.panels || []
           });
         } else {
+          console.log('🔍 [DEBUG] Using existing layout data');
           setLayout(layoutData);
         }
       } catch (error) {
+        console.error('🔍 [DEBUG] Error loading project and layout:', error);
         toast({
           title: 'Error',
           description: 'Failed to load panel layout. Please try again.',
@@ -206,6 +215,10 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
     try {
       setIsLoading(true);
       
+      console.log('🔍 [DEBUG] handleProjectLoad called with:', projectData);
+      console.log('🔍 [DEBUG] New project name:', projectData?.name);
+      console.log('🔍 [DEBUG] New project object keys:', projectData ? Object.keys(projectData) : 'No project data');
+      
       // Update the project state
       setProject(projectData);
       
@@ -221,8 +234,8 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
         fill: panel.fill || '#3b82f6',
         stroke: panel.stroke || '#1d4ed8',
         strokeWidth: panel.stroke_width || 2,
-        rollNumber: panel.roll_number,
-        panelNumber: panel.panel_number,
+        rollNumber: panel.roll_number || 'N/A',
+        panelNumber: panel.panel_number || 'N/A',
         widthFeet: panel.width_feet,
         heightFeet: panel.height_feet,
       }));
@@ -238,6 +251,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
         lastUpdated: new Date().toISOString()
       };
 
+      console.log('🔍 [DEBUG] Setting new layout:', newLayout);
       setLayout(newLayout);
       
       // Update the URL to reflect the new project
@@ -248,7 +262,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
         description: `Successfully loaded project: ${projectData.name}`,
       });
     } catch (error) {
-      console.error('Error loading project:', error);
+      console.error('🔍 [DEBUG] Error in handleProjectLoad:', error);
       toast({
         title: 'Error',
         description: 'Failed to load project data.',
@@ -326,7 +340,13 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
     );
   }
 
+  console.log('🔍 [DEBUG] Render state - project:', project);
+  console.log('🔍 [DEBUG] Render state - layout:', layout);
+  console.log('🔍 [DEBUG] Render state - project name:', project?.name);
+  console.log('🔍 [DEBUG] Render state - project type:', typeof project?.name);
+
   if (!project || !layout) {
+    console.log('🔍 [DEBUG] Missing project or layout - project:', !!project, 'layout:', !!layout);
     return (
       <div className="text-center py-8">
         <h2 className="text-xl font-semibold mb-2">Panel Layout Not Found</h2>
@@ -342,6 +362,10 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
 
   return (
     <div className="w-full max-w-full overflow-x-hidden px-4">
+      {(() => {
+        console.log('🔍 [DEBUG] About to render title with project.name:', project.name);
+        return null;
+      })()}
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold">Panel Layout: {project.name}</h1>

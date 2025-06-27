@@ -399,6 +399,7 @@ export default function PanelGrid({
 
   // Memoize panel rendering
   const renderPanel = useCallback((panel: Panel) => {
+    console.log('🔍 [DEBUG] Rendering panel:', panel);
     const isSelected = selectedId === panel.id;
     
     // Check if this panel is snapped to any other panel for visual feedback

@@ -82,7 +82,11 @@ const makeAuthenticatedRequest = async (url: string, options: RequestInit = {}, 
 
 export async function fetchProjectById(id: string): Promise<any> {
   try {
+    console.log('🔍 [DEBUG] fetchProjectById called with ID:', id);
     const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/projects/${id}`);
+    
+    console.log('🔍 [DEBUG] fetchProjectById response status:', response.status);
+    console.log('🔍 [DEBUG] fetchProjectById response ok:', response.ok);
     
     if (!response.ok) {
       if (response.status === 401) {
@@ -94,9 +98,14 @@ export async function fetchProjectById(id: string): Promise<any> {
       throw new Error(`Failed to fetch project: ${response.statusText}`);
     }
     
-    return await response.json();
+    const projectData = await response.json();
+    console.log('🔍 [DEBUG] fetchProjectById raw response data:', projectData);
+    console.log('🔍 [DEBUG] fetchProjectById project name:', projectData?.name);
+    console.log('🔍 [DEBUG] fetchProjectById project keys:', projectData ? Object.keys(projectData) : 'No data');
+    
+    return projectData;
   } catch (error) {
-    console.error('Fetch project error:', error);
+    console.error('🔍 [DEBUG] fetchProjectById error:', error);
     throw error;
   }
 }

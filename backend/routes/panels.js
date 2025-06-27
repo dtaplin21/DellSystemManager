@@ -143,6 +143,12 @@ router.patch('/layout/:projectId', auth, subscriptionCheck('premium'), async (re
     
     // Handle panels array - we store it as a JSON string in the database
     if (updateData.panels) {
+      // Ensure every panel has panel_number and roll_number
+      updateData.panels = updateData.panels.map(panel => ({
+        ...panel,
+        panel_number: panel.panel_number || 'N/A',
+        roll_number: panel.roll_number || 'N/A',
+      }));
       updateValues.panels = JSON.stringify(updateData.panels);
     }
     
