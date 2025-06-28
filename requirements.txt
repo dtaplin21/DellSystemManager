@@ -10,3 +10,4 @@ ezdxf
 matplotlib
 shapely
 flask-cors
+psycopg2 
