@@ -1,8 +1,8 @@
 import psycopg2
 
 conn = psycopg2.connect(
-    dbname="dell_system_manager",
+    dbname="QC Automation",
     user="postgres",
-    password="mysecretpassword",
-    host="localhost"
+    password="Qualitydata790",
+    host="aws-0-us-east-2.pooler.supabase.com"
 )
