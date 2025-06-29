@@ -44,8 +44,10 @@ interface Panel {
   fill: string; 
   stroke: string;
   strokeWidth: number;
-  rollNumber: string;
-  panelNumber: string;
+  rollNumber?: string;
+  panelNumber?: string;
+  roll_number?: string;
+  panel_number?: string;
 }
 
 interface PanelGridProps {
@@ -420,7 +422,7 @@ export default function PanelGrid({
     const centerY = panel.y + panel.height / 2;
 
     // Build a single "label" string
-    const label = `${panel.rollNumber} / ${panel.panelNumber}`;
+    const label = `${panel.rollNumber || panel.roll_number || ''} / ${panel.panelNumber || panel.panel_number || ''}`;
 
     // Determine stroke color and width based on snap state
     let strokeColor = "black";
