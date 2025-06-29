@@ -45,9 +45,8 @@ router.get('/', auth, async (req, res, next) => {
       description: project.description,
       location: project.location,
       status: project.status,
-      createdAt: project.created_at,
-      updatedAt: project.updated_at,
-      lastUpdated: project.updated_at || project.created_at,
+      created_at: project.created_at,
+      updated_at: project.updated_at,
     }));
     
     res.status(200).json(formattedProjects);
@@ -79,8 +78,8 @@ router.get('/:id', auth, async (req, res, next) => {
       description: projects.description,
       status: projects.status,
       location: projects.location,
-      createdAt: projects.created_at,
-      updatedAt: projects.updated_at,
+      created_at: projects.created_at,
+      updated_at: projects.updated_at,
     });
   } catch (error) {
     next(error);
@@ -132,9 +131,8 @@ router.post('/', auth, async (req, res, next) => {
       description: newProject.description,
       status: newProject.status,
       location: newProject.location,
-      createdAt: newProject.created_at,
-      updatedAt: newProject.updated_at,
-      lastUpdated: newProject.updated_at || newProject.created_at,
+      created_at: newProject.created_at,
+      updated_at: newProject.updated_at,
     });
   } catch (error) {
     console.error('Project creation error:', error); // Debug log
@@ -186,9 +184,8 @@ router.patch('/:id', auth, async (req, res, next) => {
       description: updatedProject.description,
       status: updatedProject.status,
       location: updatedProject.location,
-      createdAt: updatedProject.created_at,
-      updatedAt: updatedProject.updated_at,
-      lastUpdated: updatedProject.updated_at,
+      created_at: updatedProject.created_at,
+      updated_at: updatedProject.updated_at,
     });
   } catch (error) {
     next(error);

@@ -25,8 +25,8 @@ interface Project {
   endDate?: string;
   area?: number;
   progress: number;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
   scale?: number;
   layoutWidth?: number;
   layoutHeight?: number;

@@ -64,9 +64,9 @@ router.get('/layout/:projectId', auth, async (req, res, next) => {
           id: uuidv4(),
           projectId,
           panels: '[]', // Empty array as string
-          width: 100,
-          height: 100,
-          scale: 1,
+          width: DEFAULT_LAYOUT_WIDTH,
+          height: DEFAULT_LAYOUT_HEIGHT,
+          scale: DEFAULT_SCALE,
           lastUpdated: new Date(),
         })
         .returning();
@@ -79,7 +79,7 @@ router.get('/layout/:projectId', auth, async (req, res, next) => {
       width: typeof panelLayout.width === 'number' ? panelLayout.width : DEFAULT_LAYOUT_WIDTH,
       height: typeof panelLayout.height === 'number' ? panelLayout.height : DEFAULT_LAYOUT_HEIGHT,
       scale: typeof panelLayout.scale === 'number' ? panelLayout.scale : DEFAULT_SCALE,
-      panels: JSON.parse(panelLayout.panels),
+      panels: JSON.parse(panelLayout.panels || '[]'),
     };
     
     console.log('✅ Panel layout retrieved successfully');
@@ -178,14 +178,14 @@ router.patch('/layout/:projectId', auth, subscriptionCheck('premium'), async (re
       width: typeof updatedLayout.width === 'number' ? updatedLayout.width : DEFAULT_LAYOUT_WIDTH,
       height: typeof updatedLayout.height === 'number' ? updatedLayout.height : DEFAULT_LAYOUT_HEIGHT,
       scale: typeof updatedLayout.scale === 'number' ? updatedLayout.scale : DEFAULT_SCALE,
-      panels: JSON.parse(updatedLayout.panels),
+      panels: JSON.parse(updatedLayout.panels || '[]'),
     };
     
     // Notify other clients via WebSockets
     wsSendToRoom(`panel_layout_${projectId}`, {
       type: 'PANEL_UPDATE',
       projectId,
-      panels: JSON.parse(updatedLayout.panels),
+      panels: JSON.parse(updatedLayout.panels || '[]'),
       userId: req.user.id,
       timestamp: updatedLayout.lastUpdated,
     });
@@ -238,7 +238,7 @@ router.get('/export/:projectId', auth, subscriptionCheck('premium'), async (req,
     }
     
     // Parse panels
-    const parsedPanels = JSON.parse(panelLayout.panels);
+    const parsedPanels = JSON.parse(panelLayout.panels || '[]');
     
     // Call CAD service for conversion
     try {
