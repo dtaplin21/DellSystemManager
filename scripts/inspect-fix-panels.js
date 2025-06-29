@@ -1,9 +1,9 @@
 const { Client } = require('pg');
 
 // Fill in your Supabase connection string here (from the Supabase dashboard > Project Settings > Database > Connection string)
-const connectionString = process.env.SUPABASE_DB_URL || 'postgresql://USER:PASSWORD@HOST:PORT/DATABASE';
+const connectionString = process.env.SUPABASE_DB_URL || 'postgresql://postgres.chfdozvsvltdmglcuoqf:Qualitydata790@aws-0-us-east-2.pooler.supabase.com:6543/postgres';
 
-const PROJECT_ID = '69fc302b-166d-4543-9990-89c4b1e0ed59'; // Replace with your actual project ID
+const PROJECT_ID = 'chfdozvsvltdmglcuoqf'; // Replace with your actual project ID
 
 async function main() {
   const client = new Client({ connectionString });
