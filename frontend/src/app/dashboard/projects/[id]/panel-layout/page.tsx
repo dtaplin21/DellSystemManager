@@ -57,6 +57,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
   const [isLoading, setIsLoading] = useState(true);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [id, setId] = useState<string>('');
+  console.log('[DEBUG] Initial id:', id);
   const [selectedPanel, setSelectedPanel] = useState<any>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   
@@ -88,28 +89,28 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
   useEffect(() => {
     const resolveParams = async () => {
       const resolvedParams = await params;
+      console.log('[DEBUG] Params resolved:', resolvedParams);
       setId(resolvedParams.id);
     };
     resolveParams();
   }, [params]);
 
   useEffect(() => {
+    console.log('[DEBUG] Load: useEffect triggered, id:', id);
     if (!id) return;
-
     const loadProjectAndLayout = async () => {
       try {
         setIsLoading(true);
-        
-        console.log('🔍 [DEBUG] Loading project with ID:', id);
+        console.log('[DEBUG] Load: Loading project with ID:', id);
         const projectData = await fetchProjectById(id);
-        console.log('🔍 [DEBUG] Project data received:', projectData);
+        console.log('[DEBUG] Load: Project data received:', projectData);
         console.log('🔍 [DEBUG] Project name:', projectData?.name);
         console.log('🔍 [DEBUG] Project object keys:', projectData ? Object.keys(projectData) : 'No project data');
         
         setProject(projectData);
         
         const layoutData = await fetchPanelLayout(id);
-        console.log('🔍 [DEBUG] Layout data received:', layoutData);
+        console.log('[DEBUG] Load: Layout data received from backend:', layoutData);
         
         if (!layoutData || layoutData.width < DEFAULT_LAYOUT_WIDTH || layoutData.height < DEFAULT_LAYOUT_HEIGHT) {
           console.log('🔍 [DEBUG] Using default layout dimensions');
@@ -199,7 +200,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
   };
 
   const handlePanelUpdate = async (updatedPanels: any[]) => {
-    console.log('Updating layout with panels:', updatedPanels);
+    console.log('[DEBUG] PanelUpdate: Updating layout with panels:', updatedPanels);
     setLayout((prev) => {
       if (!prev) return null;
       const newLayout = {
@@ -207,19 +208,17 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
         panels: updatedPanels,
         lastUpdated: new Date().toISOString()
       };
-      console.log('New layout state:', newLayout);
+      console.log('[DEBUG] PanelUpdate: New layout state:', newLayout);
       return newLayout;
     });
-
     // Persist to backend
     try {
-      console.log('[DEBUG] Saving panels using updatePanelLayout helper:', id);
+      console.log('[DEBUG] PanelUpdate: Saving panels to backend:', updatedPanels);
       const data = await updatePanelLayout(id, { panels: updatedPanels });
-      console.log('[DEBUG] Save API response data:', data);
+      console.log('[DEBUG] PanelUpdate: Backend response:', data);
     } catch (error) {
-      console.error('Error saving panels to backend:', error);
+      console.error('[DEBUG] PanelUpdate: Error saving panels to backend:', error);
     }
-
     if (isConnected) {
       sendMessage('PANEL_UPDATE', {
         projectId: id,
@@ -333,17 +332,15 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
   };
 
   const saveProjectToSupabase = async () => {
+    console.log('[DEBUG] Save: Button clicked');
     if (!project || !layout || !user) {
-      console.log('Missing required data:', { project: !!project, layout: !!layout, user: !!user });
+      console.log('[DEBUG] Save: Missing required data:', { project: !!project, layout: !!layout, user: !!user });
       return;
     }
 
     try {
-      console.log('Starting save process...');
-      console.log('Project ID:', project.id);
-      console.log('Layout data:', layout);
-      console.log('User:', user);
-
+      console.log(`[DEBUG] Save: Saving project ${project.id} (${project.name}) with panels:`, layout.panels);
+      console.log('[DEBUG] Save: Layout state before save:', layout);
       // Convert panels back to Supabase format
       const supabasePanels = layout.panels.map(panel => ({
         project_id: project.id,
@@ -359,14 +356,11 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
         stroke_width: panel.strokeWidth,
         rotation: panel.rotation || 0
       }));
-
-      console.log('Converted panels:', supabasePanels);
-
+      console.log('[DEBUG] Save: Converted panels for backend:', supabasePanels);
       // Always send defaults if values are missing
       const width = typeof layout.width === 'number' ? layout.width : DEFAULT_LAYOUT_WIDTH;
       const height = typeof layout.height === 'number' ? layout.height : DEFAULT_LAYOUT_HEIGHT;
       const scale = typeof layout.scale === 'number' ? layout.scale : DEFAULT_SCALE;
-
       // Use the updatePanelLayout function from the API helper
       const result = await updatePanelLayout(project.id, {
         panels: supabasePanels,
@@ -374,15 +368,13 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
         height,
         scale
       });
-
-      console.log('Save result:', result);
-
+      console.log('[DEBUG] Save: Backend response from updatePanelLayout:', result);
       toast({
         title: 'Project Saved',
         description: 'Project data saved successfully.',
       });
     } catch (error) {
-      console.error('Error saving project:', error);
+      console.error('[DEBUG] Save: Error saving project:', error);
       toast({
         title: 'Error',
         description: `Failed to save project data: ${error instanceof Error ? error.message : 'Unknown error'}`,
