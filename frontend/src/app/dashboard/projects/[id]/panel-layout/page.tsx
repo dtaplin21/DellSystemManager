@@ -332,6 +332,26 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
     }
   };
 
+  // Mapping function to normalize panel fields
+  function mapPanelFields(panel: any) {
+    return {
+      id: panel.id || panel.panel_id,
+      type: panel.type,
+      x: panel.x,
+      y: panel.y,
+      width: panel.width || panel.width_feet,
+      height: panel.height || panel.height_feet,
+      rotation: panel.rotation || 0,
+      fill: panel.fill || '#3b82f6',
+      stroke: panel.stroke || '#1d4ed8',
+      strokeWidth: panel.strokeWidth || panel.stroke_width || 2,
+      rollNumber: panel.rollNumber || panel.roll_number || 'N/A',
+      panelNumber: panel.panelNumber || panel.panel_number || 'N/A',
+      widthFeet: panel.widthFeet || panel.width_feet,
+      heightFeet: panel.heightFeet || panel.height_feet,
+    };
+  }
+
   if (isLoading) {
     return (
       <div className="flex justify-center py-8">
@@ -417,7 +437,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
         <CardContent className="p-0">
           <div className="w-full h-[calc(100vh-300px)] overflow-hidden">
             <PanelGrid
-              panels={layout.panels}
+              panels={layout.panels.map(mapPanelFields)}
               width={window.innerWidth - 64}
               height={window.innerHeight - 300}
               scale={layout.scale}
