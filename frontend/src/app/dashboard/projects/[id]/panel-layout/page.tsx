@@ -141,23 +141,21 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
 
   useEffect(() => {
     if (!id) return;
-    const url = `${BACKEND_URL}/api/panels/layout/${id}`;
-    console.log('[DEBUG] Fetching panels from backend:', url);
     const loadPanels = async () => {
       try {
-        const res = await fetch(url, { cache: 'no-store', credentials: 'include' });
-        console.log('[DEBUG] API response status:', res.status);
-        if (!res.ok) throw new Error(await res.text());
-        const data = await res.json();
+        console.log('[DEBUG] Loading panels using fetchPanelLayout helper:', id);
+        const data = await fetchPanelLayout(id);
         console.log('[DEBUG] Raw data loaded from backend:', data);
+        console.log('[DEBUG] Raw panels from backend:', data.panels);
         let mappedPanels: any[] = [];
         if (data && Array.isArray(data.panels)) {
           mappedPanels = data.panels.map((panel: any, idx: number) => {
-            const width = Number(panel.width ?? panel.width_feet ?? 100);
-            const height = Number(panel.height ?? panel.height_feet ?? 100);
+            const width = Number(panel.width ?? panel.width_feet) || 100;
+            const height = Number(panel.height ?? panel.height_feet) || 100;
             const x = Number(panel.x ?? 0);
             const y = Number(panel.y ?? 0);
-            const mapped = { ...panel, width, height, x, y };
+            const id = panel.id ?? panel.panel_id ?? `panel-${idx}`;
+            const mapped = { ...panel, id, width, height, x, y };
             console.log(`[DEBUG] Panel ${idx}:`, mapped);
             return mapped;
           });
@@ -215,17 +213,8 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
 
     // Persist to backend
     try {
-      const url = `${BACKEND_URL}/api/panels/layout/${id}`;
-      console.log('[DEBUG] Saving panels to backend:', url);
-      const res = await fetch(url, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ panels: updatedPanels }),
-      });
-      console.log('[DEBUG] Save API response status:', res.status);
-      if (!res.ok) throw new Error(await res.text());
-      const data = await res.json();
+      console.log('[DEBUG] Saving panels using updatePanelLayout helper:', id);
+      const data = await updatePanelLayout(id, { panels: updatedPanels });
       console.log('[DEBUG] Save API response data:', data);
     } catch (error) {
       console.error('Error saving panels to backend:', error);

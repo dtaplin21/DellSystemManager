@@ -149,7 +149,7 @@ router.patch('/layout/:projectId', auth, subscriptionCheck('premium'), async (re
     
     // Handle panels array - we store it as a JSON string in the database
     if (updateData.panels) {
-      // Ensure every panel has panel_number and roll_number with real values
+      // Ensure every panel has panel_number, roll_number, id, width, and height with real values
       updateData.panels = updateData.panels.map((panel, index) => {
         const updatedPanel = { ...panel };
         
@@ -162,6 +162,19 @@ router.patch('/layout/:projectId', auth, subscriptionCheck('premium'), async (re
         if (!panel.roll_number || panel.roll_number === 'N/A') {
           updatedPanel.roll_number = `R${String(index + 1).padStart(3, '0')}`;
         }
+        
+        // Ensure id exists
+        if (!panel.id && !panel.panel_id) {
+          updatedPanel.id = uuidv4();
+        } else {
+          updatedPanel.id = panel.id || panel.panel_id;
+        }
+        
+        // Ensure width and height exist and are numbers
+        updatedPanel.width = Number(panel.width ?? panel.width_feet);
+        if (isNaN(updatedPanel.width)) updatedPanel.width = 100;
+        updatedPanel.height = Number(panel.height ?? panel.height_feet);
+        if (isNaN(updatedPanel.height)) updatedPanel.height = 100;
         
         return updatedPanel;
       });

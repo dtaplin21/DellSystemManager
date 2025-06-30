@@ -399,6 +399,13 @@ export default function PanelGrid({
     }
   };
 
+  // Debug log for panel attributes before rendering
+  useEffect(() => {
+    panels.forEach((panel, idx) => {
+      console.log(`[RENDER DEBUG] Panel ${idx}: id=${panel.id}, type=${panel.type}, x=${panel.x}, y=${panel.y}, width=${panel.width}, height=${panel.height}`);
+    });
+  }, [panels]);
+
   // Memoize panel rendering
   const renderPanel = useCallback((panel: Panel) => {
     const isSelected = selectedId === panel.id;
