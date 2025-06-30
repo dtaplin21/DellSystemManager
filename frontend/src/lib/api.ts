@@ -51,6 +51,7 @@ const makeAuthenticatedRequest = async (url: string, options: RequestInit = {}, 
         ...options.headers,
       },
       credentials: 'include',
+      cache: options.cache || 'default',
     });
 
     if (response.status === 401 && retryCount < 1) {
@@ -130,7 +131,9 @@ export async function fetchProjects(): Promise<any> {
 
 export async function fetchPanelLayout(projectId: string): Promise<any> {
   try {
-    const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/panels/layout/${projectId}`);
+    const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/panels/layout/${projectId}`, {
+      cache: 'no-store'
+    });
     
     if (!response.ok) {
       if (response.status === 401) {

@@ -223,7 +223,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
       setProject(projectData);
       
       // Convert Supabase panel format to our internal format
-      const convertedPanels = (projectData.panels || []).map((panel: any) => ({
+      const convertedPanels = (projectData.panels || []).map((panel: any, index: number) => ({
         id: panel.id,
         type: panel.type,
         x: panel.x,
@@ -234,8 +234,8 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
         fill: panel.fill || '#3b82f6',
         stroke: panel.stroke || '#1d4ed8',
         strokeWidth: panel.stroke_width || 2,
-        rollNumber: panel.roll_number || 'N/A',
-        panelNumber: panel.panel_number || 'N/A',
+        rollNumber: panel.roll_number && panel.roll_number !== 'N/A' ? panel.roll_number : `R${String(index + 1).padStart(3, '0')}`,
+        panelNumber: panel.panel_number && panel.panel_number !== 'N/A' ? panel.panel_number : `P${String(index + 1).padStart(3, '0')}`,
         widthFeet: panel.width_feet,
         heightFeet: panel.height_feet,
       }));
@@ -333,7 +333,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
   };
 
   // Mapping function to normalize panel fields
-  function mapPanelFields(panel: any) {
+  function mapPanelFields(panel: any, index: number = 0) {
     return {
       id: panel.id || panel.panel_id,
       type: panel.type,
@@ -345,8 +345,8 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
       fill: panel.fill || '#3b82f6',
       stroke: panel.stroke || '#1d4ed8',
       strokeWidth: panel.strokeWidth || panel.stroke_width || 2,
-      rollNumber: panel.rollNumber || panel.roll_number || 'N/A',
-      panelNumber: panel.panelNumber || panel.panel_number || 'N/A',
+      rollNumber: (panel.rollNumber || panel.roll_number) && (panel.rollNumber || panel.roll_number) !== 'N/A' ? (panel.rollNumber || panel.roll_number) : `R${String(index + 1).padStart(3, '0')}`,
+      panelNumber: (panel.panelNumber || panel.panel_number) && (panel.panelNumber || panel.panel_number) !== 'N/A' ? (panel.panelNumber || panel.panel_number) : `P${String(index + 1).padStart(3, '0')}`,
       widthFeet: panel.widthFeet || panel.width_feet,
       heightFeet: panel.heightFeet || panel.height_feet,
     };

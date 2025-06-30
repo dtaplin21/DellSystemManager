@@ -21,6 +21,11 @@ router.get('/layout/:projectId', auth, async (req, res, next) => {
     console.log('🔍 Project ID:', req.params.projectId);
     console.log('🔍 User:', req.user);
     
+    // Set cache control headers to prevent caching
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    
     const { projectId } = req.params;
     
     // Basic ID validation
@@ -143,12 +148,22 @@ router.patch('/layout/:projectId', auth, subscriptionCheck('premium'), async (re
     
     // Handle panels array - we store it as a JSON string in the database
     if (updateData.panels) {
-      // Ensure every panel has panel_number and roll_number
-      updateData.panels = updateData.panels.map(panel => ({
-        ...panel,
-        panel_number: panel.panel_number || 'N/A',
-        roll_number: panel.roll_number || 'N/A',
-      }));
+      // Ensure every panel has panel_number and roll_number with real values
+      updateData.panels = updateData.panels.map((panel, index) => {
+        const updatedPanel = { ...panel };
+        
+        // Generate real panel number if it's missing or "N/A"
+        if (!panel.panel_number || panel.panel_number === 'N/A') {
+          updatedPanel.panel_number = `P${String(index + 1).padStart(3, '0')}`;
+        }
+        
+        // Generate real roll number if it's missing or "N/A"
+        if (!panel.roll_number || panel.roll_number === 'N/A') {
+          updatedPanel.roll_number = `R${String(index + 1).padStart(3, '0')}`;
+        }
+        
+        return updatedPanel;
+      });
       updateValues.panels = JSON.stringify(updateData.panels);
     }
     
