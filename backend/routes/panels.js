@@ -87,7 +87,7 @@ router.get('/layout/:projectId', auth, async (req, res, next) => {
       panels: JSON.parse(panelLayout.panels || '[]'),
     };
     
-    console.log('✅ Panel layout retrieved successfully');
+    console.log('✅ Panels loaded from DB:', parsedLayout.panels);
     res.status(200).json(parsedLayout);
   } catch (error) {
     console.error('❌ Error in GET /layout/:projectId:', error);
@@ -98,6 +98,7 @@ router.get('/layout/:projectId', auth, async (req, res, next) => {
 // Update panel layout
 router.patch('/layout/:projectId', auth, subscriptionCheck('premium'), async (req, res, next) => {
   try {
+    res.setHeader('Cache-Control', 'no-store');
     console.log('🔍 PATCH /layout/:projectId called');
     console.log('🔍 Project ID:', req.params.projectId);
     console.log('🔍 Request body:', req.body);
@@ -165,6 +166,7 @@ router.patch('/layout/:projectId', auth, subscriptionCheck('premium'), async (re
         return updatedPanel;
       });
       updateValues.panels = JSON.stringify(updateData.panels);
+      console.log('🔍 Panels being saved to DB:', updateData.panels);
     }
     
     // Handle other properties
@@ -195,6 +197,7 @@ router.patch('/layout/:projectId', auth, subscriptionCheck('premium'), async (re
       scale: typeof updatedLayout.scale === 'number' ? updatedLayout.scale : DEFAULT_SCALE,
       panels: JSON.parse(updatedLayout.panels || '[]'),
     };
+    console.log('✅ Panels returned to client:', parsedLayout.panels);
     
     // Notify other clients via WebSockets
     wsSendToRoom(`panel_layout_${projectId}`, {

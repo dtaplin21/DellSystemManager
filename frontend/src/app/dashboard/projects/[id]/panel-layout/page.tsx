@@ -137,6 +137,22 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
     loadProjectAndLayout();
   }, [id, toast, router]);
 
+  useEffect(() => {
+    if (!id) return;
+    const loadPanels = async () => {
+      try {
+        const res = await fetch(`/api/panels/layout/${id}`, { cache: 'no-store' });
+        if (!res.ok) throw new Error(await res.text());
+        const data = await res.json();
+        setLayout(data);
+        console.log('Panels loaded from DB:', data.panels);
+      } catch (err) {
+        console.error('❌ Error loading panels:', err);
+      }
+    };
+    loadPanels();
+  }, [id]);
+
   const handleScaleChange = (newScale: number) => {
     console.log('Scale change in parent:', newScale);
     setLayout(prev => {
@@ -148,7 +164,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
     });
   };
 
-  const handlePanelUpdate = (updatedPanels: any[]) => {
+  const handlePanelUpdate = async (updatedPanels: any[]) => {
     console.log('Updating layout with panels:', updatedPanels);
     setLayout((prev) => {
       if (!prev) return null;
@@ -160,7 +176,22 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
       console.log('New layout state:', newLayout);
       return newLayout;
     });
-    
+
+    // Persist to backend
+    try {
+      const res = await fetch(`/api/panels/layout/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ panels: updatedPanels }),
+        cache: 'no-store',
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      console.log('✅ Panels saved to DB:', data.panels);
+    } catch (err) {
+      console.error('❌ Error saving panels:', err);
+    }
+
     if (isConnected) {
       sendMessage('PANEL_UPDATE', {
         projectId: id,

@@ -401,22 +401,17 @@ export default function PanelGrid({
 
   // Memoize panel rendering
   const renderPanel = useCallback((panel: Panel) => {
-    console.log('🔍 [DEBUG] Rendering panel:', panel);
     const isSelected = selectedId === panel.id;
-    
-    // Check if this panel is snapped to any other panel for visual feedback
     const isSnapped = panels.some(otherPanel => 
       otherPanel.id !== panel.id && arePanelsSnapped(panel.id, otherPanel.id)
     );
-    
-    // Check if this panel is about to snap (during dragging)
     const isPreSnap = panels.some(otherPanel => {
       if (otherPanel.id === panel.id) return false;
       const pairKey1 = `${panel.id}-${otherPanel.id}`;
       const pairKey2 = `${otherPanel.id}-${panel.id}`;
       return preSnapPairs.has(pairKey1) || preSnapPairs.has(pairKey2);
     });
-    
+
     // Compute shape center
     const centerX = panel.x + panel.width / 2;
     const centerY = panel.y + panel.height / 2;
@@ -426,29 +421,26 @@ export default function PanelGrid({
 
     // Determine stroke color and width based on snap state
     let strokeColor = "black";
-    let strokeWidth = 100;
-    
+    let strokeWidth = 1;
     if (isSnapped) {
-      strokeColor = "#00ff00"; // Green for snapped
-      strokeWidth = 200;
+      strokeColor = "#00ff00";
+      strokeWidth = 2;
     } else if (isPreSnap) {
-      strokeColor = "#ffff00"; // Yellow for about to snap
-      strokeWidth = 150;
+      strokeColor = "#ffff00";
+      strokeWidth = 2;
     }
 
+    // Calculate font size relative to panel size and scale
+    const minDim = Math.min(panel.width, panel.height);
+    const fontSize = Math.max(10, minDim * 0.25 * scale); // 25% of the smallest dimension, scaled
+
     if (panel.type === 'triangle') {
-      // For triangle, use radius as the primary property
       const radiusX = panel.width / 2;
       const radiusY = panel.height / 2;
-      
-      // Pick a base radius so the polygon "fits"
       const baseRadius = Math.min(radiusX, radiusY);
-      
-      // Compute how much we need to stretch along each axis
       const scaleX = radiusX / baseRadius;
       const scaleY = radiusY / baseRadius;
-    
-    return (
+      return (
         <Group key={panel.id}>
           <RegularPolygon
             id={panel.id}
@@ -476,20 +468,21 @@ export default function PanelGrid({
           />
           <Text
             text={label}
-            x={centerX}
-            y={centerY}
-            fontSize={100}
+            x={centerX - baseRadius}
+            y={centerY - fontSize / 2}
+            width={baseRadius * 2}
+            height={fontSize}
+            fontSize={fontSize}
             fontFamily="Arial"
             fill="#000000"
             align="center"
             verticalAlign="middle"
-            offsetX={0}
-            offsetY={15}
           />
         </Group>
       );
     }
 
+    // Rectangle and default
     return (
       <Group key={panel.id}>
         <Rect
@@ -516,19 +509,19 @@ export default function PanelGrid({
         />
         <Text
           text={label}
-          x={centerX}
-          y={centerY}
-          fontSize={100}
+          x={panel.x}
+          y={panel.y + panel.height / 2 - fontSize / 2}
+          width={panel.width}
+          height={fontSize}
+          fontSize={fontSize}
           fontFamily="Arial"
           fill="#000000"
           align="center"
           verticalAlign="middle"
-          offsetX={0}
-          offsetY={15}
         />
       </Group>
     );
-  }, [selectedId, handlePanelDragEnd, handlePanelTransformEnd, handlePanelDragMove, onEditPanel]);
+  }, [selectedId, handlePanelDragEnd, handlePanelTransformEnd, handlePanelDragMove, onEditPanel, panels, arePanelsSnapped, preSnapPairs, scale]);
 
     return (
     <div className="w-full h-full overflow-hidden">
