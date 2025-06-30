@@ -49,6 +49,8 @@ const DEFAULT_LAYOUT_HEIGHT = 15000;
 const PIXELS_PER_FOOT = 200; // 100 pixels = 0.5ft, so 200 pixels = 1ft
 const DEFAULT_SCALE = 0.0025; // Halved from 0.005 to make panels take up half the space
 
+const BACKEND_URL = 'http://localhost:8003';
+
 export default function PanelLayoutPage({ params }: { params: Promise<{ id: string }> }) {
   const [project, setProject] = useState<Project | null>(null);
   const [layout, setLayout] = useState<PanelLayout | null>(null);
@@ -139,13 +141,47 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
 
   useEffect(() => {
     if (!id) return;
+    const url = `${BACKEND_URL}/api/panels/layout/${id}`;
+    console.log('[DEBUG] Fetching panels from backend:', url);
     const loadPanels = async () => {
       try {
-        const res = await fetch(`/api/panels/layout/${id}`, { cache: 'no-store' });
+        const res = await fetch(url, { cache: 'no-store', credentials: 'include' });
+        console.log('[DEBUG] API response status:', res.status);
         if (!res.ok) throw new Error(await res.text());
         const data = await res.json();
-        setLayout(data);
-        console.log('Panels loaded from DB:', data.panels);
+        console.log('[DEBUG] Raw data loaded from backend:', data);
+        let mappedPanels: any[] = [];
+        if (data && Array.isArray(data.panels)) {
+          mappedPanels = data.panels.map((panel: any, idx: number) => {
+            const width = Number(panel.width ?? panel.width_feet ?? 100);
+            const height = Number(panel.height ?? panel.height_feet ?? 100);
+            const x = Number(panel.x ?? 0);
+            const y = Number(panel.y ?? 0);
+            const mapped = { ...panel, width, height, x, y };
+            console.log(`[DEBUG] Panel ${idx}:`, mapped);
+            return mapped;
+          });
+        } else {
+          console.warn('[DEBUG] No panels array found in backend response:', data);
+        }
+        setLayout((prev) => {
+          if (prev) {
+            return { ...prev, panels: mappedPanels };
+          } else if (data && data.id && data.projectId && data.width && data.height && data.scale && data.lastUpdated) {
+            return { ...data, panels: mappedPanels };
+          } else {
+            // Fallback defaults
+            return {
+              id: id || '',
+              projectId: id || '',
+              width: 1000,
+              height: 1000,
+              scale: 1,
+              lastUpdated: new Date().toISOString(),
+              panels: mappedPanels,
+            };
+          }
+        });
       } catch (err) {
         console.error('❌ Error loading panels:', err);
       }
@@ -179,17 +215,20 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
 
     // Persist to backend
     try {
-      const res = await fetch(`/api/panels/layout/${id}`, {
+      const url = `${BACKEND_URL}/api/panels/layout/${id}`;
+      console.log('[DEBUG] Saving panels to backend:', url);
+      const res = await fetch(url, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ panels: updatedPanels }),
-        cache: 'no-store',
       });
+      console.log('[DEBUG] Save API response status:', res.status);
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
-      console.log('✅ Panels saved to DB:', data.panels);
-    } catch (err) {
-      console.error('❌ Error saving panels:', err);
+      console.log('[DEBUG] Save API response data:', data);
+    } catch (error) {
+      console.error('Error saving panels to backend:', error);
     }
 
     if (isConnected) {
@@ -411,6 +450,10 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
     );
   }
 
+  console.log('[DEBUG] Render: project:', project);
+  console.log('[DEBUG] Render: layout:', layout);
+  console.log('[DEBUG] Render: layout.panels:', layout?.panels);
+
   return (
     <div className="w-full max-w-full overflow-x-hidden px-4">
       {(() => {
@@ -468,7 +511,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
         <CardContent className="p-0">
           <div className="w-full h-[calc(100vh-300px)] overflow-hidden">
             <PanelGrid
-              panels={layout.panels.map(mapPanelFields)}
+              panels={(() => { console.log('[DEBUG] Passing panels to PanelGrid:', layout.panels); return layout.panels.map(mapPanelFields); })()}
               width={window.innerWidth - 64}
               height={window.innerHeight - 300}
               scale={layout.scale}
