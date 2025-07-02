@@ -111,7 +111,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
 
   const { isConnected, isAuthenticated, sendMessage } = useWebSocket({
     userId: user?.id || null,
-    onMessage: (message) => {
+    onMessage: (message: any) => {
       // Support both formats: message.data.projectId and message.projectId
       const projectId = message.data?.projectId ?? message.projectId;
       if (message.type === 'PANEL_UPDATE' && projectId === id) {
