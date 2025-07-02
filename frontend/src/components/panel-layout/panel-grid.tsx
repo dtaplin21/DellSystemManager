@@ -403,9 +403,15 @@ export default function PanelGrid({
   useEffect(() => {
     console.log(`[RENDER DEBUG] PanelGrid received ${panels.length} panels:`, panels);
     panels.forEach((panel, idx) => {
-      console.log(`[RENDER DEBUG] Panel ${idx}: id=${panel.id}, type=${panel.type}, x=${panel.x}, y=${panel.y}, width=${panel.width}, height=${panel.height}, fill=${panel.fill}`);
+      console.log(`[RENDER DEBUG] Panel ${idx}:`, panel);
+      // Check for missing or invalid properties
+      if (!panel.id || !panel.type || panel.x === undefined || panel.y === undefined || panel.width === undefined || panel.height === undefined) {
+        console.warn(`[RENDER DEBUG] Panel ${idx} is missing required properties or has invalid values:`, panel);
+      }
     });
   }, [panels]);
+
+
 
   // Memoize panel rendering
   const renderPanel = useCallback((panel: Panel) => {
@@ -419,14 +425,11 @@ export default function PanelGrid({
       const pairKey2 = `${otherPanel.id}-${panel.id}`;
       return preSnapPairs.has(pairKey1) || preSnapPairs.has(pairKey2);
     });
-
     // Compute shape center
     const centerX = panel.x + panel.width / 2;
     const centerY = panel.y + panel.height / 2;
-
     // Build a single "label" string
     const label = `${panel.rollNumber || panel.roll_number || ''} / ${panel.panelNumber || panel.panel_number || ''}`;
-
     // Determine stroke color and width based on snap state
     let strokeColor = "black";
     let strokeWidth = 1;
@@ -437,11 +440,9 @@ export default function PanelGrid({
       strokeColor = "#ffff00";
       strokeWidth = 2;
     }
-
     // Calculate font size relative to panel size and scale
     const minDim = Math.min(panel.width, panel.height);
-    const fontSize = Math.max(10, minDim * 0.25 * scale); // 25% of the smallest dimension, scaled
-
+    const fontSize = Math.max(10, minDim * 0.25 * scale);
     if (panel.type === 'triangle') {
       const radiusX = panel.width / 2;
       const radiusY = panel.height / 2;
@@ -489,7 +490,6 @@ export default function PanelGrid({
         </Group>
       );
     }
-
     // Rectangle and default
     return (
       <Group key={panel.id}>
@@ -545,7 +545,7 @@ export default function PanelGrid({
           touchAction: 'none'
         }}
       >
-
+ 
         <Layer>
           {/* Grid lines */}
           {gridLines.map(line => (

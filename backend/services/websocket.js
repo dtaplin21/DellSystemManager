@@ -66,11 +66,12 @@ function setupWebSocketServer(wss) {
 // Handle authentication
 async function handleAuth(connectionInfo, data, tempConnectionId) {
   try {
-    // Get user ID from message
-    const { userId } = data;
+    // Get user ID from message - handle both formats
+    const userId = data.userId || (data.data && data.data.userId);
     
     if (!userId) {
       console.error('No user ID provided for authentication');
+      console.error('Received data:', JSON.stringify(data, null, 2));
       return;
     }
     
@@ -82,6 +83,16 @@ async function handleAuth(connectionInfo, data, tempConnectionId) {
     
     if (!user) {
       console.error(`User not found: ${userId}`);
+      
+      // Send failure message to client
+      try {
+        connectionInfo.ws.send(JSON.stringify({
+          type: 'AUTH_FAILURE',
+          data: { error: 'User not found in database' }
+        }));
+      } catch (sendError) {
+        console.error('Failed to send auth failure message:', sendError);
+      }
       return;
     }
     
@@ -102,6 +113,16 @@ async function handleAuth(connectionInfo, data, tempConnectionId) {
     console.log(`User ${userId} authenticated via WebSocket`);
   } catch (error) {
     console.error('Authentication error:', error);
+    
+    // Send failure message to client
+    try {
+      connectionInfo.ws.send(JSON.stringify({
+        type: 'AUTH_FAILURE',
+        data: { error: error.message || 'Authentication failed' }
+      }));
+    } catch (sendError) {
+      console.error('Failed to send auth failure message:', sendError);
+    }
   }
 }
 
@@ -112,10 +133,12 @@ function handleJoinRoom(connectionInfo, data) {
     return;
   }
   
-  const { room } = data;
+  // Handle both formats
+  const room = data.room || (data.data && data.data.room);
   
   if (!room) {
     console.error('No room specified');
+    console.error('Received data:', JSON.stringify(data, null, 2));
     return;
   }
   
@@ -139,7 +162,8 @@ function handleJoinRoom(connectionInfo, data) {
 function handleLeaveRoom(connectionInfo, data) {
   if (!connectionInfo.authenticated) return;
   
-  const { room } = data;
+  // Handle both formats
+  const room = data.room || (data.data && data.data.room);
   
   if (!room || !rooms.has(room)) return;
   
@@ -158,7 +182,8 @@ function handleLeaveRoom(connectionInfo, data) {
 function handlePanelUpdate(connectionInfo, data) {
   if (!connectionInfo.authenticated) return;
   
-  const { projectId } = data;
+  // Handle both formats
+  const projectId = data.projectId || (data.data && data.data.projectId);
   
   if (!projectId) return;
   

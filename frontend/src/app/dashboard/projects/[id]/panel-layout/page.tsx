@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
 import { useWebSocket } from '@/hooks/use-websocket';
@@ -65,6 +65,19 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
   const { toast } = useToast();
   const router = useRouter();
   
+  // Debounce timer ref
+  const saveDebounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Debounced save function
+  const debouncedSaveProjectToSupabase = () => {
+    if (saveDebounceRef.current) {
+      clearTimeout(saveDebounceRef.current);
+    }
+    saveDebounceRef.current = setTimeout(() => {
+      saveProjectToSupabase();
+    }, 300); // 300ms debounce
+  };
+
   // Mapping function to normalize panel fields - moved up so it can be used in useEffect
   function mapPanelFields(panel: any, index: number = 0) {
     console.log(`[MAP DEBUG] Mapping panel ${index}:`, panel);
@@ -96,24 +109,33 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
     return mapped;
   }
 
-  const { isConnected, sendMessage } = useWebSocket({
+  const { isConnected, isAuthenticated, sendMessage } = useWebSocket({
+    userId: user?.id || null,
     onMessage: (message) => {
-      if (message.type === 'PANEL_UPDATE' && message.data.projectId === id) {
+      // Support both formats: message.data.projectId and message.projectId
+      const projectId = message.data?.projectId ?? message.projectId;
+      if (message.type === 'PANEL_UPDATE' && projectId === id) {
         setLayout((prev) => {
           if (!prev) return null;
+          const panels = message.data?.panels ?? message.panels ?? prev.panels;
+          const lastUpdated = message.data?.timestamp ?? message.timestamp ?? new Date().toISOString();
           return {
             ...prev,
-            panels: message.data.panels || prev.panels,
-            lastUpdated: message.data.timestamp || new Date().toISOString()
+            panels,
+            lastUpdated
           };
         });
       }
     },
     onConnect: () => {
-      if (user?.id) {
-        sendMessage('AUTH', { userId: user.id });
-        sendMessage('JOIN_ROOM', { room: `panel_layout_${id}` });
-      }
+      console.log('WebSocket connected, user ID:', user?.id);
+    },
+    onAuthSuccess: () => {
+      console.log('WebSocket authenticated, joining room:', `panel_layout_${id}`);
+      sendMessage('JOIN_ROOM', { room: `panel_layout_${id}` });
+    },
+    onAuthFailure: (error) => {
+      console.error('WebSocket authentication failed:', error);
     }
   });
 
@@ -410,7 +432,18 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
     }
   };
 
+  // Diagnostic: Log layout state changes
+  useEffect(() => {
+    console.log('[DIAG] layout changed:', layout);
+  }, [layout]);
+
+  // Diagnostic: Log project state changes
+  useEffect(() => {
+    console.log('[DIAG] project changed:', project);
+  }, [project]);
+
   const saveProjectToSupabase = async () => {
+    console.log('[DIAG] Saving panels:', layout?.panels);
     console.log('SaveProjectToSupabase called!');
     console.log('project:', project);
     console.log('layout:', layout);
@@ -520,7 +553,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
           <p className="text-gray-500">
             Last updated: {layout.lastUpdated ? new Date(layout.lastUpdated).toLocaleString() : 'Never'}
             {isConnected ? (
-              <span className="text-green-500 ml-2">● Connected</span>
+              <span className="text-green-500 ml-2">● Connected{isAuthenticated ? ' & Authenticated' : ' (Auth Pending)'}</span>
             ) : (
               <span className="text-red-500 ml-2">● Disconnected</span>
             )}
@@ -557,7 +590,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
           }}>
             Debug Layout
           </Button>
-          <Button variant="outline" onClick={saveProjectToSupabase}>
+          <Button variant="outline" onClick={debouncedSaveProjectToSupabase}>
             Save Project
           </Button>
           <Button onClick={() => setExportDialogOpen(true)}>
