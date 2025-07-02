@@ -401,8 +401,9 @@ export default function PanelGrid({
 
   // Debug log for panel attributes before rendering
   useEffect(() => {
+    console.log(`[RENDER DEBUG] PanelGrid received ${panels.length} panels:`, panels);
     panels.forEach((panel, idx) => {
-      console.log(`[RENDER DEBUG] Panel ${idx}: id=${panel.id}, type=${panel.type}, x=${panel.x}, y=${panel.y}, width=${panel.width}, height=${panel.height}`);
+      console.log(`[RENDER DEBUG] Panel ${idx}: id=${panel.id}, type=${panel.type}, x=${panel.x}, y=${panel.y}, width=${panel.width}, height=${panel.height}, fill=${panel.fill}`);
     });
   }, [panels]);
 
@@ -544,6 +545,7 @@ export default function PanelGrid({
           touchAction: 'none'
         }}
       >
+
         <Layer>
           {/* Grid lines */}
           {gridLines.map(line => (
@@ -556,6 +558,8 @@ export default function PanelGrid({
               fill={GRID_LINE_COLOR}
             />
           ))}
+          
+
           
           {/* Panels */}
           {panels.map(renderPanel)}

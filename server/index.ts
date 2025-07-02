@@ -36,7 +36,7 @@ app.use('/api/documents', require('../backend/routes/documents'));
 app.use('/api/panels', require('../backend/routes/panels'));
 app.use('/api/qc-data', require('../backend/routes/qc-data'));
 app.use('/api/payments', require('../backend/routes/payments'));
-app.use('/api/system', require('../backend/routes/api/system.js'));
+app.use('/api/system', require('../backend/routes/api/system'));
 
 // Serve index.html for all non-API routes
 app.get('*', (req: Request, res: Response) => {
