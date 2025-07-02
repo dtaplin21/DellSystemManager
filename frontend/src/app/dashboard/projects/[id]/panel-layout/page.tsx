@@ -67,15 +67,61 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
   
   // Debounce timer ref
   const saveDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const layoutRef = useRef<PanelLayout | null>(null);
+  useEffect(() => {
+    layoutRef.current = layout;
+  }, [layout]);
 
-  // Debounced save function
-  const debouncedSaveProjectToSupabase = () => {
-    if (saveDebounceRef.current) {
-      clearTimeout(saveDebounceRef.current);
+  // Save function now takes layout and project as arguments
+  const saveProjectToSupabase = async (currentLayout: PanelLayout, project: Project) => {
+    console.log('[DIAG] Saving panels:', currentLayout?.panels);
+    console.log('SaveProjectToSupabase called!');
+    console.log('project:', project);
+    console.log('layout:', currentLayout);
+    console.log('user:', user);
+
+    try {
+      // Convert panels back to Supabase format, DO NOT divide by PIXELS_PER_FOOT
+      const supabasePanels = currentLayout.panels.map(panel => ({
+        project_id: project.id,
+        type: panel.type,
+        x: panel.x, // already in feet
+        y: panel.y, // already in feet
+        width_feet: panel.widthFeet || panel.width, // already in feet
+        height_feet: panel.heightFeet || panel.height, // already in feet
+        roll_number: panel.rollNumber,
+        panel_number: panel.panelNumber,
+        fill: panel.fill,
+        stroke: panel.stroke,
+        stroke_width: panel.strokeWidth,
+        rotation: panel.rotation || 0
+      }));
+      const width = typeof currentLayout.width === 'number' ? currentLayout.width : DEFAULT_LAYOUT_WIDTH;
+      const height = typeof currentLayout.height === 'number' ? currentLayout.height : DEFAULT_LAYOUT_HEIGHT;
+      const scale = typeof currentLayout.scale === 'number' ? currentLayout.scale : DEFAULT_SCALE;
+      const requestBody = { panels: supabasePanels, width, height, scale };
+      console.log('[DIAG] Request body to backend:', JSON.stringify(requestBody, null, 2));
+      // Use the updatePanelLayout function from the API helper
+      const result = await updatePanelLayout(project.id, requestBody);
+      console.log('[DIAG] Backend response from updatePanelLayout:', JSON.stringify(result, null, 2));
+      toast({
+        title: 'Project Saved',
+        description: 'Project data saved successfully.',
+      });
+    } catch (error) {
+      console.error('[DEBUG] Save: Error saving project:', error);
+      toast({
+        title: 'Error',
+        description: `Failed to save project data: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        variant: 'destructive',
+      });
     }
-    saveDebounceRef.current = setTimeout(() => {
-      saveProjectToSupabase();
-    }, 300); // 300ms debounce
+  };
+
+  // Handler for Save Project button
+  const handleManualSave = () => {
+    if (!layout || !project || !user) return;
+    saveProjectToSupabase(layout, project);
   };
 
   // Mapping function to normalize panel fields - moved up so it can be used in useEffect
@@ -213,6 +259,14 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
 
     loadProjectAndLayout();
   }, [id, toast, router]);
+
+  // After loading layout, log the loaded layout and panels
+  useEffect(() => {
+    if (layout) {
+      console.log('[DIAG] Layout loaded from backend:', layout);
+      console.log('[DIAG] Panels loaded from backend:', layout.panels);
+    }
+  }, [layout]);
 
   const handleScaleChange = (newScale: number) => {
     console.log('Scale change in parent:', newScale);
@@ -442,73 +496,6 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
     console.log('[DIAG] project changed:', project);
   }, [project]);
 
-  const saveProjectToSupabase = async () => {
-    console.log('[DIAG] Saving panels:', layout?.panels);
-    console.log('SaveProjectToSupabase called!');
-    console.log('project:', project);
-    console.log('layout:', layout);
-    console.log('user:', user);
-
-    if (!project) {
-      console.log('[DEBUG] Save: Project is missing');
-      return;
-    }
-    if (!layout) {
-      console.log('[DEBUG] Save: Layout is missing');
-      return;
-    }
-    if (!user) {
-      console.log('[DEBUG] Save: User is missing');
-      return;
-    }
-
-    try {
-      console.log(`[DEBUG] Save: Saving project ${project.id} (${project.name}) with panels:`, layout.panels);
-      console.log('[DEBUG] Save: Layout state before save:', layout);
-      // Convert panels back to Supabase format
-      const supabasePanels = layout.panels.map(panel => ({
-        project_id: project.id,
-        type: panel.type,
-        x: panel.x,
-        y: panel.y,
-        width_feet: panel.widthFeet,
-        height_feet: panel.heightFeet,
-        roll_number: panel.rollNumber,
-        panel_number: panel.panelNumber,
-        fill: panel.fill,
-        stroke: panel.stroke,
-        stroke_width: panel.strokeWidth,
-        rotation: panel.rotation || 0
-      }));
-      console.log('[DEBUG] Save: Converted panels for backend:', supabasePanels);
-      // Always send defaults if values are missing
-      const width = typeof layout.width === 'number' ? layout.width : DEFAULT_LAYOUT_WIDTH;
-      const height = typeof layout.height === 'number' ? layout.height : DEFAULT_LAYOUT_HEIGHT;
-      const scale = typeof layout.scale === 'number' ? layout.scale : DEFAULT_SCALE;
-      // Use the updatePanelLayout function from the API helper
-      const result = await updatePanelLayout(project.id, {
-        panels: supabasePanels,
-        width,
-        height,
-        scale
-      });
-      console.log('[DEBUG] Save: Backend response from updatePanelLayout:', result);
-      toast({
-        title: 'Project Saved',
-        description: 'Project data saved successfully.',
-      });
-    } catch (error) {
-      console.error('[DEBUG] Save: Error saving project:', error);
-      toast({
-        title: 'Error',
-        description: `Failed to save project data: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        variant: 'destructive',
-      });
-    }
-  };
-
-
-
   if (isLoading) {
     return (
       <div className="flex justify-center py-8">
@@ -590,11 +577,11 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
           }}>
             Debug Layout
           </Button>
-          <Button variant="outline" onClick={debouncedSaveProjectToSupabase}>
-            Save Project
-          </Button>
           <Button onClick={() => setExportDialogOpen(true)}>
             Export to CAD
+          </Button>
+          <Button variant="outline" onClick={handleManualSave}>
+            Save Project
           </Button>
         </div>
       </div>
