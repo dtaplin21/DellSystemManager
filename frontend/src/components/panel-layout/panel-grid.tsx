@@ -428,41 +428,74 @@ export default function PanelGrid({
     // Compute shape center
     const centerX = panel.x + panel.width / 2;
     const centerY = panel.y + panel.height / 2;
-    // Build a single "label" string
+    // Build a single-line label: roll number / panel number
     const label = `${panel.rollNumber || panel.roll_number || ''} / ${panel.panelNumber || panel.panel_number || ''}`;
-    // Determine stroke color and width based on snap state
-    let strokeColor = "black";
-    let strokeWidth = 1;
+    
+    // Determine stroke color and width based on snap state, but always include black border
+    let strokeColor = "#000000"; // Always black base border
+    let strokeWidth = 4; // Increased base stroke width for bold visibility
+    
+    // Add snap state colors while keeping black border visible
     if (isSnapped) {
-      strokeColor = "#00ff00";
-      strokeWidth = 2;
+      strokeColor = "#00ff00"; // Green when snapped
+      strokeWidth = 5; // Thicker when snapped
     } else if (isPreSnap) {
-      strokeColor = "#ffff00";
-      strokeWidth = 2;
+      strokeColor = "#ffff00"; // Yellow when pre-snapping
+      strokeWidth = 5; // Thicker when pre-snapping
     }
-    // Calculate font size relative to panel size and scale
-    const minDim = Math.min(panel.width, panel.height);
-    const fontSize = Math.max(10, minDim * 0.25 * scale);
+    
+    // Calculate font size so the label takes up at least 60% of the panel width
+    let fontSize;
     if (panel.type === 'triangle') {
       const radiusX = panel.width / 2;
       const radiusY = panel.height / 2;
       const baseRadius = Math.min(radiusX, radiusY);
-      const scaleX = radiusX / baseRadius;
-      const scaleY = radiusY / baseRadius;
+      fontSize = baseRadius * 1.2; // 60% of the base width (diameter)
       return (
         <Group key={panel.id}>
+          {/* Black border layer - always visible (not interactive) */}
+          <RegularPolygon
+            x={centerX}
+            y={centerY}
+            sides={3}
+            radius={baseRadius}
+            scaleX={radiusX / baseRadius}
+            scaleY={radiusY / baseRadius}
+            rotation={panel.rotation}
+            fill="transparent"
+            stroke="#000000"
+            strokeWidth={4}
+            listening={false}
+          />
+          {/* Snap state border layer (not interactive) */}
+          {(isSnapped || isPreSnap) && (
+            <RegularPolygon
+              x={centerX}
+              y={centerY}
+              sides={3}
+              radius={baseRadius}
+              scaleX={radiusX / baseRadius}
+              scaleY={radiusY / baseRadius}
+              rotation={panel.rotation}
+              fill="transparent"
+              stroke={strokeColor}
+              strokeWidth={strokeWidth}
+              listening={false}
+            />
+          )}
+          {/* Main panel shape (interactive) */}
           <RegularPolygon
             id={panel.id}
             x={centerX}
             y={centerY}
             sides={3}
             radius={baseRadius}
-            scaleX={scaleX}
-            scaleY={scaleY}
+            scaleX={radiusX / baseRadius}
+            scaleY={radiusY / baseRadius}
             rotation={panel.rotation}
             fill={panel.fill}
-            stroke={strokeColor}
-            strokeWidth={strokeWidth}
+            stroke="transparent"
+            strokeWidth={0}
             draggable={true}
             onClick={(e: KonvaEventObject<MouseEvent>) => {
               e.cancelBubble = true;
@@ -475,6 +508,7 @@ export default function PanelGrid({
             onDragEnd={handlePanelDragEnd}
             onTransformEnd={handlePanelTransformEnd}
           />
+          {/* Label (not interactive) */}
           <Text
             text={label}
             x={centerX - baseRadius}
@@ -483,16 +517,46 @@ export default function PanelGrid({
             height={fontSize}
             fontSize={fontSize}
             fontFamily="Arial"
+            fontStyle="bold"
             fill="#000000"
             align="center"
             verticalAlign="middle"
+            listening={false}
           />
         </Group>
       );
     }
     // Rectangle and default
+    fontSize = panel.width * 0.6;
     return (
       <Group key={panel.id}>
+        {/* Black border layer - always visible (not interactive) */}
+        <Rect
+          x={panel.x}
+          y={panel.y}
+          width={panel.width}
+          height={panel.height}
+          rotation={panel.rotation}
+          fill="transparent"
+          stroke="#000000"
+          strokeWidth={4}
+          listening={false}
+        />
+        {/* Snap state border layer (not interactive) */}
+        {(isSnapped || isPreSnap) && (
+          <Rect
+            x={panel.x}
+            y={panel.y}
+            width={panel.width}
+            height={panel.height}
+            rotation={panel.rotation}
+            fill="transparent"
+            stroke={strokeColor}
+            strokeWidth={strokeWidth}
+            listening={false}
+          />
+        )}
+        {/* Main panel shape (interactive) */}
         <Rect
           id={panel.id}
           x={panel.x}
@@ -501,8 +565,8 @@ export default function PanelGrid({
           height={panel.height}
           rotation={panel.rotation}
           fill={panel.fill}
-          stroke={strokeColor}
-          strokeWidth={strokeWidth}
+          stroke="transparent"
+          strokeWidth={0}
           draggable={true}
           onClick={(e: KonvaEventObject<MouseEvent>) => {
             e.cancelBubble = true;
@@ -515,6 +579,7 @@ export default function PanelGrid({
           onDragEnd={handlePanelDragEnd}
           onTransformEnd={handlePanelTransformEnd}
         />
+        {/* Label (not interactive) */}
         <Text
           text={label}
           x={panel.x}
@@ -523,9 +588,11 @@ export default function PanelGrid({
           height={fontSize}
           fontSize={fontSize}
           fontFamily="Arial"
+          fontStyle="bold"
           fill="#000000"
           align="center"
           verticalAlign="middle"
+          listening={false}
         />
       </Group>
     );
