@@ -428,8 +428,10 @@ export default function PanelGrid({
     // Compute shape center
     const centerX = panel.x + panel.width / 2;
     const centerY = panel.y + panel.height / 2;
-    // Build a single-line label: roll number / panel number
-    const label = `${panel.rollNumber || panel.roll_number || ''} / ${panel.panelNumber || panel.panel_number || ''}`;
+    // Build a stacked label: roll number above panel number
+    const roll = panel.rollNumber || panel.roll_number || '';
+    const panelNum = panel.panelNumber || panel.panel_number || '';
+    const label = `${roll}\n${panelNum}`;
     
     // Determine stroke color and width based on snap state, but always include black border
     let strokeColor = "#000000"; // Always black base border
@@ -512,9 +514,9 @@ export default function PanelGrid({
           <Text
             text={label}
             x={centerX - baseRadius}
-            y={centerY - fontSize / 2}
+            y={centerY - fontSize}
             width={baseRadius * 2}
-            height={fontSize}
+            height={fontSize * 2}
             fontSize={fontSize}
             fontFamily="Arial"
             fontStyle="bold"
@@ -583,9 +585,9 @@ export default function PanelGrid({
         <Text
           text={label}
           x={panel.x}
-          y={panel.y + panel.height / 2 - fontSize / 2}
+          y={panel.y + panel.height / 2 - fontSize}
           width={panel.width}
-          height={fontSize}
+          height={fontSize * 2}
           fontSize={fontSize}
           fontFamily="Arial"
           fontStyle="bold"
