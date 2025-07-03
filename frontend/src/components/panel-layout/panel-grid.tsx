@@ -466,7 +466,7 @@ export default function PanelGrid({
             rotation={panel.rotation}
             fill="transparent"
             stroke="#000000"
-            strokeWidth={4}
+            strokeWidth={200}
             listening={false}
           />
           {/* Snap state border layer (not interactive) */}
@@ -541,7 +541,7 @@ export default function PanelGrid({
           rotation={panel.rotation}
           fill="transparent"
           stroke="#000000"
-          strokeWidth={4}
+          strokeWidth={200}
           listening={false}
         />
         {/* Snap state border layer (not interactive) */}
