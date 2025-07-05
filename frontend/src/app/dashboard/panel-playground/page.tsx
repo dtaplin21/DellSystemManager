@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useProjects } from '@/contexts/ProjectsProvider';
+import { useZoomPan } from '@/hooks/use-zoom-pan';
 import NoProjectSelected from '@/components/ui/no-project-selected';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -52,7 +53,6 @@ export default function PanelPlaygroundPage() {
   const [panelNumber, setPanelNumber] = useState('');
   const [dimensions, setDimensions] = useState({ width: 15, length: 100 });
   const [selectedPanel, setSelectedPanel] = useState<string | null>(null);
-  const [scale, setScale] = useState(1);
   const [dragInfo, setDragInfo] = useState<DragInfo>({
     isDragging: false,
     startX: 0,
@@ -75,6 +75,30 @@ export default function PanelPlaygroundPage() {
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Use the new zoom/pan hook
+  const {
+    scale,
+    position,
+    zoomIn,
+    zoomOut,
+    resetZoom,
+    zoomToFit,
+    setScale,
+    setPosition,
+    handleWheel: handleZoomWheel,
+    handleMouseDown: handleZoomMouseDown,
+    handleMouseMove: handleZoomMouseMove,
+    handleMouseUp: handleZoomMouseUp,
+    isPanning,
+  } = useZoomPan({
+    minScale: 0.1,
+    maxScale: 3.0,
+    initialScale: 1.0,
+    initialPosition: { x: 0, y: 0 },
+    containerWidth: settings.containerWidth,
+    containerHeight: settings.containerHeight,
+  });
 
   // Project selection guard
   if (!selectedProjectId || !selectedProject) {
@@ -550,25 +574,35 @@ export default function PanelPlaygroundPage() {
             <label className="block text-sm font-medium mb-2">Zoom: {Math.round(scale * 100)}%</label>
             <div className="flex gap-2">
               <Button 
-                onClick={() => setScale(Math.max(0.25, scale - 0.25))} 
+                onClick={zoomOut} 
                 variant="outline"
                 size="sm"
               >
                 -
               </Button>
               <Button 
-                onClick={() => setScale(1)} 
+                onClick={resetZoom} 
                 variant="outline"
                 size="sm"
               >
                 Reset
               </Button>
               <Button 
-                onClick={() => setScale(Math.min(3, scale + 0.25))} 
+                onClick={zoomIn} 
                 variant="outline"
                 size="sm"
               >
                 +
+              </Button>
+            </div>
+            <div className="mt-2">
+              <Button 
+                onClick={zoomToFit} 
+                variant="outline"
+                size="sm"
+                className="w-full"
+              >
+                Zoom to Fit
               </Button>
             </div>
           </div>
@@ -598,7 +632,20 @@ export default function PanelPlaygroundPage() {
           <div className="mb-4">
             <h3 className="text-lg font-semibold">Layout Viewer</h3>
           </div>
-          <div className="border border-gray-300 rounded overflow-auto" style={{ height: '600px' }}>
+          <div 
+            ref={containerRef}
+            className="border border-gray-300 rounded overflow-auto" 
+            style={{ height: '600px' }}
+            onWheel={(e) => {
+              if (containerRef.current) {
+                const containerRect = containerRef.current.getBoundingClientRect();
+                handleZoomWheel(e, containerRect);
+              }
+            }}
+            onMouseDown={handleZoomMouseDown}
+            onMouseMove={handleZoomMouseMove}
+            onMouseUp={handleZoomMouseUp}
+          >
             <canvas
               ref={canvasRef}
               width={settings.containerWidth}
@@ -608,6 +655,10 @@ export default function PanelPlaygroundPage() {
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
               onMouseLeave={handleMouseUp}
+              style={{
+                transform: `scale(${scale}) translate(${position.x}px, ${position.y}px)`,
+                transformOrigin: '0 0'
+              }}
             />
           </div>
         </div>

@@ -1,14 +1,15 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { useZoomPan } from '@/hooks/use-zoom-pan'
 import { Button } from '@/components/ui/button'
 import CreatePanelModal from './CreatePanelModal'
 import PanelAIChat from './PanelAIChat'
 import { parseExcelPanels, generateTemplateFile } from '@/lib/excel-import'
 import { exportToDXF, exportToJSON } from '@/lib/dxf-helpers'
 import { saveAs } from 'file-saver'
-import { Stage, Layer, Rect, Line, Text, Circle } from './KonvaCanvas'
-import type { Stage as StageType, Layer as LayerType, Rect as RectType, Line as LineType, Text as TextType, Circle as CircleType } from 'react-konva'
+import { Stage, Layer, Rect } from 'react-konva'
+import { Line, Text, Circle } from 'react-konva/lib/ReactKonvaCore'
 
 interface PanelLayoutProps {
   mode: 'manual' | 'auto'
@@ -42,11 +43,34 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
   const [panels, setPanels] = useState<Panel[]>([])
   const [selectedPanelId, setSelectedPanelId] = useState<string | null>(null)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
-  const [scale, setScale] = useState(1)
-  const [position, setPosition] = useState({ x: 0, y: 0 })
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 })
   const [isMounted, setIsMounted] = useState(false)
   const stageRef = useRef<any>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  // Use the new zoom/pan hook
+  const {
+    scale,
+    position,
+    zoomIn,
+    zoomOut,
+    resetZoom,
+    zoomToFit,
+    setScale,
+    setPosition,
+    handleWheel,
+    handleMouseDown,
+    handleMouseMove,
+    handleMouseUp,
+    isPanning,
+  } = useZoomPan({
+    minScale: 0.1,
+    maxScale: 3.0,
+    initialScale: 1.0,
+    initialPosition: { x: 0, y: 0 },
+    containerWidth: dimensions.width,
+    containerHeight: dimensions.height,
+  });
 
   useEffect(() => {
     setIsMounted(true)
@@ -244,13 +268,13 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
             x={position.x}
             y={position.y}
             draggable
-            onDragEnd={(e) => {
+            onDragEnd={(e: any) => {
               setPosition({ 
                 x: e.target.x(), 
                 y: e.target.y() 
               })
             }}
-            onWheel={(e) => {
+            onWheel={(e: any) => {
               e.evt.preventDefault()
               const scaleBy = 1.1
               const oldScale = scale
@@ -327,7 +351,7 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
                       draggable
                       onClick={() => handlePanelSelect(panel.id)}
                       onTap={() => handlePanelSelect(panel.id)}
-                      onDragEnd={(e) => {
+                      onDragEnd={(e: any) => {
                         handleDragEnd(panel.id, e.target.x(), e.target.y())
                       }}
                     />

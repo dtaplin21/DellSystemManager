@@ -19,9 +19,9 @@ import ProjectSelector from '@/components/projects/project-selector';
 
 // Constants for scaling
 const PIXELS_PER_FOOT = 200; // 100 pixels = 0.5ft, so 200 pixels = 1ft
-const MIN_SCALE = 0.0005; // Reduced minimum scale
-const ZOOM_STEP = 0.0005; // Smaller step for finer control
-const MAX_SCALE = 0.05; // Reduced maximum scale
+const MIN_SCALE = 0.1; // More intuitive minimum scale
+const ZOOM_STEP = 0.1; // Larger step for better control
+const MAX_SCALE = 3.0; // More intuitive maximum scale
 
 interface ControlToolbarProps {
   scale: number;
@@ -31,6 +31,8 @@ interface ControlToolbarProps {
   onEditPanel?: (panel: any) => void;
   onProjectLoad?: (project: any) => void;
   currentProject?: any;
+  onZoomToFit?: () => void;
+  onResetView?: () => void;
 }
 
 export default function ControlToolbar({ 
@@ -40,7 +42,9 @@ export default function ControlToolbar({
   selectedPanel,
   onEditPanel,
   onProjectLoad,
-  currentProject
+  currentProject,
+  onZoomToFit,
+  onResetView
 }: ControlToolbarProps) {
   const [panelForm, setPanelForm] = useState({
     label: '',
@@ -73,7 +77,11 @@ export default function ControlToolbar({
 
   const handleResetZoom = () => {
     console.log('Reset zoom clicked');
-    handleScaleChange(0.0005); // Reset to default scale
+    if (onResetView) {
+      onResetView();
+    } else {
+      handleScaleChange(1.0); // Reset to default scale
+    }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -227,9 +235,21 @@ export default function ControlToolbar({
             variant="outline"
             size="icon"
             onClick={handleResetZoom}
+            title="Reset View"
           >
             <RotateCcw className="h-4 w-4" />
           </Button>
+          
+          {onZoomToFit && (
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={onZoomToFit}
+              title="Zoom to Fit"
+            >
+              <Square className="h-4 w-4" />
+            </Button>
+          )}
         </div>
 
         <div className="flex items-center space-x-4">

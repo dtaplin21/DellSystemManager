@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { useZoomPan } from '@/hooks/use-zoom-pan'
 import { Button } from '@/components/ui/button'
 import { parseExcelPanels, generateTemplateFile } from '@/lib/excel-import'
 import { exportToDXF, exportToJSON } from '@/lib/dxf-helpers'
@@ -38,15 +39,39 @@ export default function SimplePanelLayout({ mode, projectInfo }: PanelLayoutProp
   const [panels, setPanels] = useState<Panel[]>([])
   const [selectedPanelId, setSelectedPanelId] = useState<string | null>(null)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
-  const [scale, setScale] = useState(1)
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 })
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
   const [dragInfo, setDragInfo] = useState<{ isDragging: boolean, panelId: string | null, startX: number, startY: number }>({
     isDragging: false,
     panelId: null,
     startX: 0,
     startY: 0
   })
+
+  // Use the new zoom/pan hook
+  const {
+    scale,
+    position,
+    zoomIn,
+    zoomOut,
+    resetZoom,
+    zoomToFit,
+    setScale,
+    setPosition,
+    handleWheel,
+    handleMouseDown,
+    handleMouseMove,
+    handleMouseUp,
+    isPanning,
+  } = useZoomPan({
+    minScale: 0.1,
+    maxScale: 3.0,
+    initialScale: 1.0,
+    initialPosition: { x: 0, y: 0 },
+    containerWidth: dimensions.width,
+    containerHeight: dimensions.height,
+  });
 
   useEffect(() => {
     // Initialize with some sample panels in auto mode

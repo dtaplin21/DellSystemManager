@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { useZoomPan } from '@/hooks/use-zoom-pan';
 import { Stage, Layer, Rect, Group, Transformer, RegularPolygon } from 'react-konva';
 import { Text } from 'react-konva/lib/ReactKonvaCore';
 import type { KonvaEventObject } from 'konva/lib/Node';
@@ -58,6 +59,9 @@ interface PanelGridProps {
   onPanelUpdate: (panels: Panel[]) => void;
   selectedPanel?: any;
   onEditPanel?: (panel: any) => void;
+  onScaleChange?: (scale: number) => void;
+  onPositionChange?: (position: { x: number; y: number }) => void;
+  position?: { x: number; y: number };
 }
 
 export default function PanelGrid({ 
@@ -67,19 +71,64 @@ export default function PanelGrid({
   scale, 
   onPanelUpdate,
   selectedPanel,
-  onEditPanel
+  onEditPanel,
+  onScaleChange,
+  onPositionChange,
+  position = { x: 0, y: 0 }
 }: PanelGridProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [snappedPairs, setSnappedPairs] = useState<Set<string>>(new Set());
   const [preSnapPairs, setPreSnapPairs] = useState<Set<string>>(new Set());
   const stageRef = useRef<any>(null);
   const transformerRef = useRef<any>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   
   // Log scale changes for debugging
   useEffect(() => {
     console.log('PanelGrid scale changed:', scale);
   }, [scale]);
+
+  // Handle wheel events for zoom
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    if (!containerRef.current) return;
+    
+    e.preventDefault();
+    const containerRect = containerRef.current.getBoundingClientRect();
+    
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    const newScale = Math.max(0.1, Math.min(3.0, scale * delta));
+    
+    // Calculate zoom center (mouse position relative to container)
+    const mouseX = e.clientX - containerRect.left;
+    const mouseY = e.clientY - containerRect.top;
+    
+    // Calculate new position to zoom towards mouse cursor
+    const scaleRatio = newScale / scale;
+    const newX = mouseX - (mouseX - position.x) * scaleRatio;
+    const newY = mouseY - (mouseY - position.y) * scaleRatio;
+    
+    if (onScaleChange) onScaleChange(newScale);
+    if (onPositionChange) onPositionChange({ x: newX, y: newY });
+  }, [scale, position, onScaleChange, onPositionChange]);
+
+  // Handle mouse events for panning
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (e.button === 0 && !selectedId) { // Left mouse button only and no panel selected
+      e.preventDefault();
+      const stage = stageRef.current;
+      if (stage) {
+        stage.draggable(true);
+      }
+    }
+  }, [selectedId]);
+
+  const handleMouseUp = useCallback(() => {
+    const stage = stageRef.current;
+    if (stage) {
+      stage.draggable(false);
+    }
+  }, []);
   
   // Memoize grid lines calculation
   const gridLines = useMemo(() => {
@@ -601,13 +650,25 @@ export default function PanelGrid({
   }, [selectedId, handlePanelDragEnd, handlePanelTransformEnd, handlePanelDragMove, onEditPanel, panels, arePanelsSnapped, preSnapPairs, scale]);
 
     return (
-    <div className="w-full h-full overflow-hidden">
+    <div 
+      ref={containerRef}
+      className="w-full h-full overflow-hidden"
+      onWheel={handleWheel}
+      onMouseDown={handleMouseDown}
+      onMouseUp={handleMouseUp}
+      style={{
+        cursor: selectedId ? 'default' : 'grab'
+      }}
+    >
       <Stage
         ref={stageRef}
         width={width}
         height={height}
         scaleX={scale}
         scaleY={scale}
+        x={position.x}
+        y={position.y}
+        draggable={false}
         onClick={handleStageClick}
         className="bg-white"
         style={{

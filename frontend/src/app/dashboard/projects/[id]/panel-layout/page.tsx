@@ -47,7 +47,7 @@ interface PanelLayout {
 const DEFAULT_LAYOUT_WIDTH = 15000;
 const DEFAULT_LAYOUT_HEIGHT = 15000;
 const PIXELS_PER_FOOT = 200; // 100 pixels = 0.5ft, so 200 pixels = 1ft
-const DEFAULT_SCALE = 0.0025; // Halved from 0.005 to make panels take up half the space
+const DEFAULT_SCALE = 1.0; // More intuitive default scale
 
 const BACKEND_URL = 'http://localhost:8003';
 
@@ -60,6 +60,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
   console.log('[DEBUG] Initial id:', id);
   const [selectedPanel, setSelectedPanel] = useState<any>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
   
   const { user } = useSupabaseAuth();
   const { toast } = useToast();
@@ -277,6 +278,57 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
         scale: newScale
       };
     });
+  };
+
+  const handlePositionChange = (newPosition: { x: number; y: number }) => {
+    console.log('Position change in parent:', newPosition);
+    setPosition(newPosition);
+  };
+
+  const handleZoomToFit = () => {
+    if (!layout || !layout.panels.length) return;
+    
+    // Calculate bounds of all panels
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    layout.panels.forEach(panel => {
+      minX = Math.min(minX, panel.x);
+      minY = Math.min(minY, panel.y);
+      maxX = Math.max(maxX, panel.x + panel.width);
+      maxY = Math.max(maxY, panel.y + panel.height);
+    });
+    
+    const contentWidth = maxX - minX;
+    const contentHeight = maxY - minY;
+    const containerWidth = window.innerWidth - 64;
+    const containerHeight = window.innerHeight - 300;
+    
+    const scaleX = containerWidth / contentWidth;
+    const scaleY = containerHeight / contentHeight;
+    const fitScale = Math.max(0.1, Math.min(3.0, Math.min(scaleX, scaleY) * 0.9));
+    
+    setLayout(prev => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        scale: fitScale
+      };
+    });
+    
+    setPosition({
+      x: (containerWidth - contentWidth * fitScale) / 2 - minX * fitScale,
+      y: (containerHeight - contentHeight * fitScale) / 2 - minY * fitScale,
+    });
+  };
+
+  const handleResetView = () => {
+    setLayout(prev => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        scale: DEFAULT_SCALE
+      };
+    });
+    setPosition({ x: 0, y: 0 });
   };
 
   const handlePanelUpdate = async (updatedPanels: any[]) => {
@@ -596,6 +648,8 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
             onEditPanel={handleEditPanel}
             onProjectLoad={handleProjectLoad}
             currentProject={project}
+            onZoomToFit={handleZoomToFit}
+            onResetView={handleResetView}
           />
         </CardHeader>
         <CardContent className="p-0">
@@ -615,6 +669,9 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
               onPanelUpdate={handlePanelUpdate}
               selectedPanel={selectedPanel}
               onEditPanel={handlePanelSelect}
+              onScaleChange={handleScaleChange}
+              onPositionChange={handlePositionChange}
+              position={position}
             />
           </div>
         </CardContent>
