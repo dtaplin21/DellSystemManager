@@ -76,29 +76,19 @@ export default function PanelPlaygroundPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Use the new zoom/pan hook
+  // Use the unified zoom/pan hook
   const {
     scale,
     position,
-    zoomIn,
-    zoomOut,
-    resetZoom,
-    zoomToFit,
     setScale,
     setPosition,
-    handleWheel: handleZoomWheel,
-    handleMouseDown: handleZoomMouseDown,
-    handleMouseMove: handleZoomMouseMove,
-    handleMouseUp: handleZoomMouseUp,
-    isPanning,
-  } = useZoomPan({
-    minScale: 0.1,
-    maxScale: 3.0,
-    initialScale: 1.0,
-    initialPosition: { x: 0, y: 0 },
-    containerWidth: settings.containerWidth,
-    containerHeight: settings.containerHeight,
-  });
+    zoomIn,
+    zoomOut,
+    fitToContent,
+    handleWheel,
+    onMouseMove,
+    reset,
+  } = useZoomPan();
 
   // Project selection guard
   if (!selectedProjectId || !selectedProject) {
@@ -573,37 +563,22 @@ export default function PanelPlaygroundPage() {
           <div className="mt-6">
             <label className="block text-sm font-medium mb-2">Zoom: {Math.round(scale * 100)}%</label>
             <div className="flex gap-2">
-              <Button 
-                onClick={zoomOut} 
-                variant="outline"
-                size="sm"
-              >
-                -
-              </Button>
-              <Button 
-                onClick={resetZoom} 
-                variant="outline"
-                size="sm"
-              >
-                Reset
-              </Button>
-              <Button 
-                onClick={zoomIn} 
-                variant="outline"
-                size="sm"
-              >
-                +
-              </Button>
+              <Button onClick={() => zoomOut()} variant="outline" size="sm">-</Button>
+              <Button onClick={() => reset()} variant="outline" size="sm">Reset</Button>
+              <Button onClick={() => zoomIn()} variant="outline" size="sm">+</Button>
             </div>
             <div className="mt-2">
-              <Button 
-                onClick={zoomToFit} 
-                variant="outline"
-                size="sm"
-                className="w-full"
-              >
-                Zoom to Fit
-              </Button>
+              <Button onClick={() => {
+                if (panels.length === 0) return fitToContent();
+                let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                panels.forEach(panel => {
+                  minX = Math.min(minX, panel.x);
+                  minY = Math.min(minY, panel.y);
+                  maxX = Math.max(maxX, panel.x + (panel.width || 0));
+                  maxY = Math.max(maxY, panel.y + (panel.length || 0));
+                });
+                fitToContent({ x: minX, y: minY, width: maxX - minX, height: maxY - minY }, 40);
+              }} variant="outline" size="sm" className="w-full">Zoom to Fit</Button>
             </div>
           </div>
 
@@ -636,15 +611,8 @@ export default function PanelPlaygroundPage() {
             ref={containerRef}
             className="border border-gray-300 rounded overflow-auto" 
             style={{ height: '600px' }}
-            onWheel={(e) => {
-              if (containerRef.current) {
-                const containerRect = containerRef.current.getBoundingClientRect();
-                handleZoomWheel(e, containerRect);
-              }
-            }}
-            onMouseDown={handleZoomMouseDown}
-            onMouseMove={handleZoomMouseMove}
-            onMouseUp={handleZoomMouseUp}
+            onWheel={e => handleWheel(e.nativeEvent)}
+            onMouseMove={onMouseMove}
           >
             <canvas
               ref={canvasRef}

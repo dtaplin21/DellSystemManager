@@ -84,33 +84,24 @@ export default function PanelGrid({
   const containerRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   
+  // Use the unified zoom/pan hook with renamed variables to avoid conflicts
+  const {
+    scale: hookScale,
+    position: hookPosition,
+    setScale: hookSetScale,
+    setPosition: hookSetPosition,
+    zoomIn: hookZoomIn,
+    zoomOut: hookZoomOut,
+    fitToContent: hookFitToContent,
+    handleWheel: hookHandleWheel,
+    onMouseMove: hookOnMouseMove,
+    reset: hookReset,
+  } = useZoomPan();
+
   // Log scale changes for debugging
   useEffect(() => {
     console.log('PanelGrid scale changed:', scale);
   }, [scale]);
-
-  // Handle wheel events for zoom
-  const handleWheel = useCallback((e: React.WheelEvent) => {
-    if (!containerRef.current) return;
-    
-    e.preventDefault();
-    const containerRect = containerRef.current.getBoundingClientRect();
-    
-    const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    const newScale = Math.max(0.1, Math.min(3.0, scale * delta));
-    
-    // Calculate zoom center (mouse position relative to container)
-    const mouseX = e.clientX - containerRect.left;
-    const mouseY = e.clientY - containerRect.top;
-    
-    // Calculate new position to zoom towards mouse cursor
-    const scaleRatio = newScale / scale;
-    const newX = mouseX - (mouseX - position.x) * scaleRatio;
-    const newY = mouseY - (mouseY - position.y) * scaleRatio;
-    
-    if (onScaleChange) onScaleChange(newScale);
-    if (onPositionChange) onPositionChange({ x: newX, y: newY });
-  }, [scale, position, onScaleChange, onPositionChange]);
 
   // Handle mouse events for panning
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -653,9 +644,10 @@ export default function PanelGrid({
     <div 
       ref={containerRef}
       className="w-full h-full overflow-hidden"
-      onWheel={handleWheel}
+      onWheel={e => hookHandleWheel(e.nativeEvent)}
       onMouseDown={handleMouseDown}
       onMouseUp={handleMouseUp}
+      onMouseMove={hookOnMouseMove}
       style={{
         cursor: selectedId ? 'default' : 'grab'
       }}

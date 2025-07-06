@@ -48,29 +48,19 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
   const stageRef = useRef<any>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  // Use the new zoom/pan hook
+  // Use the unified zoom/pan hook
   const {
     scale,
     position,
-    zoomIn,
-    zoomOut,
-    resetZoom,
-    zoomToFit,
     setScale,
     setPosition,
+    zoomIn,
+    zoomOut,
+    fitToContent,
     handleWheel,
-    handleMouseDown,
-    handleMouseMove,
-    handleMouseUp,
-    isPanning,
-  } = useZoomPan({
-    minScale: 0.1,
-    maxScale: 3.0,
-    initialScale: 1.0,
-    initialPosition: { x: 0, y: 0 },
-    containerWidth: dimensions.width,
-    containerHeight: dimensions.height,
-  });
+    onMouseMove,
+    reset,
+  } = useZoomPan();
 
   useEffect(() => {
     setIsMounted(true)
@@ -117,11 +107,14 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
   }
 
   const handleCreatePanel = (panel: Omit<Panel, 'id' | 'x' | 'y' | 'rotation' | 'color'>) => {
+    // Compute the center of the viewport in world coordinates
+    const centerX = (dimensions.width / 2 - position.x) / scale;
+    const centerY = (dimensions.height / 2 - position.y) / scale;
     const newPanel: Panel = {
       ...panel,
       id: Date.now().toString(),
-      x: Math.random() * (dimensions.width - panel.width),
-      y: Math.random() * (dimensions.height - panel.length),
+      x: centerX - panel.width / 2,
+      y: centerY - panel.length / 2,
       rotation: 0,
       color: generatePastelColor()
     }
@@ -152,19 +145,6 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
   const handleReset = () => {
     setPanels([])
     setSelectedPanelId(null)
-    setScale(1)
-    setPosition({ x: 0, y: 0 })
-  }
-
-  const handleZoomIn = () => {
-    setScale(scale * 1.2)
-  }
-
-  const handleZoomOut = () => {
-    setScale(scale / 1.2)
-  }
-
-  const handleFitToScale = () => {
     setScale(1)
     setPosition({ x: 0, y: 0 })
   }
@@ -206,14 +186,20 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
       <div className="w-full md:w-3/4 bg-white p-4 rounded-lg shadow-md">
         <div className="flex justify-between mb-4">
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={handleZoomIn}>
-              Zoom +
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleZoomOut}>
-              Zoom -
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleFitToScale}>
-              Fit
+            <Button onClick={() => zoomIn()}>Zoom +</Button>
+            <Button onClick={() => zoomOut()}>Zoom -</Button>
+            <Button onClick={() => {
+              if (panels.length === 0) return fitToContent();
+              let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+              panels.forEach(panel => {
+                minX = Math.min(minX, panel.x);
+                minY = Math.min(minY, panel.y);
+                maxX = Math.max(maxX, panel.x + (panel.width || 0));
+                maxY = Math.max(maxY, panel.y + (panel.length || 0));
+              });
+              fitToContent({ x: minX, y: minY, width: maxX - minX, height: maxY - minY }, 40);
+            }}>
+              Fit to Scale
             </Button>
           </div>
           <div className="flex gap-2">
@@ -267,30 +253,10 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
             scaleY={scale}
             x={position.x}
             y={position.y}
-            draggable
-            onDragEnd={(e: any) => {
-              setPosition({ 
-                x: e.target.x(), 
-                y: e.target.y() 
-              })
-            }}
-            onWheel={(e: any) => {
-              e.evt.preventDefault()
-              const scaleBy = 1.1
-              const oldScale = scale
-              
-              const mousePointTo = {
-                x: (e.evt.offsetX - position.x) / oldScale,
-                y: (e.evt.offsetY - position.y) / oldScale,
+            onWheel={(e: import('konva/lib/Node').KonvaEventObject<WheelEvent>) => {
+              if (containerRef.current) {
+                handleWheel(e.evt, containerRef.current.getBoundingClientRect());
               }
-              
-              const newScale = e.evt.deltaY < 0 ? oldScale * scaleBy : oldScale / scaleBy
-              
-              setScale(newScale)
-              setPosition({
-                x: e.evt.offsetX - mousePointTo.x * newScale,
-                y: e.evt.offsetY - mousePointTo.y * newScale,
-              })
             }}
           >
             <Layer>

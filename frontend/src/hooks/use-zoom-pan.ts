@@ -1,232 +1,137 @@
 'use client';
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useRef, useCallback } from 'react';
 
-interface ZoomPanState {
+export interface Point {
+  x: number;
+  y: number;
+}
+
+export interface UseZoomPan {
   scale: number;
-  position: { x: number; y: number };
+  position: Point;
+  setScale: (newScale: number, pivot?: Point) => void;
+  setPosition: (pos: Point) => void;
+  reset: () => void;
+  fitToContent: (bounds?: { x: number; y: number; width: number; height: number }, padding?: number) => void;
+  zoomIn: (factor?: number) => void;
+  zoomOut: (factor?: number) => void;
+  handleWheel: (e: WheelEvent, pivot?: Point) => void;
+  onMouseMove: (e: { clientX: number; clientY: number } | { offsetX: number; offsetY: number }) => void;
 }
 
-interface UseZoomPanOptions {
-  minScale?: number;
-  maxScale?: number;
-  initialScale?: number;
-  initialPosition?: { x: number; y: number };
-  containerWidth?: number;
-  containerHeight?: number;
-  contentWidth?: number;
-  contentHeight?: number;
-}
+const DEFAULT_SCALE = 1;
+const DEFAULT_POSITION: Point = { x: 0, y: 0 };
+const MIN_SCALE = 0.1;
+const MAX_SCALE = 10;
 
-interface UseZoomPanReturn {
-  scale: number;
-  position: { x: number; y: number };
-  zoomIn: () => void;
-  zoomOut: () => void;
-  resetZoom: () => void;
-  zoomToFit: () => void;
-  setScale: (scale: number) => void;
-  setPosition: (position: { x: number; y: number }) => void;
-  handleWheel: (e: React.WheelEvent, containerRect: DOMRect) => void;
-  handleMouseDown: (e: React.MouseEvent) => void;
-  handleMouseMove: (e: React.MouseEvent) => void;
-  handleMouseUp: () => void;
-  isPanning: boolean;
-}
+export function useZoomPan(): UseZoomPan {
+  const [scale, setScaleState] = useState<number>(DEFAULT_SCALE);
+  const [position, setPositionState] = useState<Point>(DEFAULT_POSITION);
 
-export const useZoomPan = (options: UseZoomPanOptions = {}): UseZoomPanReturn => {
-  const {
-    minScale = 0.1,
-    maxScale = 3.0,
-    initialScale = 1.0,
-    initialPosition = { x: 0, y: 0 },
-    containerWidth = 0,
-    containerHeight = 0,
-    contentWidth = 0,
-    contentHeight = 0,
-  } = options;
+  // Last known pointer (screen or canvas) position
+  const lastPointer = useRef<Point>({ x: 0, y: 0 });
 
-  const [state, setState] = useState<ZoomPanState>({
-    scale: initialScale,
-    position: initialPosition,
-  });
-
-  const [isPanning, setIsPanning] = useState(false);
-  const lastMousePos = useRef<{ x: number; y: number } | null>(null);
-  const isMouseDown = useRef(false);
-
-  // Clamp scale to bounds
-  const clampScale = useCallback((scale: number) => {
-    return Math.max(minScale, Math.min(maxScale, scale));
-  }, [minScale, maxScale]);
-
-  // Zoom in
-  const zoomIn = useCallback(() => {
-    setState(prev => ({
-      ...prev,
-      scale: clampScale(prev.scale * 1.2),
-    }));
-  }, [clampScale]);
-
-  // Zoom out
-  const zoomOut = useCallback(() => {
-    setState(prev => ({
-      ...prev,
-      scale: clampScale(prev.scale / 1.2),
-    }));
-  }, [clampScale]);
-
-  // Reset zoom and position
-  const resetZoom = useCallback(() => {
-    setState({
-      scale: initialScale,
-      position: initialPosition,
-    });
-  }, [initialScale, initialPosition]);
-
-  // Zoom to fit all content
-  const zoomToFit = useCallback(() => {
-    if (containerWidth === 0 || containerHeight === 0 || contentWidth === 0 || contentHeight === 0) {
-      return;
-    }
-
-    const scaleX = containerWidth / contentWidth;
-    const scaleY = containerHeight / contentHeight;
-    const fitScale = clampScale(Math.min(scaleX, scaleY) * 0.9); // 90% to add some padding
-
-    setState({
-      scale: fitScale,
-      position: {
-        x: (containerWidth - contentWidth * fitScale) / 2,
-        y: (containerHeight - contentHeight * fitScale) / 2,
-      },
-    });
-  }, [containerWidth, containerHeight, contentWidth, contentHeight, clampScale]);
-
-  // Set scale directly
-  const setScale = useCallback((scale: number) => {
-    setState(prev => ({
-      ...prev,
-      scale: clampScale(scale),
-    }));
-  }, [clampScale]);
-
-  // Set position directly
-  const setPosition = useCallback((position: { x: number; y: number }) => {
-    setState(prev => ({
-      ...prev,
-      position,
-    }));
-  }, []);
-
-  // Handle mouse wheel for zoom
-  const handleWheel = useCallback((e: React.WheelEvent, containerRect: DOMRect) => {
-    e.preventDefault();
-    
-    const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    const newScale = clampScale(state.scale * delta);
-    
-    // Calculate zoom center (mouse position relative to container)
-    const mouseX = e.clientX - containerRect.left;
-    const mouseY = e.clientY - containerRect.top;
-    
-    // Calculate new position to zoom towards mouse cursor
-    const scaleRatio = newScale / state.scale;
-    const newX = mouseX - (mouseX - state.position.x) * scaleRatio;
-    const newY = mouseY - (mouseY - state.position.y) * scaleRatio;
-    
-    setState({
-      scale: newScale,
-      position: { x: newX, y: newY },
-    });
-  }, [state.scale, state.position, clampScale]);
-
-  // Handle mouse down for panning
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    if (e.button === 0) { // Left mouse button only
-      e.preventDefault();
-      isMouseDown.current = true;
-      setIsPanning(true);
-      lastMousePos.current = { x: e.clientX, y: e.clientY };
-    }
-  }, []);
-
-  // Handle mouse move for panning
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!isMouseDown.current || !lastMousePos.current) return;
-    
-    e.preventDefault();
-    
-    const deltaX = e.clientX - lastMousePos.current.x;
-    const deltaY = e.clientY - lastMousePos.current.y;
-    
-    setState(prev => ({
-      ...prev,
-      position: {
-        x: prev.position.x + deltaX,
-        y: prev.position.y + deltaY,
-      },
-    }));
-    
-    lastMousePos.current = { x: e.clientX, y: e.clientY };
-  }, []);
-
-  // Handle mouse up
-  const handleMouseUp = useCallback(() => {
-    isMouseDown.current = false;
-    setIsPanning(false);
-    lastMousePos.current = null;
-  }, []);
-
-  // Add global mouse event listeners for panning
-  useEffect(() => {
-    const handleGlobalMouseMove = (e: MouseEvent) => {
-      if (isMouseDown.current && lastMousePos.current) {
-        const deltaX = e.clientX - lastMousePos.current.x;
-        const deltaY = e.clientY - lastMousePos.current.y;
-        
-        setState(prev => ({
-          ...prev,
-          position: {
-            x: prev.position.x + deltaX,
-            y: prev.position.y + deltaY,
-          },
-        }));
-        
-        lastMousePos.current = { x: e.clientX, y: e.clientY };
+  // Update pointer position on mouse move
+  const onMouseMove = useCallback(
+    (e: { clientX: number; clientY: number } | { offsetX: number; offsetY: number }) => {
+      if ('clientX' in e) {
+        lastPointer.current = { x: e.clientX, y: e.clientY };
+      } else {
+        lastPointer.current = { x: e.offsetX, y: e.offsetY };
       }
-    };
+    },
+    []
+  );
 
-    const handleGlobalMouseUp = () => {
-      isMouseDown.current = false;
-      setIsPanning(false);
-      lastMousePos.current = null;
-    };
+  // Core setter: zoom about an optional pivot point
+  const setScale = useCallback(
+    (newScale: number, pivot: Point = lastPointer.current) => {
+      // Clamp
+      const clamped = Math.max(MIN_SCALE, Math.min(MAX_SCALE, newScale));
+      // Recalculate position so pivot stays under the cursor
+      const dx = pivot.x - position.x;
+      const dy = pivot.y - position.y;
+      const scaleFactor = clamped / scale;
+      const newPos: Point = {
+        x: pivot.x - dx * scaleFactor,
+        y: pivot.y - dy * scaleFactor,
+      };
+      setScaleState(clamped);
+      setPositionState(newPos);
+    },
+    [position, scale]
+  );
 
-    if (isPanning) {
-      document.addEventListener('mousemove', handleGlobalMouseMove);
-      document.addEventListener('mouseup', handleGlobalMouseUp);
-    }
+  const setPosition = useCallback((pos: Point) => {
+    setPositionState(pos);
+  }, []);
 
-    return () => {
-      document.removeEventListener('mousemove', handleGlobalMouseMove);
-      document.removeEventListener('mouseup', handleGlobalMouseUp);
-    };
-  }, [isPanning]);
+  const reset = useCallback(() => {
+    setScaleState(DEFAULT_SCALE);
+    setPositionState(DEFAULT_POSITION);
+  }, []);
+
+  /**
+   * Fit the given bounds into the viewport.
+   * If you call this from a component, pass it the union bounding box
+   * of all your panels plus an optional padding.
+   */
+  const fitToContent = useCallback(
+    (
+      bounds: { x: number; y: number; width: number; height: number } = {
+        x: 0,
+        y: 0,
+        width: 0,
+        height: 0,
+      },
+      padding = 20
+    ) => {
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const scaleX = (vw - padding * 2) / (bounds.width || 1);
+      const scaleY = (vh - padding * 2) / (bounds.height || 1);
+      const newScale = Math.min(scaleX, scaleY, MAX_SCALE);
+      const clamped = Math.max(MIN_SCALE, newScale);
+      // Center bounds
+      const newPos: Point = {
+        x: -bounds.x * clamped + (vw - bounds.width * clamped) / 2,
+        y: -bounds.y * clamped + (vh - bounds.height * clamped) / 2,
+      };
+      setScaleState(clamped);
+      setPositionState(newPos);
+    },
+    []
+  );
+
+  const zoomIn = useCallback((factor = 0.1) => {
+    setScale(scale * (1 + factor));
+  }, [scale, setScale]);
+
+  const zoomOut = useCallback((factor = 0.1) => {
+    setScale(scale / (1 + factor));
+  }, [scale, setScale]);
+
+  // Handler for wheel events; e.g. on Konva Stage: onWheel={e => handleWheel(e.evt, e.target.getStage().getPointerPosition())}
+  const handleWheel = useCallback(
+    (e: WheelEvent, pivot?: Point) => {
+      e.preventDefault();
+      const delta = -e.deltaY * 0.001; // adjust sensitivity
+      setScale(scale * (1 + delta), pivot);
+    },
+    [scale, setScale]
+  );
 
   return {
-    scale: state.scale,
-    position: state.position,
-    zoomIn,
-    zoomOut,
-    resetZoom,
-    zoomToFit,
+    scale,
+    position,
     setScale,
     setPosition,
+    reset,
+    fitToContent,
+    zoomIn,
+    zoomOut,
     handleWheel,
-    handleMouseDown,
-    handleMouseMove,
-    handleMouseUp,
-    isPanning,
+    onMouseMove,
   };
-}; 
+} 

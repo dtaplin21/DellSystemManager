@@ -49,29 +49,19 @@ export default function SimplePanelLayout({ mode, projectInfo }: PanelLayoutProp
     startY: 0
   })
 
-  // Use the new zoom/pan hook
+  // Use the unified zoom/pan hook
   const {
     scale,
     position,
-    zoomIn,
-    zoomOut,
-    resetZoom,
-    zoomToFit,
     setScale,
     setPosition,
+    zoomIn,
+    zoomOut,
+    fitToContent,
     handleWheel,
-    handleMouseDown,
-    handleMouseMove,
-    handleMouseUp,
-    isPanning,
-  } = useZoomPan({
-    minScale: 0.1,
-    maxScale: 3.0,
-    initialScale: 1.0,
-    initialPosition: { x: 0, y: 0 },
-    containerWidth: dimensions.width,
-    containerHeight: dimensions.height,
-  });
+    onMouseMove,
+    reset,
+  } = useZoomPan();
 
   useEffect(() => {
     // Initialize with some sample panels in auto mode
@@ -490,13 +480,19 @@ export default function SimplePanelLayout({ mode, projectInfo }: PanelLayoutProp
       <div className="w-full md:w-3/4 bg-white p-4 rounded-lg shadow-md">
         <div className="flex justify-between mb-4">
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={handleZoomIn}>
-              Zoom +
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleZoomOut}>
-              Zoom -
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleFitToScale}>
+            <Button onClick={() => zoomIn()}>Zoom +</Button>
+            <Button onClick={() => zoomOut()}>Zoom -</Button>
+            <Button onClick={() => {
+              if (panels.length === 0) return fitToContent();
+              let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+              panels.forEach(panel => {
+                minX = Math.min(minX, panel.x);
+                minY = Math.min(minY, panel.y);
+                maxX = Math.max(maxX, panel.x + (panel.width || 0));
+                maxY = Math.max(maxY, panel.y + (panel.length || 0));
+              });
+              fitToContent({ x: minX, y: minY, width: maxX - minX, height: maxY - minY }, 40);
+            }}>
               Fit
             </Button>
           </div>
