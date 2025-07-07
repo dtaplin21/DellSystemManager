@@ -2,23 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-
-interface Panel {
-  id: string
-  date: string
-  panelNumber: string
-  length: number
-  width: number
-  rollNumber: string
-  location: string
-  x: number
-  y: number
-  shape: 'rectangle' | 'triangle' | 'circle'
-  points?: number[]
-  radius?: number
-  rotation: number
-  color: string
-}
+import type { Panel } from '../../types/panel'
 
 interface PanelAIChatProps {
   projectInfo: {
@@ -96,6 +80,7 @@ export default function PanelAIChat({ projectInfo, panels, setPanels }: PanelAIC
       
       // Pattern: Create a new panel
       if (/create|add|new panel/i.test(userMessage)) {
+        const color = generatePastelColor()
         const newPanel: Panel = {
           id: Date.now().toString(),
           date: new Date().toISOString().slice(0, 10),
@@ -108,7 +93,8 @@ export default function PanelAIChat({ projectInfo, panels, setPanels }: PanelAIC
           y: 200 + (panels.length * 30) % 200,
           shape: 'rectangle',
           rotation: 0,
-          color: generatePastelColor()
+          color,
+          fill: color
         }
         
         updatedPanels = [...panels, newPanel]
