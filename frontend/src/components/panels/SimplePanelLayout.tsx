@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { parseExcelPanels, generateTemplateFile } from '@/lib/excel-import'
 import { exportToDXF, exportToJSON } from '@/lib/dxf-helpers'
 import { saveAs } from 'file-saver'
+import type { Panel } from '../../types/panel'
 
 interface PanelLayoutProps {
   mode: 'manual' | 'auto'
@@ -16,23 +17,6 @@ interface PanelLayoutProps {
     manager: string
     material: string
   }
-}
-
-interface Panel {
-  id: string
-  date: string
-  panelNumber: string
-  length: number
-  width: number
-  rollNumber: string
-  location: string
-  x: number
-  y: number
-  shape: 'rectangle' | 'triangle' | 'circle'
-  points?: number[]
-  radius?: number
-  rotation: number
-  color: string
 }
 
 export default function SimplePanelLayout({ mode, projectInfo }: PanelLayoutProps) {
@@ -79,6 +63,7 @@ export default function SimplePanelLayout({ mode, projectInfo }: PanelLayoutProp
           y: 50,
           shape: 'rectangle',
           rotation: 0,
+          fill: '#E3F2FD',
           color: '#E3F2FD'
         },
         {
@@ -93,6 +78,7 @@ export default function SimplePanelLayout({ mode, projectInfo }: PanelLayoutProp
           y: 50,
           shape: 'rectangle',
           rotation: 0,
+          fill: '#BBDEFB',
           color: '#BBDEFB'
         }
       ])
@@ -186,10 +172,10 @@ export default function SimplePanelLayout({ mode, projectInfo }: PanelLayoutProp
   }
 
   const drawPanel = (ctx: CanvasRenderingContext2D, panel: Panel, isSelected: boolean) => {
-    const { x, y, width, length, panelNumber, shape, color } = panel
+    const { x, y, width, length, panelNumber, shape, fill } = panel
     
     // Set styles
-    ctx.fillStyle = color
+    ctx.fillStyle = fill
     ctx.strokeStyle = isSelected ? '#0052cc' : '#666'
     ctx.lineWidth = isSelected ? 2 : 1
     
@@ -384,16 +370,16 @@ export default function SimplePanelLayout({ mode, projectInfo }: PanelLayoutProp
     }
   }
 
-  const handleCreatePanel = (panel: Omit<Panel, 'id' | 'x' | 'y' | 'rotation' | 'color'>) => {
+  const handleCreatePanel = (panel: Omit<Panel, 'id' | 'x' | 'y' | 'rotation'>) => {
     const newPanel: Panel = {
       ...panel,
       id: Date.now().toString(),
       x: Math.random() * (dimensions.width - panel.width),
       y: Math.random() * (dimensions.height - panel.length),
       rotation: 0,
-      color: generatePastelColor()
+      fill: panel.fill || '#3b82f6',
+      color: panel.color || panel.fill || '#3b82f6'
     }
-    
     setPanels([...panels, newPanel])
     setIsCreateModalOpen(false)
     setSelectedPanelId(newPanel.id)
@@ -430,6 +416,7 @@ export default function SimplePanelLayout({ mode, projectInfo }: PanelLayoutProp
       .then(panelRecords => {
         // Convert records to panels
         const newPanels = panelRecords.map((record, index) => {
+          const fill = generatePastelColor();
           return {
             id: Date.now() + index.toString(),
             date: record.date,
@@ -442,10 +429,10 @@ export default function SimplePanelLayout({ mode, projectInfo }: PanelLayoutProp
             y: 50 + Math.floor(index / 5) * 120,
             shape: 'rectangle' as const,
             rotation: 0,
-            color: generatePastelColor()
+            fill,
+            color: fill
           }
         })
-        
         setPanels(newPanels)
       })
       .catch(error => {
@@ -458,12 +445,10 @@ export default function SimplePanelLayout({ mode, projectInfo }: PanelLayoutProp
   const handleAddPanel = () => {
     const panelNumber = prompt('Enter Panel Number:')
     if (!panelNumber) return
-    
     const length = parseInt(prompt('Enter Length (ft):', '100') || '100')
     const width = parseInt(prompt('Enter Width (ft):', '40') || '40')
     const rollNumber = prompt('Enter Roll Number:')
     const location = prompt('Enter Panel Location/Comment:')
-    
     handleCreatePanel({
       date: new Date().toISOString().slice(0, 10),
       panelNumber,
@@ -471,7 +456,9 @@ export default function SimplePanelLayout({ mode, projectInfo }: PanelLayoutProp
       width,
       rollNumber: rollNumber || '',
       location: location || '',
-      shape: 'rectangle'
+      shape: 'rectangle',
+      fill: '#3b82f6',
+      color: '#3b82f6'
     })
   }
 

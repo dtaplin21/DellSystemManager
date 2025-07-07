@@ -9,21 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
-
-interface Panel {
-  id: string;
-  rollNumber: string;
-  panelNumber: string;
-  width: number;
-  length: number;
-  shape: string;
-  x: number;
-  y: number;
-  color: string;
-  rotation?: number;
-  material?: string;
-  thickness?: number;
-}
+import type { Panel } from '../../types/panel';
 
 interface DragInfo {
   isDragging: boolean;
@@ -108,7 +94,7 @@ export default function PanelPlaygroundPage() {
         shape: panel.type || 'rectangle',
         x: panel.x || 0,
         y: panel.y || 0,
-        color: panel.fill || '#3b82f6',
+        color: panel.fill || panel.color || '#3b82f6',
         rotation: panel.rotation || 0,
         material: panel.material || '',
         thickness: panel.thickness || 0
@@ -341,7 +327,6 @@ export default function PanelPlaygroundPage() {
       alert('Please enter both roll number and panel number.');
       return;
     }
-
     const newPanel: Panel = {
       id: Date.now().toString(),
       rollNumber,
@@ -351,9 +336,8 @@ export default function PanelPlaygroundPage() {
       shape: selectedShape,
       x: 50 + (panels.length * 20),
       y: 50 + (panels.length * 15),
-      color: `hsl(${Math.random() * 360}, 70%, 80%)`
+      color: '#3b82f6'
     };
-
     setPanels([...panels, newPanel]);
     setRollNumber('');
     setPanelNumber('');

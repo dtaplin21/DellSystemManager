@@ -12,6 +12,7 @@ import type { Group as GroupType } from 'konva/lib/Group';
 import type { Rect as RectType } from 'konva/lib/shapes/Rect';
 import type { RegularPolygon as RegularPolygonType } from 'konva/lib/shapes/RegularPolygon';
 import Konva from 'konva';
+import type { Panel } from '../../types/panel';
 
 interface TextProps {
   text: string;
@@ -34,47 +35,26 @@ const MIN_GRID_VISIBILITY_SCALE = 0.2; // Hide grid when zoomed out too far
 const MIN_PANEL_SIZE = 50; // Minimum panel size
 const SNAP_THRESHOLD = 4; // px - even more user-friendly for easier snapping
 
-interface Panel {
-  id: string;
-  type: 'rectangle' | 'triangle';
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  rotation: number;
-  fill: string; 
-  stroke: string;
-  strokeWidth: number;
-  rollNumber?: string;
-  panelNumber?: string;
-  roll_number?: string;
-  panel_number?: string;
-}
-
 interface PanelGridProps {
   panels: Panel[];
   width: number;
   height: number;
-  scale: number;
   onPanelUpdate: (panels: Panel[]) => void;
   selectedPanel?: any;
   onEditPanel?: (panel: any) => void;
   onScaleChange?: (scale: number) => void;
   onPositionChange?: (position: { x: number; y: number }) => void;
-  position?: { x: number; y: number };
 }
 
 export default function PanelGrid({ 
   panels, 
   width, 
   height, 
-  scale, 
   onPanelUpdate,
   selectedPanel,
   onEditPanel,
   onScaleChange,
-  onPositionChange,
-  position = { x: 0, y: 0 }
+  onPositionChange
 }: PanelGridProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [snappedPairs, setSnappedPairs] = useState<Set<string>>(new Set());
@@ -100,8 +80,8 @@ export default function PanelGrid({
 
   // Log scale changes for debugging
   useEffect(() => {
-    console.log('PanelGrid scale changed:', scale);
-  }, [scale]);
+    console.log('PanelGrid scale changed:', hookScale);
+  }, [hookScale]);
 
   // Handle mouse events for panning
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -123,7 +103,7 @@ export default function PanelGrid({
   
   // Memoize grid lines calculation
   const gridLines = useMemo(() => {
-    if (scale < MIN_GRID_VISIBILITY_SCALE) return [];
+    if (hookScale < MIN_GRID_VISIBILITY_SCALE) return [];
 
     const verticalLines = Array.from({ length: Math.ceil(width / GRID_CELL_SIZE) }).map((_, i) => ({
       key: `grid-v-${i}`,
@@ -142,7 +122,7 @@ export default function PanelGrid({
     }));
 
     return [...verticalLines, ...horizontalLines];
-  }, [width, height, scale]);
+  }, [width, height, hookScale]);
 
   // Update transformer when selection changes
   useEffect(() => {
@@ -638,7 +618,7 @@ export default function PanelGrid({
         />
       </Group>
     );
-  }, [selectedId, handlePanelDragEnd, handlePanelTransformEnd, handlePanelDragMove, onEditPanel, panels, arePanelsSnapped, preSnapPairs, scale]);
+  }, [selectedId, handlePanelDragEnd, handlePanelTransformEnd, handlePanelDragMove, onEditPanel, panels, arePanelsSnapped, preSnapPairs, hookScale]);
 
     return (
     <div 
@@ -656,10 +636,10 @@ export default function PanelGrid({
         ref={stageRef}
         width={width}
         height={height}
-        scaleX={scale}
-        scaleY={scale}
-        x={position.x}
-        y={position.y}
+        scaleX={hookScale}
+        scaleY={hookScale}
+        x={hookPosition.x}
+        y={hookPosition.y}
         draggable={false}
         onClick={handleStageClick}
         className="bg-white"

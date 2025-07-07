@@ -10,6 +10,7 @@ import { exportToDXF, exportToJSON } from '@/lib/dxf-helpers'
 import { saveAs } from 'file-saver'
 import { Stage, Layer, Rect } from 'react-konva'
 import { Line, Text, Circle } from 'react-konva/lib/ReactKonvaCore'
+import type { Panel } from '../../types/panel'
 
 interface PanelLayoutProps {
   mode: 'manual' | 'auto'
@@ -20,23 +21,6 @@ interface PanelLayoutProps {
     manager: string
     material: string
   }
-}
-
-interface Panel {
-  id: string
-  date: string
-  panelNumber: string
-  length: number
-  width: number
-  rollNumber: string
-  location: string
-  x: number
-  y: number
-  shape: 'rectangle' | 'triangle' | 'circle'
-  points?: number[]
-  radius?: number
-  rotation: number
-  color: string
 }
 
 export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
@@ -82,6 +66,7 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
           y: 50,
           shape: 'rectangle',
           rotation: 0,
+          fill: '#E3F2FD',
           color: '#E3F2FD'
         },
         {
@@ -96,6 +81,7 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
           y: 50,
           shape: 'rectangle',
           rotation: 0,
+          fill: '#BBDEFB',
           color: '#BBDEFB'
         }
       ])
@@ -106,19 +92,20 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
     setSelectedPanelId(panelId === selectedPanelId ? null : panelId)
   }
 
-  const handleCreatePanel = (panel: Omit<Panel, 'id' | 'x' | 'y' | 'rotation' | 'color'>) => {
+  const handleCreatePanel = (panel: any) => {
     // Compute the center of the viewport in world coordinates
     const centerX = (dimensions.width / 2 - position.x) / scale;
     const centerY = (dimensions.height / 2 - position.y) / scale;
+    const fill = panel.fill || panel.color || '#3b82f6';
     const newPanel: Panel = {
       ...panel,
       id: Date.now().toString(),
       x: centerX - panel.width / 2,
       y: centerY - panel.length / 2,
       rotation: 0,
-      color: generatePastelColor()
+      fill,
+      color: fill
     }
-    
     setPanels([...panels, newPanel])
     setIsCreateModalOpen(false)
     setSelectedPanelId(newPanel.id)
@@ -310,7 +297,7 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
                       y={panel.y}
                       width={panel.width}
                       height={panel.length}
-                      fill={panel.color}
+                      fill={panel.fill}
                       stroke={isSelected ? '#0052cc' : '#666'}
                       strokeWidth={isSelected ? 2 : 1}
                       rotation={panel.rotation}
@@ -327,7 +314,7 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
                     <Line
                       key={panel.id}
                       points={[...panel.points, panel.points[0], panel.points[1]]} // Close the triangle
-                      fill={panel.color}
+                      fill={panel.fill}
                       stroke={isSelected ? '#0052cc' : '#666'}
                       strokeWidth={isSelected ? 2 : 1}
                       closed={true}
@@ -346,7 +333,7 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
                       x={panel.x}
                       y={panel.y}
                       radius={panel.radius}
-                      fill={panel.color}
+                      fill={panel.fill}
                       stroke={isSelected ? '#0052cc' : '#666'}
                       strokeWidth={isSelected ? 2 : 1}
                       draggable
