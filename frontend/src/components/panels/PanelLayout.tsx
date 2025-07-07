@@ -168,6 +168,8 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
     )
   }
 
+  console.log('DEBUG: panels', panels)
+
   return (
     <div className="flex flex-col md:flex-row gap-4">
       <div className="w-full md:w-3/4 bg-white p-4 rounded-lg shadow-md">
