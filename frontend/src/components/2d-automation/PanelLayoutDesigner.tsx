@@ -21,6 +21,14 @@ interface Panel {
   thickness?: number;
   seamsType?: 'heat' | 'fusion' | 'extrusion' | 'other';
   notes?: string;
+  date: string;
+  panelNumber: string;
+  length: number;
+  rollNumber: string;
+  location: string;
+  shape: string;
+  rotation: number;
+  fill: string;
 }
 
 interface PanelLayoutSettings {
@@ -68,7 +76,15 @@ export default function PanelLayoutDesigner() {
         material: 'HDPE',
         thickness: 60,
         seamsType: 'fusion',
-        notes: 'North section primary panel'
+        notes: 'North section primary panel',
+        date: new Date().toISOString().slice(0, 10),
+        panelNumber: 'P1',
+        length: 100,
+        rollNumber: 'R-101',
+        location: 'Auto-generated',
+        shape: 'rectangle',
+        rotation: 0,
+        fill: '#3b82f6'
       },
       {
         id: '2',
@@ -81,7 +97,15 @@ export default function PanelLayoutDesigner() {
         material: 'HDPE',
         thickness: 60,
         seamsType: 'extrusion',
-        notes: 'Corner section with drainage connection'
+        notes: 'Corner section with drainage connection',
+        date: new Date().toISOString().slice(0, 10),
+        panelNumber: 'P2',
+        length: 150,
+        rollNumber: 'R-102',
+        location: 'Auto-generated',
+        shape: 'rectangle',
+        rotation: 0,
+        fill: '#10b981'
       },
       {
         id: '3',
@@ -94,34 +118,46 @@ export default function PanelLayoutDesigner() {
         material: 'LLDPE',
         thickness: 40,
         seamsType: 'heat',
-        notes: 'South connection panel'
+        notes: 'South connection panel',
+        date: new Date().toISOString().slice(0, 10),
+        panelNumber: 'P3',
+        length: 120,
+        rollNumber: 'R-103',
+        location: 'Auto-generated',
+        shape: 'rectangle',
+        rotation: 0,
+        fill: '#f59e0b'
       }
     ]);
   }, []);
 
   const addNewPanel = () => {
-    // Default material types based on common geosynthetic materials
-    const materials = ['HDPE', 'LLDPE', 'PVC', 'GCL', 'EPDM'];
-    const seamsTypes: ('heat' | 'fusion' | 'extrusion' | 'other')[] = ['heat', 'fusion', 'extrusion', 'other'];
-    
+    const color = getRandomColor();
     const newPanel: Panel = {
       id: Date.now().toString(),
+      date: new Date().toISOString().slice(0, 10),
+      panelNumber: `P${panels.length + 1}`,
+      length: 100,
+      width: 40,
+      height: 100,
+      rollNumber: `R-${100 + panels.length + 1}`,
+      location: 'Auto-generated',
       x: 50,
       y: 50,
-      width: 150,
-      height: 100,
-      color: getRandomColor(),
+      shape: 'rectangle',
+      rotation: 0,
+      fill: color,
+      color: color,
       label: `Panel ${panels.length + 1}`,
-      material: materials[Math.floor(Math.random() * materials.length)],
-      thickness: [40, 60, 80, 100][Math.floor(Math.random() * 4)], // Common mil thicknesses
-      seamsType: seamsTypes[Math.floor(Math.random() * seamsTypes.length)],
+      material: 'HDPE',
+      thickness: 60,
+      seamsType: 'fusion',
       notes: `Auto-generated panel ${panels.length + 1}`
     };
-    
     setPanels([...panels, newPanel]);
     toast({
       title: 'Panel Added',
-      description: `Added new panel: ${newPanel.label} (${newPanel.material} ${newPanel.thickness} mil)`,
+      description: `Added new panel: ${newPanel.panelNumber} (${newPanel.material} ${newPanel.thickness} mil)`,
     });
   };
 

@@ -128,30 +128,26 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
   // Mapping function to normalize panel fields - moved up so it can be used in useEffect
   function mapPanelFields(panel: any, index: number = 0) {
     console.log(`[MAP DEBUG] Mapping panel ${index}:`, panel);
-    
     // Ensure we have proper numeric values for dimensions
-    const width = Number(panel.width || panel.width_feet || 100);
-    const height = Number(panel.height || panel.height_feet || 100);
+    const width = Number(panel.width || 100);
+    const length = Number(panel.length || 100);
     const x = Number(panel.x || 0);
     const y = Number(panel.y || 0);
-    
     const mapped = {
-      id: panel.id || panel.panel_id || `panel-${index}`,
-      type: panel.type || 'rectangle',
+      id: panel.id || `panel-${index}`,
+      shape: panel.shape || 'rectangle',
       x: x,
       y: y,
       width: width,
-      height: height,
+      length: length,
       rotation: Number(panel.rotation || 0),
       fill: panel.fill || '#3b82f6',
-      stroke: panel.stroke || '#1d4ed8',
-      strokeWidth: Number(panel.strokeWidth || panel.stroke_width || 2),
-      rollNumber: (panel.rollNumber || panel.roll_number) && (panel.rollNumber || panel.roll_number) !== 'N/A' ? (panel.rollNumber || panel.roll_number) : `R${String(index + 1).padStart(3, '0')}`,
-      panelNumber: (panel.panelNumber || panel.panel_number) && (panel.panelNumber || panel.panel_number) !== 'N/A' ? (panel.panelNumber || panel.panel_number) : `P${String(index + 1).padStart(3, '0')}`,
-      widthFeet: Number(panel.widthFeet || panel.width_feet || width),
-      heightFeet: Number(panel.heightFeet || panel.height_feet || height),
+      color: panel.color || panel.fill || '#3b82f6',
+      rollNumber: panel.rollNumber || '',
+      panelNumber: panel.panelNumber || '',
+      date: panel.date || '',
+      location: panel.location || '',
     };
-    
     console.log(`[MAP DEBUG] Mapped panel ${index}:`, mapped);
     return mapped;
   }
@@ -294,7 +290,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
       minX = Math.min(minX, panel.x);
       minY = Math.min(minY, panel.y);
       maxX = Math.max(maxX, panel.x + panel.width);
-      maxY = Math.max(maxY, panel.y + panel.height);
+      maxY = Math.max(maxY, panel.y + panel.length);
     });
     
     const contentWidth = maxX - minX;
@@ -351,19 +347,18 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
       // Convert panels to the format expected by the backend
       const backendPanels = updatedPanels.map(panel => ({
         id: panel.id,
-        type: panel.type || 'rectangle',
+        type: panel.shape || 'rectangle',
         x: panel.x,
         y: panel.y,
         width: panel.width,
-        height: panel.height,
+        height: panel.length,
         rotation: panel.rotation || 0,
         fill: panel.fill || '#3b82f6',
-        stroke: panel.stroke || '#1d4ed8',
-        stroke_width: panel.strokeWidth || 2,
-        roll_number: panel.rollNumber || panel.roll_number,
-        panel_number: panel.panelNumber || panel.panel_number,
-        width_feet: panel.widthFeet || panel.width,
-        height_feet: panel.heightFeet || panel.height
+        color: panel.color || panel.fill || '#3b82f6',
+        roll_number: panel.rollNumber,
+        panel_number: panel.panelNumber,
+        date: panel.date || '',
+        location: panel.location || '',
       }));
       
       console.log('[DEBUG] PanelUpdate: Converted panels for backend:', backendPanels);
@@ -490,19 +485,18 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
       // Convert Supabase panel format to our internal format
       const convertedPanels = (projectData.panels || []).map((panel: any, index: number) => ({
         id: panel.id,
-        type: panel.type,
+        shape: panel.shape || 'rectangle',
         x: panel.x,
         y: panel.y,
-        width: panel.width_feet * PIXELS_PER_FOOT,
-        height: panel.height_feet * PIXELS_PER_FOOT,
+        width: panel.width,
+        length: panel.length,
         rotation: panel.rotation || 0,
         fill: panel.fill || '#3b82f6',
-        stroke: panel.stroke || '#1d4ed8',
-        strokeWidth: panel.stroke_width || 2,
-        rollNumber: panel.roll_number && panel.roll_number !== 'N/A' ? panel.roll_number : `R${String(index + 1).padStart(3, '0')}`,
-        panelNumber: panel.panel_number && panel.panel_number !== 'N/A' ? panel.panel_number : `P${String(index + 1).padStart(3, '0')}`,
-        widthFeet: panel.width_feet,
-        heightFeet: panel.height_feet,
+        color: panel.color || panel.fill || '#3b82f6',
+        rollNumber: panel.rollNumber || '',
+        panelNumber: panel.panelNumber || '',
+        date: panel.date || '',
+        location: panel.location || '',
       }));
 
       // Create or update layout
@@ -665,13 +659,10 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
               })()}
               width={window.innerWidth - 64}
               height={window.innerHeight - 300}
-              scale={layout.scale}
               onPanelUpdate={handlePanelUpdate}
               selectedPanel={selectedPanel}
               onEditPanel={handlePanelSelect}
-              onScaleChange={handleScaleChange}
               onPositionChange={handlePositionChange}
-              position={position}
             />
           </div>
         </CardContent>

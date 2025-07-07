@@ -10,19 +10,17 @@ import { useToast } from '@/hooks/use-toast';
 
 interface Panel {
   id: string;
-  type: 'rectangle' | 'triangle';
+  shape: 'rectangle' | 'triangle';
   x: number;
   y: number;
   width: number;
-  height: number;
+  length: number;
   rotation: number;
   fill: string;
-  stroke: string;
-  strokeWidth: number;
+  stroke?: string;
+  strokeWidth?: number;
   rollNumber: string;
   panelNumber: string;
-  widthFeet?: number;
-  heightFeet?: number;
 }
 
 interface EditPanelDialogProps {
@@ -46,7 +44,7 @@ export default function EditPanelDialog({
     rollNumber: '',
     panelNumber: '',
     width: '',
-    height: '',
+    length: '',
     fill: '#3b82f6',
     stroke: '#1d4ed8',
     strokeWidth: '2'
@@ -59,8 +57,8 @@ export default function EditPanelDialog({
       setFormData({
         rollNumber: panel.rollNumber || '',
         panelNumber: panel.panelNumber || '',
-        width: panel.widthFeet ? panel.widthFeet.toString() : (panel.width / PIXELS_PER_FOOT).toString(),
-        height: panel.heightFeet ? panel.heightFeet.toString() : (panel.height / PIXELS_PER_FOOT).toString(),
+        width: (panel.width / PIXELS_PER_FOOT).toString(),
+        length: (panel.length / PIXELS_PER_FOOT).toString(),
         fill: panel.fill || '#3b82f6',
         stroke: panel.stroke || '#1d4ed8',
         strokeWidth: panel.strokeWidth ? panel.strokeWidth.toString() : '2'
@@ -86,23 +84,23 @@ export default function EditPanelDialog({
       return;
     }
 
-    if (!formData.width || !formData.height) {
+    if (!formData.width || !formData.length) {
       toast({
         title: 'Validation Error',
-        description: 'Please enter both Width and Height',
+        description: 'Please enter both Width and Length',
         variant: 'destructive',
       });
       return;
     }
 
     const width = parseFloat(formData.width);
-    const height = parseFloat(formData.height);
+    const length = parseFloat(formData.length);
     const strokeWidth = parseFloat(formData.strokeWidth);
 
-    if (isNaN(width) || isNaN(height) || width <= 0 || height <= 0) {
+    if (isNaN(width) || isNaN(length) || width <= 0 || length <= 0) {
       toast({
         title: 'Validation Error',
-        description: 'Width and Height must be positive numbers',
+        description: 'Width and Length must be positive numbers',
         variant: 'destructive',
       });
       return;
@@ -114,12 +112,10 @@ export default function EditPanelDialog({
       rollNumber: formData.rollNumber,
       panelNumber: formData.panelNumber,
       width: width * PIXELS_PER_FOOT,
-      height: height * PIXELS_PER_FOOT,
+      length: length * PIXELS_PER_FOOT,
       fill: formData.fill,
       stroke: formData.stroke,
       strokeWidth: strokeWidth,
-      widthFeet: width,
-      heightFeet: height,
     };
 
     onSave(updatedPanel);
@@ -197,14 +193,14 @@ export default function EditPanelDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="height">Height (ft)</Label>
+              <Label htmlFor="length">Length (ft)</Label>
               <Input
-                id="height"
-                name="height"
+                id="length"
+                name="length"
                 type="number"
-                value={formData.height}
+                value={formData.length}
                 onChange={handleInputChange}
-                placeholder="Height in feet"
+                placeholder="Length in feet"
                 min="0"
                 step="0.1"
               />
@@ -252,7 +248,7 @@ export default function EditPanelDialog({
           <div className="space-y-2">
             <Label>Panel Type</Label>
             <div className="text-sm text-gray-500 capitalize">
-              {panel.type}
+              {panel.shape}
             </div>
           </div>
         </div>

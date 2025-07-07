@@ -35,6 +35,12 @@ interface ControlToolbarProps {
   onResetView?: () => void;
 }
 
+// Utility function to generate pastel colors
+function generatePastelColor() {
+  const hue = Math.floor(Math.random() * 360)
+  return `hsl(${hue}, 70%, 80%)`
+}
+
 export default function ControlToolbar({ 
   scale, 
   onScaleChange,
@@ -113,24 +119,21 @@ export default function ControlToolbar({
   const handleAddRectangle = () => {
     if (!validateForm()) return;
 
-    const width = parseFloat(panelForm.width);
-    const height = parseFloat(panelForm.height);
-    
+    const color = generatePastelColor();
     const newPanel = {
       id: generateId(),
-      type: 'rectangle',
+      date: new Date().toISOString().slice(0, 10),
+      panelNumber: panelForm.panelNumber,
+      length: parseFloat(panelForm.height),
+      width: parseFloat(panelForm.width),
+      rollNumber: panelForm.rollNumber,
+      location: '',
       x: 100,
       y: 100,
-      width: width * PIXELS_PER_FOOT,
-      height: height * PIXELS_PER_FOOT,
+      shape: 'rectangle',
       rotation: 0,
-      fill: '#3b82f6',
-      stroke: '#1d4ed8',
-      strokeWidth: 2,
-      rollNumber: panelForm.rollNumber,
-      panelNumber: panelForm.panelNumber,
-      widthFeet: width,
-      heightFeet: height,
+      fill: color,
+      color: color
     };
 
     onAddPanel(newPanel);
@@ -148,24 +151,21 @@ export default function ControlToolbar({
   const handleAddTriangle = () => {
     if (!validateForm()) return;
 
-    const width = parseFloat(panelForm.width);
-    const height = parseFloat(panelForm.height);
-    
+    const color = generatePastelColor();
     const newPanel = {
       id: generateId(),
-      type: 'triangle',
+      date: new Date().toISOString().slice(0, 10),
+      panelNumber: panelForm.panelNumber,
+      length: parseFloat(panelForm.height),
+      width: parseFloat(panelForm.width),
+      rollNumber: panelForm.rollNumber,
+      location: '',
       x: 100,
       y: 100,
-      width: width * PIXELS_PER_FOOT,
-      height: height * PIXELS_PER_FOOT,
+      shape: 'triangle',
       rotation: 0,
-      fill: '#3b82f6',
-      stroke: '#1d4ed8',
-      strokeWidth: 2,
-      rollNumber: panelForm.rollNumber,
-      panelNumber: panelForm.panelNumber,
-      widthFeet: width,
-      heightFeet: height,
+      fill: color,
+      color: color
     };
 
     onAddPanel(newPanel);

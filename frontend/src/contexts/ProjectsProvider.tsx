@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { fetchProjects as fetchProjectsAPI, fetchProjectById, fetchPanelLayout, fetchDocuments } from '../lib/api';
+import type { Panel as CanonicalPanel } from '../types/panel';
 
 interface ProjectSummary {
   id: string;
@@ -62,6 +63,31 @@ interface ProjectsProviderProps {
   children: ReactNode;
 }
 
+function mapBackendPanelToFrontend(panel: any): CanonicalPanel | null {
+  if (!panel) return null;
+  // Type guard: ensure required fields exist
+  if (!panel.id || (!panel.panel_number && !panel.panelNumber) || (panel.width === undefined) || (panel.height === undefined && panel.length === undefined)) {
+    return null;
+  }
+  return {
+    id: panel.id,
+    date: panel.date || '',
+    panelNumber: panel.panel_number || panel.panelNumber || '',
+    length: panel.length || panel.height || 0,
+    width: panel.width || 0,
+    rollNumber: panel.roll_number || panel.rollNumber || '',
+    location: panel.location || '',
+    x: panel.x || 0,
+    y: panel.y || 0,
+    shape: panel.shape || panel.type || 'rectangle',
+    points: panel.points,
+    radius: panel.radius,
+    rotation: panel.rotation || 0,
+    fill: panel.fill || '#3b82f6',
+    color: panel.color || panel.fill || '#3b82f6',
+  };
+}
+
 export function ProjectsProvider({ children }: ProjectsProviderProps) {
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
@@ -98,28 +124,29 @@ export function ProjectsProvider({ children }: ProjectsProviderProps) {
       
       // Fetch panel layout using API helper
       let panelLayout = null;
-      let panels: Panel[] = [];
+      let panels: CanonicalPanel[] = [];
       try {
         const panelLayoutData = await fetchPanelLayout(id);
         panelLayout = panelLayoutData;
         
         // Safely parse the panels
         if (panelLayout?.panels) {
+          let rawPanels = [];
           if (typeof panelLayout.panels === 'string') {
-            // Backend might return panels as a JSON string (legacy)
             try {
-              panels = JSON.parse(panelLayout.panels);
+              rawPanels = JSON.parse(panelLayout.panels);
             } catch (panelParseErr) {
               console.warn('ProjectsProvider: Could not parse panel layout panels JSON string:', panelParseErr);
-              panels = [];
+              rawPanels = [];
             }
           } else if (Array.isArray(panelLayout.panels)) {
-            // Backend returns panels as an array (current)
-            panels = panelLayout.panels;
+            rawPanels = panelLayout.panels;
           } else {
             console.warn('ProjectsProvider: Unexpected panels format:', typeof panelLayout.panels);
-            panels = [];
+            rawPanels = [];
           }
+          // Map and filter panels
+          panels = rawPanels.map(mapBackendPanelToFrontend).filter(Boolean) as CanonicalPanel[];
         } else {
           panels = [];
         }

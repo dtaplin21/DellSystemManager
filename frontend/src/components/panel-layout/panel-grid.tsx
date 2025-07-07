@@ -475,20 +475,22 @@ export default function PanelGrid({
       fontSize = baseRadius * 1.2; // 60% of the base width (diameter)
       return (
         <Group key={panel.id}>
-          {/* Black border layer - always visible (not interactive) */}
-          <RegularPolygon
-            x={centerX}
-            y={centerY}
-            sides={3}
-            radius={baseRadius}
-            scaleX={radiusX / baseRadius}
-            scaleY={radiusY / baseRadius}
-            rotation={panel.rotation}
-            fill="transparent"
-            stroke="#000000"
-            strokeWidth={200}
-            listening={false}
-          />
+          {/* Black border layer - only visible if selected */}
+          {isSelected && (
+            <RegularPolygon
+              x={centerX}
+              y={centerY}
+              sides={3}
+              radius={baseRadius}
+              scaleX={radiusX / baseRadius}
+              scaleY={radiusY / baseRadius}
+              rotation={panel.rotation}
+              fill="transparent"
+              stroke="#000000"
+              strokeWidth={2}
+              listening={false}
+            />
+          )}
           {/* Snap state border layer (not interactive) */}
           {(isSnapped || isPreSnap) && (
             <RegularPolygon
@@ -552,18 +554,20 @@ export default function PanelGrid({
     fontSize = panel.width * 0.6;
     return (
       <Group key={panel.id}>
-        {/* Black border layer - always visible (not interactive) */}
-        <Rect
-          x={panel.x}
-          y={panel.y}
-          width={panel.width}
-          height={panel.length}
-          rotation={panel.rotation}
-          fill="transparent"
-          stroke="#000000"
-          strokeWidth={200}
-          listening={false}
-        />
+        {/* Black border layer - only visible if selected */}
+        {isSelected && (
+          <Rect
+            x={panel.x}
+            y={panel.y}
+            width={panel.width}
+            height={panel.length}
+            rotation={panel.rotation}
+            fill="transparent"
+            stroke="#000000"
+            strokeWidth={2}
+            listening={false}
+          />
+        )}
         {/* Snap state border layer (not interactive) */}
         {(isSnapped || isPreSnap) && (
           <Rect

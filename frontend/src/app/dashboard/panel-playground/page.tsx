@@ -9,7 +9,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
-import type { Panel } from '../../types/panel';
+import type { Panel } from '@/types/panel';
+
+type PanelShape = 'rectangle' | 'triangle' | 'circle';
 
 interface DragInfo {
   isDragging: boolean;
@@ -34,7 +36,7 @@ interface PanelLayoutSettings {
 export default function PanelPlaygroundPage() {
   const { selectedProjectId, selectedProject } = useProjects();
   const [panels, setPanels] = useState<Panel[]>([]);
-  const [selectedShape, setSelectedShape] = useState('rectangle');
+  const [selectedShape, setSelectedShape] = useState<PanelShape>('rectangle');
   const [rollNumber, setRollNumber] = useState('');
   const [panelNumber, setPanelNumber] = useState('');
   const [dimensions, setDimensions] = useState({ width: 15, length: 100 });
@@ -84,20 +86,21 @@ export default function PanelPlaygroundPage() {
   // Load panels from selected project
   useEffect(() => {
     if (selectedProject?.panels) {
-      // Convert project panels to playground format
+      // Convert project panels to playground format using canonical names
       const playgroundPanels: Panel[] = selectedProject.panels.map((panel: any) => ({
         id: panel.id,
-        rollNumber: panel.roll_number || '',
-        panelNumber: panel.panel_number || '',
-        width: panel.width_feet || panel.width || 15,
-        length: panel.height_feet || panel.length || 100,
-        shape: panel.type || 'rectangle',
+        rollNumber: panel.rollNumber || '',
+        panelNumber: panel.panelNumber || '',
+        width: panel.width || 15,
+        length: panel.length || 100,
+        shape: (panel.shape || 'rectangle') as 'rectangle' | 'triangle' | 'circle',
         x: panel.x || 0,
         y: panel.y || 0,
         color: panel.fill || panel.color || '#3b82f6',
+        fill: panel.fill || panel.color || '#3b82f6',
         rotation: panel.rotation || 0,
-        material: panel.material || '',
-        thickness: panel.thickness || 0
+        date: panel.date || '',
+        location: panel.location || '',
       }));
       setPanels(playgroundPanels);
     }
@@ -336,7 +339,11 @@ export default function PanelPlaygroundPage() {
       shape: selectedShape,
       x: 50 + (panels.length * 20),
       y: 50 + (panels.length * 15),
-      color: '#3b82f6'
+      color: '#3b82f6',
+      fill: '#3b82f6',
+      date: new Date().toISOString().slice(0, 10),
+      location: '',
+      rotation: 0
     };
     setPanels([...panels, newPanel]);
     setRollNumber('');
@@ -464,7 +471,7 @@ export default function PanelPlaygroundPage() {
                       ? 'bg-orange-500 text-white'
                       : 'bg-white text-gray-700 hover:bg-gray-50'
                   }`}
-                  onClick={() => setSelectedShape(shape)}
+                  onClick={() => setSelectedShape(shape as PanelShape)}
                 >
                   {shape.charAt(0).toUpperCase() + shape.slice(1)}
                 </button>

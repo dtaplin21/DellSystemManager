@@ -9,10 +9,58 @@ const { panels, projects } = require('../db/schema');
 const { eq, and } = require('drizzle-orm');
 const { wsSendToRoom } = require('../services/websocket');
 const axios = require('axios');
+const { z } = require('zod');
 
 const DEFAULT_LAYOUT_WIDTH = 15000;
 const DEFAULT_LAYOUT_HEIGHT = 15000;
 const DEFAULT_SCALE = 0.0025;
+
+const CanonicalPanelSchema = z.object({
+  id: z.string(),
+  date: z.string().optional(),
+  panelNumber: z.string(),
+  length: z.number(),
+  width: z.number(),
+  rollNumber: z.string(),
+  location: z.string().optional(),
+  x: z.number(),
+  y: z.number(),
+  shape: z.string(),
+  points: z.array(z.number()).optional(),
+  radius: z.number().optional(),
+  rotation: z.number().optional(),
+  fill: z.string(),
+  color: z.string(),
+});
+
+function validatePanel(panel) {
+  const result = CanonicalPanelSchema.safeParse(panel);
+  if (!result.success) {
+    console.warn('Panel validation failed:', result.error.errors, panel);
+    return false;
+  }
+  return true;
+}
+
+function mapPanelToCanonical(panel) {
+  return {
+    id: panel.id || panel.panel_id,
+    date: panel.date || '',
+    panelNumber: panel.panel_number || panel.panelNumber || '',
+    length: panel.length || panel.height || 0,
+    width: panel.width || 0,
+    rollNumber: panel.roll_number || panel.rollNumber || '',
+    location: panel.location || '',
+    x: panel.x || 0,
+    y: panel.y || 0,
+    shape: panel.shape || panel.type || 'rectangle',
+    points: panel.points,
+    radius: panel.radius,
+    rotation: panel.rotation || 0,
+    fill: panel.fill || '#3b82f6',
+    color: panel.color || panel.fill || '#3b82f6',
+  };
+}
 
 // Get panel layout for a project
 router.get('/layout/:projectId', auth, async (req, res, next) => {
@@ -84,7 +132,7 @@ router.get('/layout/:projectId', auth, async (req, res, next) => {
       width: typeof panelLayout.width === 'number' ? panelLayout.width : DEFAULT_LAYOUT_WIDTH,
       height: typeof panelLayout.height === 'number' ? panelLayout.height : DEFAULT_LAYOUT_HEIGHT,
       scale: typeof panelLayout.scale === 'number' ? panelLayout.scale : DEFAULT_SCALE,
-      panels: JSON.parse(panelLayout.panels || '[]'),
+      panels: JSON.parse(panelLayout.panels || '[]').map(mapPanelToCanonical),
     };
     
     console.log('✅ Panels loaded from DB:', parsedLayout.panels);
@@ -149,37 +197,12 @@ router.patch('/layout/:projectId', auth, subscriptionCheck('premium'), async (re
     
     // Handle panels array - we store it as a JSON string in the database
     if (updateData.panels) {
-      // Ensure every panel has panel_number, roll_number, id, width, and height with real values
-      updateData.panels = updateData.panels.map((panel, index) => {
-        const updatedPanel = { ...panel };
-        
-        // Generate real panel number if it's missing or "N/A"
-        if (!panel.panel_number || panel.panel_number === 'N/A') {
-          updatedPanel.panel_number = `P${String(index + 1).padStart(3, '0')}`;
-        }
-        
-        // Generate real roll number if it's missing or "N/A"
-        if (!panel.roll_number || panel.roll_number === 'N/A') {
-          updatedPanel.roll_number = `R${String(index + 1).padStart(3, '0')}`;
-        }
-        
-        // Ensure id exists
-        if (!panel.id && !panel.panel_id) {
-          updatedPanel.id = uuidv4();
-        } else {
-          updatedPanel.id = panel.id || panel.panel_id;
-        }
-        
-        // Ensure width and height exist and are numbers
-        updatedPanel.width = Number(panel.width ?? panel.width_feet);
-        if (isNaN(updatedPanel.width)) updatedPanel.width = 100;
-        updatedPanel.height = Number(panel.height ?? panel.height_feet);
-        if (isNaN(updatedPanel.height)) updatedPanel.height = 100;
-        
-        return updatedPanel;
-      });
+      // Ensure every panel is mapped to canonical format
+      updateData.panels = updateData.panels.map(mapPanelToCanonical);
+      // Validate all panels
+      updateData.panels = updateData.panels.filter(validatePanel);
       updateValues.panels = JSON.stringify(updateData.panels);
-      console.log('🔍 Panels being saved to DB:', updateData.panels);
+      console.log('\ud83d\udd0d Panels being saved to DB:', updateData.panels);
     }
     
     // Handle other properties
@@ -208,7 +231,7 @@ router.patch('/layout/:projectId', auth, subscriptionCheck('premium'), async (re
       width: typeof updatedLayout.width === 'number' ? updatedLayout.width : DEFAULT_LAYOUT_WIDTH,
       height: typeof updatedLayout.height === 'number' ? updatedLayout.height : DEFAULT_LAYOUT_HEIGHT,
       scale: typeof updatedLayout.scale === 'number' ? updatedLayout.scale : DEFAULT_SCALE,
-      panels: JSON.parse(updatedLayout.panels || '[]'),
+      panels: JSON.parse(updatedLayout.panels || '[]').map(mapPanelToCanonical),
     };
     console.log('✅ Panels returned to client:', parsedLayout.panels);
     
