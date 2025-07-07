@@ -165,7 +165,7 @@ export default function PanelGrid({
         left:   p.x,
         right:  p.x + p.width,
         top:    p.y,
-        bottom: p.y + p.height
+        bottom: p.y + p.length
       }));
 
     let newX = x;
@@ -174,7 +174,7 @@ export default function PanelGrid({
 
     // Current moving panel bounds
     const w = panels.find(p => p.id === id)!.width;
-    const h = panels.find(p => p.id === id)!.height;
+    const h = panels.find(p => p.id === id)!.length;
     const left   = x;
     const right  = x + w;
     const top    = y;
@@ -220,14 +220,14 @@ export default function PanelGrid({
     // Update the panel position with sticky snapping
     const newPanels = panels.map(panel => {
       if (panel.id === id) {
-        if (panel.type === 'triangle') {
+        if (panel.shape === 'triangle') {
           // For triangles, snap the center position
           const snappedX = snapToGrid(newX);
           const snappedY = snapToGrid(newY);
           return {
             ...panel,
             x: snappedX - panel.width / 2,
-            y: snappedY - panel.height / 2
+            y: snappedY - panel.length / 2
           };
         }
         return {
@@ -250,7 +250,7 @@ export default function PanelGrid({
     
     const updatedPanels = panels.map(panel => {
       if (panel.id === node.id()) {
-        if (panel.type === 'triangle') {
+        if (panel.shape === 'triangle') {
           // Get the current radius before resetting scale
           const oldRadius = (node as Konva.RegularPolygon).radius() ?? (panel.width / 2);
           // Use both scaleX and scaleY for non-uniform scaling
@@ -271,14 +271,14 @@ export default function PanelGrid({
             x: snappedX - newRadiusX,
             y: snappedY - newRadiusY,
             width: newRadiusX * 2,
-            height: newRadiusY * 2,
+            length: newRadiusY * 2,
             rotation: node.rotation()
           };
         }
         
-        // For rectangles, work with width/height
+        // For rectangles, work with width/length
         const newWidth = node.width() * scaleX;
-        const newHeight = node.height() * scaleY;
+        const newLength = node.height() * scaleY;
         
         // Reset scale after getting dimensions
         node.scaleX(1);
@@ -288,14 +288,14 @@ export default function PanelGrid({
         const snappedX = snapToGrid(node.x());
         const snappedY = snapToGrid(node.y());
         const snappedWidth = snapToGrid(newWidth);
-        const snappedHeight = snapToGrid(newHeight);
+        const snappedLength = snapToGrid(newLength);
         
         return {
           ...panel,
           x: snappedX,
           y: snappedY,
           width: snappedWidth,
-          height: snappedHeight,
+          length: snappedLength,
           rotation: node.rotation()
         };
       }
@@ -320,7 +320,7 @@ export default function PanelGrid({
         left:   p.x,
         right:  p.x + p.width,
         top:    p.y,
-        bottom: p.y + p.height
+        bottom: p.y + p.length
       }));
 
     let newX = x;
@@ -329,7 +329,7 @@ export default function PanelGrid({
 
     // Current moving panel bounds
     const w = panels.find(p => p.id === movingId)!.width;
-    const h = panels.find(p => p.id === movingId)!.height;
+    const h = panels.find(p => p.id === movingId)!.length;
     const left   = x;
     const right  = x + w;
     const top    = y;
@@ -425,7 +425,7 @@ export default function PanelGrid({
     panels.forEach((panel, idx) => {
       console.log(`[RENDER DEBUG] Panel ${idx}:`, panel);
       // Check for missing or invalid properties
-      if (!panel.id || !panel.type || panel.x === undefined || panel.y === undefined || panel.width === undefined || panel.height === undefined) {
+      if (!panel.id || !panel.shape || panel.x === undefined || panel.y === undefined || panel.width === undefined || panel.length === undefined) {
         console.warn(`[RENDER DEBUG] Panel ${idx} is missing required properties or has invalid values:`, panel);
       }
     });
@@ -447,10 +447,10 @@ export default function PanelGrid({
     });
     // Compute shape center
     const centerX = panel.x + panel.width / 2;
-    const centerY = panel.y + panel.height / 2;
+    const centerY = panel.y + panel.length / 2;
     // Build a stacked label: roll number above panel number
-    const roll = panel.rollNumber || panel.roll_number || '';
-    const panelNum = panel.panelNumber || panel.panel_number || '';
+    const roll = panel.rollNumber || '';
+    const panelNum = panel.panelNumber || '';
     const label = `${roll}\n${panelNum}`;
     
     // Determine stroke color and width based on snap state, but always include black border
@@ -468,9 +468,9 @@ export default function PanelGrid({
     
     // Calculate font size so the label takes up at least 60% of the panel width
     let fontSize;
-    if (panel.type === 'triangle') {
+    if (panel.shape === 'triangle') {
       const radiusX = panel.width / 2;
-      const radiusY = panel.height / 2;
+      const radiusY = panel.length / 2;
       const baseRadius = Math.min(radiusX, radiusY);
       fontSize = baseRadius * 1.2; // 60% of the base width (diameter)
       return (
@@ -557,7 +557,7 @@ export default function PanelGrid({
           x={panel.x}
           y={panel.y}
           width={panel.width}
-          height={panel.height}
+          height={panel.length}
           rotation={panel.rotation}
           fill="transparent"
           stroke="#000000"
@@ -570,7 +570,7 @@ export default function PanelGrid({
             x={panel.x}
             y={panel.y}
             width={panel.width}
-            height={panel.height}
+            height={panel.length}
             rotation={panel.rotation}
             fill="transparent"
             stroke={strokeColor}
@@ -584,7 +584,7 @@ export default function PanelGrid({
           x={panel.x}
           y={panel.y}
           width={panel.width}
-          height={panel.height}
+          height={panel.length}
           rotation={panel.rotation}
           fill={panel.fill}
           stroke="transparent"
@@ -605,7 +605,7 @@ export default function PanelGrid({
         <Text
           text={label}
           x={panel.x}
-          y={panel.y + panel.height / 2 - fontSize}
+          y={panel.y + panel.length / 2 - fontSize}
           width={panel.width}
           height={fontSize * 2}
           fontSize={fontSize}
