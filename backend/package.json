@@ -21,7 +21,8 @@
     "konva": "^9.3.20",
     "pg": "^8.16.0",
     "react-konva": "^19.0.6",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "zod": "^3.25.75"
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.8",

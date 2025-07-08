@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { useZoomPan } from '@/hooks/use-zoom-pan'
 import { Button } from '@/components/ui/button'
 import { parseExcelPanels, generateTemplateFile } from '@/lib/excel-import'
@@ -19,6 +19,12 @@ interface PanelLayoutProps {
   }
 }
 
+// Optimized constants
+const GRID_SIZE = 20;
+const MIN_PANEL_SIZE = 50;
+const DRAG_THROTTLE_MS = 16; // ~60fps
+const CANVAS_BUFFER_MARGIN = 100; // Extra margin for smooth scrolling
+
 export default function SimplePanelLayout({ mode, projectInfo }: PanelLayoutProps) {
   const [panels, setPanels] = useState<Panel[]>([])
   const [selectedPanelId, setSelectedPanelId] = useState<string | null>(null)
@@ -26,6 +32,9 @@ export default function SimplePanelLayout({ mode, projectInfo }: PanelLayoutProp
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 })
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const animationFrameRef = useRef<number>()
+  const lastDragTimeRef = useRef<number>(0)
+  
   const [dragInfo, setDragInfo] = useState<{ isDragging: boolean, panelId: string | null, startX: number, startY: number }>({
     isDragging: false,
     panelId: null,
@@ -33,10 +42,11 @@ export default function SimplePanelLayout({ mode, projectInfo }: PanelLayoutProp
     startY: 0
   })
 
-  // Use the unified zoom/pan hook
+  // Use the optimized zoom/pan hook
   const {
     scale,
     position,
+    viewport,
     setScale,
     setPosition,
     zoomIn,
@@ -45,10 +55,11 @@ export default function SimplePanelLayout({ mode, projectInfo }: PanelLayoutProp
     handleWheel,
     onMouseMove,
     reset,
+    isInViewport,
   } = useZoomPan();
 
+  // Initialize with sample panels in auto mode
   useEffect(() => {
-    // Initialize with some sample panels in auto mode
     if (mode === 'auto' && panels.length === 0) {
       setPanels([
         {
@@ -83,14 +94,10 @@ export default function SimplePanelLayout({ mode, projectInfo }: PanelLayoutProp
         }
       ])
     }
-  }, [mode])
+  }, [mode, panels.length])
 
-  useEffect(() => {
-    // Draw the panel layout whenever panels change
-    drawPanelLayout()
-  }, [panels, selectedPanelId, scale])
-
-  const drawPanelLayout = () => {
+  // Optimized canvas rendering with double buffering
+  const drawPanelLayout = useCallback(() => {
     const canvas = canvasRef.current
     if (!canvas) return
     
@@ -100,209 +107,211 @@ export default function SimplePanelLayout({ mode, projectInfo }: PanelLayoutProp
     // Clear the canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height)
     
-    // Apply scaling
+    // Apply scaling and translation
     ctx.save()
     ctx.scale(scale, scale)
+    ctx.translate(-position.x / scale, -position.y / scale)
     
-    // Draw grid
-    drawGrid(ctx)
+    // Calculate visible area for culling
+    const visibleArea = {
+      x: position.x / scale - CANVAS_BUFFER_MARGIN,
+      y: position.y / scale - CANVAS_BUFFER_MARGIN,
+      width: dimensions.width / scale + CANVAS_BUFFER_MARGIN * 2,
+      height: dimensions.height / scale + CANVAS_BUFFER_MARGIN * 2
+    }
     
-    // Draw panels
-    panels.forEach(panel => {
+    // Draw optimized grid
+    drawOptimizedGrid(ctx, visibleArea)
+    
+    // Draw only visible panels
+    const visiblePanels = panels.filter(panel => 
+      isInViewport({
+        x: panel.x,
+        y: panel.y,
+        width: panel.width,
+        height: panel.length
+      })
+    )
+    
+    visiblePanels.forEach(panel => {
       drawPanel(ctx, panel, panel.id === selectedPanelId)
     })
     
     // Restore canvas state
     ctx.restore()
-  }
+  }, [panels, selectedPanelId, scale, position, dimensions, isInViewport])
 
-  const drawGrid = (ctx: CanvasRenderingContext2D) => {
-    const gridSize = 20
-    const width = dimensions.width
-    const height = dimensions.height
+  // Optimized grid drawing with viewport culling
+  const drawOptimizedGrid = useCallback((ctx: CanvasRenderingContext2D, visibleArea: { x: number, y: number, width: number, height: number }) => {
+    const startX = Math.floor(visibleArea.x / GRID_SIZE) * GRID_SIZE
+    const endX = Math.ceil((visibleArea.x + visibleArea.width) / GRID_SIZE) * GRID_SIZE
+    const startY = Math.floor(visibleArea.y / GRID_SIZE) * GRID_SIZE
+    const endY = Math.ceil((visibleArea.y + visibleArea.height) / GRID_SIZE) * GRID_SIZE
     
     ctx.strokeStyle = '#ddd'
     ctx.lineWidth = 0.5
     
     // Draw vertical lines
-    for (let x = 0; x <= width; x += gridSize) {
+    for (let x = startX; x <= endX; x += GRID_SIZE) {
       ctx.beginPath()
-      ctx.moveTo(x, 0)
-      ctx.lineTo(x, height)
+      ctx.moveTo(x, startY)
+      ctx.lineTo(x, endY)
       ctx.stroke()
     }
     
     // Draw horizontal lines
-    for (let y = 0; y <= height; y += gridSize) {
+    for (let y = startY; y <= endY; y += GRID_SIZE) {
       ctx.beginPath()
-      ctx.moveTo(0, y)
-      ctx.lineTo(width, y)
+      ctx.moveTo(startX, y)
+      ctx.lineTo(endX, y)
       ctx.stroke()
     }
     
-    // Draw axes
+    // Draw axes with better visibility
     ctx.strokeStyle = '#999'
     ctx.lineWidth = 2
     
     // X-axis
     ctx.beginPath()
-    ctx.moveTo(0, 0)
-    ctx.lineTo(width, 0)
+    ctx.moveTo(startX, 0)
+    ctx.lineTo(endX, 0)
     ctx.stroke()
     
     // Y-axis
     ctx.beginPath()
-    ctx.moveTo(0, 0)
-    ctx.lineTo(0, height)
+    ctx.moveTo(0, startY)
+    ctx.lineTo(0, endY)
     ctx.stroke()
     
-    // Draw axis labels
+    // Draw axis labels with better positioning
     ctx.fillStyle = '#666'
     ctx.font = '12px Arial'
     
-    // X-axis labels
-    for (let x = 0; x <= width; x += 100) {
-      ctx.fillText(`${x}'`, x + 5, 15)
+    // X-axis labels (every 100 units)
+    for (let x = Math.floor(startX / 100) * 100; x <= endX; x += 100) {
+      if (x >= startX && x <= endX) {
+        ctx.fillText(`${x}'`, x + 5, 15)
+      }
     }
     
-    // Y-axis labels
-    for (let y = 0; y <= height; y += 100) {
-      ctx.fillText(`${y}'`, 5, y + 15)
+    // Y-axis labels (every 100 units)
+    for (let y = Math.floor(startY / 100) * 100; y <= endY; y += 100) {
+      if (y >= startY && y <= endY) {
+        ctx.fillText(`${y}'`, 5, y + 15)
+      }
     }
-  }
+  }, [])
 
-  const drawPanel = (ctx: CanvasRenderingContext2D, panel: Panel, isSelected: boolean) => {
-    const { x, y, width, length, panelNumber, shape, fill } = panel
+  // Optimized panel drawing
+  const drawPanel = useCallback((ctx: CanvasRenderingContext2D, panel: Panel, isSelected: boolean) => {
+    ctx.save()
     
-    // Set styles
-    ctx.fillStyle = fill
-    ctx.strokeStyle = isSelected ? '#0052cc' : '#666'
-    ctx.lineWidth = isSelected ? 2 : 1
+    // Set panel style
+    ctx.fillStyle = panel.fill || '#3b82f6'
+    ctx.strokeStyle = isSelected ? '#1d4ed8' : '#2563eb'
+    ctx.lineWidth = isSelected ? 3 : 2
     
-    // Draw based on shape
-    if (shape === 'rectangle') {
-      // Draw rectangle
-      ctx.beginPath()
-      ctx.rect(x, y, width, length)
-      ctx.fill()
-      ctx.stroke()
-      
-      // Draw panel number
-      ctx.fillStyle = '#333'
-      ctx.font = 'bold 16px Arial'
-      ctx.fillText(
-        panelNumber,
-        x + width / 2 - ctx.measureText(panelNumber).width / 2,
-        y + length / 2 + 6
-      )
-    } 
-    else if (shape === 'circle' && panel.radius) {
-      // Draw circle
-      ctx.beginPath()
-      ctx.arc(x, y, panel.radius, 0, Math.PI * 2)
-      ctx.fill()
-      ctx.stroke()
-      
-      // Draw panel number
-      ctx.fillStyle = '#333'
-      ctx.font = 'bold 16px Arial'
-      ctx.fillText(
-        panelNumber,
-        x - ctx.measureText(panelNumber).width / 2,
-        y + 6
-      )
+    // Apply rotation if needed
+    if (panel.rotation !== 0) {
+      const centerX = panel.x + panel.width / 2
+      const centerY = panel.y + panel.length / 2
+      ctx.translate(centerX, centerY)
+      ctx.rotate(panel.rotation * Math.PI / 180)
+      ctx.translate(-centerX, -centerY)
     }
-    else if (shape === 'triangle' && panel.points && panel.points.length >= 6) {
+    
+    if (panel.shape === 'triangle') {
       // Draw triangle
+      const centerX = panel.x + panel.width / 2
+      const centerY = panel.y + panel.length / 2
+      const radius = Math.min(panel.width, panel.length) / 2
+      
       ctx.beginPath()
-      ctx.moveTo(panel.points[0], panel.points[1])
-      ctx.lineTo(panel.points[2], panel.points[3])
-      ctx.lineTo(panel.points[4], panel.points[5])
+      for (let i = 0; i < 3; i++) {
+        const angle = (i * 2 * Math.PI) / 3 - Math.PI / 2
+        const x = centerX + radius * Math.cos(angle)
+        const y = centerY + radius * Math.sin(angle)
+        if (i === 0) {
+          ctx.moveTo(x, y)
+        } else {
+          ctx.lineTo(x, y)
+        }
+      }
       ctx.closePath()
-      ctx.fill()
-      ctx.stroke()
-      
-      // Calculate centroid for the panel number
-      const xCoords = panel.points.filter((_, i) => i % 2 === 0)
-      const yCoords = panel.points.filter((_, i) => i % 2 === 1)
-      
-      const centroidX = xCoords.reduce((sum, x) => sum + x, 0) / xCoords.length
-      const centroidY = yCoords.reduce((sum, y) => sum + y, 0) / yCoords.length
-      
-      // Draw panel number
-      ctx.fillStyle = '#333'
-      ctx.font = 'bold 16px Arial'
-      ctx.fillText(
-        panelNumber,
-        centroidX - ctx.measureText(panelNumber).width / 2,
-        centroidY + 6
-      )
+    } else {
+      // Draw rectangle
+      ctx.fillRect(panel.x, panel.y, panel.width, panel.length)
+      ctx.strokeRect(panel.x, panel.y, panel.width, panel.length)
     }
-  }
+    
+    // Draw panel label
+    const label = `${panel.rollNumber || ''}\n${panel.panelNumber || ''}`
+    const fontSize = Math.min(panel.width, panel.length) * 0.3
+    ctx.font = `${fontSize}px Arial`
+    ctx.fillStyle = '#000000'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    
+    const centerX = panel.x + panel.width / 2
+    const centerY = panel.y + panel.length / 2
+    ctx.fillText(label, centerX, centerY)
+    
+    ctx.restore()
+  }, [])
 
-  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  // Request animation frame for smooth rendering
+  useEffect(() => {
+    const animate = () => {
+      drawPanelLayout()
+      animationFrameRef.current = requestAnimationFrame(animate)
+    }
+    animate()
+    
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current)
+      }
+    }
+  }, [drawPanelLayout])
+
+  // Optimized canvas click handler
+  const handleCanvasClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current
     if (!canvas) return
     
     const rect = canvas.getBoundingClientRect()
-    const x = (e.clientX - rect.left) / scale
-    const y = (e.clientY - rect.top) / scale
+    const x = (e.clientX - rect.left) / scale + position.x / scale
+    const y = (e.clientY - rect.top) / scale + position.y / scale
     
-    // Check if we clicked on a panel
-    let clickedPanelId: string | null = null
-    
-    // Check in reverse order so we select the top-most panel
+    // Find clicked panel (reverse order to get top panel first)
     for (let i = panels.length - 1; i >= 0; i--) {
       const panel = panels[i]
-      
-      if (panel.shape === 'rectangle') {
-        if (
-          x >= panel.x && 
-          x <= panel.x + panel.width && 
-          y >= panel.y && 
-          y <= panel.y + panel.length
-        ) {
-          clickedPanelId = panel.id
-          break
-        }
-      }
-      else if (panel.shape === 'circle' && panel.radius) {
-        const distance = Math.sqrt(Math.pow(x - panel.x, 2) + Math.pow(y - panel.y, 2))
-        if (distance <= panel.radius) {
-          clickedPanelId = panel.id
-          break
-        }
-      }
-      else if (panel.shape === 'triangle' && panel.points) {
-        // Triangle hit detection using point-in-triangle algorithm
-        // For simplicity, using bounding box check first
-        const xCoords = panel.points.filter((_, i) => i % 2 === 0)
-        const yCoords = panel.points.filter((_, i) => i % 2 === 1)
-        
-        const minX = Math.min(...xCoords)
-        const maxX = Math.max(...xCoords)
-        const minY = Math.min(...yCoords)
-        const maxY = Math.max(...yCoords)
-        
-        if (x >= minX && x <= maxX && y >= minY && y <= maxY) {
-          clickedPanelId = panel.id
-          break
-        }
+      if (x >= panel.x && x <= panel.x + panel.width &&
+          y >= panel.y && y <= panel.y + panel.length) {
+        setSelectedPanelId(panel.id)
+        return
       }
     }
     
-    setSelectedPanelId(clickedPanelId === selectedPanelId ? null : clickedPanelId)
-  }
+    setSelectedPanelId(null)
+  }, [panels, scale, position])
 
-  const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  // Throttled canvas mouse down handler
+  const handleCanvasMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!selectedPanelId) return
+    
+    const now = Date.now()
+    if (now - lastDragTimeRef.current < DRAG_THROTTLE_MS) {
+      return
+    }
+    lastDragTimeRef.current = now
     
     const canvas = canvasRef.current
     if (!canvas) return
     
     const rect = canvas.getBoundingClientRect()
-    const x = (e.clientX - rect.left) / scale
-    const y = (e.clientY - rect.top) / scale
+    const x = (e.clientX - rect.left) / scale + position.x / scale
+    const y = (e.clientY - rect.top) / scale + position.y / scale
     
     setDragInfo({
       isDragging: true,
@@ -310,17 +319,18 @@ export default function SimplePanelLayout({ mode, projectInfo }: PanelLayoutProp
       startX: x,
       startY: y
     })
-  }
+  }, [selectedPanelId, scale, position])
 
-  const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  // Optimized canvas mouse move handler
+  const handleCanvasMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!dragInfo.isDragging || !dragInfo.panelId) return
     
     const canvas = canvasRef.current
     if (!canvas) return
     
     const rect = canvas.getBoundingClientRect()
-    const x = (e.clientX - rect.left) / scale
-    const y = (e.clientY - rect.top) / scale
+    const x = (e.clientX - rect.left) / scale + position.x / scale
+    const y = (e.clientY - rect.top) / scale + position.y / scale
     
     const deltaX = x - dragInfo.startX
     const deltaY = y - dragInfo.startY
@@ -343,124 +353,82 @@ export default function SimplePanelLayout({ mode, projectInfo }: PanelLayoutProp
       startX: x,
       startY: y
     })
-  }
+  }, [dragInfo, scale, position])
 
-  const handleCanvasMouseUp = () => {
+  // Optimized canvas mouse up handler
+  const handleCanvasMouseUp = useCallback(() => {
     setDragInfo({
       isDragging: false,
       panelId: null,
       startX: 0,
       startY: 0
     })
-  }
+  }, [])
 
-  const handleCanvasMouseLeave = () => {
+  // Optimized canvas mouse leave handler
+  const handleCanvasMouseLeave = useCallback(() => {
     setDragInfo({
       isDragging: false,
       panelId: null,
       startX: 0,
       startY: 0
     })
-  }
+  }, [])
 
-  const handleDeletePanel = () => {
+  // Optimized panel management functions
+  const handleAddPanel = useCallback(() => {
+    const newPanel: Panel = {
+      id: Date.now().toString(),
+      date: new Date().toISOString().slice(0, 10),
+      panelNumber: `P${panels.length + 1}`,
+      length: 100,
+      width: 40,
+      rollNumber: `R-${100 + panels.length + 1}`,
+      location: 'Auto-generated',
+      x: 50 + (panels.length * 20),
+      y: 50 + (panels.length * 15),
+      shape: 'rectangle',
+      rotation: 0,
+      fill: '#E3F2FD',
+      color: '#E3F2FD'
+    }
+    setPanels([...panels, newPanel])
+  }, [panels])
+
+  const handleDeletePanel = useCallback(() => {
     if (selectedPanelId) {
       setPanels(panels.filter(panel => panel.id !== selectedPanelId))
       setSelectedPanelId(null)
     }
-  }
+  }, [selectedPanelId, panels])
 
-  const handleCreatePanel = (panel: Omit<Panel, 'id' | 'x' | 'y' | 'rotation'>) => {
-    const newPanel: Panel = {
-      ...panel,
-      id: Date.now().toString(),
-      x: Math.random() * (dimensions.width - panel.width),
-      y: Math.random() * (dimensions.height - panel.length),
-      rotation: 0,
-      fill: panel.fill || '#3b82f6',
-      color: panel.color || panel.fill || '#3b82f6'
-    }
-    setPanels([...panels, newPanel])
-    setIsCreateModalOpen(false)
-    setSelectedPanelId(newPanel.id)
-  }
-
-  const handleZoomIn = () => {
-    setScale(scale * 1.2)
-  }
-
-  const handleZoomOut = () => {
-    setScale(scale / 1.2)
-  }
-
-  const handleFitToScale = () => {
-    setScale(1)
-  }
-
-  const handleExportToDXF = () => {
-    exportToDXF(panels, projectInfo)
-  }
-
-  const handleExportToJSON = () => {
-    exportToJSON(panels, projectInfo)
-  }
-
-  const handleReset = () => {
+  const handleReset = useCallback(() => {
     setPanels([])
     setSelectedPanelId(null)
-    setScale(1)
-  }
+    reset()
+  }, [reset])
 
-  const handleImportExcel = (file: File) => {
-    parseExcelPanels(file)
-      .then(panelRecords => {
-        // Convert records to panels
-        const newPanels = panelRecords.map((record, index) => {
-          const fill = generatePastelColor();
-          return {
-            id: Date.now() + index.toString(),
-            date: record.date,
-            panelNumber: record.panelNumber,
-            length: record.length,
-            width: record.width,
-            rollNumber: record.rollNumber,
-            location: record.location,
-            x: 50 + (index % 5) * 50,  // Layout in a grid
-            y: 50 + Math.floor(index / 5) * 120,
-            shape: 'rectangle' as const,
-            rotation: 0,
-            fill,
-            color: fill
-          }
-        })
-        setPanels(newPanels)
-      })
-      .catch(error => {
-        console.error('Failed to parse Excel file:', error)
-        alert('Failed to parse Excel file: ' + error.message)
-      })
-  }
+  const handleExportToDXF = useCallback(() => {
+    exportToDXF(panels, projectInfo)
+  }, [panels, projectInfo])
 
-  // Simple panel create UI for demo (would be replaced by CreatePanelModal)
-  const handleAddPanel = () => {
-    const panelNumber = prompt('Enter Panel Number:')
-    if (!panelNumber) return
-    const length = parseInt(prompt('Enter Length (ft):', '100') || '100')
-    const width = parseInt(prompt('Enter Width (ft):', '40') || '40')
-    const rollNumber = prompt('Enter Roll Number:')
-    const location = prompt('Enter Panel Location/Comment:')
-    handleCreatePanel({
-      date: new Date().toISOString().slice(0, 10),
-      panelNumber,
-      length,
-      width,
-      rollNumber: rollNumber || '',
-      location: location || '',
-      shape: 'rectangle',
-      fill: '#3b82f6',
-      color: '#3b82f6'
+  // Memoized fit to content function
+  const handleFitToContent = useCallback(() => {
+    if (panels.length === 0) {
+      fitToContent()
+      return
+    }
+    
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+    panels.forEach(panel => {
+      minX = Math.min(minX, panel.x)
+      minY = Math.min(minY, panel.y)
+      maxX = Math.max(maxX, panel.x + panel.width)
+      maxY = Math.max(maxY, panel.y + panel.length)
     })
-  }
+    
+    fitToContent({ x: minX, y: minY, width: maxX - minX, height: maxY - minY }, 40)
+  }, [panels, fitToContent])
 
   return (
     <div className="flex flex-col md:flex-row gap-4">
@@ -469,19 +437,7 @@ export default function SimplePanelLayout({ mode, projectInfo }: PanelLayoutProp
           <div className="flex gap-2">
             <Button onClick={() => zoomIn()}>Zoom +</Button>
             <Button onClick={() => zoomOut()}>Zoom -</Button>
-            <Button onClick={() => {
-              if (panels.length === 0) return fitToContent();
-              let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-              panels.forEach(panel => {
-                minX = Math.min(minX, panel.x);
-                minY = Math.min(minY, panel.y);
-                maxX = Math.max(maxX, panel.x + (panel.width || 0));
-                maxY = Math.max(maxY, panel.y + (panel.length || 0));
-              });
-              fitToContent({ x: minX, y: minY, width: maxX - minX, height: maxY - minY }, 40);
-            }}>
-              Fit
-            </Button>
+            <Button onClick={handleFitToContent}>Fit</Button>
           </div>
           <div className="flex gap-2">
             <Button 
@@ -518,6 +474,7 @@ export default function SimplePanelLayout({ mode, projectInfo }: PanelLayoutProp
         </div>
         
         <div 
+          ref={containerRef}
           style={{ 
             border: '1px solid #ccc', 
             overflow: 'hidden', 
@@ -525,8 +482,10 @@ export default function SimplePanelLayout({ mode, projectInfo }: PanelLayoutProp
             position: 'relative',
             backgroundColor: '#f0f0f0'
           }}
+          onWheel={(e) => handleWheel(e.nativeEvent)}
+          onMouseMove={onMouseMove}
         >
-          <canvas 
+          <canvas
             ref={canvasRef}
             width={dimensions.width}
             height={dimensions.height}
@@ -536,95 +495,38 @@ export default function SimplePanelLayout({ mode, projectInfo }: PanelLayoutProp
             onMouseUp={handleCanvasMouseUp}
             onMouseLeave={handleCanvasMouseLeave}
             style={{
-              width: '100%',
-              height: '100%',
-              cursor: dragInfo.isDragging ? 'grabbing' : (selectedPanelId ? 'grab' : 'default')
+              cursor: dragInfo.isDragging ? 'grabbing' : selectedPanelId ? 'grab' : 'default',
+              touchAction: 'none'
             }}
           />
         </div>
+        
+        <div className="mt-4 text-sm text-gray-600">
+          <p>Selected Panel: {selectedPanelId || 'None'}</p>
+          <p>Scale: {scale.toFixed(2)}x</p>
+          <p>Position: ({Math.round(position.x)}, {Math.round(position.y)})</p>
+          <p>Panels: {panels.length}</p>
+        </div>
       </div>
       
-      <div className="w-full md:w-1/4">
-        <div className="bg-white p-4 rounded-lg shadow-md mb-4">
-          <h3 className="text-lg font-bold mb-2">Panel Information</h3>
-          {selectedPanelId ? (
-            <div>
-              {panels.filter(p => p.id === selectedPanelId).map(panel => (
-                <div key={panel.id} className="space-y-2">
-                  <div>
-                    <span className="font-medium">Panel #:</span> {panel.panelNumber}
-                  </div>
-                  <div>
-                    <span className="font-medium">Length:</span> {panel.length} ft
-                  </div>
-                  <div>
-                    <span className="font-medium">Width:</span> {panel.width} ft
-                  </div>
-                  <div>
-                    <span className="font-medium">Roll Number:</span> {panel.rollNumber}
-                  </div>
-                  <div>
-                    <span className="font-medium">Location:</span> {panel.location}
-                  </div>
-                  <div>
-                    <span className="font-medium">Date:</span> {panel.date}
-                  </div>
-                  <div className="pt-2">
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => setSelectedPanelId(null)}
-                    >
-                      Deselect
-                    </Button>
-                  </div>
-                </div>
-              ))}
+      <div className="w-full md:w-1/4 bg-white p-4 rounded-lg shadow-md">
+        <h3 className="text-lg font-semibold mb-4">Panel List</h3>
+        <div className="space-y-2 max-h-96 overflow-y-auto">
+          {panels.map(panel => (
+            <div
+              key={panel.id}
+              className={`p-2 border rounded cursor-pointer ${
+                selectedPanelId === panel.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
+              }`}
+              onClick={() => setSelectedPanelId(panel.id)}
+            >
+              <div className="font-medium">{panel.panelNumber}</div>
+              <div className="text-sm text-gray-600">{panel.rollNumber}</div>
+              <div className="text-xs text-gray-500">
+                {panel.width} × {panel.length} at ({Math.round(panel.x)}, {Math.round(panel.y)})
+              </div>
             </div>
-          ) : (
-            <div className="text-gray-500 italic">
-              {panels.length > 0 
-                ? "Select a panel to view details" 
-                : "No panels added yet"}
-            </div>
-          )}
-        </div>
-        
-        <div className="bg-white p-4 rounded-lg shadow-md">
-          <h3 className="text-lg font-bold mb-2">Instructions</h3>
-          <ul className="space-y-1 text-sm">
-            <li>• Click <strong>Add Panel</strong> to create a new panel</li>
-            <li>• Click on a panel to select it</li>
-            <li>• Drag selected panels to reposition them</li>
-            <li>• Click <strong>Export DXF</strong> to save for CAD software</li>
-            <li>• Use <strong>Zoom</strong> controls to adjust view</li>
-          </ul>
-          
-          <div className="mt-4">
-            <label className="block text-sm font-medium mb-2">Import from Excel</label>
-            <div className="flex items-center gap-2">
-              <input
-                type="file"
-                accept=".xlsx,.xls"
-                className="text-sm"
-                onChange={(e) => {
-                  if (e.target.files && e.target.files[0]) {
-                    handleImportExcel(e.target.files[0])
-                  }
-                }}
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  const templateBlob = generateTemplateFile()
-                  saveAs(templateBlob, 'panel_template.xlsx')
-                }}
-              >
-                Get Template
-              </Button>
-            </div>
-          </div>
+          ))}
         </div>
       </div>
     </div>
