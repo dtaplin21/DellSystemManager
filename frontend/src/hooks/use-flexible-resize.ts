@@ -69,9 +69,9 @@ export function useFlexibleResize({
   }, [constraints]);
   
   // Convert panels to bounds for snapping
-  const getOtherPanelBounds = useCallback((excludeId: string): PanelBounds[] => {
+  const getOtherPanelBounds = useCallback((excludePanelId: string): PanelBounds[] => {
     return panels
-      .filter(panel => panel.id !== excludeId)
+      .filter(panel => panel.id !== excludePanelId)
       .map(panel => ({
         id: panel.id,
         x: panel.x,
@@ -92,6 +92,7 @@ export function useFlexibleResize({
     const newResizeState: ResizeState = {
       isResizing: true,
       handleId,
+      panelId,
       startX: mouseX,
       startY: mouseY,
       startWidth: panel.width,
@@ -124,7 +125,7 @@ export function useFlexibleResize({
     lastMousePositionRef.current = { x: mouseX, y: mouseY };
     
     // Get other panels for snapping
-    const otherPanels = getOtherPanelBounds(resizeState.handleId || '');
+    const otherPanels = getOtherPanelBounds(resizeState.panelId || '');
     
     // Calculate new resize result
     const result = handleResize(
@@ -288,7 +289,7 @@ export function useFlexibleResize({
     if (validation.isValid) {
       // Update the panel
       const updatedPanels = panels.map(panel => {
-        if (panel.id === resizeState.handleId) {
+        if (panel.id === resizeState.panelId) {
           return {
             ...panel,
             x: resizeResult.x,

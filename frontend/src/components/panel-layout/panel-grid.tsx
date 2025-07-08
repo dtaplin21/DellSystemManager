@@ -13,6 +13,7 @@ import type { Rect as RectType } from 'konva/lib/shapes/Rect';
 import type { RegularPolygon as RegularPolygonType } from 'konva/lib/shapes/RegularPolygon';
 import Konva from 'konva';
 import type { Panel } from '../../types/panel';
+import { useTooltip } from '@/components/ui/tooltip';
 
 interface TextProps {
   text: string;
@@ -141,6 +142,9 @@ export default function PanelGrid({
     isInViewport,
   } = useZoomPan();
 
+  // Remove hover state and add tooltip
+  const { showTooltip, hideTooltip, TooltipComponent } = useTooltip();
+
   // Update spatial index when panels change
   useEffect(() => {
     const index = spatialIndexRef.current;
@@ -197,188 +201,24 @@ export default function PanelGrid({
     return panels.filter(p => p.id !== excludeId && nearbyIds.has(p.id));
   }, [panels]);
 
-  // Throttled drag move handler
+  // Remove grid snapping and state updates from drag move
   const handlePanelDragMove = useCallback((e: KonvaEventObject<DragEvent>) => {
-    const now = Date.now();
-    if (now - lastDragTimeRef.current < DRAG_THROTTLE_MS) {
-      return;
-    }
-    lastDragTimeRef.current = now;
+    // Let Konva handle the drag visually; do not snap or update state here
+    // Optionally, you can add visual feedback or constraints, but do not set position or call onPanelUpdate
+  }, []);
 
-    const node = e.target;
-    const movingId = node.id();
-    const x = node.x();
-    const y = node.y();
-
-    const movingPanel = panels.find(p => p.id === movingId);
-    if (!movingPanel) return;
-
-    const w = movingPanel.width;
-    const h = movingPanel.length;
-    const left = x;
-    const right = x + w;
-    const top = y;
-    const bottom = y + h;
-
-    // Use spatial index for efficient proximity search
-    const nearbyPanels = findNearbyPanels(left, top, w, h, movingId);
-    
-    let newX = x;
-    let newY = y;
-    let isSnappedToAny = false;
-    const newPreSnapPairs = new Set<string>();
-
-    // Check each nearby panel for edge proximity
-    nearbyPanels.forEach(otherPanel => {
-      const o = {
-        id: otherPanel.id,
-        left: otherPanel.x,
-        right: otherPanel.x + otherPanel.width,
-        top: otherPanel.y,
-        bottom: otherPanel.y + otherPanel.length
-      };
-
-      // Snap left edge to other's right
-      if (Math.abs(left - o.right) <= SNAP_THRESHOLD) {
-        newX = o.right;
-        isSnappedToAny = true;
-        newPreSnapPairs.add(`${movingId}-${o.id}`);
-      }
-      // Snap right edge to other's left
-      if (Math.abs(right - o.left) <= SNAP_THRESHOLD) {
-        newX = o.left - w;
-        isSnappedToAny = true;
-        newPreSnapPairs.add(`${movingId}-${o.id}`);
-      }
-      // Snap top edge to other's bottom
-      if (Math.abs(top - o.bottom) <= SNAP_THRESHOLD) {
-        newY = o.bottom;
-        isSnappedToAny = true;
-        newPreSnapPairs.add(`${movingId}-${o.id}`);
-      }
-      // Snap bottom edge to other's top
-      if (Math.abs(bottom - o.top) <= SNAP_THRESHOLD) {
-        newY = o.top - h;
-        isSnappedToAny = true;
-        newPreSnapPairs.add(`${movingId}-${o.id}`);
-      }
-    });
-
-    // Update pre-snap pairs
-    setPreSnapPairs(newPreSnapPairs);
-
-    // Clear snapped pairs if not snapped to any panel
-    if (!isSnappedToAny) {
-      setSnappedPairs(prev => {
-        const newSet = new Set(Array.from(prev));
-        Array.from(newSet).forEach(pairKey => {
-          if (pairKey.includes(movingId)) {
-            newSet.delete(pairKey);
-          }
-        });
-        return newSet;
-      });
-    }
-
-    // Snap to grid as fallback
-    newX = snapToGrid(newX);
-    newY = snapToGrid(newY);
-
-    node.position({ x: newX, y: newY });
-  }, [panels, findNearbyPanels, snapToGrid]);
-
-  // Optimized panel drag end handler
+  // Only update state on drag end
   const handlePanelDragEnd = useCallback((e: KonvaEventObject<DragEvent>) => {
     const id = e.target.id();
     const node = e.target;
     const x = node.x();
     const y = node.y();
-    
-    const movingPanel = panels.find(p => p.id === id);
-    if (!movingPanel) return;
-
-    const w = movingPanel.width;
-    const h = movingPanel.length;
-    const left = x;
-    const right = x + w;
-    const top = y;
-    const bottom = y + h;
-
-    // Use spatial index for efficient proximity search
-    const nearbyPanels = findNearbyPanels(left, top, w, h, id);
-    
-    let newX = x;
-    let newY = y;
-    let snappedToId: string | null = null;
-
-    // Check each nearby panel for edge proximity
-    nearbyPanels.forEach(otherPanel => {
-      const o = {
-        id: otherPanel.id,
-        left: otherPanel.x,
-        right: otherPanel.x + otherPanel.width,
-        top: otherPanel.y,
-        bottom: otherPanel.y + otherPanel.length
-      };
-
-      // Snap left edge to other's right
-      if (Math.abs(left - o.right) <= SNAP_THRESHOLD) {
-        newX = o.right;
-        snappedToId = o.id;
-      }
-      // Snap right edge to other's left
-      if (Math.abs(right - o.left) <= SNAP_THRESHOLD) {
-        newX = o.left - w;
-        snappedToId = o.id;
-      }
-      // Snap top edge to other's bottom
-      if (Math.abs(top - o.bottom) <= SNAP_THRESHOLD) {
-        newY = o.bottom;
-        snappedToId = o.id;
-      }
-      // Snap bottom edge to other's top
-      if (Math.abs(bottom - o.top) <= SNAP_THRESHOLD) {
-        newY = o.top - h;
-        snappedToId = o.id;
-      }
-    });
-
-    // Update snapped pairs
-    if (snappedToId) {
-      const pairKey = `${id}-${snappedToId}`;
-      setSnappedPairs(prev => new Set([...Array.from(prev), pairKey]));
-    }
-
-    // Clear pre-snap pairs
-    setPreSnapPairs(new Set());
-
-    // Snap to grid as fallback
-    newX = snapToGrid(newX);
-    newY = snapToGrid(newY);
-    
-    // Update panel position
-    const newPanels = panels.map(panel => {
-      if (panel.id === id) {
-        if (panel.shape === 'triangle') {
-          const snappedX = snapToGrid(newX);
-          const snappedY = snapToGrid(newY);
-          return {
-            ...panel,
-            x: snappedX - panel.width / 2,
-            y: snappedY - panel.length / 2
-          };
-        }
-        return {
-          ...panel,
-          x: newX,
-          y: newY
-        };
-      }
-      return panel;
-    });
-    
+    // Update panel position in state
+    const newPanels = panels.map(panel =>
+      panel.id === id ? { ...panel, x, y } : panel
+    );
     onPanelUpdate(newPanels);
-  }, [panels, onPanelUpdate, findNearbyPanels, snapToGrid]);
+  }, [panels, onPanelUpdate]);
 
   // Optimized panel transform end handler
   const handlePanelTransformEnd = useCallback((e: KonvaEventObject<Event>) => {
@@ -515,7 +355,9 @@ export default function PanelGrid({
     const centerY = panel.y + panel.length / 2;
     const roll = panel.rollNumber || '';
     const panelNum = panel.panelNumber || '';
-    const label = `${roll}\n${panelNum}`;
+    
+    // Only show panel number on the panel
+    const label = panelNum;
     
     let strokeColor = "#000000";
     let strokeWidth = 4;
@@ -527,6 +369,17 @@ export default function PanelGrid({
       strokeColor = "#ffff00";
       strokeWidth = 5;
     }
+    
+    // Handle mouse enter for tooltip
+    const handleMouseEnter = (e: KonvaEventObject<MouseEvent>) => {
+      const tooltipContent = `Panel: ${panelNum}\nRoll: ${roll}`;
+      showTooltip(tooltipContent, e.evt.clientX, e.evt.clientY);
+    };
+
+    // Handle mouse leave for tooltip
+    const handleMouseLeave = () => {
+      hideTooltip();
+    };
     
     if (panel.shape === 'triangle') {
       const radiusX = panel.width / 2;
@@ -576,8 +429,8 @@ export default function PanelGrid({
             scaleY={radiusY / baseRadius}
             rotation={panel.rotation}
             fill={panel.fill}
-            stroke="transparent"
-            strokeWidth={0}
+            stroke="#000000"
+            strokeWidth={1}
             draggable={true}
             onClick={(e: KonvaEventObject<MouseEvent>) => {
               e.cancelBubble = true;
@@ -586,6 +439,8 @@ export default function PanelGrid({
                 onEditPanel(panel);
               }
             }}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
             onDragMove={handlePanelDragMove}
             onDragEnd={handlePanelDragEnd}
             onTransformEnd={handlePanelTransformEnd}
@@ -645,8 +500,8 @@ export default function PanelGrid({
           height={panel.length}
           rotation={panel.rotation}
           fill={panel.fill}
-          stroke="transparent"
-          strokeWidth={0}
+          stroke="#000000"
+          strokeWidth={1}
           draggable={true}
           onClick={(e: KonvaEventObject<MouseEvent>) => {
             e.cancelBubble = true;
@@ -655,6 +510,8 @@ export default function PanelGrid({
               onEditPanel(panel);
             }
           }}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
           onDragMove={handlePanelDragMove}
           onDragEnd={handlePanelDragEnd}
           onTransformEnd={handlePanelTransformEnd}
@@ -675,82 +532,90 @@ export default function PanelGrid({
         />
       </Group>
     );
-  }, [selectedId, handlePanelDragEnd, handlePanelTransformEnd, handlePanelDragMove, onEditPanel, panels, arePanelsSnapped, preSnapPairs]);
+  }, [selectedId, handlePanelDragEnd, handlePanelTransformEnd, handlePanelDragMove, onEditPanel, panels, arePanelsSnapped, preSnapPairs, showTooltip, hideTooltip]);
 
   return (
-    <div 
-      ref={containerRef}
-      className="w-full h-full overflow-hidden"
-      onWheel={e => hookHandleWheel(e.nativeEvent)}
-      onMouseDown={handleMouseDown}
-      onMouseUp={handleMouseUp}
-      onMouseMove={hookOnMouseMove}
-      style={{
-        cursor: selectedId ? 'default' : 'grab'
-      }}
-    >
-      <Stage
-        ref={stageRef}
-        width={width}
-        height={height}
-        scaleX={hookScale}
-        scaleY={hookScale}
-        x={hookPosition.x}
-        y={hookPosition.y}
-        draggable={false}
-        onClick={handleStageClick}
-        className="bg-white"
+    <>
+      <div 
+        ref={containerRef}
+        className="w-full h-full overflow-hidden"
+        onWheel={e => hookHandleWheel(e.nativeEvent)}
+        onMouseDown={handleMouseDown}
+        onMouseUp={handleMouseUp}
+        onMouseMove={hookOnMouseMove}
         style={{
-          touchAction: 'none'
+          cursor: selectedId ? 'default' : 'grab'
         }}
       >
-        <Layer>
-          {/* Optimized grid lines */}
-          {gridLines.map(line => (
-            <Rect
-              key={line.key}
-              x={line.x}
-              y={line.y}
-              width={line.width}
-              height={line.height}
-              fill={GRID_LINE_COLOR}
+        <Stage
+          ref={stageRef}
+          width={width}
+          height={height}
+          scaleX={hookScale}
+          scaleY={hookScale}
+          x={hookPosition.x}
+          y={hookPosition.y}
+          draggable={false}
+          onClick={handleStageClick}
+          className="bg-white"
+          style={{
+            touchAction: 'none'
+          }}
+        >
+          <Layer>
+            {/* Optimized grid lines */}
+            {gridLines.map(line => (
+              <Rect
+                key={line.key}
+                x={line.x}
+                y={line.y}
+                width={line.width}
+                height={line.height}
+                fill="transparent"
+                stroke="#e5e7eb"
+                strokeWidth={1}
+                listening={false}
+              />
+            ))}
+            
+            {/* Only render visible panels */}
+            {visiblePanels.map(renderPanel)}
+            
+            {/* Transformer */}
+            <Transformer
+              ref={transformerRef}
+              boundBoxFunc={(oldBox: { width: number; height: number }, newBox: { width: number; height: number }) => {
+                const minSize = 50;
+                if (newBox.width < minSize || newBox.height < minSize) {
+                  return oldBox;
+                }
+                return newBox;
+              }}
+              enabledAnchors={[
+                'top-left',
+                'top-center',
+                'top-right',
+                'middle-right',
+                'bottom-right',
+                'bottom-center',
+                'bottom-left',
+                'middle-left'
+              ]}
+              keepRatio={false}
+              rotateEnabled={true}
+              borderStroke="#3b82f6"
+              borderStrokeWidth={2}
+              anchorStroke="#3b82f6"
+              anchorFill="#ffffff"
+              anchorSize={8}
+              anchorCornerRadius={4}
             />
-          ))}
-          
-          {/* Only render visible panels */}
-          {visiblePanels.map(renderPanel)}
-          
-          {/* Transformer */}
-          <Transformer
-            ref={transformerRef}
-            boundBoxFunc={(oldBox: { width: number; height: number }, newBox: { width: number; height: number }) => {
-              const minSize = 50;
-              if (newBox.width < minSize || newBox.height < minSize) {
-                return oldBox;
-              }
-              return newBox;
-            }}
-            enabledAnchors={[
-              'top-left',
-              'top-center',
-              'top-right',
-              'middle-right',
-              'bottom-right',
-              'bottom-center',
-              'bottom-left',
-              'middle-left'
-            ]}
-            keepRatio={false}
-            rotateEnabled={true}
-            borderStroke="#3b82f6"
-            borderStrokeWidth={2}
-            anchorStroke="#3b82f6"
-            anchorFill="#ffffff"
-            anchorSize={8}
-            anchorCornerRadius={4}
-          />
-        </Layer>
-      </Stage>
-    </div>
+          </Layer>
+        </Stage>
+      </div>
+      
+      {/* Tooltip component */}
+      <TooltipComponent />
+    </>
   );
 }

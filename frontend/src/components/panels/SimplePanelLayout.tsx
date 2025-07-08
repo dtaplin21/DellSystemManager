@@ -7,6 +7,7 @@ import { parseExcelPanels, generateTemplateFile } from '@/lib/excel-import'
 import { exportToDXF, exportToJSON } from '@/lib/dxf-helpers'
 import { saveAs } from 'file-saver'
 import type { Panel } from '../../types/panel'
+import { useTooltip } from '@/components/ui/tooltip'
 
 interface PanelLayoutProps {
   mode: 'manual' | 'auto'
@@ -57,6 +58,9 @@ export default function SimplePanelLayout({ mode, projectInfo }: PanelLayoutProp
     reset,
     isInViewport,
   } = useZoomPan();
+
+  // Remove hover state and add tooltip
+  const { showTooltip, hideTooltip, TooltipComponent } = useTooltip();
 
   // Initialize with sample panels in auto mode
   useEffect(() => {
@@ -208,8 +212,8 @@ export default function SimplePanelLayout({ mode, projectInfo }: PanelLayoutProp
     
     // Set panel style
     ctx.fillStyle = panel.fill || '#3b82f6'
-    ctx.strokeStyle = isSelected ? '#1d4ed8' : '#2563eb'
-    ctx.lineWidth = isSelected ? 3 : 2
+    ctx.strokeStyle = isSelected ? '#1d4ed8' : '#000000'
+    ctx.lineWidth = isSelected ? 3 : 1
     
     // Apply rotation if needed
     if (panel.rotation !== 0) {
@@ -244,8 +248,8 @@ export default function SimplePanelLayout({ mode, projectInfo }: PanelLayoutProp
       ctx.strokeRect(panel.x, panel.y, panel.width, panel.length)
     }
     
-    // Draw panel label
-    const label = `${panel.rollNumber || ''}\n${panel.panelNumber || ''}`
+    // Draw panel label - only panel number
+    const label = panel.panelNumber || '';
     const fontSize = Math.min(panel.width, panel.length) * 0.3
     ctx.font = `${fontSize}px Arial`
     ctx.fillStyle = '#000000'
@@ -321,10 +325,42 @@ export default function SimplePanelLayout({ mode, projectInfo }: PanelLayoutProp
     })
   }, [selectedPanelId, scale, position])
 
-  // Optimized canvas mouse move handler
+  // Add mouse move handler for hover detection and tooltip
   const handleCanvasMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!dragInfo.isDragging || !dragInfo.panelId) return
+    // Handle drag logic first
+    if (dragInfo.isDragging && dragInfo.panelId) {
+      const canvas = canvasRef.current
+      if (!canvas) return
+      
+      const rect = canvas.getBoundingClientRect()
+      const x = (e.clientX - rect.left) / scale + position.x / scale
+      const y = (e.clientY - rect.top) / scale + position.y / scale
+      
+      const deltaX = x - dragInfo.startX
+      const deltaY = y - dragInfo.startY
+      
+      setPanels(prevPanels => 
+        prevPanels.map(panel => {
+          if (panel.id === dragInfo.panelId) {
+            return {
+              ...panel,
+              x: panel.x + deltaX,
+              y: panel.y + deltaY
+            }
+          }
+          return panel
+        })
+      )
+      
+      setDragInfo({
+        ...dragInfo,
+        startX: x,
+        startY: y
+      })
+      return
+    }
     
+    // Handle tooltip detection
     const canvas = canvasRef.current
     if (!canvas) return
     
@@ -332,28 +368,20 @@ export default function SimplePanelLayout({ mode, projectInfo }: PanelLayoutProp
     const x = (e.clientX - rect.left) / scale + position.x / scale
     const y = (e.clientY - rect.top) / scale + position.y / scale
     
-    const deltaX = x - dragInfo.startX
-    const deltaY = y - dragInfo.startY
+    // Find hovered panel for tooltip
+    for (let i = panels.length - 1; i >= 0; i--) {
+      const panel = panels[i]
+      if (x >= panel.x && x <= panel.x + panel.width &&
+          y >= panel.y && y <= panel.y + panel.length) {
+        const tooltipContent = `Panel: ${panel.panelNumber || 'N/A'}\nRoll: ${panel.rollNumber || 'N/A'}`;
+        showTooltip(tooltipContent, e.clientX, e.clientY);
+        return;
+      }
+    }
     
-    setPanels(prevPanels => 
-      prevPanels.map(panel => {
-        if (panel.id === dragInfo.panelId) {
-          return {
-            ...panel,
-            x: panel.x + deltaX,
-            y: panel.y + deltaY
-          }
-        }
-        return panel
-      })
-    )
-    
-    setDragInfo({
-      ...dragInfo,
-      startX: x,
-      startY: y
-    })
-  }, [dragInfo, scale, position])
+    // Hide tooltip if not hovering over any panel
+    hideTooltip();
+  }, [dragInfo, scale, position, panels, showTooltip, hideTooltip])
 
   // Optimized canvas mouse up handler
   const handleCanvasMouseUp = useCallback(() => {
@@ -431,105 +459,110 @@ export default function SimplePanelLayout({ mode, projectInfo }: PanelLayoutProp
   }, [panels, fitToContent])
 
   return (
-    <div className="flex flex-col md:flex-row gap-4">
-      <div className="w-full md:w-3/4 bg-white p-4 rounded-lg shadow-md">
-        <div className="flex justify-between mb-4">
-          <div className="flex gap-2">
-            <Button onClick={() => zoomIn()}>Zoom +</Button>
-            <Button onClick={() => zoomOut()}>Zoom -</Button>
-            <Button onClick={handleFitToContent}>Fit</Button>
+    <>
+      <div className="flex flex-col md:flex-row gap-4">
+        <div className="w-full md:w-3/4 bg-white p-4 rounded-lg shadow-md">
+          <div className="flex justify-between mb-4">
+            <div className="flex gap-2">
+              <Button onClick={() => zoomIn()}>Zoom +</Button>
+              <Button onClick={() => zoomOut()}>Zoom -</Button>
+              <Button onClick={handleFitToContent}>Fit</Button>
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleAddPanel}
+              >
+                Add Panel
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleDeletePanel}
+                disabled={!selectedPanelId}
+              >
+                Delete Panel
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleExportToDXF}
+                disabled={panels.length === 0}
+              >
+                Export DXF
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleReset}
+              >
+                Reset
+              </Button>
+            </div>
           </div>
-          <div className="flex gap-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleAddPanel}
-            >
-              Add Panel
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleDeletePanel}
-              disabled={!selectedPanelId}
-            >
-              Delete Panel
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleExportToDXF}
-              disabled={panels.length === 0}
-            >
-              Export DXF
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleReset}
-            >
-              Reset
-            </Button>
-          </div>
-        </div>
-        
-        <div 
-          ref={containerRef}
-          style={{ 
-            border: '1px solid #ccc', 
-            overflow: 'hidden', 
-            height: '600px',
-            position: 'relative',
-            backgroundColor: '#f0f0f0'
-          }}
-          onWheel={(e) => handleWheel(e.nativeEvent)}
-          onMouseMove={onMouseMove}
-        >
-          <canvas
-            ref={canvasRef}
-            width={dimensions.width}
-            height={dimensions.height}
-            onClick={handleCanvasClick}
-            onMouseDown={handleCanvasMouseDown}
-            onMouseMove={handleCanvasMouseMove}
-            onMouseUp={handleCanvasMouseUp}
-            onMouseLeave={handleCanvasMouseLeave}
-            style={{
-              cursor: dragInfo.isDragging ? 'grabbing' : selectedPanelId ? 'grab' : 'default',
-              touchAction: 'none'
+          
+          <div 
+            ref={containerRef}
+            style={{ 
+              border: '1px solid #ccc', 
+              overflow: 'hidden', 
+              height: '600px',
+              position: 'relative',
+              backgroundColor: '#f0f0f0'
             }}
-          />
+            onWheel={(e) => handleWheel(e.nativeEvent)}
+            onMouseMove={onMouseMove}
+          >
+            <canvas
+              ref={canvasRef}
+              width={dimensions.width}
+              height={dimensions.height}
+              onClick={handleCanvasClick}
+              onMouseDown={handleCanvasMouseDown}
+              onMouseMove={handleCanvasMouseMove}
+              onMouseUp={handleCanvasMouseUp}
+              onMouseLeave={handleCanvasMouseLeave}
+              style={{
+                cursor: dragInfo.isDragging ? 'grabbing' : selectedPanelId ? 'grab' : 'default',
+                touchAction: 'none'
+              }}
+            />
+          </div>
+          
+          <div className="mt-4 text-sm text-gray-600">
+            <p>Selected Panel: {selectedPanelId || 'None'}</p>
+            <p>Scale: {scale.toFixed(2)}x</p>
+            <p>Position: ({Math.round(position.x)}, {Math.round(position.y)})</p>
+            <p>Panels: {panels.length}</p>
+          </div>
         </div>
         
-        <div className="mt-4 text-sm text-gray-600">
-          <p>Selected Panel: {selectedPanelId || 'None'}</p>
-          <p>Scale: {scale.toFixed(2)}x</p>
-          <p>Position: ({Math.round(position.x)}, {Math.round(position.y)})</p>
-          <p>Panels: {panels.length}</p>
+        <div className="w-full md:w-1/4 bg-white p-4 rounded-lg shadow-md">
+          <h3 className="text-lg font-semibold mb-4">Panel List</h3>
+          <div className="space-y-2 max-h-96 overflow-y-auto">
+            {panels.map(panel => (
+              <div
+                key={panel.id}
+                className={`p-2 border rounded cursor-pointer ${
+                  selectedPanelId === panel.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
+                }`}
+                onClick={() => setSelectedPanelId(panel.id)}
+              >
+                <div className="font-medium">{panel.panelNumber}</div>
+                <div className="text-sm text-gray-600">{panel.rollNumber}</div>
+                <div className="text-xs text-gray-500">
+                  {panel.width} × {panel.length} at ({Math.round(panel.x)}, {Math.round(panel.y)})
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
       
-      <div className="w-full md:w-1/4 bg-white p-4 rounded-lg shadow-md">
-        <h3 className="text-lg font-semibold mb-4">Panel List</h3>
-        <div className="space-y-2 max-h-96 overflow-y-auto">
-          {panels.map(panel => (
-            <div
-              key={panel.id}
-              className={`p-2 border rounded cursor-pointer ${
-                selectedPanelId === panel.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
-              }`}
-              onClick={() => setSelectedPanelId(panel.id)}
-            >
-              <div className="font-medium">{panel.panelNumber}</div>
-              <div className="text-sm text-gray-600">{panel.rollNumber}</div>
-              <div className="text-xs text-gray-500">
-                {panel.width} × {panel.length} at ({Math.round(panel.x)}, {Math.round(panel.y)})
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
+      {/* Tooltip component */}
+      <TooltipComponent />
+    </>
   )
 }
 

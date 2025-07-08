@@ -1,4 +1,4 @@
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback, useRef, useEffect, useState } from 'react';
 import { Stage, Layer, Rect, Group } from 'react-konva';
 import { Text } from 'react-konva/lib/ReactKonvaCore';
 import { Line } from 'react-konva/lib/ReactKonvaCore';
@@ -7,6 +7,7 @@ import type { Panel } from '../../types/panel';
 import { useFlexibleResize } from '../../hooks/use-flexible-resize';
 import { ResizeConstraints } from '../../lib/resize-utils';
 import { getPanelLabelLayout } from '../../lib/panel-label-utils';
+import { useTooltip } from '@/components/ui/tooltip';
 
 interface FlexiblePanelProps {
   panel: Panel;
@@ -97,6 +98,11 @@ export const FlexiblePanel: React.FC<FlexiblePanelProps> = ({
   showResizeHandles = true
 }) => {
   const stageRef = useRef<any>(null);
+  const nodeRef = useRef<any>(null);
+  const dragRAFRef = useRef<number | null>(null);
+  const targetPosition = useRef<{ x: number; y: number }>({ x: panel.x, y: panel.y });
+  const actualPosition = useRef<{ x: number; y: number }>({ x: panel.x, y: panel.y });
+  const isDraggingRef = useRef(false);
   
   // Use the flexible resize hook
   const {
@@ -120,6 +126,79 @@ export const FlexiblePanel: React.FC<FlexiblePanelProps> = ({
     enableVisualFeedback,
     enableSnapping
   });
+
+  // Lerp helper
+  function lerp(a: number, b: number, t: number) {
+    return a + (b - a) * t;
+  }
+
+  // Animation loop for gliding
+  const animateGlide = useCallback(() => {
+    if (!nodeRef.current) return;
+    const { x: tx, y: ty } = targetPosition.current;
+    let { x: ax, y: ay } = actualPosition.current;
+    // Lerp toward target
+    const speed = 0.18; // 0 < speed < 1, higher = faster
+    ax = lerp(ax, tx, speed);
+    ay = lerp(ay, ty, speed);
+    // If close enough, snap to target
+    if (Math.abs(ax - tx) < 0.5 && Math.abs(ay - ty) < 0.5) {
+      ax = tx;
+      ay = ty;
+    }
+    actualPosition.current = { x: ax, y: ay };
+    nodeRef.current.position({ x: ax, y: ay });
+    nodeRef.current.getLayer()?.batchDraw();
+    // Continue animating if not at target or still dragging
+    if (isDraggingRef.current || Math.abs(ax - tx) > 0.5 || Math.abs(ay - ty) > 0.5) {
+      dragRAFRef.current = requestAnimationFrame(animateGlide);
+    } else {
+      dragRAFRef.current = null;
+    }
+  }, []);
+
+  // On drag start, set both positions
+  const handlePanelDragStart = useCallback((e: KonvaEventObject<DragEvent>) => {
+    isDraggingRef.current = true;
+    const { x, y } = e.target.position();
+    targetPosition.current = { x, y };
+    actualPosition.current = { x, y };
+    if (!nodeRef.current) nodeRef.current = e.target;
+    if (!dragRAFRef.current) dragRAFRef.current = requestAnimationFrame(animateGlide);
+  }, [animateGlide]);
+
+  // On drag move, update only targetPosition
+  const handlePanelDragMove = useCallback((e: KonvaEventObject<DragEvent>) => {
+    if (!isSelected) return;
+    const { x, y } = e.target.position();
+    targetPosition.current = { x, y };
+    if (!dragRAFRef.current) dragRAFRef.current = requestAnimationFrame(animateGlide);
+  }, [isSelected, animateGlide]);
+
+  // On drag end, set both positions and update React state
+  const handlePanelDragEnd = useCallback((e: KonvaEventObject<DragEvent>) => {
+    isDraggingRef.current = false;
+    const { x, y } = e.target.position();
+    targetPosition.current = { x, y };
+    actualPosition.current = { x, y };
+    if (dragRAFRef.current) {
+      cancelAnimationFrame(dragRAFRef.current);
+      dragRAFRef.current = null;
+    }
+    onDragEnd(panel.id, x, y);
+  }, [onDragEnd, panel.id]);
+
+  // Keep actual/target position in sync with panel.x/y if not dragging
+  useEffect(() => {
+    if (!isDraggingRef.current) {
+      targetPosition.current = { x: panel.x, y: panel.y };
+      actualPosition.current = { x: panel.x, y: panel.y };
+      if (nodeRef.current) {
+        nodeRef.current.position({ x: panel.x, y: panel.y });
+        nodeRef.current.getLayer()?.batchDraw();
+      }
+    }
+  }, [panel.x, panel.y]);
 
   // Handle resize start
   const handleResizeStart = useCallback((handleId: string, e: KonvaEventObject<MouseEvent>) => {
@@ -154,17 +233,8 @@ export const FlexiblePanel: React.FC<FlexiblePanelProps> = ({
     }
   }, [isResizing, endResize]);
 
-  // Handle panel click
-  const handlePanelClick = useCallback((e: KonvaEventObject<MouseEvent>) => {
-    e.cancelBubble = true;
-    onSelect(panel.id);
-  }, [onSelect, panel.id]);
-
-  // Handle panel drag end
-  const handlePanelDragEnd = useCallback((e: KonvaEventObject<DragEvent>) => {
-    const node = e.target;
-    onDragEnd(panel.id, node.x(), node.y());
-  }, [onDragEnd, panel.id]);
+  // Remove hover state and add tooltip
+  const { showTooltip, hideTooltip, TooltipComponent } = useTooltip();
 
   // Get current panel dimensions (use resize result if resizing)
   const currentPanel = resizeResult ? {
@@ -177,6 +247,9 @@ export const FlexiblePanel: React.FC<FlexiblePanelProps> = ({
 
   // Responsive label layout
   const labelLayout = getPanelLabelLayout(currentPanel.width, currentPanel.length);
+
+  // Helper to determine if currently dragging
+  const isDragging = isDraggingRef.current;
 
   // Render resize handles
   const renderResizeHandles = () => {
@@ -235,87 +308,95 @@ export const FlexiblePanel: React.FC<FlexiblePanelProps> = ({
     );
   };
 
-  // Panel label values
+  // Panel label values - only show panel number
   const panelNumber = panel.panelNumber || '';
-  const rollNumber = panel.rollNumber || '';
+
+  // Handle panel click
+  const handlePanelClick = useCallback((e: KonvaEventObject<MouseEvent>) => {
+    e.cancelBubble = true;
+    onSelect(panel.id);
+  }, [onSelect, panel.id]);
+
+  // Handle mouse enter for tooltip
+  const handleMouseEnter = useCallback((e: KonvaEventObject<MouseEvent>) => {
+    const tooltipContent = `Panel: ${panel.panelNumber || 'N/A'}\nRoll: ${panel.rollNumber || 'N/A'}`;
+    showTooltip(tooltipContent, e.evt.clientX, e.evt.clientY);
+  }, [showTooltip, panel.panelNumber, panel.rollNumber]);
+
+  // Handle mouse leave for tooltip
+  const handleMouseLeave = useCallback(() => {
+    hideTooltip();
+  }, [hideTooltip]);
 
   return (
-    <Group>
-      {/* Snap lines (rendered on top layer) */}
-      {renderSnapLines()}
-      
-      {/* Constraint indicator */}
-      {renderConstraintIndicator()}
-      
-      {/* Panel selection border */}
-      {isSelected && (
+    <>
+      <Group>
+        {/* Snap lines (rendered on top layer) */}
+        {renderSnapLines()}
+        
+        {/* Constraint indicator */}
+        {renderConstraintIndicator()}
+        
+        {/* Panel selection border */}
+        {isSelected && (
+          <Rect
+            x={currentPanel.x - 2}
+            y={currentPanel.y - 2}
+            width={currentPanel.width + 4}
+            height={currentPanel.length + 4}
+            fill="transparent"
+            stroke="#3b82f6"
+            strokeWidth={2}
+            dash={[5, 5]}
+            listening={false}
+          />
+        )}
+        
+        {/* Main panel */}
         <Rect
-          x={currentPanel.x - 2}
-          y={currentPanel.y - 2}
-          width={currentPanel.width + 4}
-          height={currentPanel.length + 4}
-          fill="transparent"
-          stroke="#3b82f6"
-          strokeWidth={2}
-          dash={[5, 5]}
-          listening={false}
+          ref={nodeRef}
+          {...(!isDragging ? { x: currentPanel.x, y: currentPanel.y } : {})}
+          width={currentPanel.width}
+          height={currentPanel.length}
+          fill={currentPanel.fill}
+          stroke={isSelected ? "#3b82f6" : "#000000"}
+          strokeWidth={isSelected ? 2 : 1}
+          rotation={currentPanel.rotation}
+          draggable={!isResizing}
+          onClick={handlePanelClick}
+          onDragStart={handlePanelDragStart}
+          onDragMove={handlePanelDragMove}
+          onDragEnd={handlePanelDragEnd}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
         />
-      )}
+        
+        {/* Top label: Panel Number only */}
+        <Text
+          x={currentPanel.x + labelLayout.topLabel.x}
+          y={currentPanel.y + labelLayout.topLabel.y}
+          width={labelLayout.topLabel.width}
+          height={labelLayout.topLabel.height}
+          text={panelNumber}
+          fontSize={labelLayout.fontSize}
+          fontFamily="Arial"
+          fontStyle="bold"
+          fill="#111"
+          align={labelLayout.topLabel.align}
+          verticalAlign={labelLayout.topLabel.verticalAlign}
+          listening={false}
+          ellipsis={true}
+        />
+        
+        {/* Resize handles */}
+        {renderResizeHandles()}
+      </Group>
       
-      {/* Main panel */}
-      <Rect
-        x={currentPanel.x}
-        y={currentPanel.y}
-        width={currentPanel.width}
-        height={currentPanel.length}
-        fill={currentPanel.fill}
-        stroke={isSelected ? "#3b82f6" : "#666"}
-        strokeWidth={isSelected ? 2 : 1}
-        rotation={currentPanel.rotation}
-        draggable={!isResizing}
-        onClick={handlePanelClick}
-        onDragEnd={handlePanelDragEnd}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
-      />
-      
-      {/* Top label: Panel Number */}
-      <Text
-        x={currentPanel.x + labelLayout.topLabel.x}
-        y={currentPanel.y + labelLayout.topLabel.y}
-        width={labelLayout.topLabel.width}
-        height={labelLayout.topLabel.height}
-        text={panelNumber}
-        fontSize={labelLayout.fontSize}
-        fontFamily="Arial"
-        fontStyle="bold"
-        fill="#111"
-        align={labelLayout.topLabel.align}
-        verticalAlign={labelLayout.topLabel.verticalAlign}
-        listening={false}
-        ellipsis={true}
-      />
-      {/* Bottom label: Roll Number */}
-      <Text
-        x={currentPanel.x + labelLayout.bottomLabel.x}
-        y={currentPanel.y + labelLayout.bottomLabel.y}
-        width={labelLayout.bottomLabel.width}
-        height={labelLayout.bottomLabel.height}
-        text={rollNumber}
-        fontSize={labelLayout.fontSize}
-        fontFamily="Arial"
-        fontStyle="bold"
-        fill="#111"
-        align={labelLayout.bottomLabel.align}
-        verticalAlign={labelLayout.bottomLabel.verticalAlign}
-        listening={false}
-        ellipsis={true}
-      />
-      
-      {/* Resize handles */}
-      {renderResizeHandles()}
-    </Group>
+      {/* Tooltip component */}
+      <TooltipComponent />
+    </>
   );
 };
 

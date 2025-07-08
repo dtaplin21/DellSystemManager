@@ -206,44 +206,28 @@ export default function PanelLayoutDesigner() {
 
   const handlePanelDrag = (e: React.MouseEvent, id: string) => {
     e.preventDefault();
-    
     if (!canvasRef.current) return;
-    
     const panel = panels.find(p => p.id === id);
     if (!panel) return;
-    
     const startX = e.clientX;
     const startY = e.clientY;
     const startPanelX = panel.x;
     const startPanelY = panel.y;
-    
+    let lastX = startPanelX;
+    let lastY = startPanelY;
     const handleMouseMove = (moveEvent: MouseEvent) => {
       const dx = moveEvent.clientX - startX;
       const dy = moveEvent.clientY - startY;
-      
-      let newX = startPanelX + dx;
-      let newY = startPanelY + dy;
-      
-      // Apply grid snapping if enabled
-      if (snapToGrid) {
-        newX = Math.round(newX / gridSize) * gridSize;
-        newY = Math.round(newY / gridSize) * gridSize;
-      }
-      
-      // Ensure panel stays within container bounds
-      newX = Math.max(0, Math.min(containerWidth - panel.width, newX));
-      newY = Math.max(0, Math.min(containerHeight - panel.height, newY));
-      
-      setPanels(panels.map(p => 
-        p.id === id ? { ...p, x: newX, y: newY } : p
-      ));
+      lastX = startPanelX + dx;
+      lastY = startPanelY + dy;
+      // Do not update state here; just let the panel visually follow the mouse if you have a ref
     };
-    
     const handleMouseUp = () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
+      // Only update state on drag end
+      setPanels(panels.map(p => p.id === id ? { ...p, x: lastX, y: lastY } : p));
     };
-    
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
   };
@@ -262,7 +246,7 @@ export default function PanelLayoutDesigner() {
     const startPanelX = panel.x;
     const startPanelY = panel.y;
     const startPanelWidth = panel.width;
-    const startPanelHeight = panel.height;
+    const startPanelLength = panel.length;
     
     const handleMouseMove = (moveEvent: MouseEvent) => {
       const dx = moveEvent.clientX - startX;
@@ -271,44 +255,44 @@ export default function PanelLayoutDesigner() {
       let newX = startPanelX;
       let newY = startPanelY;
       let newWidth = startPanelWidth;
-      let newHeight = startPanelHeight;
+      let newLength = startPanelLength;
       
       if (corner === 'nw') {
         newX = startPanelX + dx;
         newY = startPanelY + dy;
         newWidth = startPanelWidth - dx;
-        newHeight = startPanelHeight - dy;
+        newLength = startPanelLength - dy;
       } else if (corner === 'ne') {
         newY = startPanelY + dy;
         newWidth = startPanelWidth + dx;
-        newHeight = startPanelHeight - dy;
+        newLength = startPanelLength - dy;
       } else if (corner === 'sw') {
         newX = startPanelX + dx;
         newWidth = startPanelWidth - dx;
-        newHeight = startPanelHeight + dy;
+        newLength = startPanelLength + dy;
       } else if (corner === 'se') {
         newWidth = startPanelWidth + dx;
-        newHeight = startPanelHeight + dy;
+        newLength = startPanelLength + dy;
       }
       
       // Ensure minimum size
       newWidth = Math.max(50, newWidth);
-      newHeight = Math.max(50, newHeight);
+      newLength = Math.max(50, newLength);
       
       // Apply grid snapping if enabled
       if (snapToGrid) {
         newX = Math.round(newX / gridSize) * gridSize;
         newY = Math.round(newY / gridSize) * gridSize;
         newWidth = Math.round(newWidth / gridSize) * gridSize;
-        newHeight = Math.round(newHeight / gridSize) * gridSize;
+        newLength = Math.round(newLength / gridSize) * gridSize;
       }
       
       // Ensure panel stays within container bounds
       newX = Math.max(0, Math.min(containerWidth - newWidth, newX));
-      newY = Math.max(0, Math.min(containerHeight - newHeight, newY));
+      newY = Math.max(0, Math.min(containerHeight - newLength, newY));
       
       setPanels(panels.map(p => 
-        p.id === id ? { ...p, x: newX, y: newY, width: newWidth, height: newHeight } : p
+        p.id === id ? { ...p, x: newX, y: newY, width: newWidth, length: newLength } : p
       ));
     };
     
@@ -405,7 +389,7 @@ export default function PanelLayoutDesigner() {
                       left: `${panel.x}px`,
                       top: `${panel.y}px`,
                       width: `${panel.width}px`,
-                      height: `${panel.height}px`,
+                      height: `${panel.length}px`,
                       borderColor: panel.color,
                       backgroundColor: `${panel.color}20`
                     }}
@@ -518,16 +502,16 @@ export default function PanelLayoutDesigner() {
                                 </div>
                                 
                                 <div className="space-y-2">
-                                  <Label htmlFor="panel-height">Height</Label>
+                                  <Label htmlFor="panel-length">Length</Label>
                                   <Input 
-                                    id="panel-height" 
+                                    id="panel-length" 
                                     type="number" 
-                                    value={panel.height} 
+                                    value={panel.length} 
                                     onChange={(e) => {
                                       const value = parseInt(e.target.value);
                                       setPanels(panels.map(p => 
                                         p.id === selectedPanel 
-                                          ? { ...p, height: value } 
+                                          ? { ...p, length: value } 
                                           : p
                                       ));
                                     }}

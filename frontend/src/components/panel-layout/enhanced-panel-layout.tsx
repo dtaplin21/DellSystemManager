@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { Stage, Layer, Rect, Group } from 'react-konva';
 import { Text } from 'react-konva/lib/ReactKonvaCore';
 import { Line } from 'react-konva/lib/ReactKonvaCore';
@@ -14,6 +14,7 @@ import { Label } from '../ui/label';
 import { Switch } from '../ui/switch';
 import { Slider } from '../ui/slider';
 import { assignRollNumbersWestToEast } from '../../lib/panel-label-utils';
+import { useTooltip } from '@/components/ui/tooltip';
 
 interface EnhancedPanelLayoutProps {
   mode?: 'view' | 'edit';
@@ -323,6 +324,9 @@ export default function EnhancedPanelLayout({ mode = 'edit', projectInfo }: Enha
     );
   }, [visualFeedback]);
 
+  // Remove hover state and add tooltip
+  const { showTooltip, hideTooltip, TooltipComponent } = useTooltip();
+
   const gridLines = generateGridLines();
 
   return (
@@ -498,10 +502,10 @@ export default function EnhancedPanelLayout({ mode = 'edit', projectInfo }: Enha
             <div className="space-y-2">
               <Label>Zoom: {(scale * 100).toFixed(0)}%</Label>
               <div className="flex space-x-2">
-                <Button onClick={zoomIn} size="sm">+</Button>
-                <Button onClick={zoomOut} size="sm">-</Button>
-                <Button onClick={fitToContent} size="sm">Fit</Button>
-                <Button onClick={reset} size="sm">Reset</Button>
+                <Button onClick={() => zoomIn()} size="sm">+</Button>
+                <Button onClick={() => zoomOut()} size="sm">-</Button>
+                <Button onClick={() => fitToContent()} size="sm">Fit</Button>
+                <Button onClick={() => reset()} size="sm">Reset</Button>
               </div>
             </div>
 
@@ -532,7 +536,7 @@ export default function EnhancedPanelLayout({ mode = 'edit', projectInfo }: Enha
             x={position.x}
             y={position.y}
             draggable={!selectedPanelId}
-            onMouseMove={(e) => {
+            onMouseMove={(e: any) => {
               if (isResizing) {
                 const pointerPos = e.target.getStage()?.getPointerPosition();
                 if (pointerPos) {
@@ -545,7 +549,7 @@ export default function EnhancedPanelLayout({ mode = 'edit', projectInfo }: Enha
                 handleResizeEnd();
               }
             }}
-            onClick={(e) => {
+            onClick={(e: KonvaEventObject<MouseEvent>) => {
               if (e.target === e.target.getStage()) {
                 setSelectedPanelId(null);
               }
@@ -581,6 +585,20 @@ export default function EnhancedPanelLayout({ mode = 'edit', projectInfo }: Enha
                   length: resizeResult.height
                 } : panel;
 
+                // Only show panel number on the panel
+                const labelText = panel.panelNumber;
+
+                // Handle mouse enter for tooltip
+                const handleMouseEnter = (e: KonvaEventObject<MouseEvent>) => {
+                  const tooltipContent = `Panel: ${panel.panelNumber}\nRoll: ${panel.rollNumber}`;
+                  showTooltip(tooltipContent, e.evt.clientX, e.evt.clientY);
+                };
+
+                // Handle mouse leave for tooltip
+                const handleMouseLeave = () => {
+                  hideTooltip();
+                };
+
                 return (
                   <Group key={panel.id}>
                     {/* Selection border */}
@@ -605,21 +623,23 @@ export default function EnhancedPanelLayout({ mode = 'edit', projectInfo }: Enha
                       width={currentPanel.width}
                       height={currentPanel.length}
                       fill={currentPanel.fill}
-                      stroke={isSelected ? "#3b82f6" : "#666"}
+                      stroke={isSelected ? "#3b82f6" : "#000000"}
                       strokeWidth={isSelected ? 2 : 1}
                       rotation={currentPanel.rotation}
                       draggable={!isResizing}
                       onClick={() => handlePanelSelect(panel.id)}
-                      onDragEnd={(e) => handlePanelDragEnd(panel.id, e.target.x(), e.target.y())}
+                      onMouseEnter={handleMouseEnter}
+                      onMouseLeave={handleMouseLeave}
+                      onDragEnd={(e: any) => handlePanelDragEnd(panel.id, e.target.x(), e.target.y())}
                     />
 
-                    {/* Panel label */}
+                    {/* Panel label - only panel number */}
                     <Text
                       x={currentPanel.x}
                       y={currentPanel.y + currentPanel.length / 2 - 10}
                       width={currentPanel.width}
                       height={20}
-                      text={`${panel.rollNumber}\n${panel.panelNumber}`}
+                      text={labelText}
                       fontSize={12}
                       fontFamily="Arial"
                       fontStyle="bold"
@@ -638,6 +658,9 @@ export default function EnhancedPanelLayout({ mode = 'edit', projectInfo }: Enha
           </Stage>
         </div>
       </div>
+      
+      {/* Tooltip component */}
+      <TooltipComponent />
     </div>
   );
 } 

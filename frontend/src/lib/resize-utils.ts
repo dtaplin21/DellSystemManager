@@ -23,6 +23,7 @@ export interface ResizeConstraints {
 export interface ResizeState {
   isResizing: boolean;
   handleId: string | null;
+  panelId: string | null;
   startX: number;
   startY: number;
   startWidth: number;
