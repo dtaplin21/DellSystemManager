@@ -225,48 +225,53 @@ export default function SimplePanelLayout({ mode, projectInfo }: PanelLayoutProp
     }
     
     if (panel.shape === 'triangle') {
-      // Draw triangle
-      const centerX = panel.x + panel.width / 2
-      const centerY = panel.y + panel.length / 2
-      const radius = Math.min(panel.width, panel.length) / 2
-      
-      ctx.beginPath()
+      // Draw equilateral triangle
+      const centerX = panel.x + panel.width / 2;
+      const centerY = panel.y + panel.length / 2;
+      const radius = Math.min(panel.width, panel.length) / 2;
+      ctx.beginPath();
       for (let i = 0; i < 3; i++) {
-        const angle = (i * 2 * Math.PI) / 3 - Math.PI / 2
-        const x = centerX + radius * Math.cos(angle)
-        const y = centerY + radius * Math.sin(angle)
-        if (i === 0) {
-          ctx.moveTo(x, y)
-        } else {
-          ctx.lineTo(x, y)
-        }
+        const angle = (i * 2 * Math.PI) / 3 - Math.PI / 2;
+        const x = centerX + radius * Math.cos(angle);
+        const y = centerY + radius * Math.sin(angle);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
       }
-      ctx.closePath()
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
     } else if (panel.shape === 'right-triangle') {
-      // Draw right triangle with 90-degree angle
-      // The right angle is at the bottom-left corner
-      ctx.beginPath()
-      ctx.moveTo(panel.x, panel.y) // Top-left corner
-      ctx.lineTo(panel.x + panel.width, panel.y) // Top-right corner
-      ctx.lineTo(panel.x, panel.y + panel.length) // Bottom-left corner (right angle)
-      ctx.closePath()
+      // Draw right triangle (90-degree at bottom-left)
+      // Use x, y, width, length directly (no scaling)
+      ctx.beginPath();
+      ctx.moveTo(panel.x, panel.y); // Top-left
+      ctx.lineTo(panel.x + panel.width, panel.y); // Top-right
+      ctx.lineTo(panel.x, panel.y + panel.length); // Bottom-left (right angle)
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
     } else {
       // Draw rectangle
-      ctx.fillRect(panel.x, panel.y, panel.width, panel.length)
-      ctx.strokeRect(panel.x, panel.y, panel.width, panel.length)
+      ctx.fillRect(panel.x, panel.y, panel.width, panel.length);
+      ctx.strokeRect(panel.x, panel.y, panel.width, panel.length);
     }
-    
-    // Draw panel label - only panel number
+    // Draw panel label
     const label = panel.panelNumber || '';
-    const fontSize = Math.min(panel.width, panel.length) * 0.3
-    ctx.font = `${fontSize}px Arial`
-    ctx.fillStyle = '#000000'
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    
-    const centerX = panel.x + panel.width / 2
-    const centerY = panel.y + panel.length / 2
-    ctx.fillText(label, centerX, centerY)
+    const fontSize = Math.max(12, Math.min(panel.width, panel.length) * 0.4);
+    ctx.font = `${fontSize}px Arial`;
+    ctx.fillStyle = '#000000';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    let labelX, labelY;
+    if (panel.shape === 'right-triangle') {
+      // Centroid for right triangle (x + width/3, y + length/3)
+      labelX = panel.x + panel.width / 3;
+      labelY = panel.y + panel.length / 3;
+    } else {
+      labelX = panel.x + panel.width / 2;
+      labelY = panel.y + panel.length / 2;
+    }
+    ctx.fillText(label, labelX, labelY);
     
     ctx.restore()
   }, [])
@@ -298,8 +303,29 @@ export default function SimplePanelLayout({ mode, projectInfo }: PanelLayoutProp
     // Find clicked panel (reverse order to get top panel first)
     for (let i = panels.length - 1; i >= 0; i--) {
       const panel = panels[i]
-      if (x >= panel.x && x <= panel.x + panel.width &&
-          y >= panel.y && y <= panel.y + panel.length) {
+      
+      let isInside = false;
+      
+      if (panel.shape === 'right-triangle') {
+        // Check if point is inside right triangle using actual dimensions
+        const x1 = panel.x, y1 = panel.y; // Top-left
+        const x2 = panel.x + panel.width, y2 = panel.y; // Top-right
+        const x3 = panel.x, y3 = panel.y + panel.length; // Bottom-left (right angle)
+        
+        // Use barycentric coordinates to check if point is inside triangle
+        const denominator = ((y2 - y3) * (x1 - x3) + (x3 - x2) * (y1 - y3));
+        const a = ((y2 - y3) * (x - x3) + (x3 - x2) * (y - y3)) / denominator;
+        const b = ((y3 - y1) * (x - x3) + (x1 - x3) * (y - y3)) / denominator;
+        const c = 1 - a - b;
+        
+        isInside = a >= 0 && b >= 0 && c >= 0;
+      } else {
+        // Default rectangular bounds check
+        isInside = x >= panel.x && x <= panel.x + panel.width &&
+                   y >= panel.y && y <= panel.y + panel.length;
+      }
+      
+      if (isInside) {
         setSelectedPanelId(panel.id)
         return
       }
@@ -379,8 +405,29 @@ export default function SimplePanelLayout({ mode, projectInfo }: PanelLayoutProp
     // Find hovered panel for tooltip
     for (let i = panels.length - 1; i >= 0; i--) {
       const panel = panels[i]
-      if (x >= panel.x && x <= panel.x + panel.width &&
-          y >= panel.y && y <= panel.y + panel.length) {
+      
+      let isInside = false;
+      
+      if (panel.shape === 'right-triangle') {
+        // Check if point is inside right triangle using actual dimensions
+        const x1 = panel.x, y1 = panel.y; // Top-left
+        const x2 = panel.x + panel.width, y2 = panel.y; // Top-right
+        const x3 = panel.x, y3 = panel.y + panel.length; // Bottom-left (right angle)
+        
+        // Use barycentric coordinates to check if point is inside triangle
+        const denominator = ((y2 - y3) * (x1 - x3) + (x3 - x2) * (y1 - y3));
+        const a = ((y2 - y3) * (x - x3) + (x3 - x2) * (y - y3)) / denominator;
+        const b = ((y3 - y1) * (x - x3) + (x1 - x3) * (y - y3)) / denominator;
+        const c = 1 - a - b;
+        
+        isInside = a >= 0 && b >= 0 && c >= 0;
+      } else {
+        // Default rectangular bounds check
+        isInside = x >= panel.x && x <= panel.x + panel.width &&
+                   y >= panel.y && y <= panel.y + panel.length;
+      }
+      
+      if (isInside) {
         const tooltipContent = `Panel: ${panel.panelNumber || 'N/A'}\nRoll: ${panel.rollNumber || 'N/A'}`;
         showTooltip(tooltipContent, e.clientX, e.clientY);
         return;

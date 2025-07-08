@@ -208,6 +208,43 @@ function generateDXF(panels: Panel[], projectInfo: ProjectInfo): string {
       dxf += '72\n1\n'; // Horizontal text justification (center)
       dxf += '73\n1\n'; // Vertical text justification (middle)
     }
+    else if (panel.shape === 'right-triangle') {
+      // Add right triangle with 90-degree angle at bottom-left corner
+      dxf += '0\nPOLYLINE\n';
+      dxf += '8\nPanels\n';
+      dxf += '66\n1\n';
+      dxf += '70\n1\n';
+      
+      // Top-left corner
+      dxf += '0\nVERTEX\n';
+      dxf += '8\nPanels\n';
+      dxf += '10\n' + panel.x + '\n';
+      dxf += '20\n' + panel.y + '\n';
+      
+      // Top-right corner
+      dxf += '0\nVERTEX\n';
+      dxf += '8\nPanels\n';
+      dxf += '10\n' + (panel.x + panel.width) + '\n';
+      dxf += '20\n' + panel.y + '\n';
+      
+      // Bottom-left corner (right angle)
+      dxf += '0\nVERTEX\n';
+      dxf += '8\nPanels\n';
+      dxf += '10\n' + panel.x + '\n';
+      dxf += '20\n' + (panel.y + panel.length) + '\n';
+      
+      dxf += '0\nSEQEND\n';
+      
+      // Add panel number as text (positioned in the triangle)
+      dxf += '0\nTEXT\n';
+      dxf += '8\nLabels\n';
+      dxf += '1\n' + panel.panelNumber + '\n';
+      dxf += '10\n' + (panel.x + panel.width / 3) + '\n';
+      dxf += '20\n' + (panel.y + panel.length / 3) + '\n';
+      dxf += '40\n2.5\n';
+      dxf += '72\n1\n'; // Horizontal text justification (center)
+      dxf += '73\n1\n'; // Vertical text justification (middle)
+    }
   });
   
   // End entities section

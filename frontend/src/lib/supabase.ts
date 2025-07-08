@@ -1,22 +1,10 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-// Force recompilation - remove custom token logic
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-// Debug logging
-console.log('🔍 Supabase URL:', supabaseUrl);
-console.log('🔍 Supabase Anon Key:', supabaseAnonKey ? supabaseAnonKey.slice(0, 10) + '…' : 'undefined');
-
-// Check if environment variables are set
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('⚠️ Supabase environment variables are not set. Please create a .env.local file with your Supabase credentials.');
-  console.warn('Required variables: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY');
-}
-
-// Create a mock client if environment variables are missing
+// Create a simple mock client for development
 const createMockClient = (): SupabaseClient => {
-  console.warn('Using mock Supabase client - authentication features will not work');
   return {
     auth: {
       getSession: () => Promise.resolve({ data: { session: null }, error: null }),
@@ -34,73 +22,45 @@ const createMockClient = (): SupabaseClient => {
   } as any as SupabaseClient;
 };
 
-// Validate URL format before creating client
-const isValidUrl = (url: string | undefined): boolean => {
-  if (!url) return false;
-  try {
-    new URL(url);
-    return url.startsWith('http');
-  } catch {
-    return false;
-  }
-};
-
-// Only create the real client if we have valid URL and key
+// Create the Supabase client
 let supabase: SupabaseClient;
+
 try {
-  if (isValidUrl(supabaseUrl) && supabaseAnonKey && supabaseUrl) {
-    console.log('✅ Creating real Supabase client with native token management');
+  if (supabaseUrl && supabaseAnonKey) {
     supabase = createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
         autoRefreshToken: true,
         persistSession: true,
         detectSessionInUrl: true,
-        storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-        storageKey: 'sb-auth-token' // Use Supabase's default storage key
       }
     });
   } else {
-    console.log('⚠️ Creating mock Supabase client');
     supabase = createMockClient();
   }
 } catch (error) {
-  console.error('❌ Error creating Supabase client:', error);
-  console.log('⚠️ Falling back to mock client');
+  console.error('Error creating Supabase client:', error);
   supabase = createMockClient();
 }
 
 export { supabase };
 
-// Helper function to get current session (simplified)
+// Helper function to get current session
 export const getCurrentSession = async () => {
   try {
     const { data: { session }, error } = await supabase.auth.getSession();
-    
-    if (error) {
-      console.error('❌ Error getting session:', error);
-      return null;
-    }
-    
-    return session;
+    return error ? null : session;
   } catch (error) {
-    console.error('❌ Error getting current session:', error);
+    console.error('Error getting session:', error);
     return null;
   }
 };
 
-// Helper function to ensure valid session and refresh if needed
+// Helper function to ensure valid session
 export const ensureValidSession = async () => {
   try {
-    console.log('🔍 Checking current session...');
     const { data: { session }, error } = await supabase.auth.getSession();
     
-    if (error) {
-      console.error('❌ Error getting session:', error);
-      return null;
-    }
-    
-    if (!session) {
-      console.log('⚠️ No session found');
+    if (error || !session) {
       return null;
     }
     
@@ -110,31 +70,13 @@ export const ensureValidSession = async () => {
     const buffer = 5 * 60; // 5 minutes
     
     if (expiresAt && (expiresAt - now) < buffer) {
-      console.log('🔄 Token expiring soon, refreshing...');
       const { data: { session: newSession }, error: refreshError } = await supabase.auth.refreshSession();
-      
-      if (refreshError) {
-        console.error('❌ Error refreshing session:', refreshError);
-        return null;
-      }
-      
-      if (newSession) {
-        console.log('✅ Session refreshed successfully');
-        
-        // Store in localStorage
-        localStorage.setItem('supabase-auth-token', JSON.stringify(newSession));
-        
-        // Set cookie
-        document.cookie = `token=${newSession.access_token}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
-        
-        return newSession;
-      }
+      return refreshError ? null : newSession;
     }
     
-    console.log('✅ Session is valid');
     return session;
   } catch (error) {
-    console.error('❌ Error ensuring valid session:', error);
+    console.error('Error ensuring valid session:', error);
     return null;
   }
 };

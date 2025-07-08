@@ -1,4 +1,8 @@
+// WARNING: This playground is isolated. Do NOT share panel data with the main layout or backend.
+// All panel state here is local and temporary.
+
 'use client';
+export const dynamic = "force-dynamic";
 
 import { useState, useRef, useEffect } from 'react';
 import { useProjects } from '@/contexts/ProjectsProvider';
@@ -86,29 +90,6 @@ export default function PanelPlaygroundPage() {
   if (!selectedProjectId || !selectedProject) {
     return <NoProjectSelected message="Select a project to access the panel playground." />;
   }
-
-  // Load panels from selected project
-  useEffect(() => {
-    if (selectedProject?.panels) {
-      // Convert project panels to playground format using canonical names
-      const playgroundPanels: Panel[] = selectedProject.panels.map((panel: any) => ({
-        id: panel.id,
-        rollNumber: panel.rollNumber || '',
-        panelNumber: panel.panelNumber || '',
-        width: panel.width || 15,
-        length: panel.length || 100,
-        shape: (panel.shape || 'rectangle') as 'rectangle' | 'triangle' | 'circle',
-        x: panel.x || 0,
-        y: panel.y || 0,
-        color: panel.fill || panel.color || '#3b82f6',
-        fill: panel.fill || panel.color || '#3b82f6',
-        rotation: panel.rotation || 0,
-        date: panel.date || '',
-        location: panel.location || '',
-      }));
-      setPanels(playgroundPanels);
-    }
-  }, [selectedProject]);
 
   useEffect(() => {
     drawCanvas();
@@ -211,8 +192,21 @@ export default function PanelPlaygroundPage() {
             }
 
             // Ensure panel stays within container bounds
-            newX = Math.max(0, Math.min(settings.containerWidth - newWidth * 5, newX));
-            newY = Math.max(0, Math.min(settings.containerHeight - newLength * 2, newY));
+            // Use shape-specific visual dimensions for bounds checking
+            let visualWidth, visualHeight;
+            if (p.shape === 'right-triangle') {
+              visualWidth = newWidth * 5; // Same as drawing logic
+              visualHeight = newLength * 2; // Same as drawing logic
+            } else if (p.shape === 'triangle') {
+              visualWidth = newWidth * 5;
+              visualHeight = newLength * 2;
+            } else {
+              visualWidth = newWidth * 5;
+              visualHeight = newLength * 2;
+            }
+
+            newX = Math.max(0, Math.min(settings.containerWidth - visualWidth, newX));
+            newY = Math.max(0, Math.min(settings.containerHeight - visualHeight, newY));
 
             return {
               ...p,
@@ -250,6 +244,13 @@ export default function PanelPlaygroundPage() {
               newY = snapToGrid(newY, settings.gridSize);
             }
 
+            // Ensure panel stays within container bounds during drag
+            const panelWidth = panel.width * 5;
+            const panelHeight = panel.length * 2;
+            
+            newX = Math.max(0, Math.min(settings.containerWidth - panelWidth, newX));
+            newY = Math.max(0, Math.min(settings.containerHeight - panelHeight, newY));
+
             return {
               ...panel,
               x: newX,
@@ -274,8 +275,41 @@ export default function PanelPlaygroundPage() {
       const panelWidth = panel.width * 5;
       const panelHeight = panel.length * 2;
       
-      if (x >= panel.x && x <= panel.x + panelWidth &&
-          y >= panel.y && y <= panel.y + panelHeight) {
+      let isInside = false;
+      
+      if (panel.shape === 'right-triangle') {
+        // Check if point is inside right triangle
+        const x1 = panel.x, y1 = panel.y; // Top-left
+        const x2 = panel.x + panelWidth, y2 = panel.y; // Top-right
+        const x3 = panel.x, y3 = panel.y + panelHeight; // Bottom-left (right angle)
+        
+        // Use barycentric coordinates to check if point is inside triangle
+        const denominator = ((y2 - y3) * (x1 - x3) + (x3 - x2) * (y1 - y3));
+        const a = ((y2 - y3) * (x - x3) + (x3 - x2) * (y - y3)) / denominator;
+        const b = ((y3 - y1) * (x - x3) + (x1 - x3) * (y - y3)) / denominator;
+        const c = 1 - a - b;
+        
+        isInside = a >= 0 && b >= 0 && c >= 0;
+      } else if (panel.shape === 'triangle') {
+        // Check if point is inside equilateral triangle
+        const centerX = panel.x + panelWidth / 2;
+        const centerY = panel.y + panelHeight / 2;
+        const radius = Math.min(panelWidth, panelHeight) / 2;
+        
+        // Check if point is within the triangle bounds
+        const dx = Math.abs(x - centerX);
+        const dy = Math.abs(y - centerY);
+        const slope = Math.sqrt(3); // 60-degree angle
+        
+        isInside = dx <= radius && dy <= radius * slope / 2 && 
+                   (dx + dy * slope) <= radius * slope;
+      } else {
+        // Default rectangular bounds check
+        isInside = x >= panel.x && x <= panel.x + panelWidth &&
+                   y >= panel.y && y <= panel.y + panelHeight;
+      }
+      
+      if (isInside) {
         const tooltipContent = `Panel: ${panel.panelNumber}\nRoll: ${panel.rollNumber}\nSize: ${panel.width}' × ${panel.length}'`;
         showTooltip(tooltipContent, e.clientX, e.clientY);
         return;
@@ -506,11 +540,44 @@ export default function PanelPlaygroundPage() {
       }
     }
 
-    // Check for panel selection
-    const clickedPanel = panels.find(panel => 
-      x >= panel.x && x <= panel.x + panel.width * 5 &&
-      y >= panel.y && y <= panel.y + panel.length * 2
-    );
+    // Check for panel selection with shape-specific hit detection
+    const clickedPanel = panels.find(panel => {
+      const panelWidth = panel.width * 5;
+      const panelHeight = panel.length * 2;
+      
+      if (panel.shape === 'right-triangle') {
+        // Check if point is inside right triangle
+        // Right triangle has 90-degree angle at bottom-left corner
+        const x1 = panel.x, y1 = panel.y; // Top-left
+        const x2 = panel.x + panelWidth, y2 = panel.y; // Top-right
+        const x3 = panel.x, y3 = panel.y + panelHeight; // Bottom-left (right angle)
+        
+        // Use barycentric coordinates to check if point is inside triangle
+        const denominator = ((y2 - y3) * (x1 - x3) + (x3 - x2) * (y1 - y3));
+        const a = ((y2 - y3) * (x - x3) + (x3 - x2) * (y - y3)) / denominator;
+        const b = ((y3 - y1) * (x - x3) + (x1 - x3) * (y - y3)) / denominator;
+        const c = 1 - a - b;
+        
+        return a >= 0 && b >= 0 && c >= 0;
+      } else if (panel.shape === 'triangle') {
+        // Check if point is inside equilateral triangle
+        const centerX = panel.x + panelWidth / 2;
+        const centerY = panel.y + panelHeight / 2;
+        const radius = Math.min(panelWidth, panelHeight) / 2;
+        
+        // Check if point is within the triangle bounds
+        const dx = Math.abs(x - centerX);
+        const dy = Math.abs(y - centerY);
+        const slope = Math.sqrt(3); // 60-degree angle
+        
+        return dx <= radius && dy <= radius * slope / 2 && 
+               (dx + dy * slope) <= radius * slope;
+      } else {
+        // Default rectangular bounds check
+        return x >= panel.x && x <= panel.x + panelWidth &&
+               y >= panel.y && y <= panel.y + panelHeight;
+      }
+    });
 
     if (clickedPanel) {
       handleMouseDown(e, clickedPanel.id);

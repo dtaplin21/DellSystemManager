@@ -248,6 +248,29 @@ export default function PanelGrid({
             length: newRadiusY * 2,
             rotation: node.rotation()
           };
+        } else if (panel.shape === 'right-triangle') {
+          // Handle right triangle transform - use the Line node's bounding box
+          const newWidth = panel.width * scaleX;
+          const newLength = panel.length * scaleY;
+          
+          // Reset the node's scale
+          node.scaleX(1);
+          node.scaleY(1);
+          
+          // Get the new position from the node
+          const snappedX = snapToGrid(node.x());
+          const snappedY = snapToGrid(node.y());
+          const snappedWidth = snapToGrid(newWidth);
+          const snappedLength = snapToGrid(newLength);
+          
+          return {
+            ...panel,
+            x: snappedX,
+            y: snappedY,
+            width: snappedWidth,
+            length: snappedLength,
+            rotation: node.rotation()
+          };
         }
         
         const newWidth = node.width() * scaleX;
@@ -463,14 +486,14 @@ export default function PanelGrid({
         </Group>
       );
     } else if (panel.shape === 'right-triangle') {
-      // Draw right triangle with 90-degree angle at bottom-left corner
+      // Draw right triangle (90-degree at bottom-left)
+      // Use x, y, width, length directly (no scaling)
       const points = [
-        panel.x, panel.y, // Top-left corner
-        panel.x + panel.width, panel.y, // Top-right corner
-        panel.x, panel.y + panel.length // Bottom-left corner (right angle)
+        panel.x, panel.y, // Top-left
+        panel.x + panel.width, panel.y, // Top-right
+        panel.x, panel.y + panel.length // Bottom-left (right angle)
       ];
-      const fontSize = Math.min(panel.width, panel.length) * 0.3;
-      
+      const fontSize = Math.max(12, Math.min(panel.width, panel.length) * 0.4);
       return (
         <Group key={panel.id}>
           {isSelected && (
@@ -504,9 +527,7 @@ export default function PanelGrid({
             onClick={(e: KonvaEventObject<MouseEvent>) => {
               e.cancelBubble = true;
               setSelectedId(panel.id);
-              if (onEditPanel) {
-                onEditPanel(panel);
-              }
+              if (onEditPanel) onEditPanel(panel);
             }}
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
@@ -516,6 +537,7 @@ export default function PanelGrid({
           />
           <Text
             text={label}
+            // Centroid for right triangle (x + width/3, y + length/3)
             x={panel.x + panel.width / 3}
             y={panel.y + panel.length / 3}
             width={panel.width / 3}

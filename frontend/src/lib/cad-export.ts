@@ -17,7 +17,7 @@ interface Panel {
   x: number;
   y: number;
   rotation: number;
-  shape: 'rectangle' | 'triangle' | 'circle';
+  shape: 'rectangle' | 'triangle' | 'right-triangle' | 'circle';
   points?: number[];
   radius?: number;
 }
@@ -48,6 +48,8 @@ export function exportToDXF(panels: Panel[], projectInfo: ProjectInfo): void {
       addCircle(d, panel);
     } else if (panel.shape === 'triangle' && panel.points) {
       addTriangle(d, panel);
+    } else if (panel.shape === 'right-triangle') {
+      addRightTriangle(d, panel);
     }
   });
   
@@ -190,6 +192,72 @@ function addTriangle(d: DxfDrawing, panel: Panel): void {
     
     d.addText(centroidX, centroidY, 5, 0, panelNumber);
   }
+}
+
+/**
+ * Add a right triangle panel to the drawing
+ */
+function addRightTriangle(d: DxfDrawing, panel: Panel): void {
+  const { x, y, width, length, rotation, panelNumber } = panel;
+  
+  if (rotation === 0) {
+    // If no rotation, draw a right triangle with 90-degree angle at bottom-left
+    const points = [
+      x, y, // Top-left corner
+      x + width, y, // Top-right corner
+      x, y + length, // Bottom-left corner (right angle)
+      x, y // Close the triangle
+    ];
+    
+    d.addPolyline(points, true);
+  } else {
+    // If rotated, calculate the corner points for right triangle
+    const rad = rotation * Math.PI / 180;
+    const cos = Math.cos(rad);
+    const sin = Math.sin(rad);
+    
+    // For right triangle, we need to calculate the three vertices
+    // Right angle is at (x, y + length)
+    const rightAngleX = x;
+    const rightAngleY = y + length;
+    
+    const points = [
+      // Top-left (hypotenuse start)
+      x, y,
+      // Top-right (hypotenuse end)
+      x + width, y,
+      // Bottom-left (right angle)
+      rightAngleX, rightAngleY,
+      // Close the triangle
+      x, y
+    ];
+    
+    // Apply rotation around the center
+    const centerX = x + width / 2;
+    const centerY = y + length / 2;
+    
+    const rotatedPoints = [];
+    for (let i = 0; i < points.length; i += 2) {
+      const px = points[i];
+      const py = points[i + 1];
+      
+      const rotatedX = centerX + (px - centerX) * cos - (py - centerY) * sin;
+      const rotatedY = centerY + (px - centerX) * sin + (py - centerY) * cos;
+      
+      rotatedPoints.push(rotatedX, rotatedY);
+    }
+    
+    d.addPolyline(rotatedPoints, true);
+  }
+  
+  // Add panel number text in the center
+  const centerX = x + width / 3;
+  const centerY = y + length / 3;
+  
+  d.addText(centerX, centerY, 5, rotation, panelNumber);
+  
+  // Add dimensions
+  addDimensions(d, panel);
 }
 
 /**
