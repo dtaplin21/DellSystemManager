@@ -180,6 +180,38 @@ export default function ControlToolbar({
     });
   };
 
+  const handleAddRightTriangle = () => {
+    if (!validateForm()) return;
+
+    const color = generatePastelColor();
+    const newPanel = {
+      id: generateId(),
+      date: new Date().toISOString().slice(0, 10),
+      panelNumber: panelForm.panelNumber,
+      length: parseFloat(panelForm.height),
+      width: parseFloat(panelForm.width),
+      rollNumber: panelForm.rollNumber,
+      location: '',
+      x: 100,
+      y: 100,
+      shape: 'right-triangle',
+      rotation: 0,
+      fill: color,
+      color: color
+    };
+
+    onAddPanel(newPanel);
+    
+    // Reset form after adding panel
+    setPanelForm({
+      label: '',
+      width: '',
+      height: '',
+      rollNumber: '',
+      panelNumber: '',
+    });
+  };
+
   const handleEditPanel = () => {
     if (!selectedPanel) {
       alert('Please select a panel to edit');
@@ -322,6 +354,14 @@ export default function ControlToolbar({
             >
               <Triangle className="h-4 w-4" />
               <span>Add Triangle</span>
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleAddRightTriangle}
+              className="flex items-center space-x-2"
+            >
+              <Triangle className="h-4 w-4" />
+              <span>Add Right Triangle</span>
             </Button>
             <Button
               variant="outline"

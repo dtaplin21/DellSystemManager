@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useZoomPan } from '@/hooks/use-zoom-pan';
 import { Stage, Layer, Rect, Group, Transformer, RegularPolygon } from 'react-konva';
+import { Line } from 'react-konva/lib/ReactKonvaCore';
 import { Text } from 'react-konva/lib/ReactKonvaCore';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import type { Stage as KonvaStage } from 'konva/lib/Stage';
@@ -451,6 +452,74 @@ export default function PanelGrid({
             y={centerY - fontSize}
             width={baseRadius * 2}
             height={fontSize * 2}
+            fontSize={fontSize}
+            fontFamily="Arial"
+            fontStyle="bold"
+            fill="#000000"
+            align="center"
+            verticalAlign="middle"
+            listening={false}
+          />
+        </Group>
+      );
+    } else if (panel.shape === 'right-triangle') {
+      // Draw right triangle with 90-degree angle at bottom-left corner
+      const points = [
+        panel.x, panel.y, // Top-left corner
+        panel.x + panel.width, panel.y, // Top-right corner
+        panel.x, panel.y + panel.length // Bottom-left corner (right angle)
+      ];
+      const fontSize = Math.min(panel.width, panel.length) * 0.3;
+      
+      return (
+        <Group key={panel.id}>
+          {isSelected && (
+            <Line
+              points={points}
+              fill="transparent"
+              stroke="#000000"
+              strokeWidth={2}
+              closed={true}
+              listening={false}
+            />
+          )}
+          {(isSnapped || isPreSnap) && (
+            <Line
+              points={points}
+              fill="transparent"
+              stroke={strokeColor}
+              strokeWidth={strokeWidth}
+              closed={true}
+              listening={false}
+            />
+          )}
+          <Line
+            id={panel.id}
+            points={points}
+            fill={panel.fill}
+            stroke="#000000"
+            strokeWidth={1}
+            closed={true}
+            draggable={true}
+            onClick={(e: KonvaEventObject<MouseEvent>) => {
+              e.cancelBubble = true;
+              setSelectedId(panel.id);
+              if (onEditPanel) {
+                onEditPanel(panel);
+              }
+            }}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+            onDragMove={handlePanelDragMove}
+            onDragEnd={handlePanelDragEnd}
+            onTransformEnd={handlePanelTransformEnd}
+          />
+          <Text
+            text={label}
+            x={panel.x + panel.width / 3}
+            y={panel.y + panel.length / 3}
+            width={panel.width / 3}
+            height={panel.length / 3}
             fontSize={fontSize}
             fontFamily="Arial"
             fontStyle="bold"

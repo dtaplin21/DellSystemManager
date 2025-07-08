@@ -12,7 +12,7 @@ import { Slider } from '@/components/ui/slider';
 import type { Panel } from '@/types/panel';
 import { useTooltip } from '@/components/ui/tooltip';
 
-type PanelShape = 'rectangle' | 'triangle' | 'circle';
+type PanelShape = 'rectangle' | 'triangle' | 'right-triangle' | 'circle';
 
 interface DragInfo {
   isDragging: boolean;
@@ -355,8 +355,41 @@ export default function PanelPlaygroundPage() {
       ctx.strokeStyle = isSelected ? '#f97316' : '#000000';
       ctx.lineWidth = isSelected ? 3 : 1;
       
-      ctx.fillRect(panel.x, panel.y, panelWidth, panelHeight);
-      ctx.strokeRect(panel.x, panel.y, panelWidth, panelHeight);
+      // Draw different shapes
+      if (panel.shape === 'right-triangle') {
+        // Draw right triangle with 90-degree angle at bottom-left corner
+        ctx.beginPath();
+        ctx.moveTo(panel.x, panel.y); // Top-left corner
+        ctx.lineTo(panel.x + panelWidth, panel.y); // Top-right corner
+        ctx.lineTo(panel.x, panel.y + panelHeight); // Bottom-left corner (right angle)
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      } else if (panel.shape === 'triangle') {
+        // Draw equilateral triangle
+        const centerX = panel.x + panelWidth / 2;
+        const centerY = panel.y + panelHeight / 2;
+        const radius = Math.min(panelWidth, panelHeight) / 2;
+        
+        ctx.beginPath();
+        for (let i = 0; i < 3; i++) {
+          const angle = (i * 2 * Math.PI) / 3 - Math.PI / 2;
+          const x = centerX + radius * Math.cos(angle);
+          const y = centerY + radius * Math.sin(angle);
+          if (i === 0) {
+            ctx.moveTo(x, y);
+          } else {
+            ctx.lineTo(x, y);
+          }
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      } else {
+        // Default rectangle
+        ctx.fillRect(panel.x, panel.y, panelWidth, panelHeight);
+        ctx.strokeRect(panel.x, panel.y, panelWidth, panelHeight);
+      }
       
       // Reset shadow
       ctx.shadowColor = 'transparent';
@@ -389,8 +422,22 @@ export default function PanelPlaygroundPage() {
       ctx.fillStyle = '#000';
       ctx.font = `${12 / scale}px Arial`;
       ctx.textAlign = 'center';
-      ctx.fillText(panel.panelNumber, panel.x + panelWidth / 2, panel.y + panelHeight / 2);
-      ctx.fillText(`${panel.width}' × ${panel.length}'`, panel.x + panelWidth / 2, panel.y + panelHeight / 2 + 15 / scale);
+      
+      // Position text based on shape
+      let textX, textY;
+      if (panel.shape === 'right-triangle') {
+        textX = panel.x + panelWidth / 3;
+        textY = panel.y + panelHeight / 3;
+      } else if (panel.shape === 'triangle') {
+        textX = panel.x + panelWidth / 2;
+        textY = panel.y + panelHeight / 2;
+      } else {
+        textX = panel.x + panelWidth / 2;
+        textY = panel.y + panelHeight / 2;
+      }
+      
+      ctx.fillText(panel.panelNumber, textX, textY);
+      ctx.fillText(`${panel.width}' × ${panel.length}'`, textX, textY + 15 / scale);
     });
 
     ctx.restore();
@@ -535,7 +582,7 @@ export default function PanelPlaygroundPage() {
             <div>
               <label className="block text-sm font-medium mb-2">Panel Shape</label>
               <div className="flex border border-gray-300 rounded-md overflow-hidden">
-                {['rectangle', 'triangle', 'hexagon'].map(shape => (
+                {['rectangle', 'triangle', 'right-triangle', 'circle'].map(shape => (
                   <button
                     key={shape}
                     className={`flex-1 px-3 py-2 text-sm ${

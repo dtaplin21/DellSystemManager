@@ -242,6 +242,14 @@ export default function SimplePanelLayout({ mode, projectInfo }: PanelLayoutProp
         }
       }
       ctx.closePath()
+    } else if (panel.shape === 'right-triangle') {
+      // Draw right triangle with 90-degree angle
+      // The right angle is at the bottom-left corner
+      ctx.beginPath()
+      ctx.moveTo(panel.x, panel.y) // Top-left corner
+      ctx.lineTo(panel.x + panel.width, panel.y) // Top-right corner
+      ctx.lineTo(panel.x, panel.y + panel.length) // Bottom-left corner (right angle)
+      ctx.closePath()
     } else {
       // Draw rectangle
       ctx.fillRect(panel.x, panel.y, panel.width, panel.length)

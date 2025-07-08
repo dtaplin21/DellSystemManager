@@ -9,7 +9,7 @@ export type Panel = {
   location: string;
   x: number;
   y: number;
-  shape: 'rectangle' | 'triangle' | 'circle';
+  shape: 'rectangle' | 'triangle' | 'right-triangle' | 'circle';
   points?: number[];
   radius?: number;
   rotation: number;
