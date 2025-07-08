@@ -15,6 +15,7 @@ import type { RegularPolygon as RegularPolygonType } from 'konva/lib/shapes/Regu
 import Konva from 'konva';
 import type { Panel } from '../../types/panel';
 import { useTooltip } from '@/components/ui/tooltip';
+import { applyPanelSnapping } from '@/lib/resize-utils';
 
 interface TextProps {
   text: string;
@@ -214,9 +215,27 @@ export default function PanelGrid({
     const node = e.target;
     const x = node.x();
     const y = node.y();
+    // Find the panel being dragged
+    const draggedPanel = panels.find(panel => panel.id === id);
+    if (!draggedPanel) return;
+    // Find other panels for snapping
+    const otherPanels = panels.filter(panel => panel.id !== id).map(panel => ({
+      id: panel.id,
+      x: panel.x,
+      y: panel.y,
+      width: panel.width,
+      height: panel.length
+    }));
+    // Use shape-specific snapping
+    let snapResult;
+    if (draggedPanel.shape === 'right-triangle') {
+      snapResult = applyPanelSnapping(x, y, draggedPanel.width, draggedPanel.length, otherPanels, SNAP_THRESHOLD, 'right-triangle');
+    } else {
+      snapResult = applyPanelSnapping(x, y, draggedPanel.width, draggedPanel.length, otherPanels, SNAP_THRESHOLD, 'rectangle');
+    }
     // Update panel position in state
     const newPanels = panels.map(panel =>
-      panel.id === id ? { ...panel, x, y } : panel
+      panel.id === id ? { ...panel, x: snapResult.x, y: snapResult.y } : panel
     );
     onPanelUpdate(newPanels);
   }, [panels, onPanelUpdate]);
@@ -538,10 +557,11 @@ export default function PanelGrid({
           <Text
             text={label}
             // Centroid for right triangle (x + width/3, y + length/3)
-            x={panel.x + panel.width / 3}
-            y={panel.y + panel.length / 3}
-            width={panel.width / 3}
-            height={panel.length / 3}
+            // Center the label bounding box on the centroid, and keep it within the triangle
+            x={panel.x + panel.width / 3 - Math.min(panel.width, panel.length) / 4}
+            y={panel.y + panel.length / 3 - Math.min(panel.width, panel.length) / 4}
+            width={Math.min(panel.width, panel.length) / 2}
+            height={Math.min(panel.width, panel.length) / 2}
             fontSize={fontSize}
             fontFamily="Arial"
             fontStyle="bold"
