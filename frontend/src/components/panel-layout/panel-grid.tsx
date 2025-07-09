@@ -268,7 +268,8 @@ export default function PanelGrid({
             rotation: node.rotation()
           };
         } else if (panel.shape === 'right-triangle') {
-          // Handle right triangle transform - use the Line node's bounding box
+          // Handle right triangle transform - Line nodes don't have standard width/height
+          // Use the scale factors to calculate new dimensions
           const newWidth = panel.width * scaleX;
           const newLength = panel.length * scaleY;
           
@@ -432,6 +433,18 @@ export default function PanelGrid({
       
       return (
         <Group key={panel.id}>
+          {/* Debug bounding box */}
+          <Rect
+            x={panel.x}
+            y={panel.y}
+            width={panel.width}
+            height={panel.length}
+            stroke="#ff0000"
+            strokeWidth={2}
+            dash={[8, 4]}
+            fill="transparent"
+            listening={false}
+          />
           {isSelected && (
             <RegularPolygon
               x={centerX}
@@ -505,16 +518,28 @@ export default function PanelGrid({
         </Group>
       );
     } else if (panel.shape === 'right-triangle') {
-      // Draw right triangle (90-degree at bottom-left)
-      // Use x, y, width, length directly (no scaling)
+      // Draw right triangle that fills the bounding box
+      // Points: top-left, top-right, bottom-right
       const points = [
         panel.x, panel.y, // Top-left
         panel.x + panel.width, panel.y, // Top-right
-        panel.x, panel.y + panel.length // Bottom-left (right angle)
+        panel.x + panel.width, panel.y + panel.length // Bottom-right
       ];
       const fontSize = Math.max(12, Math.min(panel.width, panel.length) * 0.4);
       return (
         <Group key={panel.id}>
+          {/* Debug bounding box */}
+          <Rect
+            x={panel.x}
+            y={panel.y}
+            width={panel.width}
+            height={panel.length}
+            stroke="#ff0000"
+            strokeWidth={2}
+            dash={[8, 4]}
+            fill="transparent"
+            listening={false}
+          />
           {isSelected && (
             <Line
               points={points}
@@ -577,6 +602,18 @@ export default function PanelGrid({
     const fontSize = panel.width * 0.6;
     return (
       <Group key={panel.id}>
+        {/* Debug bounding box */}
+        <Rect
+          x={panel.x}
+          y={panel.y}
+          width={panel.width}
+          height={panel.length}
+          stroke="#ff0000"
+          strokeWidth={2}
+          dash={[8, 4]}
+          fill="transparent"
+          listening={false}
+        />
         {isSelected && (
           <Rect
             x={panel.x}

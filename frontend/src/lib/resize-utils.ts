@@ -275,13 +275,9 @@ export function findSnapTargets(
 ): Array<{ panelId: string; edge: string; distance: number; snapValue: number }> {
   const snapTargets: Array<{ panelId: string; edge: string; distance: number; snapValue: number }> = [];
 
-  // Use anchor override for right-triangle
+  // Use consistent anchor point (top-left) for all shapes including right-triangle
   let anchorX = x;
   let anchorY = y;
-  if (shape === 'right-triangle') {
-    anchorX = x;
-    anchorY = y + height;
-  }
 
   otherPanels.forEach(panel => {
     // Check horizontal edges
@@ -356,40 +352,22 @@ export function applyPanelSnapping(
   let newWidth = width;
   let newHeight = height;
 
-  // For right-triangle, adjust anchor for snapping
-  if (shape === 'right-triangle') {
-    // The anchor is (x, y+height)
-    switch (bestSnap.edge) {
-      case 'left-to-right':
-        newX = bestSnap.snapValue;
-        break;
-      case 'right-to-left':
-        newX = bestSnap.snapValue;
-        break;
-      case 'top-to-bottom':
-        newY = bestSnap.snapValue - height;
-        break;
-      case 'bottom-to-top':
-        newY = bestSnap.snapValue - height;
-        break;
-    }
-  } else {
-    switch (bestSnap.edge) {
-      case 'left-to-right':
-        newX = bestSnap.snapValue;
-        newWidth = (x + width) - bestSnap.snapValue;
-        break;
-      case 'right-to-left':
-        newWidth = bestSnap.snapValue - x;
-        break;
-      case 'top-to-bottom':
-        newY = bestSnap.snapValue;
-        newHeight = (y + height) - bestSnap.snapValue;
-        break;
-      case 'bottom-to-top':
-        newHeight = bestSnap.snapValue - y;
-        break;
-    }
+  // Use consistent snapping logic for all shapes
+  switch (bestSnap.edge) {
+    case 'left-to-right':
+      newX = bestSnap.snapValue;
+      newWidth = (x + width) - bestSnap.snapValue;
+      break;
+    case 'right-to-left':
+      newWidth = bestSnap.snapValue - x;
+      break;
+    case 'top-to-bottom':
+      newY = bestSnap.snapValue;
+      newHeight = (y + height) - bestSnap.snapValue;
+      break;
+    case 'bottom-to-top':
+      newHeight = bestSnap.snapValue - y;
+      break;
   }
 
   return {

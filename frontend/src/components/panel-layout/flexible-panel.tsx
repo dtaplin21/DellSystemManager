@@ -8,6 +8,7 @@ import { useFlexibleResize } from '../../hooks/use-flexible-resize';
 import { ResizeConstraints } from '../../lib/resize-utils';
 import { getPanelLabelLayout } from '../../lib/panel-label-utils';
 import { useTooltip } from '@/components/ui/tooltip';
+import { applyPanelSnapping } from '../../lib/resize-utils';
 
 interface FlexiblePanelProps {
   panel: Panel;
@@ -15,6 +16,7 @@ interface FlexiblePanelProps {
   onSelect: (panelId: string) => void;
   onUpdate: (updatedPanel: Panel) => void;
   onDragEnd: (panelId: string, x: number, y: number) => void;
+  otherPanels: Array<{ id: string; x: number; y: number; width: number; height: number }>;
   constraints?: Partial<ResizeConstraints>;
   containerBounds?: { width: number; height: number };
   enableVisualFeedback?: boolean;
@@ -90,6 +92,7 @@ export const FlexiblePanel: React.FC<FlexiblePanelProps> = ({
   onSelect,
   onUpdate,
   onDragEnd,
+  otherPanels,
   constraints = {},
   containerBounds,
   enableVisualFeedback = true,
@@ -185,8 +188,14 @@ export const FlexiblePanel: React.FC<FlexiblePanelProps> = ({
       cancelAnimationFrame(dragRAFRef.current);
       dragRAFRef.current = null;
     }
-    onDragEnd(panel.id, x, y);
-  }, [onDragEnd, panel.id]);
+    let snapResult;
+    if (panel.shape === 'right-triangle') {
+      snapResult = applyPanelSnapping(x, y, panel.width, panel.length, otherPanels, constraints.snapThreshold || 4, 'right-triangle');
+    } else {
+      snapResult = applyPanelSnapping(x, y, panel.width, panel.length, otherPanels, constraints.snapThreshold || 4, 'rectangle');
+    }
+    onDragEnd(panel.id, snapResult.x, snapResult.y);
+  }, [onDragEnd, panel.id, panel.shape, panel.width, panel.length, constraints.snapThreshold, otherPanels]);
 
   // Keep actual/target position in sync with panel.x/y if not dragging
   useEffect(() => {

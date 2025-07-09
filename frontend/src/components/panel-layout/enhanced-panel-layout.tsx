@@ -6,7 +6,7 @@ import type { KonvaEventObject } from 'konva/lib/Node';
 import type { Panel } from '../../types/panel';
 import { useZoomPan } from '../../hooks/use-zoom-pan';
 import { useFlexibleResize } from '../../hooks/use-flexible-resize';
-import { ResizeConstraints, createCustomResizeHandles } from '../../lib/resize-utils';
+import { ResizeConstraints, createCustomResizeHandles, applyPanelSnapping } from '../../lib/resize-utils';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Input } from '../ui/input';
@@ -166,10 +166,27 @@ export default function EnhancedPanelLayout({ mode = 'edit', projectInfo }: Enha
 
   // Handle panel drag end
   const handlePanelDragEnd = useCallback((panelId: string, x: number, y: number) => {
-    setPanels(prev => prev.map(panel => 
-      panel.id === panelId ? { ...panel, x, y } : panel
-    ));
-  }, []);
+    setPanels(prev => {
+      const draggedPanel = prev.find(panel => panel.id === panelId);
+      if (!draggedPanel) return prev;
+      const otherPanels = prev.filter(panel => panel.id !== panelId).map(panel => ({
+        id: panel.id,
+        x: panel.x,
+        y: panel.y,
+        width: panel.width,
+        height: panel.length
+      }));
+      let snapResult;
+      if (draggedPanel.shape === 'right-triangle') {
+        snapResult = applyPanelSnapping(x, y, draggedPanel.width, draggedPanel.length, otherPanels, resizeSettings.snapThreshold, 'right-triangle');
+      } else {
+        snapResult = applyPanelSnapping(x, y, draggedPanel.width, draggedPanel.length, otherPanels, resizeSettings.snapThreshold, 'rectangle');
+      }
+      return prev.map(panel =>
+        panel.id === panelId ? { ...panel, x: snapResult.x, y: snapResult.y } : panel
+      );
+    });
+  }, [resizeSettings.snapThreshold]);
 
   // Handle panel update
   const handlePanelUpdate = useCallback((updatedPanel: Panel) => {

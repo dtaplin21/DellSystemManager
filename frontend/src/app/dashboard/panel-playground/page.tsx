@@ -15,6 +15,7 @@ import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import type { Panel } from '@/types/panel';
 import { useTooltip } from '@/components/ui/tooltip';
+import { applyPanelSnapping } from '@/lib/resize-utils';
 
 type PanelShape = 'rectangle' | 'triangle' | 'right-triangle' | 'circle';
 
@@ -192,21 +193,9 @@ export default function PanelPlaygroundPage() {
             }
 
             // Ensure panel stays within container bounds
-            // Use shape-specific visual dimensions for bounds checking
-            let visualWidth, visualHeight;
-            if (p.shape === 'right-triangle') {
-              visualWidth = newWidth * 5; // Same as drawing logic
-              visualHeight = newLength * 2; // Same as drawing logic
-            } else if (p.shape === 'triangle') {
-              visualWidth = newWidth * 5;
-              visualHeight = newLength * 2;
-            } else {
-              visualWidth = newWidth * 5;
-              visualHeight = newLength * 2;
-            }
-
-            newX = Math.max(0, Math.min(settings.containerWidth - visualWidth, newX));
-            newY = Math.max(0, Math.min(settings.containerHeight - visualHeight, newY));
+            // Use actual panel dimensions for bounds checking (not scaled visual dimensions)
+            newX = Math.max(0, Math.min(settings.containerWidth - newWidth, newX));
+            newY = Math.max(0, Math.min(settings.containerHeight - newLength, newY));
 
             return {
               ...p,
@@ -244,12 +233,30 @@ export default function PanelPlaygroundPage() {
               newY = snapToGrid(newY, settings.gridSize);
             }
 
+            // Apply shape-aware panel-to-panel snapping
+            const otherPanels = prevPanels.filter(p => p.id !== panel.id).map(p => ({
+              id: p.id,
+              x: p.x,
+              y: p.y,
+              width: p.width,
+              height: p.length
+            }));
+
+            let snapResult;
+            if (panel.shape === 'right-triangle') {
+              snapResult = applyPanelSnapping(newX, newY, panel.width, panel.length, otherPanels, 4, 'right-triangle');
+            } else {
+              snapResult = applyPanelSnapping(newX, newY, panel.width, panel.length, otherPanels, 4, 'rectangle');
+            }
+
+            // Use snapped position if available, otherwise use calculated position
+            newX = snapResult.x;
+            newY = snapResult.y;
+
             // Ensure panel stays within container bounds during drag
-            const panelWidth = panel.width * 5;
-            const panelHeight = panel.length * 2;
-            
-            newX = Math.max(0, Math.min(settings.containerWidth - panelWidth, newX));
-            newY = Math.max(0, Math.min(settings.containerHeight - panelHeight, newY));
+            // Use actual panel dimensions for bounds checking
+            newX = Math.max(0, Math.min(settings.containerWidth - panel.width, newX));
+            newY = Math.max(0, Math.min(settings.containerHeight - panel.length, newY));
 
             return {
               ...panel,

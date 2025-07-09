@@ -250,7 +250,7 @@ function addRightTriangle(d: DxfDrawing, panel: Panel): void {
     d.addPolyline(rotatedPoints, true);
   }
   
-  // Add panel number text in the center
+  // Add panel number text at the centroid (consistent with rendering)
   const centerX = x + width / 3;
   const centerY = y + length / 3;
   

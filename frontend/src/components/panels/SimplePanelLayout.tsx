@@ -8,6 +8,7 @@ import { exportToDXF, exportToJSON } from '@/lib/dxf-helpers'
 import { saveAs } from 'file-saver'
 import type { Panel } from '../../types/panel'
 import { useTooltip } from '@/components/ui/tooltip'
+import { applyPanelSnapping } from '@/lib/resize-utils'
 
 interface PanelLayoutProps {
   mode: 'manual' | 'auto'
@@ -376,10 +377,31 @@ export default function SimplePanelLayout({ mode, projectInfo }: PanelLayoutProp
       setPanels(prevPanels => 
         prevPanels.map(panel => {
           if (panel.id === dragInfo.panelId) {
+            // Apply snapping logic for right triangles
+            let newX = panel.x + deltaX;
+            let newY = panel.y + deltaY;
+            
+            // Find other panels for snapping
+            const otherPanels = prevPanels.filter(p => p.id !== panel.id).map(p => ({
+              id: p.id,
+              x: p.x,
+              y: p.y,
+              width: p.width,
+              height: p.length
+            }));
+            
+            // Apply shape-aware snapping
+            let snapResult;
+            if (panel.shape === 'right-triangle') {
+              snapResult = applyPanelSnapping(newX, newY, panel.width, panel.length, otherPanels, 4, 'right-triangle');
+            } else {
+              snapResult = applyPanelSnapping(newX, newY, panel.width, panel.length, otherPanels, 4, 'rectangle');
+            }
+            
             return {
               ...panel,
-              x: panel.x + deltaX,
-              y: panel.y + deltaY
+              x: snapResult.x,
+              y: snapResult.y
             }
           }
           return panel

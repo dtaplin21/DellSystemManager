@@ -235,7 +235,7 @@ function generateDXF(panels: Panel[], projectInfo: ProjectInfo): string {
       
       dxf += '0\nSEQEND\n';
       
-      // Add panel number as text (positioned in the triangle)
+      // Add panel number as text (positioned at centroid, consistent with rendering)
       dxf += '0\nTEXT\n';
       dxf += '8\nLabels\n';
       dxf += '1\n' + panel.panelNumber + '\n';
