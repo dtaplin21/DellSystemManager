@@ -518,12 +518,12 @@ export default function PanelGrid({
         </Group>
       );
     } else if (panel.shape === 'right-triangle') {
-      // Draw right triangle that fills the bounding box
-      // Points: top-left, top-right, bottom-right
+      // Draw right triangle (90-degree at bottom-left)
+      // Use x, y, width, length directly (no scaling)
       const points = [
         panel.x, panel.y, // Top-left
         panel.x + panel.width, panel.y, // Top-right
-        panel.x + panel.width, panel.y + panel.length // Bottom-right
+        panel.x, panel.y + panel.length // Bottom-left (right angle)
       ];
       const fontSize = Math.max(12, Math.min(panel.width, panel.length) * 0.4);
       return (
