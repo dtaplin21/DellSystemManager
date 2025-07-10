@@ -24,11 +24,7 @@ export default function DocumentsPage() {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   
-  // Project selection guard
-  if (!selectedProjectId || !selectedProject) {
-    return <NoProjectSelected message="Select a project to view documents." />;
-  }
-
+  // ✅ FIXED: Move early return after all hooks
   // Fetch documents for the selected project
   useEffect(() => {
     const fetchDocuments = async () => {
@@ -57,6 +53,11 @@ export default function DocumentsPage() {
 
     fetchDocuments();
   }, [selectedProjectId]);
+  
+  // ✅ FIXED: Early return moved after all hooks
+  if (!selectedProjectId || !selectedProject) {
+    return <NoProjectSelected message="Select a project to view documents." />;
+  }
   
   // Filter documents based on search query
   const filteredDocuments = documents.filter(doc => 
@@ -166,7 +167,12 @@ export default function DocumentsPage() {
         </div>
         
         <div className="documents-grid">
-          {filteredDocuments.length > 0 ? (
+          {isLoading ? (
+            <div className="loading-state">
+              <div className="loading-icon">⏳</div>
+              <p>Loading documents...</p>
+            </div>
+          ) : filteredDocuments.length > 0 ? (
             filteredDocuments.map((doc) => (
               <div key={doc.id} className="document-card">
                 <div className="document-card-header">
