@@ -114,9 +114,7 @@ class LayoutOptimizerTool(BaseTool):
     def _run(self, panels: str, constraints: str) -> str:
         try:
             # Import your existing code
-            import sys
-            sys.path.append(str(Path(__file__).parent.parent / "backend" / "panel_layout"))
-            from geometry import optimize_layout
+            from backend.panel_layout.geometry import optimize_layout
             
             # Convert string inputs to proper format
             panel_data = json.loads(panels) if isinstance(panels, str) else panels
@@ -162,9 +160,7 @@ class PanelAPITool(BaseTool):
     def _run(self, action: str, panel_data: str) -> str:
         try:
             # Import your existing code
-            import sys
-            sys.path.append(str(Path(__file__).parent.parent / "backend" / "api"))
-            from panel_api import create_panel, update_panel, get_panel
+            from backend.api.panel_api import create_panel, update_panel, get_panel
             
             data = json.loads(panel_data) if isinstance(panel_data, str) else panel_data
             
@@ -192,15 +188,12 @@ class QCDataTool(BaseTool):
     
     def _run(self, qc_data: str, analysis_type: str = "outliers") -> str:
         try:
-            # Import your existing QC analysis code
-            import sys
-            sys.path.append(str(Path(__file__).parent.parent / "frontend" / "src" / "components" / "qc-data"))
-            from auto_analysis import analyze_qc_data
-            
+            # TODO: Implement or import a backend Python QC analysis function here
+            # from backend.panel_layout.qc_analysis import analyze_qc_data
+            # result = analyze_qc_data(data, analysis_type)
+            # For now, return a placeholder response
             data = json.loads(qc_data) if isinstance(qc_data, str) else qc_data
-            
-            # Call your existing QC analysis
-            result = analyze_qc_data(data, analysis_type)
+            result = {"message": "QC analysis not yet implemented in backend Python.", "input": data, "analysis_type": analysis_type}
             return json.dumps(result)
         except Exception as e:
             logger.error(f"QC analysis failed: {e}")
