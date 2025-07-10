@@ -12,8 +12,8 @@ from pathlib import Path
 
 # Add AI service to path
 sys.path.append(str(Path(__file__).parent.parent.parent / "ai-service"))
-from integration_layer import APIRoutesIntegration
-from hybrid_ai_architecture import DellSystemAIService
+from ai_service.integration_layer import APIRoutesIntegration
+from ai_service.hybrid_ai_architecture import DellSystemAIService
 
 logger = logging.getLogger(__name__)
 
