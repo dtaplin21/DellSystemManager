@@ -106,32 +106,204 @@ class ProjectContextStore {
   /**
    * Update project context when data changes
    */
-  async updateProjectContext(projectId, updates) {
+  async updateProjectContext(projectId, componentType, data, action) {
     try {
       // Invalidate cache
       this.contextCache.delete(projectId);
       
-      // Update specific sections
-      if (updates.documents) {
-        await this.updateDocuments(projectId, updates.documents);
-      }
-      
-      if (updates.panelLayout) {
-        await this.updatePanelLayout(projectId, updates.panelLayout);
-      }
-      
-      if (updates.qcData) {
-        await this.updateQCData(projectId, updates.qcData);
-      }
-      
-      if (updates.aiInsights) {
-        await this.updateAIInsights(projectId, updates.aiInsights);
+      // Update specific sections based on component type
+      switch (componentType) {
+        case 'documents':
+          await this.updateDocuments(projectId, data, action);
+          break;
+        case 'panel_layout':
+          await this.updatePanelLayout(projectId, data, action);
+          break;
+        case 'qc_data':
+          await this.updateQCData(projectId, data, action);
+          break;
+        case 'project':
+          await this.updateProject(projectId, data, action);
+          break;
+        default:
+          console.warn(`Unknown component type: ${componentType}`);
       }
       
       // Refresh context
       return await this.getProjectContext(projectId);
     } catch (error) {
       console.error('Error updating project context:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update documents for a project
+   */
+  async updateDocuments(projectId, data, action) {
+    try {
+      switch (action) {
+        case 'add':
+          // Add new document
+          await db.insert(documents).values({
+            projectId,
+            name: data.name,
+            type: data.type,
+            size: data.size,
+            path: data.path,
+            uploadedAt: new Date(),
+            uploadedBy: data.uploadedBy
+          });
+          break;
+        case 'update':
+          // Update existing document
+          await db.update(documents)
+            .set({
+              name: data.name,
+              type: data.type,
+              size: data.size,
+              path: data.path
+            })
+            .where(eq(documents.id, data.id));
+          break;
+        case 'delete':
+          // Delete document
+          await db.delete(documents)
+            .where(eq(documents.id, data.id));
+          break;
+        default:
+          console.warn(`Unknown action for documents: ${action}`);
+      }
+    } catch (error) {
+      console.error('Error updating documents:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update panel layout for a project
+   */
+  async updatePanelLayout(projectId, data, action) {
+    try {
+      switch (action) {
+        case 'create':
+        case 'update':
+          // Insert or update panel layout
+          await db.insert(panels).values({
+            projectId,
+            panels: JSON.stringify(data.panels),
+            width: data.width,
+            height: data.height,
+            scale: data.scale || 1,
+            lastUpdated: new Date()
+          }).onConflictDoUpdate({
+            target: panels.projectId,
+            set: {
+              panels: JSON.stringify(data.panels),
+              width: data.width,
+              height: data.height,
+              scale: data.scale || 1,
+              lastUpdated: new Date()
+            }
+          });
+          break;
+        case 'delete':
+          // Delete panel layout
+          await db.delete(panels)
+            .where(eq(panels.projectId, projectId));
+          break;
+        default:
+          console.warn(`Unknown action for panel layout: ${action}`);
+      }
+    } catch (error) {
+      console.error('Error updating panel layout:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update QC data for a project
+   */
+  async updateQCData(projectId, data, action) {
+    try {
+      switch (action) {
+        case 'add':
+          // Add new QC record
+          await db.insert(qcData).values({
+            projectId,
+            type: data.type,
+            panelId: data.panelId,
+            date: data.date,
+            result: data.result,
+            technician: data.technician,
+            temperature: data.temperature,
+            pressure: data.pressure,
+            speed: data.speed,
+            notes: data.notes,
+            createdAt: new Date(),
+            createdBy: data.createdBy
+          });
+          break;
+        case 'update':
+          // Update existing QC record
+          await db.update(qcData)
+            .set({
+              type: data.type,
+              panelId: data.panelId,
+              date: data.date,
+              result: data.result,
+              technician: data.technician,
+              temperature: data.temperature,
+              pressure: data.pressure,
+              speed: data.speed,
+              notes: data.notes
+            })
+            .where(eq(qcData.id, data.id));
+          break;
+        case 'delete':
+          // Delete QC record
+          await db.delete(qcData)
+            .where(eq(qcData.id, data.id));
+          break;
+        default:
+          console.warn(`Unknown action for QC data: ${action}`);
+      }
+    } catch (error) {
+      console.error('Error updating QC data:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update project information
+   */
+  async updateProject(projectId, data, action) {
+    try {
+      switch (action) {
+        case 'update':
+          // Update project details
+          await db.update(projects)
+            .set({
+              name: data.name,
+              description: data.description,
+              location: data.location,
+              status: data.status,
+              startDate: data.startDate,
+              endDate: data.endDate,
+              area: data.area,
+              progress: data.progress,
+              scale: data.scale,
+              layoutWidth: data.layoutWidth,
+              layoutHeight: data.layoutHeight,
+              updatedAt: new Date()
+            })
+            .where(eq(projects.id, projectId));
+          break;
+        default:
+          console.warn(`Unknown action for project: ${action}`);
+      }
+    } catch (error) {
+      console.error('Error updating project:', error);
       throw error;
     }
   }
@@ -153,11 +325,38 @@ class ProjectContextStore {
         id: Date.now().toString()
       });
       
-      await this.updateProjectContext(projectId, { aiInsights: context.aiInsights });
+      // Store AI insights in memory cache (since they're not persisted to DB yet)
+      this.contextCache.set(projectId, context);
       
       return context;
     } catch (error) {
       console.error('Error adding AI insight:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get AI insights for a project
+   */
+  async getAIInsights(projectId) {
+    try {
+      const context = await this.getProjectContext(projectId);
+      return context.aiInsights;
+    } catch (error) {
+      console.error('Error getting AI insights:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get specific AI insight type
+   */
+  async getAIInsight(projectId, insightType) {
+    try {
+      const context = await this.getProjectContext(projectId);
+      return context.aiInsights[insightType] || [];
+    } catch (error) {
+      console.error('Error getting AI insight:', error);
       throw error;
     }
   }

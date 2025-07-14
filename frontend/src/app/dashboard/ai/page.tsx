@@ -167,21 +167,31 @@ export default function AIAssistantPage() {
     setMessages(prev => [...prev, userMessage]);
     setInputValue('');
 
-    // Simulate AI response with project context
-    setTimeout(() => {
+    try {
+      // Call backend AI API for project-specific Q&A
+      const response = await fetch(`/api/connected-workflow/ask-question/${selectedProject.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: inputValue })
+      });
+      const data = await response.json();
+
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
         type: 'ai',
-        content: `I understand you're working on project "${selectedProject.name}". ${inputValue} - This response would be generated based on your project's documents and context.`,
+        content: data.answer || 'Sorry, I could not process your question.',
         timestamp: new Date(),
-        references: documents.length > 0 ? [{
-          docId: documents[0].id,
-          page: 1,
-          excerpt: "Sample document reference for project context."
-        }] : undefined
+        references: data.references
       };
       setMessages(prev => [...prev, aiMessage]);
-    }, 1000);
+    } catch (error) {
+      setMessages(prev => [...prev, {
+        id: (Date.now() + 2).toString(),
+        type: 'ai',
+        content: "Sorry, I couldn't process your question. Please try again.",
+        timestamp: new Date()
+      }]);
+    }
   };
 
   const handleHandwritingUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
