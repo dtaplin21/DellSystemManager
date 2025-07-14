@@ -2,6 +2,9 @@ const express = require('express');
 const router = express.Router();
 const aiWorkflowOrchestrator = require('../services/ai-workflow-orchestrator');
 const projectContextStore = require('../services/project-context-store');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 
 /**
  * GET /api/connected-workflow/status/:projectId
@@ -362,6 +365,64 @@ router.post('/ask-question/:projectId', async (req, res) => {
   } catch (error) {
     console.error('AI Q&A error:', error);
     res.status(500).json({ error: 'Failed to answer question.' });
+  }
+});
+
+// Set up multer storage for document uploads
+const uploadDir = path.join(__dirname, '../../uploaded_documents');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const { projectId } = req.params;
+    const projectDir = path.join(uploadDir, projectId);
+    if (!fs.existsSync(projectDir)) {
+      fs.mkdirSync(projectDir, { recursive: true });
+    }
+    cb(null, projectDir);
+  },
+  filename: function (req, file, cb) {
+    cb(null, Date.now() + '-' + file.originalname);
+  }
+});
+const upload = multer({ storage });
+
+// Document upload endpoint
+router.post('/upload-document/:projectId', upload.single('file'), async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const file = req.file;
+    if (!file) {
+      return res.status(400).json({ success: false, error: 'No file uploaded' });
+    }
+    // Save document metadata in DB
+    const docMeta = {
+      projectId,
+      name: file.originalname,
+      type: file.mimetype,
+      size: file.size,
+      path: file.path,
+      uploadedAt: new Date(),
+      uploadedBy: req.user ? req.user.id : 'anonymous',
+    };
+    await projectContextStore.updateDocuments(projectId, docMeta, 'add');
+    res.json({ success: true, document: docMeta });
+  } catch (error) {
+    console.error('Document upload failed:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Get documents for a project
+router.get('/documents/:projectId', async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const context = await projectContextStore.getProjectContext(projectId);
+    res.json({ success: true, documents: context.documents });
+  } catch (error) {
+    console.error('Error fetching documents:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 

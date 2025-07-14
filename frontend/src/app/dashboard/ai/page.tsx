@@ -81,16 +81,23 @@ export default function AIAssistantPage() {
     }
   }, [searchParams, selectedProjectId, selectProject]);
 
-  // Update documents when selectedProject changes
-  useEffect(() => {
-    if (selectedProject?.documents) {
-      setDocuments(selectedProject.documents.map(doc => ({
-        id: doc.id,
-        filename: doc.filename,
-        uploadDate: doc.uploadedAt,
-        text: doc.name // Using name as text for now
-      })));
+  // Fetch documents for the selected project from backend
+  const fetchDocuments = async () => {
+    if (!selectedProject) return;
+    try {
+      const response = await fetch(`/api/connected-workflow/documents/${selectedProject.id}`);
+      const data = await response.json();
+      if (data.success) {
+        setDocuments(data.documents);
+      }
+    } catch (error) {
+      console.error('Error fetching documents:', error);
     }
+  };
+
+  // On project change, fetch documents
+  useEffect(() => {
+    fetchDocuments();
   }, [selectedProject]);
 
   // Scroll to bottom when messages change
@@ -124,33 +131,35 @@ export default function AIAssistantPage() {
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
-    if (!files?.length) return;
+    if (!files?.length || !selectedProject) return;
 
     setIsUploadingDoc(true);
-    const newDocuments: Document[] = [];
 
-    for (const file of Array.from(files)) {
-      if (file.type === 'application/pdf' || file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-        // In a real implementation, you'd process the file content
-        // For now, we'll simulate document text extraction
-        const docText = `Extracted content from ${file.name}. This is sample content for demonstration.`;
-        
-        const newDoc: Document = {
-          id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-          filename: file.name,
-          uploadDate: new Date().toISOString(),
-          text: docText
-        };
-        newDocuments.push(newDoc);
+    try {
+      for (const file of Array.from(files)) {
+        const formData = new FormData();
+        formData.append('file', file);
+        // Optionally add more metadata here
+        const response = await fetch(`/api/connected-workflow/upload-document/${selectedProject.id}`, {
+          method: 'POST',
+          body: formData,
+          credentials: 'include',
+        });
+        const data = await response.json();
+        if (!data.success) {
+          throw new Error(data.error || 'Upload failed');
+        }
       }
-    }
-
-    setDocuments(prev => [...prev, ...newDocuments]);
-    setIsUploadingDoc(false);
-    
-    // Clear the input
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+      // After all uploads, fetch updated document list
+      await fetchDocuments();
+    } catch (error) {
+      console.error('Error uploading document:', error);
+      alert('Failed to upload document. Please try again.');
+    } finally {
+      setIsUploadingDoc(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
