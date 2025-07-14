@@ -1,3 +1,4 @@
+console.log('✅ connected-workflow.js route file loaded');
 const express = require('express');
 const router = express.Router();
 const aiWorkflowOrchestrator = require('../services/ai-workflow-orchestrator');
@@ -390,12 +391,21 @@ const upload = multer({ storage });
 
 // Document upload endpoint
 router.post('/upload-document/:projectId', upload.single('file'), async (req, res) => {
+  console.log('--- Document Upload Request Received ---');
   try {
     const { projectId } = req.params;
+    console.log('Project ID:', projectId);
     const file = req.file;
     if (!file) {
+      console.log('No file uploaded in request.');
       return res.status(400).json({ success: false, error: 'No file uploaded' });
     }
+    console.log('File received:', {
+      originalname: file.originalname,
+      mimetype: file.mimetype,
+      size: file.size,
+      path: file.path
+    });
     // Save document metadata in DB
     const docMeta = {
       projectId,
@@ -406,7 +416,9 @@ router.post('/upload-document/:projectId', upload.single('file'), async (req, re
       uploadedAt: new Date(),
       uploadedBy: req.user ? req.user.id : 'anonymous',
     };
+    console.log('Saving document metadata to projectContextStore:', docMeta);
     await projectContextStore.updateDocuments(projectId, docMeta, 'add');
+    console.log('Document metadata saved successfully.');
     res.json({ success: true, document: docMeta });
   } catch (error) {
     console.error('Document upload failed:', error);

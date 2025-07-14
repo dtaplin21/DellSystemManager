@@ -1,6 +1,7 @@
-const { db } = require('../db/connection');
+const { db } = require('../db');
 const { projects, documents, panels, qcData } = require('../db/schema');
 const { eq } = require('drizzle-orm');
+const { v4: uuidv4 } = require('uuid');
 
 class ProjectContextStore {
   constructor() {
@@ -144,8 +145,9 @@ class ProjectContextStore {
     try {
       switch (action) {
         case 'add':
-          // Add new document
+          // Add new document with UUID
           await db.insert(documents).values({
+            id: uuidv4(),
             projectId,
             name: data.name,
             type: data.type,

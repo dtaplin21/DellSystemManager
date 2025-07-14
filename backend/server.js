@@ -41,6 +41,8 @@ app.use('/api/payments', require('./routes/payments'));
 app.use('/api/ai', require('./routes/ai'));
 app.use('/api/handwriting', require('./routes/handwriting'));
 app.use('/api/system', require('./routes/api/system'));
+app.use('/api/connected-workflow', require('./routes/connected-workflow'));
+console.log('✅ /api/connected-workflow route registered');
 
 // Error handler
 app.use((err, req, res, next) => {
