@@ -1,5 +1,5 @@
-# Enhanced AI Routes: Integrates Hybrid AI Architecture with Existing Backend
-# This extends your existing routes with AI capabilities
+# Enhanced AI Routes: OpenAI-Only Implementation
+# This extends your existing routes with OpenAI-powered AI capabilities
 
 import asyncio
 import json
@@ -9,207 +9,138 @@ from flask import Blueprint, request, jsonify
 from flask_cors import cross_origin
 import sys
 from pathlib import Path
+import os
 
 # Add AI service to path
 sys.path.append(str(Path(__file__).parent.parent.parent / "ai-service"))
-from ai_service.integration_layer import APIRoutesIntegration
-from ai_service.hybrid_ai_architecture import DellSystemAIService
+from openai_service import OpenAIService
 
 logger = logging.getLogger(__name__)
 
 # Create blueprint
 ai_enhanced_bp = Blueprint('ai_enhanced', __name__)
 
-# Initialize AI service
-ai_service = DellSystemAIService()
-api_integration = APIRoutesIntegration(ai_service)
+# Initialize OpenAI service
+openai_service = OpenAIService(api_key=os.getenv("OPENAI_API_KEY"))
 
 # === ENHANCED PANEL ROUTES ===
 @ai_enhanced_bp.route('/api/ai/panels/optimize', methods=['POST'])
 @cross_origin()
 async def optimize_panels():
-    """Enhanced panel optimization with AI"""
+    """Enhanced panel optimization with OpenAI"""
     try:
         data = request.get_json()
-        user_id = data.get('user_id', 'anonymous')
-        user_tier = data.get('user_tier', 'free_user')
-        layout_data = data.get('layout_data', {})
+        panels = data.get('panels', [])
+        strategy = data.get('strategy', 'balanced')
+        site_config = data.get('site_config', {})
         
-        result = await api_integration.handle_ai_route(
-            route_type="optimize",
-            user_id=user_id,
-            user_tier=user_tier,
-            data={"layout_data": layout_data}
+        if not panels:
+            return jsonify({"error": "No panels provided", "success": False}), 400
+        
+        # Use OpenAI for optimization
+        result = openai_service.optimize_panel_layout(
+            panels=panels,
+            strategy=strategy,
+            site_config=site_config
         )
         
-        return jsonify(result)
+        return jsonify({"result": result, "success": True})
     except Exception as e:
         logger.error(f"Panel optimization failed: {e}")
-        return jsonify({"error": str(e), "success": False}), 500
-
-@ai_enhanced_bp.route('/api/ai/panels/enhance', methods=['POST'])
-@cross_origin()
-async def enhance_panel_operation():
-    """Enhance panel operations with AI suggestions"""
-    try:
-        data = request.get_json()
-        user_id = data.get('user_id', 'anonymous')
-        user_tier = data.get('user_tier', 'free_user')
-        action = data.get('action', 'create')
-        panel_data = data.get('panel_data', {})
-        
-        result = await api_integration.handle_ai_route(
-            route_type="enhance_panel",
-            user_id=user_id,
-            user_tier=user_tier,
-            data={"action": action, "panel_data": panel_data}
-        )
-        
-        return jsonify(result)
-    except Exception as e:
-        logger.error(f"Panel enhancement failed: {e}")
-        return jsonify({"error": str(e), "success": False}), 500
-
-# === ENHANCED CHAT ROUTES ===
-@ai_enhanced_bp.route('/api/ai/chat', methods=['POST'])
-@cross_origin()
-async def ai_chat():
-    """Enhanced AI chat with context awareness"""
-    try:
-        data = request.get_json()
-        user_id = data.get('user_id', 'anonymous')
-        user_tier = data.get('user_tier', 'free_user')
-        message = data.get('message', '')
-        context = data.get('context', {})
-        
-        result = await api_integration.handle_ai_route(
-            route_type="chat",
-            user_id=user_id,
-            user_tier=user_tier,
-            data={"message": message, "context": context}
-        )
-        
-        return jsonify(result)
-    except Exception as e:
-        logger.error(f"AI chat failed: {e}")
         return jsonify({"error": str(e), "success": False}), 500
 
 # === ENHANCED DOCUMENT ANALYSIS ROUTES ===
 @ai_enhanced_bp.route('/api/ai/documents/analyze', methods=['POST'])
 @cross_origin()
 async def analyze_document():
-    """Enhanced document analysis with AI"""
+    """Enhanced document analysis with OpenAI"""
     try:
         data = request.get_json()
-        user_id = data.get('user_id', 'anonymous')
-        user_tier = data.get('user_tier', 'free_user')
-        document_path = data.get('document_path', '')
-        analysis_type = data.get('analysis_type', 'general')
+        document_text = data.get('document_text', '')
+        question = data.get('question', 'Provide a comprehensive analysis of this document')
         
-        result = await api_integration.handle_ai_route(
-            route_type="analyze_document",
-            user_id=user_id,
-            user_tier=user_tier,
-            data={"document_path": document_path, "analysis_type": analysis_type}
-        )
+        if not document_text:
+            return jsonify({"error": "No document text provided", "success": False}), 400
         
-        return jsonify(result)
+        # Use OpenAI for analysis
+        result = openai_service.analyze_document_content(document_text, question)
+        
+        return jsonify({"result": result, "success": True})
     except Exception as e:
         logger.error(f"Document analysis failed: {e}")
         return jsonify({"error": str(e), "success": False}), 500
 
-# === PROJECT WORKFLOW ROUTES ===
-@ai_enhanced_bp.route('/api/ai/projects/create', methods=['POST'])
+@ai_enhanced_bp.route('/api/ai/documents/extract', methods=['POST'])
 @cross_origin()
-async def create_project_with_ai():
-    """Create new project with AI assistance"""
+async def extract_document_data():
+    """Extract structured data from documents using OpenAI"""
     try:
         data = request.get_json()
-        user_id = data.get('user_id', 'anonymous')
-        user_tier = data.get('user_tier', 'free_user')
-        project_data = data.get('project_data', {})
+        document_text = data.get('document_text', '')
+        extraction_type = data.get('extraction_type', 'qc_data')
         
-        result = await ai_service.handle_new_project(
-            user_id=user_id,
-            user_tier=user_tier,
-            project_data=project_data
-        )
+        if not document_text:
+            return jsonify({"error": "No document text provided", "success": False}), 400
         
-        return jsonify(result)
-    except Exception as e:
-        logger.error(f"Project creation failed: {e}")
-        return jsonify({"error": str(e), "success": False}), 500
-
-# === WEBSOCKET ROUTES ===
-@ai_enhanced_bp.route('/api/ai/websocket', methods=['POST'])
-@cross_origin()
-async def websocket_ai_handler():
-    """Handle WebSocket AI messages"""
-    try:
-        data = request.get_json()
-        user_id = data.get('user_id', 'anonymous')
-        user_tier = data.get('user_tier', 'free_user')
-        message = data.get('message', {})
-        
-        result = await api_integration.websocket_integration.handle_websocket_message(
-            user_id=user_id,
-            user_tier=user_tier,
-            message=message
-        )
-        
-        return jsonify(result)
-    except Exception as e:
-        logger.error(f"WebSocket AI handling failed: {e}")
-        return jsonify({"error": str(e), "success": False}), 500
-
-# === COST TRACKING ROUTES ===
-@ai_enhanced_bp.route('/api/ai/costs/<user_id>', methods=['GET'])
-@cross_origin()
-async def get_user_costs(user_id):
-    """Get AI usage costs for user"""
-    try:
-        user_tier = request.args.get('user_tier', 'free_user')
-        
-        # Get cost optimizer to check usage
-        cost_optimizer = ai_service.cost_optimizer
-        usage = cost_optimizer._get_user_usage(user_tier)
-        
-        return jsonify({
-            "user_id": user_id,
-            "user_tier": user_tier,
-            "current_usage": usage,
-            "cost_threshold": cost_optimizer.cost_thresholds.get(user_tier, 0.01)
-        })
-    except Exception as e:
-        logger.error(f"Cost tracking failed: {e}")
-        return jsonify({"error": str(e), "success": False}), 500
-
-# === HEALTH CHECK ROUTES ===
-@ai_enhanced_bp.route('/api/ai/health', methods=['GET'])
-@cross_origin()
-async def ai_health_check():
-    """Health check for AI services"""
-    try:
-        # Check if AI service is available
-        health_status = {
-            "ai_service": "healthy",
-            "redis_connection": "unknown",
-            "available_models": []
+        # Define extraction prompts based on type
+        extraction_prompts = {
+            'qc_data': "Extract quality control test data, measurements, and results from this document. Include test dates, values, pass/fail status, and standards referenced.",
+            'material_specs': "Extract material specifications, properties, and technical parameters from this document.",
+            'site_info': "Extract site information including dimensions, coordinates, soil conditions, and environmental factors.",
+            'test_results': "Extract all test results, measurements, and quality assurance data with their corresponding values and units."
         }
         
-        # Check Redis connection
-        try:
-            ai_service.redis_client.ping()
-            health_status["redis_connection"] = "healthy"
-        except:
-            health_status["redis_connection"] = "unhealthy"
+        extraction_prompt = extraction_prompts.get(extraction_type, extraction_prompts['qc_data'])
         
-        # Check available models (simplified)
-        health_status["available_models"] = ["llama3:8b", "gpt-3.5-turbo", "gpt-4-turbo"]
+        # Use OpenAI for extraction
+        result = openai_service.extract_structured_data(document_text, extraction_prompt)
         
-        return jsonify(health_status)
+        return jsonify({"result": result, "success": True})
     except Exception as e:
-        logger.error(f"Health check failed: {e}")
+        logger.error(f"Document extraction failed: {e}")
+        return jsonify({"error": str(e), "success": False}), 500
+
+# === ENHANCED QC ANALYSIS ROUTES ===
+@ai_enhanced_bp.route('/api/ai/qc/analyze', methods=['POST'])
+@cross_origin()
+async def analyze_qc_data():
+    """Analyze QC data using OpenAI"""
+    try:
+        data = request.get_json()
+        qc_data = data.get('qc_data', [])
+        
+        if not qc_data:
+            return jsonify({"error": "No QC data provided", "success": False}), 400
+        
+        # Convert QC data to JSON string for analysis
+        qc_data_json = json.dumps(qc_data)
+        
+        # Use OpenAI for analysis
+        result = openai_service.analyze_qc_data(qc_data_json)
+        
+        return jsonify({"result": result, "success": True})
+    except Exception as e:
+        logger.error(f"QC analysis failed: {e}")
+        return jsonify({"error": str(e), "success": False}), 500
+
+# === ENHANCED PROJECT RECOMMENDATIONS ===
+@ai_enhanced_bp.route('/api/ai/projects/recommendations', methods=['POST'])
+@cross_origin()
+async def generate_recommendations():
+    """Generate project recommendations using OpenAI"""
+    try:
+        data = request.get_json()
+        project_data = data.get('project_data', {})
+        
+        if not project_data:
+            return jsonify({"error": "No project data provided", "success": False}), 400
+        
+        # Use OpenAI for recommendations
+        result = openai_service.generate_project_recommendations(project_data)
+        
+        return jsonify({"result": result, "success": True})
+    except Exception as e:
+        logger.error(f"Recommendations generation failed: {e}")
         return jsonify({"error": str(e), "success": False}), 500
 
 # === UTILITY ROUTES ===
@@ -218,21 +149,41 @@ async def ai_health_check():
 async def get_available_models():
     """Get available AI models and their configurations"""
     try:
-        from hybrid_ai_architecture import MODEL_CONFIGS
-        
-        models_info = {}
-        for key, config in MODEL_CONFIGS.items():
-            models_info[key] = {
-                "name": config.name,
-                "tier": config.tier.value,
-                "cost_per_1k_tokens": config.cost_per_1k_tokens,
-                "max_context": config.max_context,
-                "specialized_for": config.specialized_for
+        models_info = {
+            "gpt-4o": {
+                "name": "gpt-4o",
+                "tier": "cloud_premium",
+                "cost_per_1k_tokens": 0.005,
+                "max_context": 128000,
+                "specialized_for": ["document_analysis", "panel_optimization", "qc_analysis", "recommendations"]
             }
+        }
         
         return jsonify(models_info)
     except Exception as e:
         logger.error(f"Model info failed: {e}")
+        return jsonify({"error": str(e), "success": False}), 500
+
+@ai_enhanced_bp.route('/api/ai/health', methods=['GET'])
+@cross_origin()
+async def health_check():
+    """Health check for AI services"""
+    try:
+        health_status = {
+            "ai_service": "healthy",
+            "provider": "OpenAI",
+            "model": "gpt-4o",
+            "available_features": [
+                "document_analysis",
+                "panel_optimization", 
+                "qc_analysis",
+                "data_extraction",
+                "recommendations"
+            ]
+        }
+        return jsonify(health_status)
+    except Exception as e:
+        logger.error(f"Health check failed: {e}")
         return jsonify({"error": str(e), "success": False}), 500
 
 # === ERROR HANDLERS ===

@@ -102,38 +102,59 @@ class OpenAIService:
             logger.error(f"Error in extract_structured_data: {str(e)}")
             return {"error": f"Error extracting data: {str(e)}"}
     
-    def analyze_qc_data(self, qc_data_json: str) -> Dict[str, Any]:
+    def optimize_panel_layout(self, panels: List[Dict[str, Any]], strategy: str = "balanced", site_config: Dict[str, Any] = None) -> Dict[str, Any]:
         """
-        Analyze QC data to find patterns, anomalies, and insights
+        Optimize panel layout using AI
         
         Args:
-            qc_data_json: QC data as JSON string
+            panels: List of panel dictionaries with dimensions and properties
+            strategy: Optimization strategy ('material', 'labor', or 'balanced')
+            site_config: Site configuration including dimensions and constraints
             
         Returns:
-            Dictionary containing analysis results
+            Dictionary containing optimized panel placements and recommendations
         """
         try:
+            # Convert panels to JSON for analysis
+            panels_json = json.dumps(panels, indent=2)
+            site_config_json = json.dumps(site_config or {}, indent=2)
+            
             # the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
             response = openai.chat.completions.create(
                 model="gpt-4o",
                 messages=[
                     {"role": "system", "content": 
-                        """You are an expert in geosynthetic quality control and statistical analysis.
-                        Analyze the provided QC data to identify patterns, anomalies, and insights.
-                        Look for trends in test results, potential issues with specific panels, or equipment settings.
-                        Format your response as a JSON object with the following sections:
-                        - summary: Brief overview of the data and key findings
-                        - anomalies: List of identified anomalies or outliers, with specifics
-                        - patterns: Identified patterns or correlations
-                        - recommendations: Suggested actions based on the analysis
-                        - statistics: Basic statistical metrics about the data
-                        """
+                        """You are an expert geosynthetic engineer specializing in panel layout optimization.
+                        Analyze the provided panel data and site configuration to generate optimal panel placements.
+                        
+                        Consider:
+                        1. Material efficiency (minimize waste)
+                        2. Labor efficiency (minimize installation time)
+                        3. Site constraints and terrain
+                        4. Industry best practices
+                        5. Safety and accessibility requirements
+                        
+                        Provide specific placement recommendations with coordinates, rotations, and reasoning.
+                        Format your response as a JSON object with optimized placements and analysis."""
                     },
                     {"role": "user", "content": 
-                        f"Analyze the following QC data and provide insights:\n\n{qc_data_json}"
+                        f"""Optimize panel layout with {strategy} strategy.
+                        
+                        PANELS:
+                        {panels_json}
+                        
+                        SITE CONFIGURATION:
+                        {site_config_json}
+                        
+                        Please provide optimized panel placements with:
+                        - x, y coordinates for each panel
+                        - rotation angles (0, 90, 180, 270 degrees)
+                        - reasoning for each placement decision
+                        - overall efficiency metrics
+                        - any special considerations or warnings"""
                     }
                 ],
-                temperature=0,
+                temperature=0.2,
                 response_format={"type": "json_object"},
                 max_tokens=3000
             )
@@ -146,85 +167,62 @@ class OpenAIService:
                 return result_json
             except json.JSONDecodeError:
                 logger.error(f"Failed to parse JSON from OpenAI response: {result_text}")
-                return {
-                    "error": "Invalid JSON response from analysis",
-                    "text": result_text,
-                    "summary": "Error processing QC data analysis"
-                }
+                return {"error": "Invalid JSON response from optimization", "text": result_text}
             
         except Exception as e:
-            logger.error(f"Error in analyze_qc_data: {str(e)}")
-            return {"error": f"Error analyzing QC data: {str(e)}"}
+            logger.error(f"Error in optimize_panel_layout: {str(e)}")
+            return {"error": f"Error optimizing panel layout: {str(e)}"}
     
-    def clean_qc_data(self, qc_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def analyze_qc_data(self, qc_data: str) -> str:
         """
-        Clean and standardize QC data extracted from documents
+        Analyze QC data to find patterns and anomalies
         
         Args:
-            qc_data: List of QC data dictionaries
+            qc_data: QC data in JSON string format
             
         Returns:
-            Cleaned and standardized QC data
+            Analysis text response
         """
         try:
-            # Convert to JSON for API call
-            qc_data_json = json.dumps(qc_data)
-            
             # the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
             response = openai.chat.completions.create(
                 model="gpt-4o",
                 messages=[
                     {"role": "system", "content": 
-                        """You are a data cleaning expert for geosynthetic QC testing data.
-                        Your task is to standardize and clean the provided QC data:
+                        """You are an expert quality control analyst for geosynthetic materials.
+                        Analyze QC data to identify patterns, anomalies, and potential issues.
+                        Focus on:
+                        - Test result trends and patterns
+                        - Out-of-specification results
+                        - Equipment calibration issues
+                        - Material quality concerns
+                        - Process improvement opportunities
                         
-                        1. Standardize panel IDs to a consistent format
-                        2. Standardize date formats to ISO (YYYY-MM-DD)
-                        3. Convert test result values to standard units
-                        4. Normalize "Pass/Fail" values to either "Pass" or "Fail"
-                        5. Fill in missing fields with reasonable values if possible, otherwise null
-                        6. Remove any obvious duplicate entries
-                        
-                        Return the cleaned data as a JSON array of objects.
-                        Maintain all original fields, only cleaning their values.
-                        """
+                        Provide actionable insights and recommendations."""
                     },
                     {"role": "user", "content": 
-                        f"Clean and standardize this QC data:\n\n{qc_data_json}"
+                        f"Analyze this QC data for patterns and anomalies:\n\n{qc_data}"
                     }
                 ],
-                temperature=0,
-                response_format={"type": "json_object"},
-                max_tokens=2000
+                temperature=0.1,
+                max_tokens=3000
             )
             
-            result_text = response.choices[0].message.content.strip()
-            
-            # Parse the JSON response
-            try:
-                result_json = json.loads(result_text)
-                # The result should have a "data" field containing the cleaned QC data
-                if "data" in result_json and isinstance(result_json["data"], list):
-                    return result_json["data"]
-                else:
-                    return qc_data  # Return original if no proper data field
-            except json.JSONDecodeError:
-                logger.error(f"Failed to parse JSON from OpenAI response: {result_text}")
-                return qc_data  # Return original on error
+            return response.choices[0].message.content.strip()
             
         except Exception as e:
-            logger.error(f"Error in clean_qc_data: {str(e)}")
-            return qc_data  # Return original on error
+            logger.error(f"Error in analyze_qc_data: {str(e)}")
+            return f"Error analyzing QC data: {str(e)}"
     
-    def generate_recommendations(self, project_data: Dict[str, Any]) -> Dict[str, Any]:
+    def generate_project_recommendations(self, project_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Generate automated recommendations based on project data, QC results, and industry standards
+        Generate project recommendations based on project data
         
         Args:
-            project_data: Dictionary containing project information, QC data, and panel layout
+            project_data: Project information and data
             
         Returns:
-            Dictionary containing recommendations and insights
+            Dictionary containing recommendations
         """
         try:
             # Convert to JSON for API call
@@ -266,81 +264,8 @@ class OpenAIService:
                 return result_json
             except json.JSONDecodeError:
                 logger.error(f"Failed to parse JSON from OpenAI response: {result_text}")
-                return {
-                    "error": "Invalid JSON response",
-                    "general": ["Error generating recommendations. Please check the project data and try again."]
-                }
+                return {"error": "Invalid JSON response from recommendations", "text": result_text}
             
         except Exception as e:
-            logger.error(f"Error in generate_recommendations: {str(e)}")
+            logger.error(f"Error in generate_project_recommendations: {str(e)}")
             return {"error": f"Error generating recommendations: {str(e)}"}
-            
-    def auto_generate_report(self, project_data: Dict[str, Any], report_type: str = "summary") -> Dict[str, Any]:
-        """
-        Automatically generate a project report based on the available data
-        
-        Args:
-            project_data: Dictionary containing project information, QC data, and panel layout
-            report_type: Type of report to generate (summary, technical, compliance)
-            
-        Returns:
-            Dictionary containing the generated report sections
-        """
-        try:
-            # Convert to JSON for API call
-            project_data_json = json.dumps(project_data)
-            
-            report_prompts = {
-                "summary": "Generate a concise executive summary report for project stakeholders. Focus on overall progress, key findings, and high-level recommendations.",
-                "technical": "Generate a detailed technical report for engineering review. Include specific test results, statistical analysis, and technical recommendations.",
-                "compliance": "Generate a compliance report showing how the project meets industry standards and specifications. Highlight any areas of non-compliance."
-            }
-            
-            prompt = report_prompts.get(report_type, report_prompts["summary"])
-            
-            # the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
-            response = openai.chat.completions.create(
-                model="gpt-4o",
-                messages=[
-                    {"role": "system", "content": 
-                        """You are an expert technical writer specializing in geosynthetic installation reports.
-                        Generate a professional report based on the provided project data.
-                        Structure your report with clear headings and concise content.
-                        Include all relevant data points, statistics, and findings.
-                        Format your response as a JSON object with report sections as keys.
-                        
-                        Include these standard sections:
-                        - title: Report title
-                        - introduction: Project overview
-                        - methodology: Testing and QC procedures
-                        - findings: Key results and observations
-                        - conclusions: Summary of findings
-                        - recommendations: Suggested actions
-                        """
-                    },
-                    {"role": "user", "content": 
-                        f"{prompt}\n\nProject Data:\n{project_data_json}"
-                    }
-                ],
-                temperature=0.3,  # Some creativity for report writing
-                response_format={"type": "json_object"},
-                max_tokens=4000
-            )
-            
-            result_text = response.choices[0].message.content.strip()
-            
-            # Parse the JSON response
-            try:
-                result_json = json.loads(result_text)
-                return result_json
-            except json.JSONDecodeError:
-                logger.error(f"Failed to parse JSON from OpenAI response: {result_text}")
-                return {
-                    "error": "Invalid JSON response",
-                    "title": "Error Generating Report",
-                    "content": "There was an error generating the report. Please check the project data and try again."
-                }
-            
-        except Exception as e:
-            logger.error(f"Error in auto_generate_report: {str(e)}")
-            return {"error": f"Error generating report: {str(e)}"}

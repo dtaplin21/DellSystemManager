@@ -1,55 +1,26 @@
 // AI Service Hooks: Integrate Hybrid AI Architecture with React Components
 // This provides hooks for all AI functionality in your frontend
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { useToast } from './use-toast';
 
-// Types for AI service responses
+// Types
 interface AIResponse {
   success: boolean;
-  response?: string;
+  result?: any;
   error?: string;
   cost?: number;
-  status?: string;
-  optimized_layout?: any;
-  analysis_result?: any;
-  agents_used?: string[];
-}
-
-interface AIChatMessage {
-  id: string;
-  message: string;
-  response: string;
-  timestamp: Date;
-  cost: number;
-  context?: any;
-}
-
-interface LayoutOptimizationRequest {
-  panels: any[];
-  constraints: {
-    max_width: number;
-    max_height: number;
-    [key: string]: any;
-  };
-}
-
-interface DocumentAnalysisRequest {
-  document_path: string;
-  analysis_type: 'general' | 'technical' | 'qc' | 'extraction';
 }
 
 // AI Service Configuration
 const AI_SERVICE_CONFIG = {
   baseUrl: process.env.NEXT_PUBLIC_AI_SERVICE_URL || 'http://localhost:5001',
   endpoints: {
-    chat: '/api/ai/chat',
     optimize: '/api/ai/panels/optimize',
     analyzeDocument: '/api/ai/documents/analyze',
-    enhancePanel: '/api/ai/panels/enhance',
-    createProject: '/api/ai/projects/create',
-    websocket: '/api/ai/websocket',
-    costs: '/api/ai/costs',
+    extractData: '/api/ai/documents/extract',
+    analyzeQC: '/api/ai/qc/analyze',
+    recommendations: '/api/ai/projects/recommendations',
     health: '/api/ai/health',
     models: '/api/ai/models'
   }
@@ -58,9 +29,7 @@ const AI_SERVICE_CONFIG = {
 // Base AI service function
 const callAIService = async (
   endpoint: string,
-  data: any,
-  user_id: string = 'anonymous',
-  user_tier: string = 'free_user'
+  data: any
 ): Promise<AIResponse> => {
   try {
     const response = await fetch(`${AI_SERVICE_CONFIG.baseUrl}${endpoint}`, {
@@ -68,11 +37,7 @@ const callAIService = async (
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        ...data,
-        user_id,
-        user_tier
-      })
+      body: JSON.stringify(data)
     });
 
     if (!response.ok) {
@@ -90,112 +55,43 @@ const callAIService = async (
   }
 };
 
-// Hook for AI Chat functionality
-export const useAIChat = (user_id?: string, user_tier?: string) => {
-  const [messages, setMessages] = useState<AIChatMessage[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
-
-  const sendMessage = useCallback(async (
-    message: string,
-    context?: any
-  ): Promise<AIResponse> => {
-    setIsLoading(true);
-    
-    try {
-      const result = await callAIService(
-        AI_SERVICE_CONFIG.endpoints.chat,
-        { message, context },
-        user_id,
-        user_tier
-      );
-
-      if (result.success) {
-        const newMessage: AIChatMessage = {
-          id: Date.now().toString(),
-          message,
-          response: result.response || '',
-          timestamp: new Date(),
-          cost: result.cost || 0,
-          context
-        };
-
-        setMessages(prev => [...prev, newMessage]);
-        
-        toast({
-          title: "AI Response",
-          description: "Message processed successfully",
-        });
-      } else {
-        toast({
-          title: "AI Error",
-          description: result.error || "Failed to process message",
-          variant: "destructive",
-        });
-      }
-
-      return result;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      toast({
-        title: "AI Error",
-        description: errorMessage,
-        variant: "destructive",
-      });
-      return { success: false, error: errorMessage };
-    } finally {
-      setIsLoading(false);
-    }
-  }, [user_id, user_tier, toast]);
-
-  const clearMessages = useCallback(() => {
-    setMessages([]);
-  }, []);
-
-  return {
-    messages,
-    sendMessage,
-    clearMessages,
-    isLoading
-  };
-};
-
-// Hook for Layout Optimization
-export const useLayoutOptimization = (user_id?: string, user_tier?: string) => {
+// Hook for Panel Layout Optimization
+export const usePanelOptimization = () => {
   const [isOptimizing, setIsOptimizing] = useState(false);
-  const [lastOptimization, setLastOptimization] = useState<any>(null);
+  const [optimizationHistory, setOptimizationHistory] = useState<any[]>([]);
   const { toast } = useToast();
 
-  const optimizeLayout = useCallback(async (
-    layoutData: LayoutOptimizationRequest
+  const optimizePanels = useCallback(async (
+    panels: any[],
+    strategy: string = 'balanced',
+    siteConfig: any = {}
   ): Promise<AIResponse> => {
     setIsOptimizing(true);
     
     try {
       const result = await callAIService(
         AI_SERVICE_CONFIG.endpoints.optimize,
-        { layout_data: layoutData },
-        user_id,
-        user_tier
+        { panels, strategy, site_config: siteConfig }
       );
 
       if (result.success) {
-        setLastOptimization({
-          original: layoutData,
-          optimized: result.optimized_layout,
-          cost: result.cost,
-          agents_used: result.agents_used,
+        const optimization = {
+          panels,
+          strategy,
+          result: result.result,
           timestamp: new Date()
-        });
+        };
+
+        setOptimizationHistory(prev => [...prev, optimization]);
 
         toast({
-          title: "Layout Optimized",
-          description: `Optimization completed with ${result.agents_used?.length || 0} AI agents`,
+          title: "Panel Layout Optimized",
+          description: "Optimization completed successfully",
         });
       } else {
         toast({
           title: "Optimization Failed",
-          description: result.error || "Failed to optimize layout",
+          description: result.error || "Failed to optimize panel layout",
           variant: "destructive",
         });
       }
@@ -212,41 +108,38 @@ export const useLayoutOptimization = (user_id?: string, user_tier?: string) => {
     } finally {
       setIsOptimizing(false);
     }
-  }, [user_id, user_tier, toast]);
+  }, [toast]);
 
   return {
-    optimizeLayout,
+    optimizePanels,
     isOptimizing,
-    lastOptimization
+    optimizationHistory
   };
 };
 
 // Hook for Document Analysis
-export const useDocumentAnalysis = (user_id?: string, user_tier?: string) => {
+export const useDocumentAnalysis = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisHistory, setAnalysisHistory] = useState<any[]>([]);
   const { toast } = useToast();
 
   const analyzeDocument = useCallback(async (
-    documentPath: string,
-    analysisType: string = 'general'
+    documentText: string,
+    question: string = 'Provide a comprehensive analysis of this document'
   ): Promise<AIResponse> => {
     setIsAnalyzing(true);
     
     try {
       const result = await callAIService(
         AI_SERVICE_CONFIG.endpoints.analyzeDocument,
-        { document_path: documentPath, analysis_type: analysisType },
-        user_id,
-        user_tier
+        { document_text: documentText, question }
       );
 
       if (result.success) {
         const analysis = {
-          document_path: documentPath,
-          analysis_type: analysisType,
-          result: result.analysis_result,
-          cost: result.cost,
+          document_text: documentText,
+          question,
+          result: result.result,
           timestamp: new Date()
         };
 
@@ -276,7 +169,7 @@ export const useDocumentAnalysis = (user_id?: string, user_tier?: string) => {
     } finally {
       setIsAnalyzing(false);
     }
-  }, [user_id, user_tier, toast]);
+  }, [toast]);
 
   return {
     analyzeDocument,
@@ -285,34 +178,42 @@ export const useDocumentAnalysis = (user_id?: string, user_tier?: string) => {
   };
 };
 
-// Hook for Panel Enhancement
-export const usePanelEnhancement = (user_id?: string, user_tier?: string) => {
-  const [isEnhancing, setIsEnhancing] = useState(false);
+// Hook for Data Extraction
+export const useDataExtraction = () => {
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [extractionHistory, setExtractionHistory] = useState<any[]>([]);
   const { toast } = useToast();
 
-  const enhancePanel = useCallback(async (
-    action: 'create' | 'update' | 'get',
-    panelData: any
+  const extractData = useCallback(async (
+    documentText: string,
+    extractionType: string = 'qc_data'
   ): Promise<AIResponse> => {
-    setIsEnhancing(true);
+    setIsExtracting(true);
     
     try {
       const result = await callAIService(
-        AI_SERVICE_CONFIG.endpoints.enhancePanel,
-        { action, panel_data: panelData },
-        user_id,
-        user_tier
+        AI_SERVICE_CONFIG.endpoints.extractData,
+        { document_text: documentText, extraction_type: extractionType }
       );
 
       if (result.success) {
+        const extraction = {
+          document_text: documentText,
+          extraction_type: extractionType,
+          result: result.result,
+          timestamp: new Date()
+        };
+
+        setExtractionHistory(prev => [...prev, extraction]);
+
         toast({
-          title: "Panel Enhanced",
-          description: `Panel ${action} completed with AI suggestions`,
+          title: "Data Extracted",
+          description: "Data extraction completed successfully",
         });
       } else {
         toast({
-          title: "Enhancement Failed",
-          description: result.error || "Failed to enhance panel",
+          title: "Extraction Failed",
+          description: result.error || "Failed to extract data",
           variant: "destructive",
         });
       }
@@ -321,49 +222,116 @@ export const usePanelEnhancement = (user_id?: string, user_tier?: string) => {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       toast({
-        title: "Enhancement Error",
+        title: "Extraction Error",
         description: errorMessage,
         variant: "destructive",
       });
       return { success: false, error: errorMessage };
     } finally {
-      setIsEnhancing(false);
+      setIsExtracting(false);
     }
-  }, [user_id, user_tier, toast]);
+  }, [toast]);
 
   return {
-    enhancePanel,
-    isEnhancing
+    extractData,
+    isExtracting,
+    extractionHistory
   };
 };
 
-// Hook for Project Creation with AI
-export const useAIProjectCreation = (user_id?: string, user_tier?: string) => {
-  const [isCreating, setIsCreating] = useState(false);
+// Hook for QC Analysis
+export const useQCAnalysis = () => {
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisHistory, setAnalysisHistory] = useState<any[]>([]);
   const { toast } = useToast();
 
-  const createProjectWithAI = useCallback(async (
+  const analyzeQCData = useCallback(async (
+    qcData: any[]
+  ): Promise<AIResponse> => {
+    setIsAnalyzing(true);
+    
+    try {
+      const result = await callAIService(
+        AI_SERVICE_CONFIG.endpoints.analyzeQC,
+        { qc_data: qcData }
+      );
+
+      if (result.success) {
+        const analysis = {
+          qc_data: qcData,
+          result: result.result,
+          timestamp: new Date()
+        };
+
+        setAnalysisHistory(prev => [...prev, analysis]);
+
+        toast({
+          title: "QC Data Analyzed",
+          description: "QC analysis completed successfully",
+        });
+      } else {
+        toast({
+          title: "QC Analysis Failed",
+          description: result.error || "Failed to analyze QC data",
+          variant: "destructive",
+        });
+      }
+
+      return result;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast({
+        title: "QC Analysis Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+      return { success: false, error: errorMessage };
+    } finally {
+      setIsAnalyzing(false);
+    }
+  }, [toast]);
+
+  return {
+    analyzeQCData,
+    isAnalyzing,
+    analysisHistory
+  };
+};
+
+// Hook for Project Recommendations
+export const useProjectRecommendations = () => {
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [recommendationsHistory, setRecommendationsHistory] = useState<any[]>([]);
+  const { toast } = useToast();
+
+  const generateRecommendations = useCallback(async (
     projectData: any
   ): Promise<AIResponse> => {
-    setIsCreating(true);
+    setIsGenerating(true);
     
     try {
       const result = await callAIService(
-        AI_SERVICE_CONFIG.endpoints.createProject,
-        { project_data: projectData },
-        user_id,
-        user_tier
+        AI_SERVICE_CONFIG.endpoints.recommendations,
+        { project_data: projectData }
       );
 
       if (result.success) {
+        const recommendations = {
+          project_data: projectData,
+          result: result.result,
+          timestamp: new Date()
+        };
+
+        setRecommendationsHistory(prev => [...prev, recommendations]);
+
         toast({
-          title: "Project Created",
-          description: "Project created with AI assistance",
+          title: "Recommendations Generated",
+          description: "Project recommendations completed successfully",
         });
       } else {
         toast({
-          title: "Project Creation Failed",
-          description: result.error || "Failed to create project",
+          title: "Recommendations Failed",
+          description: result.error || "Failed to generate recommendations",
           variant: "destructive",
         });
       }
@@ -372,118 +340,65 @@ export const useAIProjectCreation = (user_id?: string, user_tier?: string) => {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       toast({
-        title: "Project Creation Error",
+        title: "Recommendations Error",
         description: errorMessage,
         variant: "destructive",
       });
       return { success: false, error: errorMessage };
     } finally {
-      setIsCreating(false);
+      setIsGenerating(false);
     }
-  }, [user_id, user_tier, toast]);
+  }, [toast]);
 
   return {
-    createProjectWithAI,
-    isCreating
+    generateRecommendations,
+    isGenerating,
+    recommendationsHistory
   };
 };
 
-// Hook for AI Service Health and Status
-export const useAIServiceStatus = () => {
+// Hook for AI Service Health Check
+export const useAIServiceHealth = () => {
+  const [isChecking, setIsChecking] = useState(false);
   const [healthStatus, setHealthStatus] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
 
-  const checkHealth = useCallback(async () => {
-    setIsLoading(true);
+  const checkHealth = useCallback(async (): Promise<AIResponse> => {
+    setIsChecking(true);
+    
     try {
       const response = await fetch(`${AI_SERVICE_CONFIG.baseUrl}${AI_SERVICE_CONFIG.endpoints.health}`);
-      const status = await response.json();
-      setHealthStatus(status);
-      return status;
+      
+      if (!response.ok) {
+        throw new Error(`Health check failed: ${response.status}`);
+      }
+
+      const result = await response.json();
+      setHealthStatus(result);
+
+      toast({
+        title: "AI Service Status",
+        description: result.ai_service === 'healthy' ? 'AI service is operational' : 'AI service has issues',
+        variant: result.ai_service === 'healthy' ? 'default' : 'destructive',
+      });
+
+      return { success: true, result };
     } catch (error) {
-      console.error('Health check failed:', error);
-      setHealthStatus({ error: 'Health check failed' });
-      return { error: 'Health check failed' };
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast({
+        title: "Health Check Failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+      return { success: false, error: errorMessage };
     } finally {
-      setIsLoading(false);
+      setIsChecking(false);
     }
-  }, []);
-
-  const getAvailableModels = useCallback(async () => {
-    try {
-      const response = await fetch(`${AI_SERVICE_CONFIG.baseUrl}${AI_SERVICE_CONFIG.endpoints.models}`);
-      const models = await response.json();
-      return models;
-    } catch (error) {
-      console.error('Failed to get models:', error);
-      return {};
-    }
-  }, []);
-
-  useEffect(() => {
-    checkHealth();
-  }, [checkHealth]);
+  }, [toast]);
 
   return {
-    healthStatus,
     checkHealth,
-    getAvailableModels,
-    isLoading
-  };
-};
-
-// Hook for Cost Tracking
-export const useAICostTracking = (user_id?: string, user_tier?: string) => {
-  const [costs, setCosts] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(false);
-
-  const getCosts = useCallback(async () => {
-    if (!user_id) return;
-    
-    setIsLoading(true);
-    try {
-      const response = await fetch(
-        `${AI_SERVICE_CONFIG.baseUrl}${AI_SERVICE_CONFIG.endpoints.costs}/${user_id}?user_tier=${user_tier || 'free_user'}`
-      );
-      const costData = await response.json();
-      setCosts(costData);
-      return costData;
-    } catch (error) {
-      console.error('Failed to get costs:', error);
-      return null;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [user_id, user_tier]);
-
-  useEffect(() => {
-    getCosts();
-  }, [getCosts]);
-
-  return {
-    costs,
-    getCosts,
-    isLoading
-  };
-};
-
-// Combined hook for all AI functionality
-export const useAIService = (user_id?: string, user_tier?: string) => {
-  const chat = useAIChat(user_id, user_tier);
-  const layoutOptimization = useLayoutOptimization(user_id, user_tier);
-  const documentAnalysis = useDocumentAnalysis(user_id, user_tier);
-  const panelEnhancement = usePanelEnhancement(user_id, user_tier);
-  const projectCreation = useAIProjectCreation(user_id, user_tier);
-  const serviceStatus = useAIServiceStatus();
-  const costTracking = useAICostTracking(user_id, user_tier);
-
-  return {
-    chat,
-    layoutOptimization,
-    documentAnalysis,
-    panelEnhancement,
-    projectCreation,
-    serviceStatus,
-    costTracking
+    isChecking,
+    healthStatus
   };
 }; 
