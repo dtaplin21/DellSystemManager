@@ -191,8 +191,8 @@ router.get('/excel-export/:projectId', async (req, res) => {
     
     // Filter by document name if specified
     if (documentName) {
-      const filteredData = excelData.filter(export => 
-        export.metadata && export.metadata.documentName === documentName
+      const filteredData = excelData.filter(excelExport => 
+        excelExport.metadata && excelExport.metadata.documentName === documentName
       );
       
       if (filteredData.length === 0) {
@@ -317,6 +317,51 @@ router.get('/recommendations/:projectId', async (req, res) => {
   } catch (error) {
     console.error('Error getting recommendations:', error);
     res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// AI Q&A endpoint for project-specific questions
+router.post('/ask-question/:projectId', async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const { question } = req.body;
+    if (!question) {
+      return res.status(400).json({ error: 'No question provided.' });
+    }
+
+    // Get project context
+    const context = await projectContextStore.getProjectContext(projectId);
+
+    // Compose context summary for the AI
+    const contextSummary = `Project: ${context.project.name}\n` +
+      `Description: ${context.project.description || ''}\n` +
+      `Documents: ${context.documents.map(d => d.name).join(', ')}\n` +
+      `Panel count: ${context.panelLayout ? context.panelLayout.panels.length : 0}\n` +
+      `QC records: ${context.qcData.length}`;
+
+    // Call OpenAI with project context and user question
+    const response = await aiWorkflowOrchestrator.openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: `You are an expert geosynthetic project assistant. Answer user questions using ONLY the context below. If the answer is not in the documents or project context, say so.\n\nContext:\n${contextSummary}`
+        },
+        {
+          role: "user",
+          content: question
+        }
+      ],
+      max_tokens: 1200
+    });
+
+    res.json({
+      answer: response.choices[0].message.content,
+      references: [] // Optionally, add document references if you extract them
+    });
+  } catch (error) {
+    console.error('AI Q&A error:', error);
+    res.status(500).json({ error: 'Failed to answer question.' });
   }
 });
 
