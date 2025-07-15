@@ -76,15 +76,34 @@ export default function AIAssistantPage() {
   // Get project ID from URL params and sync with context
   useEffect(() => {
     const projectId = searchParams?.get('projectId');
+    console.log('URL params useEffect - projectId from URL:', projectId);
+    console.log('Current selectedProjectId:', selectedProjectId);
+    
     if (projectId && projectId !== selectedProjectId) {
+      console.log('Calling selectProject with projectId:', projectId);
       selectProject(projectId);
     }
   }, [searchParams, selectedProjectId, selectProject]);
 
   // Fetch documents for the selected project from backend
   const fetchDocuments = async () => {
-    if (!selectedProject) return;
+    console.log('fetchDocuments called with selectedProject:', selectedProject);
+    console.log('selectedProject type:', typeof selectedProject);
+    console.log('selectedProject.id:', selectedProject?.id);
+    
+    if (!selectedProject || !selectedProject.id) {
+      console.log('fetchDocuments: No selectedProject or selectedProject.id, skipping fetch');
+      return;
+    }
+    
+    // Check if selectedProject is just a string (ID) instead of an object
+    if (typeof selectedProject === 'string') {
+      console.log('fetchDocuments: selectedProject is a string, not an object. ID:', selectedProject);
+      return;
+    }
+    
     try {
+      console.log('fetchDocuments: Fetching documents for project:', selectedProject.id);
       const response = await fetch(`/api/connected-workflow/documents/${selectedProject.id}`);
       const data = await response.json();
       if (data.success) {
@@ -97,7 +116,16 @@ export default function AIAssistantPage() {
 
   // On project change, fetch documents
   useEffect(() => {
-    fetchDocuments();
+    console.log('useEffect triggered - selectedProject changed:', selectedProject);
+    console.log('selectedProject type:', typeof selectedProject);
+    console.log('selectedProject.id:', selectedProject?.id);
+    
+    if (selectedProject && selectedProject.id) {
+      console.log('useEffect: selectedProject changed, fetching documents for:', selectedProject.id);
+      fetchDocuments();
+    } else {
+      console.log('useEffect: selectedProject is not ready yet, skipping fetchDocuments');
+    }
   }, [selectedProject]);
 
   // Scroll to bottom when messages change
