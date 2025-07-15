@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { auth } = require('../middlewares/auth');
-const { db } = require('../db');
+const { db } = require('../db/index');
 const { projects, panels, qcData, documents } = require('../db/schema');
 const { eq, and } = require('drizzle-orm');
 const { 
