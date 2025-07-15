@@ -414,7 +414,7 @@ export async function createCheckoutSession(plan: 'basic' | 'premium'): Promise<
 
 export async function fetchDocuments(projectId: string): Promise<any> {
   try {
-    const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/documents/${projectId}`);
+    const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/connected-workflow/documents/${projectId}`);
     
     if (!response.ok) {
       if (response.status === 401) {
@@ -423,7 +423,8 @@ export async function fetchDocuments(projectId: string): Promise<any> {
       throw new Error(`Failed to fetch documents: ${response.statusText}`);
     }
     
-    return await response.json();
+    const data = await response.json();
+    return data.success ? data.documents : [];
   } catch (error) {
     console.error('Fetch documents error:', error);
     throw error;

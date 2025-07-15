@@ -32,13 +32,13 @@ export default function DocumentsPage() {
       
       setIsLoading(true);
       try {
-        const response = await fetch(`/api/documents?projectId=${selectedProjectId}`, {
+        const response = await fetch(`/api/connected-workflow/documents/${selectedProjectId}`, {
           credentials: 'include',
         });
         
         if (response.ok) {
           const data = await response.json();
-          setDocuments(data);
+          setDocuments(data.success ? data.documents : []);
         } else {
           console.error('Failed to fetch documents:', response.status);
           setDocuments([]);

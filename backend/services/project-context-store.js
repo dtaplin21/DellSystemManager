@@ -1,4 +1,4 @@
-const { db } = require('../db');
+const { db } = require('../db/index');
 const { projects, documents, panels, qcData } = require('../db/schema');
 const { eq } = require('drizzle-orm');
 const { v4: uuidv4 } = require('uuid');
