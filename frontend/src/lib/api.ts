@@ -452,7 +452,7 @@ export async function fetchQCData(projectId: string): Promise<any> {
 export async function scanHandwriting(file: File, projectId: string): Promise<any> {
   try {
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append('qcForm', file);
     formData.append('projectId', projectId);
 
     const authHeaders = await getAuthHeaders();

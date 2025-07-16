@@ -37,8 +37,21 @@ const ocrService = new HandwritingOCRService();
  * Process handwritten QC form and generate Excel report
  */
 router.post('/scan', auth, upload.single('qcForm'), async (req, res) => {
+  console.log('=== Handwriting Scan Request Received ===');
+  console.log('Request headers:', {
+    'content-type': req.headers['content-type'],
+    'authorization': req.headers.authorization ? 'Bearer [HIDDEN]' : 'none',
+    'user-agent': req.headers['user-agent']
+  });
+  console.log('Request body keys:', Object.keys(req.body || {}));
+  console.log('Request files:', req.files ? Object.keys(req.files) : 'none');
+  console.log('Request file (single):', req.file ? 'present' : 'none');
+  
   try {
     if (!req.file) {
+      console.log('❌ No file uploaded in request.');
+      console.log('Request body:', req.body);
+      console.log('Request files:', req.files);
       return res.status(400).json({ 
         success: false, 
         message: 'No file uploaded. Please upload a QC form image or PDF.' 
@@ -47,13 +60,36 @@ router.post('/scan', auth, upload.single('qcForm'), async (req, res) => {
 
     const { projectId } = req.body;
     if (!projectId) {
+      console.log('❌ No projectId provided in request body.');
       return res.status(400).json({ 
         success: false, 
         message: 'Project ID is required' 
       });
     }
 
-    console.log(`Processing handwriting scan for project ${projectId}...`);
+    console.log('✅ File received:', {
+      originalname: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size,
+      fieldname: req.file.fieldname
+    });
+    console.log('✅ Project ID:', projectId);
+    console.log('✅ User info:', {
+      id: req.user?.id,
+      email: req.user?.email,
+      displayName: req.user?.displayName
+    });
+
+    // Check if OpenAI API key is configured
+    if (!process.env.OPENAI_API_KEY) {
+      console.error('❌ OPENAI_API_KEY environment variable is not set');
+      return res.status(500).json({
+        success: false,
+        message: 'OpenAI API key is not configured. Please set OPENAI_API_KEY environment variable.'
+      });
+    }
+
+    console.log(`🔄 Processing handwriting scan for project ${projectId}...`);
 
     // Extract text from the uploaded image
     const extractedText = await ocrService.extractTextFromImage(
@@ -61,7 +97,7 @@ router.post('/scan', auth, upload.single('qcForm'), async (req, res) => {
       req.file.mimetype
     );
 
-    console.log('Text extracted successfully, parsing QC data...');
+    console.log('✅ Text extracted successfully, parsing QC data...');
 
     // Parse the extracted text into structured QC data
     const qcData = await ocrService.parseQCData(extractedText);
@@ -80,7 +116,7 @@ router.post('/scan', auth, upload.single('qcForm'), async (req, res) => {
     // Generate Excel report
     await ocrService.generateExcelReport(qcData, outputPath);
 
-    console.log(`Excel report generated: ${filename}`);
+    console.log(`✅ Excel report generated: ${filename}`);
 
     // Return the results
     res.json({
@@ -104,7 +140,13 @@ router.post('/scan', auth, upload.single('qcForm'), async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error processing handwriting scan:', error);
+    console.error('❌ Error processing handwriting scan:', error);
+    console.error('Error stack:', error.stack);
+    console.error('Error details:', {
+      name: error.name,
+      message: error.message,
+      code: error.code
+    });
     res.status(500).json({
       success: false,
       message: error.message || 'Failed to process handwriting scan',
