@@ -81,15 +81,32 @@ router.get('/:projectId', auth, async (req, res, next) => {
 
 // Upload documents
 router.post('/:projectId/upload', auth, upload.array('documents', 5), async (req, res, next) => {
+  console.log('=== Documents Upload Request Received ===');
+  console.log('Request headers:', {
+    'content-type': req.headers['content-type'],
+    'authorization': req.headers.authorization ? 'Bearer [HIDDEN]' : 'none',
+    'user-agent': req.headers['user-agent']
+  });
+  console.log('Request body keys:', Object.keys(req.body || {}));
+  console.log('Request files count:', req.files ? req.files.length : 0);
+  
   try {
     const { projectId } = req.params;
+    console.log('Project ID:', projectId);
+    console.log('User info:', {
+      id: req.user?.id,
+      email: req.user?.email,
+      displayName: req.user?.displayName
+    });
     
     // Validate project ID
     if (!validateObjectId(projectId)) {
+      console.log('❌ Invalid project ID:', projectId);
       return res.status(400).json({ message: 'Invalid project ID' });
     }
     
     // Verify project belongs to user
+    console.log('🔍 Verifying project ownership...');
     const [project] = await db
       .select()
       .from(projects)
@@ -99,18 +116,30 @@ router.post('/:projectId/upload', auth, upload.array('documents', 5), async (req
       ));
     
     if (!project) {
+      console.log('❌ Project not found or user not authorized');
       return res.status(404).json({ message: 'Project not found' });
     }
+    console.log('✅ Project verified:', project.name);
     
     // Handle uploaded files
     if (!req.files || req.files.length === 0) {
+      console.log('❌ No files uploaded in request');
+      console.log('Request body:', req.body);
       return res.status(400).json({ message: 'No files uploaded' });
     }
+    
+    console.log('✅ Files received:', req.files.map(f => ({
+      originalname: f.originalname,
+      mimetype: f.mimetype,
+      size: f.size,
+      fieldname: f.fieldname
+    })));
     
     const uploadedDocuments = [];
     
     // Save file info to database
     for (const file of req.files) {
+      console.log('💾 Saving file to database:', file.originalname);
       const newDocument = {
         id: uuidv4(),
         projectId,
@@ -128,13 +157,22 @@ router.post('/:projectId/upload', auth, upload.array('documents', 5), async (req
         .returning();
       
       uploadedDocuments.push(document);
+      console.log('✅ File saved:', file.originalname);
     }
     
+    console.log('🎉 All files uploaded successfully:', uploadedDocuments.length);
     res.status(200).json({ 
       message: 'Files uploaded successfully',
       documents: uploadedDocuments
     });
   } catch (error) {
+    console.error('❌ Documents upload failed:', error);
+    console.error('Error stack:', error.stack);
+    console.error('Error details:', {
+      name: error.name,
+      message: error.message,
+      code: error.code
+    });
     next(error);
   }
 });

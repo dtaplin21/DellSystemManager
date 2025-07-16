@@ -3,6 +3,8 @@ export const dynamic = "force-dynamic";
 
 import { useState, useEffect } from 'react';
 import { useProjects } from '@/contexts/ProjectsProvider';
+import { getCurrentSession } from '@/lib/supabase';
+import { useToast } from '@/hooks/use-toast';
 import NoProjectSelected from '@/components/ui/no-project-selected';
 import './documents.css';
 
@@ -19,6 +21,7 @@ interface Document {
 
 export default function DocumentsPage() {
   const { selectedProjectId, selectedProject } = useProjects();
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -146,37 +149,76 @@ export default function DocumentsPage() {
       const files = (event.target as HTMLInputElement).files;
       if (!files || files.length === 0) return;
       
+      console.log('=== Documents Page File Upload Started ===');
+      console.log('Files to upload:', Array.from(files).map(f => ({ name: f.name, size: f.size, type: f.type })));
+      console.log('Selected project ID:', selectedProjectId);
+      
       try {
         const formData = new FormData();
         Array.from(files).forEach(file => {
           formData.append('documents', file);
         });
         
+        // Get authentication headers
+        console.log('🔐 Getting authentication session...');
+        const session = await getCurrentSession();
+        console.log('Session status:', session ? 'valid' : 'null');
+        console.log('Session token preview:', session?.access_token ? session.access_token.substring(0, 20) + '...' : 'none');
+        
+        const headers: Record<string, string> = {};
+        if (session?.access_token) {
+          headers['Authorization'] = `Bearer ${session.access_token}`;
+        }
+        
+        console.log('🌐 Making upload request to:', `/api/documents/${selectedProjectId}/upload`);
+        console.log('Request headers:', headers);
+        
         const response = await fetch(`/api/documents/${selectedProjectId}/upload`, {
           method: 'POST',
+          headers,
           body: formData,
           credentials: 'include',
         });
         
+        console.log('📥 Response status:', response.status);
+        console.log('📥 Response headers:', Object.fromEntries(response.headers.entries()));
+        
         if (response.ok) {
           const data = await response.json();
+          console.log('✅ Upload response data:', data);
+          
           // Refresh the documents list
+          console.log('🔄 Fetching updated document list...');
           const docsResponse = await fetch(`/api/connected-workflow/documents/${selectedProjectId}`, {
             credentials: 'include',
           });
           if (docsResponse.ok) {
             const docsData = await docsResponse.json();
             setDocuments(docsData.success ? docsData.documents : []);
+            console.log('✅ Document list updated');
           }
           setShowUploadModal(false);
-          alert(`Successfully uploaded ${data.documents.length} document(s)`);
+          toast({
+            title: 'Upload Successful',
+            description: `Successfully uploaded ${data.documents.length} document(s)`,
+          });
         } else {
           const errorData = await response.json();
-          alert(`Upload failed: ${errorData.message || 'Unknown error'}`);
+          console.error('❌ Upload failed with status:', response.status);
+          console.error('❌ Error data:', errorData);
+          toast({
+            title: 'Upload Failed',
+            description: errorData.message || 'Unknown error',
+            variant: 'destructive',
+          });
         }
       } catch (error) {
-        console.error('Upload error:', error);
-        alert('Upload failed. Please try again.');
+        console.error('❌ Upload error:', error);
+        toast({
+          title: 'Upload Failed',
+          description: 'Upload failed. Please try again.',
+          variant: 'destructive',
+        });
       }
     };
     

@@ -8,6 +8,8 @@ import { useProjects } from '@/contexts/ProjectsProvider';
 import ProjectSelector from '@/components/projects/project-selector';
 import NoProjectSelected from '@/components/ui/no-project-selected';
 import { scanHandwriting, automateLayout } from '@/lib/api';
+import { getCurrentSession } from '@/lib/supabase';
+import { useToast } from '@/hooks/use-toast';
 import './ai.css';
 
 interface Message {
@@ -56,6 +58,7 @@ interface HandwritingScanResult {
 export default function AIAssistantPage() {
   const { user, isAuthenticated, loading } = useSupabaseAuth();
   const { selectedProjectId, selectedProject, selectProject, projects } = useProjects();
+  const { toast } = useToast();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -161,28 +164,76 @@ export default function AIAssistantPage() {
     const files = event.target.files;
     if (!files?.length || !selectedProject) return;
 
+    console.log('=== AI Page File Upload Started ===');
+    console.log('Files to upload:', Array.from(files).map(f => ({ name: f.name, size: f.size, type: f.type })));
+    console.log('Selected project:', selectedProject.id, selectedProject.name);
+
     setIsUploadingDoc(true);
 
     try {
       for (const file of Array.from(files)) {
+        console.log('📤 Uploading file:', file.name);
+        
         const formData = new FormData();
         formData.append('file', file);
-        // Optionally add more metadata here
+        
+        // Get authentication headers
+        console.log('🔐 Getting authentication session...');
+        const session = await getCurrentSession();
+        console.log('Session status:', session ? 'valid' : 'null');
+        console.log('Session token preview:', session?.access_token ? session.access_token.substring(0, 20) + '...' : 'none');
+        
+        const headers: Record<string, string> = {};
+        if (session?.access_token) {
+          headers['Authorization'] = `Bearer ${session.access_token}`;
+        }
+        
+        console.log('🌐 Making upload request to:', `/api/connected-workflow/upload-document/${selectedProject.id}`);
+        console.log('Request headers:', headers);
+        
         const response = await fetch(`/api/connected-workflow/upload-document/${selectedProject.id}`, {
           method: 'POST',
+          headers,
           body: formData,
           credentials: 'include',
         });
+        
+        console.log('📥 Response status:', response.status);
+        console.log('📥 Response headers:', Object.fromEntries(response.headers.entries()));
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error('❌ Upload failed with status:', response.status);
+          console.error('❌ Error data:', errorData);
+          throw new Error(errorData.error || `Upload failed: ${response.statusText}`);
+        }
+        
         const data = await response.json();
+        console.log('✅ Upload response data:', data);
+        
         if (!data.success) {
           throw new Error(data.error || 'Upload failed');
         }
+        
+        console.log('✅ File uploaded successfully:', file.name);
       }
+      
+      console.log('🔄 Fetching updated document list...');
       // After all uploads, fetch updated document list
       await fetchDocuments();
+      console.log('✅ Document list updated');
+      
+      toast({
+        title: 'Upload Successful',
+        description: `Successfully uploaded ${files.length} document(s)`,
+      });
     } catch (error) {
-      console.error('Error uploading document:', error);
-      alert('Failed to upload document. Please try again.');
+      console.error('❌ Error uploading document:', error);
+      toast({
+        title: 'Upload Failed',
+        description: error instanceof Error ? error.message : 'Failed to upload document. Please try again.',
+        variant: 'destructive',
+      });
     } finally {
       setIsUploadingDoc(false);
       if (fileInputRef.current) {
@@ -243,7 +294,11 @@ export default function AIAssistantPage() {
       setShowHandwritingPreview(true);
     } catch (error) {
       console.error('Error processing handwriting:', error);
-      alert('Failed to process handwriting. Please try again.');
+      toast({
+        title: 'Processing Failed',
+        description: 'Failed to process handwriting. Please try again.',
+        variant: 'destructive',
+      });
     } finally {
       setIsProcessingHandwriting(false);
     }

@@ -371,9 +371,10 @@ router.post('/ask-question/:projectId', async (req, res) => {
 });
 
 // Set up multer storage for document uploads
-const uploadDir = path.join(__dirname, '../../uploaded_documents');
+const uploadDir = path.join(__dirname, '../uploads');
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
+  console.log('📁 Created upload directory:', uploadDir);
 }
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -381,32 +382,69 @@ const storage = multer.diskStorage({
     const projectDir = path.join(uploadDir, projectId);
     if (!fs.existsSync(projectDir)) {
       fs.mkdirSync(projectDir, { recursive: true });
+      console.log('📁 Created project upload directory:', projectDir);
     }
     cb(null, projectDir);
   },
   filename: function (req, file, cb) {
-    cb(null, Date.now() + '-' + file.originalname);
+    const timestamp = Date.now();
+    const originalName = file.originalname;
+    const filename = `${timestamp}-${originalName}`;
+    console.log('📝 Generated filename:', filename);
+    cb(null, filename);
   }
 });
-const upload = multer({ storage });
+const upload = multer({ 
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  fileFilter: (req, file, cb) => {
+    const allowedFileTypes = ['.pdf', '.xls', '.xlsx', '.doc', '.docx', '.txt', '.csv'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowedFileTypes.includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only PDF, Excel, Word, text, and CSV files are allowed.'));
+    }
+  }
+});
 
 // Document upload endpoint
 router.post('/upload-document/:projectId', auth, upload.single('file'), async (req, res) => {
-  console.log('--- Document Upload Request Received ---');
+  console.log('=== Document Upload Request Received ===');
+  console.log('Request headers:', {
+    'content-type': req.headers['content-type'],
+    'authorization': req.headers.authorization ? 'Bearer [HIDDEN]' : 'none',
+    'user-agent': req.headers['user-agent']
+  });
+  console.log('Request body keys:', Object.keys(req.body || {}));
+  console.log('Request files:', req.files ? Object.keys(req.files) : 'none');
+  console.log('Request file (single):', req.file ? 'present' : 'none');
+  
   try {
     const { projectId } = req.params;
     console.log('Project ID:', projectId);
+    console.log('User info:', {
+      id: req.user?.id,
+      email: req.user?.email,
+      displayName: req.user?.displayName
+    });
+    
     const file = req.file;
     if (!file) {
-      console.log('No file uploaded in request.');
+      console.log('❌ No file uploaded in request.');
+      console.log('Request body:', req.body);
+      console.log('Request files:', req.files);
       return res.status(400).json({ success: false, error: 'No file uploaded' });
     }
-    console.log('File received:', {
+    
+    console.log('✅ File received:', {
       originalname: file.originalname,
       mimetype: file.mimetype,
       size: file.size,
-      path: file.path
+      path: file.path,
+      fieldname: file.fieldname
     });
+    
     // Save document metadata in DB
     const docMeta = {
       projectId,
@@ -417,12 +455,20 @@ router.post('/upload-document/:projectId', auth, upload.single('file'), async (r
       uploadedAt: new Date(),
       uploadedBy: req.user ? req.user.id : 'anonymous',
     };
-    console.log('Saving document metadata to projectContextStore:', docMeta);
+    
+    console.log('💾 Saving document metadata to projectContextStore:', docMeta);
     await projectContextStore.updateDocuments(projectId, docMeta, 'add');
-    console.log('Document metadata saved successfully.');
+    console.log('✅ Document metadata saved successfully.');
+    
     res.json({ success: true, document: docMeta });
   } catch (error) {
-    console.error('Document upload failed:', error);
+    console.error('❌ Document upload failed:', error);
+    console.error('Error stack:', error.stack);
+    console.error('Error details:', {
+      name: error.name,
+      message: error.message,
+      code: error.code
+    });
     res.status(500).json({ success: false, error: error.message });
   }
 });
