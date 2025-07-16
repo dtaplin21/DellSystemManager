@@ -19,7 +19,15 @@ const upload = multer({
     // Accept images and PDFs
     const allowedTypes = /jpeg|jpg|png|pdf/;
     const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
+    const mimetype = allowedTypes.test(file.mimetype) || file.mimetype === 'application/pdf';
+    
+    console.log('📁 File upload check:', {
+      originalname: file.originalname,
+      mimetype: file.mimetype,
+      extname: path.extname(file.originalname).toLowerCase(),
+      extnameMatch: allowedTypes.test(path.extname(file.originalname).toLowerCase()),
+      mimetypeMatch: allowedTypes.test(file.mimetype) || file.mimetype === 'application/pdf'
+    });
     
     if (mimetype && extname) {
       return cb(null, true);
@@ -89,10 +97,30 @@ router.post('/scan', auth, upload.single('qcForm'), async (req, res) => {
       });
     }
 
-    console.log(`🔄 Processing handwriting scan for project ${projectId}...`);
+    // Validate file type
+    const allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
+    if (!allowedMimeTypes.includes(req.file.mimetype)) {
+      console.error('❌ Invalid file type:', req.file.mimetype);
+      return res.status(400).json({
+        success: false,
+        message: `Invalid file type: ${req.file.mimetype}. Supported types: ${allowedMimeTypes.join(', ')}`
+      });
+    }
 
-    // Extract text from the uploaded image
-    const extractedText = await ocrService.extractTextFromImage(
+    // Validate file size (max 10MB)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (req.file.size > maxSize) {
+      console.error('❌ File too large:', req.file.size, 'bytes');
+      return res.status(400).json({
+        success: false,
+        message: `File too large: ${(req.file.size / 1024 / 1024).toFixed(2)}MB. Maximum size: 10MB`
+      });
+    }
+
+    console.log(`🔄 Processing ${req.file.mimetype} file for project ${projectId}...`);
+
+    // Extract text from the uploaded file (PDF or image)
+    const extractedData = await ocrService.extractTextFromFile(
       req.file.buffer, 
       req.file.mimetype
     );
@@ -100,7 +128,33 @@ router.post('/scan', auth, upload.single('qcForm'), async (req, res) => {
     console.log('✅ Text extracted successfully, parsing QC data...');
 
     // Parse the extracted text into structured QC data
-    const qcData = await ocrService.parseQCData(extractedText);
+    let qcData;
+    try {
+      qcData = await ocrService.parseQCData(extractedData);
+    } catch (parseError) {
+      console.warn('⚠️ OpenAI parsing failed, using fallback structure:', parseError.message);
+      
+      // Create a basic fallback structure
+      qcData = {
+        projectInfo: {
+          name: 'Unknown Project',
+          location: 'Unknown Location',
+          date: new Date().toISOString().split('T')[0],
+          inspector: 'Unknown',
+          weather: 'Unknown'
+        },
+        panels: [],
+        tests: [],
+        notes: [
+          {
+            section: 'Processing',
+            note: `Failed to parse QC data: ${parseError.message}. Raw text extracted successfully.`,
+            timestamp: new Date().toISOString()
+          }
+        ],
+        confidence: 0.1
+      };
+    }
 
     // Validate the parsed data
     const validation = ocrService.validateQCData(qcData);
@@ -126,7 +180,7 @@ router.post('/scan', auth, upload.single('qcForm'), async (req, res) => {
         excelUrl: `/api/handwriting/download/${filename}`,
         qcData: qcData,
         validation: validation,
-        extractedText: extractedText,
+        extractedText: extractedData,
         processingInfo: {
           originalFilename: req.file.originalname,
           fileSize: req.file.size,

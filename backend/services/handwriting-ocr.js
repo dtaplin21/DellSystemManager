@@ -2,6 +2,7 @@ const OpenAI = require('openai');
 const ExcelJS = require('exceljs');
 const path = require('path');
 const fs = require('fs').promises;
+const pdf = require('pdf-parse');
 
 class HandwritingOCRService {
   constructor() {
@@ -11,10 +12,63 @@ class HandwritingOCRService {
   }
 
   /**
+   * Extract text from uploaded file (handwritten image or PDF)
+   */
+  async extractTextFromFile(fileBuffer, mimeType) {
+    try {
+      console.log('🔄 Extracting text from file with mime type:', mimeType);
+      
+      if (mimeType === 'application/pdf') {
+        console.log('📄 Processing PDF file...');
+        return await this.extractTextFromPDF(fileBuffer);
+      } else if (mimeType.startsWith('image/')) {
+        console.log('🖼️ Processing image file...');
+        return await this.extractTextFromImage(fileBuffer, mimeType);
+      } else {
+        throw new Error(`Unsupported file type: ${mimeType}`);
+      }
+    } catch (error) {
+      console.error('❌ Error extracting text from file:', error);
+      throw new Error(`Failed to extract text from file: ${error.message}`);
+    }
+  }
+
+  /**
+   * Extract text from PDF using pdf-parse
+   */
+  async extractTextFromPDF(pdfBuffer) {
+    try {
+      console.log('📄 Extracting text from PDF...');
+      
+      const data = await pdf(pdfBuffer);
+      console.log('✅ PDF text extracted successfully');
+      console.log('📊 PDF info:', {
+        pages: data.numpages,
+        textLength: data.text.length,
+        info: data.info
+      });
+      
+      // Return structured data for PDF text
+      return {
+        type: 'pdf',
+        text: data.text,
+        pages: data.numpages,
+        info: data.info,
+        extractedAt: new Date().toISOString()
+      };
+    } catch (error) {
+      console.error('❌ Error extracting text from PDF:', error);
+      throw new Error('Failed to extract text from PDF');
+    }
+  }
+
+  /**
    * Extract text from handwritten QC form image using OpenAI Vision
    */
   async extractTextFromImage(imageBuffer, imageType = 'image/jpeg') {
     try {
+      console.log('🖼️ Extracting text from image using OpenAI Vision...');
+      
       const base64Image = imageBuffer.toString('base64');
       
       const response = await this.openai.chat.completions.create({
@@ -58,24 +112,50 @@ class HandwritingOCRService {
         max_tokens: 2000
       });
 
-      return JSON.parse(response.choices[0].message.content);
+      const result = JSON.parse(response.choices[0].message.content);
+      console.log('✅ Image text extracted successfully using OpenAI Vision');
+      
+      return {
+        type: 'image',
+        text: result,
+        extractedAt: new Date().toISOString()
+      };
     } catch (error) {
-      console.error('Error extracting text from image:', error);
+      console.error('❌ Error extracting text from image:', error);
       throw new Error('Failed to extract text from handwritten form');
     }
   }
 
   /**
-   * Parse extracted OCR text into structured QC data
+   * Parse extracted text into structured QC data
    */
-  async parseQCData(extractedText) {
+  async parseQCData(extractedData) {
     try {
+      console.log('🔄 Parsing extracted data into structured QC format...');
+      console.log('📊 Extracted data type:', extractedData.type);
+      
+      let textContent;
+      if (extractedData.type === 'pdf') {
+        // For PDFs, use the raw text content
+        textContent = extractedData.text;
+        console.log('📄 PDF text length:', textContent.length);
+        console.log('📄 PDF text preview:', textContent.substring(0, 200) + '...');
+      } else if (extractedData.type === 'image') {
+        // For images, use the structured OCR result
+        textContent = JSON.stringify(extractedData.text);
+        console.log('🖼️ Image OCR result:', extractedData.text);
+      } else {
+        throw new Error('Unknown extraction type: ' + extractedData.type);
+      }
+
+      console.log('🤖 Sending to OpenAI for parsing...');
+      
       const response = await this.openai.chat.completions.create({
         model: "gpt-4o", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
         messages: [
           {
             role: "system",
-            content: `You are a QC data processing expert. Parse the extracted OCR text into a standardized QC data structure.
+            content: `You are a QC data processing expert. Parse the extracted text into a standardized QC data structure.
 
             Expected QC schema:
             {
@@ -122,21 +202,68 @@ class HandwritingOCRService {
             - Test results need proper units (lbs, psi, etc.)
             - Dates should be standardized format
             - PASS/FAIL should be uppercase
-            - Flag any unclear or uncertain readings`
+            - Flag any unclear or uncertain readings
+            
+            For PDF text, look for structured data in tables, forms, or formatted text.
+            For handwritten text, interpret the OCR results carefully.
+            
+            IMPORTANT: Always return valid JSON that matches the schema above. If no QC data is found, return empty arrays and default values.`
           },
           {
             role: "user",
-            content: `Parse this OCR extracted text into structured QC data: ${JSON.stringify(extractedText)}`
+            content: `Parse this extracted text into structured QC data: ${textContent}`
           }
         ],
         response_format: { type: "json_object" },
         max_tokens: 2000
       });
 
-      return JSON.parse(response.choices[0].message.content);
+      console.log('✅ OpenAI response received');
+      console.log('📊 Response usage:', response.usage);
+      
+      const responseContent = response.choices[0].message.content;
+      console.log('📄 Response content preview:', responseContent.substring(0, 200) + '...');
+      
+      let result;
+      try {
+        result = JSON.parse(responseContent);
+        console.log('✅ JSON parsed successfully');
+      } catch (parseError) {
+        console.error('❌ JSON parse error:', parseError);
+        console.error('❌ Raw response content:', responseContent);
+        throw new Error(`Invalid JSON response from OpenAI: ${parseError.message}`);
+      }
+      
+      // Validate the result structure
+      if (!result || typeof result !== 'object') {
+        throw new Error('OpenAI returned invalid data structure');
+      }
+      
+      console.log('✅ QC data parsed successfully');
+      console.log('📊 Parsed structure:', {
+        hasProjectInfo: !!result.projectInfo,
+        panelsCount: result.panels?.length || 0,
+        testsCount: result.tests?.length || 0,
+        notesCount: result.notes?.length || 0
+      });
+      
+      return result;
     } catch (error) {
-      console.error('Error parsing QC data:', error);
-      throw new Error('Failed to parse QC data from extracted text');
+      console.error('❌ Error parsing QC data:', error);
+      console.error('❌ Error name:', error.name);
+      console.error('❌ Error message:', error.message);
+      console.error('❌ Error stack:', error.stack);
+      
+      if (error.name === 'OpenAIError') {
+        console.error('❌ OpenAI API error details:', {
+          status: error.status,
+          code: error.code,
+          type: error.type
+        });
+        throw new Error(`OpenAI API error: ${error.message}`);
+      }
+      
+      throw new Error(`Failed to parse QC data from extracted text: ${error.message}`);
     }
   }
 
