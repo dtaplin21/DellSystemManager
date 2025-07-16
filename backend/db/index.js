@@ -90,9 +90,12 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function connectToDatabase() {
   try {
+    console.log('🔌 Attempting to connect to database...');
+    console.log('🔌 Connection string preview:', connectionString.split('@')[0] + '@[HIDDEN]');
+    
     // Test the connection without creating a persistent client
     const client = await pool.connect();
-    console.log('Successfully connected to Supabase PostgreSQL database');
+    console.log('✅ Successfully connected to Supabase PostgreSQL database');
     
     // Log connection details (without sensitive info)
     const connectionInfo = {
@@ -102,14 +105,21 @@ async function connectToDatabase() {
       user: client.connectionParameters.user,
       ssl: client.connectionParameters.ssl ? 'enabled' : 'disabled'
     };
-    console.log('Connection details:', connectionInfo);
+    console.log('🔌 Connection details:', connectionInfo);
+    
+    // Test a simple query
+    const testResult = await client.query('SELECT NOW() as current_time, version() as db_version');
+    console.log('✅ Database test query successful:', {
+      currentTime: testResult.rows[0].current_time,
+      version: testResult.rows[0].db_version.substring(0, 50) + '...'
+    });
     
     client.release(); // Release the test connection immediately
     return db;
   } catch (error) {
-    console.error('Failed to connect to database:', error);
-    console.error('Connection string format:', connectionString.split('@')[0] + '@[HIDDEN]');
-    console.error('Error details:', {
+    console.error('❌ Failed to connect to database:', error);
+    console.error('❌ Connection string format:', connectionString.split('@')[0] + '@[HIDDEN]');
+    console.error('❌ Error details:', {
       code: error.code,
       message: error.message,
       stack: error.stack

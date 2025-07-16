@@ -29,7 +29,7 @@ class ProjectContextStore {
       }
 
       // Fetch related documents
-      const documents = await db
+      const projectDocuments = await db
         .select()
         .from(documents)
         .where(eq(documents.projectId, projectId));
@@ -58,7 +58,7 @@ class ProjectContextStore {
           createdAt: project.createdAt,
           updatedAt: project.updatedAt
         },
-        documents: documents.map(doc => ({
+        documents: projectDocuments.map(doc => ({
           id: doc.id,
           name: doc.name,
           type: doc.type,
@@ -143,10 +143,15 @@ class ProjectContextStore {
    */
   async updateDocuments(projectId, data, action) {
     try {
+      console.log('🔄 ProjectContextStore: Updating documents for project:', projectId);
+      console.log('🔄 Action:', action);
+      console.log('🔄 Data:', data);
+      
       switch (action) {
         case 'add':
+          console.log('➕ Adding new document to database...');
           // Add new document with UUID
-          await db.insert(documents).values({
+          const newDocument = {
             id: uuidv4(),
             projectId,
             name: data.name,
@@ -155,9 +160,15 @@ class ProjectContextStore {
             path: data.path,
             uploadedAt: new Date(),
             uploadedBy: data.uploadedBy
-          });
+          };
+          console.log('📝 Document to insert:', newDocument);
+          
+          const [insertedDocument] = await db.insert(documents).values(newDocument).returning();
+          console.log('✅ Document inserted successfully:', insertedDocument);
           break;
+          
         case 'update':
+          console.log('✏️ Updating existing document...');
           // Update existing document
           await db.update(documents)
             .set({
@@ -167,17 +178,35 @@ class ProjectContextStore {
               path: data.path
             })
             .where(eq(documents.id, data.id));
+          console.log('✅ Document updated successfully');
           break;
+          
         case 'delete':
+          console.log('🗑️ Deleting document...');
           // Delete document
           await db.delete(documents)
             .where(eq(documents.id, data.id));
+          console.log('✅ Document deleted successfully');
           break;
+          
         default:
-          console.warn(`Unknown action for documents: ${action}`);
+          console.warn(`⚠️ Unknown action for documents: ${action}`);
       }
+      
+      // Invalidate cache after any document operation
+      this.contextCache.delete(projectId);
+      console.log('🗂️ Cache invalidated for project:', projectId);
+      
     } catch (error) {
-      console.error('Error updating documents:', error);
+      console.error('❌ Error updating documents:', error);
+      console.error('Error stack:', error.stack);
+      console.error('Error details:', {
+        name: error.name,
+        message: error.message,
+        code: error.code,
+        constraint: error.constraint,
+        table: error.table
+      });
       throw error;
     }
   }
