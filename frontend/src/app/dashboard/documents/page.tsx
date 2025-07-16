@@ -135,9 +135,52 @@ export default function DocumentsPage() {
     alert(`View details functionality ready! This will show document ${docId} details when connected to backend.`);
   };
 
-  const handleUpload = () => {
-    alert('Upload functionality ready! This will connect to your backend when ready.');
-    setShowUploadModal(false);
+  const handleUpload = async () => {
+    // Create a file input element
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.multiple = true;
+    fileInput.accept = '.pdf,.xls,.xlsx,.doc,.docx,.txt,.csv,.dwg,.dxf';
+    
+    fileInput.onchange = async (event) => {
+      const files = (event.target as HTMLInputElement).files;
+      if (!files || files.length === 0) return;
+      
+      try {
+        const formData = new FormData();
+        Array.from(files).forEach(file => {
+          formData.append('documents', file);
+        });
+        
+        const response = await fetch(`/api/documents/${selectedProjectId}/upload`, {
+          method: 'POST',
+          body: formData,
+          credentials: 'include',
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          // Refresh the documents list
+          const docsResponse = await fetch(`/api/connected-workflow/documents/${selectedProjectId}`, {
+            credentials: 'include',
+          });
+          if (docsResponse.ok) {
+            const docsData = await docsResponse.json();
+            setDocuments(docsData.success ? docsData.documents : []);
+          }
+          setShowUploadModal(false);
+          alert(`Successfully uploaded ${data.documents.length} document(s)`);
+        } else {
+          const errorData = await response.json();
+          alert(`Upload failed: ${errorData.message || 'Unknown error'}`);
+        }
+      } catch (error) {
+        console.error('Upload error:', error);
+        alert('Upload failed. Please try again.');
+      }
+    };
+    
+    fileInput.click();
   };
 
   return (

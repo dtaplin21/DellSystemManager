@@ -1,6 +1,7 @@
 console.log('✅ connected-workflow.js route file loaded');
 const express = require('express');
 const router = express.Router();
+const { auth } = require('../middlewares/auth');
 const aiWorkflowOrchestrator = require('../services/ai-workflow-orchestrator');
 const projectContextStore = require('../services/project-context-store');
 const multer = require('multer');
@@ -390,7 +391,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 // Document upload endpoint
-router.post('/upload-document/:projectId', upload.single('file'), async (req, res) => {
+router.post('/upload-document/:projectId', auth, upload.single('file'), async (req, res) => {
   console.log('--- Document Upload Request Received ---');
   try {
     const { projectId } = req.params;

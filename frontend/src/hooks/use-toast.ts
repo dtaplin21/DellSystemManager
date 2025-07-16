@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useToast as useToastContext } from '@/components/ui/toast';
 
 // Types for toast components
 export type ToastProps = {
@@ -10,26 +11,19 @@ export type ToastProps = {
   variant?: 'default' | 'destructive' | 'success';
 };
 
-// Simple implementation for now (would normally use a toast library)
-const toastContext = React.createContext<{
-  toast: (props: ToastProps) => void;
-}>({
-  toast: () => {},
-});
-
 export const useToast = () => {
-  const context = React.useContext(toastContext);
+  const { showToast } = useToastContext();
 
-  if (!context) {
-    throw new Error('useToast must be used within a ToastProvider');
-  }
-
-  // For now, this will just log the toast message to the console
-  // In a production app, we would use a proper toast component
   const toast = React.useCallback((props: ToastProps) => {
-    console.log('Toast:', props);
-    alert(`${props.title}: ${props.description}`);
-  }, []);
+    const message = props.title && props.description 
+      ? `${props.title}: ${props.description}`
+      : props.title || props.description || 'Notification';
+    
+    const type = props.variant === 'destructive' ? 'error' : 
+                 props.variant === 'success' ? 'success' : 'info';
+    
+    showToast(message, type);
+  }, [showToast]);
 
   return { toast };
 };
