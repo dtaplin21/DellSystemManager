@@ -26,8 +26,10 @@ interface Message {
 
 interface Document {
   id: string;
-  filename: string;
-  uploadDate: string;
+  name: string;
+  uploadedAt: string;
+  type: string;
+  size: number;
   text?: string;
 }
 
@@ -465,9 +467,9 @@ export default function AIAssistantPage() {
                   documents.map(doc => (
                     <div key={doc.id} className="document-item">
                       <div className="doc-info">
-                        <span className="doc-name">{doc.filename}</span>
+                        <span className="doc-name">{doc.name}</span>
                         <span className="doc-date">
-                          {new Date(doc.uploadDate).toLocaleDateString()}
+                          {new Date(doc.uploadedAt).toLocaleDateString()}
                         </span>
                       </div>
                       <button className="btn-read-ai">Read with AI</button>
@@ -502,7 +504,7 @@ export default function AIAssistantPage() {
                             {message.references.map((ref, index) => (
                               <div key={index} className="reference-item">
                                 <span className="ref-source">
-                                  Document: {documents.find(d => d.id === ref.docId)?.filename || 'Unknown'} (Page {ref.page})
+                                  Document: {documents.find(d => d.id === ref.docId)?.name || 'Unknown'} (Page {ref.page})
                                 </span>
                                 <p className="ref-excerpt">"{ref.excerpt}"</p>
                               </div>

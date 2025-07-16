@@ -27,11 +27,10 @@ interface Panel {
 interface Document {
   id: string;
   name: string;
-  filename: string;
   uploadedAt: string;
   projectId: string;
-  fileSize?: number;
-  mimeType?: string;
+  type: string;
+  size: number;
   status?: string;
 }
 

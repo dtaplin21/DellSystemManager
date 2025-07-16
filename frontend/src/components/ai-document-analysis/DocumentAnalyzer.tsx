@@ -19,10 +19,10 @@ import { FileUp, FileText, FileSearch, FilePlus2, AlertTriangle, Loader2 } from 
 interface Document {
   id: string;
   name: string;
+  uploadedAt: string;
   type: string;
-  size: string;
-  uploadDate: string;
-  analyzed: boolean;
+  size: number;
+  text?: string;
 }
 
 interface QCDataEntry {
@@ -52,25 +52,25 @@ export default function DocumentAnalyzer() {
       id: '1',
       name: 'Project-Specifications.pdf',
       type: 'PDF',
-      size: '2.3 MB',
-      uploadDate: '2025-05-01',
-      analyzed: true
+      size: 2300000,
+      uploadedAt: '2025-05-01',
+      text: 'This is a placeholder text for Project-Specifications.pdf. In a real application, this would be the actual text content of the document.'
     },
     {
       id: '2',
       name: 'QC-Data-April.xlsx',
       type: 'Excel',
-      size: '1.8 MB',
-      uploadDate: '2025-05-02',
-      analyzed: false
+      size: 1800000,
+      uploadedAt: '2025-05-02',
+      text: 'This is a placeholder text for QC-Data-April.xlsx. In a real application, this would be the actual text content of the document.'
     },
     {
       id: '3',
       name: 'Site-Survey-Report.pdf',
       type: 'PDF',
-      size: '4.1 MB',
-      uploadDate: '2025-05-03',
-      analyzed: false
+      size: 4100000,
+      uploadedAt: '2025-05-03',
+      text: 'This is a placeholder text for Site-Survey-Report.pdf. In a real application, this would be the actual text content of the document.'
     }
   ]);
   
@@ -127,9 +127,9 @@ export default function DocumentAnalyzer() {
         id: Date.now() + index.toString(),
         name: file.name,
         type: file.name.endsWith('.pdf') ? 'PDF' : file.name.endsWith('.xlsx') ? 'Excel' : 'Document',
-        size: formatFileSize(file.size),
-        uploadDate: new Date().toISOString().split('T')[0],
-        analyzed: false
+        size: file.size,
+        uploadedAt: new Date().toISOString().split('T')[0],
+        text: 'This is a placeholder text for ' + file.name + '. In a real application, this would be the actual text content of the document.'
       }));
       
       setDocuments([...documents, ...newDocuments]);
@@ -333,18 +333,12 @@ export default function DocumentAnalyzer() {
                       <div className="flex-grow">
                         <div className="font-medium text-sm">{doc.name}</div>
                         <div className="text-xs text-gray-500 flex space-x-2">
-                          <span>{doc.size}</span>
+                          <span>{formatFileSize(doc.size)}</span>
                           <span>•</span>
-                          <span>{doc.uploadDate}</span>
+                          <span>{doc.uploadedAt}</span>
                         </div>
                       </div>
-                      {doc.analyzed && (
-                        <div className="ml-2 flex-shrink-0">
-                          <div className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
-                            Analyzed
-                          </div>
-                        </div>
-                      )}
+                      {/* Removed analyzed status as it's not in the Document interface */}
                     </div>
                   ))}
                 </div>
@@ -456,7 +450,7 @@ export default function DocumentAnalyzer() {
                       <FileText className="h-4 w-4 mr-2" />
                       <div className="text-left">
                         <div className="font-medium text-sm">{doc.name}</div>
-                        <div className="text-xs text-gray-500">{doc.type} • {doc.size}</div>
+                        <div className="text-xs text-gray-500">{doc.type} • {formatFileSize(doc.size)}</div>
                       </div>
                     </Button>
                   ))}

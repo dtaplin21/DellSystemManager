@@ -11,11 +11,10 @@ import './documents.css';
 interface Document {
   id: string;
   name: string;
-  filename: string;
   uploadedAt: string;
   projectId: string;
-  fileSize?: number;
-  mimeType?: string;
+  type: string;
+  size: number;
   status?: string;
 }
 
@@ -64,12 +63,11 @@ export default function DocumentsPage() {
   
   // Filter documents based on search query
   const filteredDocuments = documents.filter(doc => 
-    doc.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    doc.filename.toLowerCase().includes(searchQuery.toLowerCase())
+    doc.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
   
-  const getDocumentIcon = (filename: string) => {
-    const extension = filename.split('.').pop()?.toLowerCase();
+  const getDocumentIcon = (name: string) => {
+    const extension = name.split('.').pop()?.toLowerCase();
     switch (extension) {
       case 'pdf':
         return '📄';
@@ -84,8 +82,8 @@ export default function DocumentsPage() {
     }
   };
 
-  const getDocumentIconClass = (filename: string) => {
-    const extension = filename.split('.').pop()?.toLowerCase();
+  const getDocumentIconClass = (name: string) => {
+    const extension = name.split('.').pop()?.toLowerCase();
     switch (extension) {
       case 'pdf':
         return 'document-icon pdf';
@@ -100,8 +98,8 @@ export default function DocumentsPage() {
     }
   };
 
-  const getTypeClass = (filename: string) => {
-    const extension = filename.split('.').pop()?.toLowerCase();
+  const getTypeClass = (name: string) => {
+    const extension = name.split('.').pop()?.toLowerCase();
     switch (extension) {
       case 'pdf':
         return 'document-type-badge type-pdf';
@@ -116,14 +114,14 @@ export default function DocumentsPage() {
     }
   };
 
-  const getFileType = (filename: string) => {
-    const extension = filename.split('.').pop()?.toUpperCase();
+  const getFileType = (name: string) => {
+    const extension = name.split('.').pop()?.toUpperCase();
     return extension || 'FILE';
   };
 
-  const getFileSize = (fileSize?: number) => {
-    if (!fileSize) return 'Unknown size';
-    const bytes = fileSize;
+  const getFileSize = (size?: number) => {
+    if (!size) return 'Unknown size';
+    const bytes = size;
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     if (bytes === 0) return '0 Bytes';
     const i = Math.floor(Math.log(bytes) / Math.log(1024));
@@ -262,19 +260,19 @@ export default function DocumentsPage() {
               <div key={doc.id} className="document-card">
                 <div className="document-card-header">
                   <div className="document-header-content">
-                    <div className={getDocumentIconClass(doc.filename)}>
-                      {getDocumentIcon(doc.filename)}
+                    <div className={getDocumentIconClass(doc.name)}>
+                      {getDocumentIcon(doc.name)}
                     </div>
                     <div>
                       <h3 className="document-title">{doc.name}</h3>
-                      <p className="document-project">{doc.filename}</p>
+                      <p className="document-project">{doc.type}</p>
                     </div>
                   </div>
                 </div>
                 <div className="document-card-body">
                   <div className="document-details">
-                    <span className={getTypeClass(doc.filename)}>{getFileType(doc.filename)}</span>
-                    <span>{getFileSize(doc.fileSize)}</span>
+                    <span className={getTypeClass(doc.name)}>{getFileType(doc.name)}</span>
+                    <span>{getFileSize(doc.size)}</span>
                   </div>
                   <div className="document-uploaded">
                     Uploaded: {new Date(doc.uploadedAt).toLocaleDateString()}
