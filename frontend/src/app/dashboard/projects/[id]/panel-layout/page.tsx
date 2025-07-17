@@ -12,7 +12,9 @@ import PanelGrid from '@/components/panel-layout/panel-grid';
 import ControlToolbar from '@/components/panel-layout/control-toolbar';
 import ExportDialog from '@/components/panel-layout/export-dialog';
 import EditPanelDialog from '@/components/panel-layout/edit-panel-dialog';
+import AIExecutionOverlay from '@/components/panel-layout/ai-execution-overlay';
 import { generateId } from '@/lib/utils';
+import { useCanvasActionExecutor, AILayoutAction } from '@/services/canvasActionExecutor';
 
 interface Project {
   id: string;
@@ -61,6 +63,16 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
   const [selectedPanel, setSelectedPanel] = useState<any>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [position, setPosition] = useState({ x: 0, y: 0 });
+  
+  // AI Layout Execution State
+  const [aiActions, setAiActions] = useState<AILayoutAction[]>([]);
+  const [isExecutingAI, setIsExecutingAI] = useState(false);
+  const [aiExecutionProgress, setAiExecutionProgress] = useState({ current: 0, total: 0 });
+  const [aiExecutionResults, setAiExecutionResults] = useState<any[]>([]);
+  const [showAIExecutionOverlay, setShowAIExecutionOverlay] = useState(false);
+  
+  // Get AI actions from session storage
+  const { executeActions } = useCanvasActionExecutor(id);
   
   const { user } = useSupabaseAuth();
   const { toast } = useToast();
@@ -191,6 +203,43 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
     resolveParams();
   }, [params]);
 
+  // Check for AI-generated actions when component mounts
+  useEffect(() => {
+    if (!id) return;
+    
+    // Check if we came from AI generation
+    const urlParams = new URLSearchParams(window.location.search);
+    const aiGenerated = urlParams.get('aiGenerated');
+    
+    if (aiGenerated === 'true') {
+      // Load AI actions from session storage
+      const storedActions = sessionStorage.getItem(`aiLayoutActions_${id}`);
+      const storedSummary = sessionStorage.getItem(`aiLayoutSummary_${id}`);
+      
+      if (storedActions) {
+        try {
+          const actions = JSON.parse(storedActions);
+          setAiActions(actions);
+          
+          if (storedSummary) {
+            const summary = JSON.parse(storedSummary);
+            console.log('AI Layout Summary:', summary);
+          }
+          
+          // Show AI execution overlay
+          setShowAIExecutionOverlay(true);
+          
+          toast({
+            title: 'AI Layout Ready',
+            description: `Found ${actions.length} AI-generated panel actions. Click "Execute AI Layout" to apply them.`,
+          });
+        } catch (error) {
+          console.error('Error parsing AI actions:', error);
+        }
+      }
+    }
+  }, [id, toast]);
+
   useEffect(() => {
     console.log('[DEBUG] Load: useEffect triggered, id:', id);
     if (!id) return;
@@ -256,6 +305,100 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
 
     loadProjectAndLayout();
   }, [id, toast, router]);
+
+  // AI Layout Execution Functions
+  const handleExecuteAILayout = async () => {
+    if (!aiActions.length || !id) return;
+    
+    setIsExecutingAI(true);
+    setShowAIExecutionOverlay(true);
+    
+    try {
+      const results = await executeActions(aiActions, {
+        onProgress: (current, total, action) => {
+          setAiExecutionProgress({ current, total });
+          console.log(`Executing action ${current}/${total}:`, action.type);
+        },
+        onComplete: (results) => {
+          setAiExecutionResults(results);
+          const successCount = results.filter(r => r.success).length;
+          const totalCount = results.length;
+          
+          toast({
+            title: 'AI Layout Complete',
+            description: `Successfully executed ${successCount}/${totalCount} actions.`,
+          });
+          
+          // Refresh the layout to show new panels
+          if (layout) {
+            // Reload the project and layout data
+            const loadProjectAndLayout = async () => {
+              try {
+                const projectData = await fetchProjectById(id);
+                setProject(projectData);
+                
+                const layoutData = await fetchPanelLayout(id);
+                let processedPanels: any[] = [];
+                if (layoutData && Array.isArray(layoutData.panels)) {
+                  processedPanels = layoutData.panels.map((panel: any, idx: number) => mapPanelFields(panel, idx));
+                }
+                
+                setLayout({
+                  ...layoutData,
+                  width: layoutData?.width || DEFAULT_LAYOUT_WIDTH,
+                  height: layoutData?.height || DEFAULT_LAYOUT_HEIGHT,
+                  scale: layoutData?.scale || DEFAULT_SCALE,
+                  panels: processedPanels
+                });
+              } catch (error) {
+                console.error('Error reloading layout:', error);
+              }
+            };
+            loadProjectAndLayout();
+          }
+        },
+        onError: (error) => {
+          toast({
+            title: 'AI Execution Error',
+            description: error,
+            variant: 'destructive',
+          });
+        },
+        useBatch: true // Use batch execution for better performance
+      });
+      
+      console.log('AI execution results:', results);
+      
+    } catch (error) {
+      console.error('Error executing AI layout:', error);
+      toast({
+        title: 'AI Execution Failed',
+        description: error instanceof Error ? error.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsExecutingAI(false);
+      setShowAIExecutionOverlay(false);
+      
+      // Clear AI actions from session storage
+      sessionStorage.removeItem(`aiLayoutActions_${id}`);
+      sessionStorage.removeItem(`aiLayoutSummary_${id}`);
+    }
+  };
+
+  const handleCancelAILayout = () => {
+    setShowAIExecutionOverlay(false);
+    setAiActions([]);
+    setIsExecutingAI(false);
+    
+    // Clear AI actions from session storage
+    sessionStorage.removeItem(`aiLayoutActions_${id}`);
+    sessionStorage.removeItem(`aiLayoutSummary_${id}`);
+    
+    // Remove AI flag from URL
+    const newUrl = window.location.pathname;
+    window.history.replaceState({}, '', newUrl);
+  };
 
   // After loading layout, log the loaded layout and panels
   useEffect(() => {
@@ -631,6 +774,18 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
           </Button>
         </div>
       </div>
+
+      {/* AI Layout Execution UI */}
+      {showAIExecutionOverlay && (
+        <AIExecutionOverlay
+          isVisible={showAIExecutionOverlay}
+          isExecuting={isExecutingAI}
+          actions={aiActions}
+          progress={aiExecutionProgress}
+          onExecute={handleExecuteAILayout}
+          onCancel={handleCancelAILayout}
+        />
+      )}
 
       <Card className="w-full">
         <CardHeader>

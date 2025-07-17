@@ -172,10 +172,10 @@ Please provide a structured analysis in JSON format with the following sections:
   }
 });
 
-// Automated layout generation endpoint
+// Enhanced AI layout generation endpoint with action-based system
 router.post('/automate-layout', requireAuth, async (req, res) => {
   try {
-    const { projectId, documents } = req.body;
+    const { projectId, documents, siteConstraints = {} } = req.body;
 
     if (!projectId) {
       return res.status(400).json({ error: 'Project ID is required' });
@@ -188,69 +188,57 @@ router.post('/automate-layout', requireAuth, async (req, res) => {
       completed_at: null
     });
 
-    // Extract site information from documents
-    let documentContent = '';
-    if (documents && documents.length > 0) {
-      documents.forEach(doc => {
-        if (doc.text) {
-          documentContent += `Document: ${doc.filename}\n${doc.text}\n\n`;
-        }
-      });
-    }
+    // Import the AI layout generator
+    const aiLayoutGenerator = require('../services/aiLayoutGenerator');
 
-    const prompt = `Based on the following project documents, extract site information and generate panel layout parameters for a geosynthetic installation.
+    // Generate AI layout actions
+    const result = await aiLayoutGenerator.generateLayoutActions(documents, siteConstraints);
 
-Documents:
-${documentContent}
-
-Please extract and provide the following information in JSON format:
-- site_dimensions: { width: number, length: number } in feet
-- panel_specifications: { width: number, length: number } in feet  
-- overlap_requirements: { minimum_overlap: number } in inches
-- site_conditions: { slope: number, terrain_type: string }
-- installation_requirements: array of requirements
-- recommended_layout: { panels_x: number, panels_y: number, total_panels: number }
-
-If specific dimensions aren't found in the documents, use typical industry standards for geosynthetic installations.`;
-
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
-      messages: [
-        {
-          role: "system",
-          content: "You are an expert geosynthetic engineer. Extract site information and generate appropriate panel layout parameters based on industry standards and document analysis."
-        },
-        {
-          role: "user",
-          content: prompt
-        }
-      ],
-      response_format: { type: "json_object" },
-      max_tokens: 1500,
-      temperature: 0.3
-    });
-
-    const layoutData = JSON.parse(response.choices[0].message.content);
-
-    // Simulate processing time (in production, this would call the panel optimizer service)
-    setTimeout(() => {
+    if (!result.success) {
+      // If AI generation fails, use fallback actions
+      console.warn('AI generation failed, using fallback actions');
+      const fallbackResult = aiLayoutGenerator.generateFallbackActions(siteConstraints);
+      
+      // Update job status with fallback actions
       jobStatus.set(projectId, {
         status: 'completed',
         created_at: jobStatus.get(projectId)?.created_at || new Date().toISOString(),
         completed_at: new Date().toISOString(),
-        layout_data: layoutData
+        actions: fallbackResult.actions,
+        summary: fallbackResult.summary,
+        isFallback: true
       });
-    }, 3000);
+
+      res.json({
+        message: 'Layout generation completed (fallback mode)',
+        actions: fallbackResult.actions,
+        summary: fallbackResult.summary,
+        jobId: projectId,
+        isFallback: true
+      });
+      return;
+    }
+
+    // Update job status with generated actions
+    jobStatus.set(projectId, {
+      status: 'completed',
+      created_at: jobStatus.get(projectId)?.created_at || new Date().toISOString(),
+      completed_at: new Date().toISOString(),
+      actions: result.actions,
+      summary: result.summary,
+      tokensUsed: result.tokensUsed
+    });
 
     res.json({
-      message: 'Layout generation started',
-      layoutData,
+      message: 'AI layout actions generated successfully',
+      actions: result.actions,
+      summary: result.summary,
       jobId: projectId,
-      tokensUsed: response.usage?.total_tokens || 0
+      tokensUsed: result.tokensUsed
     });
 
   } catch (error) {
-    console.error('Error in automated layout generation:', error);
+    console.error('Error in AI layout generation:', error);
     
     // Update job status to failed
     if (req.body.projectId) {
@@ -263,8 +251,106 @@ If specific dimensions aren't found in the documents, use typical industry stand
     }
 
     res.status(500).json({ 
-      error: 'Failed to generate automated layout',
+      error: 'Failed to generate AI layout',
       details: error.message 
+    });
+  }
+});
+
+// New endpoint to execute AI-generated layout actions
+router.post('/execute-ai-layout', requireAuth, async (req, res) => {
+  try {
+    const { projectId, actions } = req.body;
+
+    if (!projectId || !actions || !Array.isArray(actions)) {
+      return res.status(400).json({ 
+        error: 'Project ID and actions array are required' 
+      });
+    }
+
+    // Import the panel layout service
+    const panelLayoutService = require('../services/panelLayoutService');
+
+    const results = [];
+
+    for (const action of actions) {
+      try {
+        switch (action.type) {
+          case 'CREATE_PANEL':
+            const newPanel = await panelLayoutService.createPanel(projectId, action.payload);
+            results.push({ 
+              success: true, 
+              type: 'CREATE_PANEL', 
+              panel: newPanel,
+              actionId: action.id 
+            });
+            break;
+
+          case 'MOVE_PANEL':
+            const movedPanel = await panelLayoutService.movePanel(
+              projectId, 
+              action.payload.panelId, 
+              action.payload.newPosition
+            );
+            results.push({ 
+              success: true, 
+              type: 'MOVE_PANEL', 
+              panel: movedPanel,
+              actionId: action.id 
+            });
+            break;
+
+          case 'DELETE_PANEL':
+            const deleteResult = await panelLayoutService.deletePanel(
+              projectId, 
+              action.payload.panelId
+            );
+            results.push({ 
+              success: true, 
+              type: 'DELETE_PANEL', 
+              result: deleteResult,
+              actionId: action.id 
+            });
+            break;
+
+          default:
+            results.push({ 
+              success: false, 
+              type: action.type, 
+              error: 'Unknown action type',
+              actionId: action.id 
+            });
+        }
+      } catch (error) {
+        results.push({ 
+          success: false, 
+          type: action.type, 
+          error: error.message,
+          actionId: action.id 
+        });
+      }
+    }
+
+    const successCount = results.filter(r => r.success).length;
+    const totalCount = results.length;
+
+    res.json({
+      success: true,
+      results,
+      summary: {
+        totalActions: totalCount,
+        successfulActions: successCount,
+        failedActions: totalCount - successCount,
+        successRate: (successCount / totalCount) * 100
+      },
+      message: `Executed ${successCount}/${totalCount} AI layout actions successfully`
+    });
+
+  } catch (error) {
+    console.error('Error executing AI layout:', error);
+    res.status(500).json({
+      error: 'Failed to execute AI layout',
+      details: error.message
     });
   }
 });

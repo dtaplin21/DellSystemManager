@@ -37,6 +37,8 @@ interface JobStatus {
   status: 'idle' | 'processing' | 'completed' | 'failed';
   created_at?: string;
   completed_at?: string;
+  actions?: any[];
+  summary?: any;
 }
 
 interface HandwritingScanResult {
@@ -352,13 +354,28 @@ const [isAnalyzingDocuments, setIsAnalyzingDocuments] = useState(false);
     setJobStatus({ status: 'processing' });
 
     try {
+      // Generate AI layout actions
       const result = await automateLayout(
         selectedProject.id,
         selectedProject.panels,
         selectedProject.documents
       );
-      console.log('Layout generation result:', result);
-      setJobStatus({ status: 'completed', created_at: new Date().toISOString() });
+      
+      console.log('AI layout generation result:', result);
+      
+      // Store the generated actions for later execution
+      if (result.actions && Array.isArray(result.actions)) {
+        // Store actions in session storage for the panel layout page
+        sessionStorage.setItem(`aiLayoutActions_${selectedProject.id}`, JSON.stringify(result.actions));
+        sessionStorage.setItem(`aiLayoutSummary_${selectedProject.id}`, JSON.stringify(result.summary));
+      }
+      
+      setJobStatus({ 
+        status: 'completed', 
+        created_at: new Date().toISOString(),
+        actions: result.actions,
+        summary: result.summary
+      });
     } catch (error) {
       console.error('Error generating layout:', error);
       setJobStatus({ status: 'failed' });
@@ -705,7 +722,10 @@ const [isAnalyzingDocuments, setIsAnalyzingDocuments] = useState(false);
                   <div className="generation-complete">
                     <span className="success-message">✓ Layout generated successfully!</span>
                     <button 
-                      onClick={() => router.push(`/dashboard/projects/${selectedProject?.id}/panel-layout`)}
+                      onClick={() => {
+                        // Navigate to panel layout page with AI actions flag
+                        router.push(`/dashboard/projects/${selectedProject?.id}/panel-layout?aiGenerated=true`);
+                      }}
                       className="btn-view-layout"
                     >
                       View Layout
