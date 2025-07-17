@@ -291,14 +291,24 @@ export default function AIAssistantPage() {
     setIsProcessingHandwriting(true);
 
     try {
-      const result = await scanHandwriting(files[0], selectedProject.id);
-      setHandwritingResult(result);
-      setShowHandwritingPreview(true);
+      const response = await scanHandwriting(files[0], selectedProject.id);
+      console.log('Handwriting scan response:', response);
+      // Handle the backend response structure
+      if (response && response.success && response.data) {
+        setHandwritingResult(response.data);
+        setShowHandwritingPreview(true);
+        toast({
+          title: 'Processing Complete',
+          description: response.message || 'QC form processed successfully',
+        });
+      } else {
+        throw new Error(response?.message || 'Failed to process handwriting');
+      }
     } catch (error) {
       console.error('Error processing handwriting:', error);
       toast({
         title: 'Processing Failed',
-        description: 'Failed to process handwriting. Please try again.',
+        description: error instanceof Error ? error.message : 'Failed to process handwriting. Please try again.',
         variant: 'destructive',
       });
     } finally {
