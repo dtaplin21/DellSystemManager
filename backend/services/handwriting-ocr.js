@@ -68,8 +68,11 @@ class HandwritingOCRService {
   async extractTextFromImage(imageBuffer, imageType = 'image/jpeg') {
     try {
       console.log('🖼️ Extracting text from image using OpenAI Vision...');
+      console.log('📊 Image buffer size:', imageBuffer.length, 'bytes');
+      console.log('📊 Image type:', imageType);
       
       const base64Image = imageBuffer.toString('base64');
+      console.log('📊 Base64 image length:', base64Image.length);
       
       const response = await this.openai.chat.completions.create({
         model: "gpt-4o", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
@@ -90,6 +93,9 @@ class HandwritingOCRService {
             - Measurement units (ft, m, mm, etc.)
             - Test result values and their units
             
+            IMPORTANT: If you cannot read any text clearly, return a JSON object with an "error" field explaining what you see.
+            If you can read some text, return it in a structured format with clear labels.
+            
             Return the extracted text in a structured JSON format with clear field labels.`
           },
           {
@@ -97,7 +103,7 @@ class HandwritingOCRService {
             content: [
               {
                 type: "text",
-                text: "Please extract all handwritten text from this QC form image. Focus on accuracy for pencil writing and provide structured output."
+                text: "Please extract all handwritten text from this QC form image. Focus on accuracy for pencil writing and provide structured output. If you cannot read the text clearly, explain what you see."
               },
               {
                 type: "image_url",
@@ -112,8 +118,22 @@ class HandwritingOCRService {
         max_tokens: 2000
       });
 
-      const result = JSON.parse(response.choices[0].message.content);
-      console.log('✅ Image text extracted successfully using OpenAI Vision');
+      console.log('✅ OpenAI Vision response received');
+      console.log('📊 Response usage:', response.usage);
+      
+      const responseContent = response.choices[0].message.content;
+      console.log('📄 Raw response content:', responseContent);
+      
+      let result;
+      try {
+        result = JSON.parse(responseContent);
+        console.log('✅ Image text extracted successfully using OpenAI Vision');
+        console.log('📊 Extracted result structure:', Object.keys(result));
+      } catch (parseError) {
+        console.error('❌ JSON parse error for image extraction:', parseError);
+        console.error('❌ Raw response content:', responseContent);
+        throw new Error(`Invalid JSON response from OpenAI Vision: ${parseError.message}`);
+      }
       
       return {
         type: 'image',
@@ -122,7 +142,23 @@ class HandwritingOCRService {
       };
     } catch (error) {
       console.error('❌ Error extracting text from image:', error);
-      throw new Error('Failed to extract text from handwritten form');
+      console.error('❌ Error details:', {
+        name: error.name,
+        message: error.message,
+        code: error.code,
+        status: error.status
+      });
+      
+      if (error.name === 'OpenAIError') {
+        console.error('❌ OpenAI API error details:', {
+          status: error.status,
+          code: error.code,
+          type: error.type
+        });
+        throw new Error(`OpenAI Vision API error: ${error.message}`);
+      }
+      
+      throw new Error(`Failed to extract text from handwritten form: ${error.message}`);
     }
   }
 

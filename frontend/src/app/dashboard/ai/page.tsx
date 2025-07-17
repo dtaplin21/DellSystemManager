@@ -290,13 +290,24 @@ const [isAnalyzingDocuments, setIsAnalyzingDocuments] = useState(false);
     const files = event.target.files;
     if (!files || files.length === 0 || !selectedProject) return;
 
+    console.log('=== Handwriting Upload Started ===');
+    console.log('📁 File details:', {
+      name: files[0].name,
+      size: files[0].size,
+      type: files[0].type,
+      lastModified: new Date(files[0].lastModified).toISOString()
+    });
+    console.log('🏗️ Project ID:', selectedProject.id);
+
     setIsProcessingHandwriting(true);
 
     try {
       const response = await scanHandwriting(files[0], selectedProject.id);
-      console.log('Handwriting scan response:', response);
+      console.log('📥 Handwriting scan response:', response);
+      
       // Handle the backend response structure
       if (response && response.success && response.data) {
+        console.log('✅ Processing successful, setting result:', response.data);
         setHandwritingResult(response.data);
         setShowHandwritingPreview(true);
         toast({
@@ -304,10 +315,17 @@ const [isAnalyzingDocuments, setIsAnalyzingDocuments] = useState(false);
           description: response.message || 'QC form processed successfully',
         });
       } else {
-        throw new Error(response?.message || 'Failed to process handwriting');
+        console.error('❌ Processing failed - invalid response structure:', response);
+        throw new Error(response?.message || 'Failed to process handwriting - invalid response');
       }
     } catch (error) {
-      console.error('Error processing handwriting:', error);
+      console.error('❌ Error processing handwriting:', error);
+      console.error('❌ Error details:', {
+        name: error instanceof Error ? error.name : 'Unknown',
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : 'No stack trace'
+      });
+      
       toast({
         title: 'Processing Failed',
         description: error instanceof Error ? error.message : 'Failed to process handwriting. Please try again.',
@@ -315,6 +333,9 @@ const [isAnalyzingDocuments, setIsAnalyzingDocuments] = useState(false);
       });
     } finally {
       setIsProcessingHandwriting(false);
+      if (handwritingInputRef.current) {
+        handwritingInputRef.current.value = '';
+      }
     }
   };
 
@@ -608,8 +629,8 @@ const [isAnalyzingDocuments, setIsAnalyzingDocuments] = useState(false);
                   <div className="results-header">
                     <h3>Scan Results</h3>
                     <div className="confidence-indicator">
-                      <span className={`confidence ${handwritingResult.validation.confidence > 0.8 ? 'high' : handwritingResult.validation.confidence > 0.6 ? 'medium' : 'low'}`}>
-                        {(handwritingResult.validation.confidence * 100).toFixed(1)}% confidence
+                      <span className={`confidence ${(handwritingResult.validation?.confidence || 0) > 0.8 ? 'high' : (handwritingResult.validation?.confidence || 0) > 0.6 ? 'medium' : 'low'}`}>
+                        {((handwritingResult.validation?.confidence || 0) * 100).toFixed(1)}% confidence
                       </span>
                     </div>
                   </div>
@@ -618,21 +639,21 @@ const [isAnalyzingDocuments, setIsAnalyzingDocuments] = useState(false);
                     <div className="summary-stats">
                       <div className="stat">
                         <span className="label">Panels:</span>
-                        <span className="value">{handwritingResult.qcData.panels?.length || 0}</span>
+                        <span className="value">{handwritingResult.qcData?.panels?.length || 0}</span>
                       </div>
                       <div className="stat">
                         <span className="label">Tests:</span>
-                        <span className="value">{handwritingResult.qcData.tests?.length || 0}</span>
+                        <span className="value">{handwritingResult.qcData?.tests?.length || 0}</span>
                       </div>
                       <div className="stat">
                         <span className="label">Status:</span>
-                        <span className={`value status-${handwritingResult.validation.isValid ? 'valid' : 'invalid'}`}>
-                          {handwritingResult.validation.isValid ? 'Valid' : 'Invalid'}
+                        <span className={`value status-${handwritingResult.validation?.isValid ? 'valid' : 'invalid'}`}>
+                          {handwritingResult.validation?.isValid ? 'Valid' : 'Invalid'}
                         </span>
                       </div>
                     </div>
 
-                    {handwritingResult.validation.issues.length > 0 && (
+                    {handwritingResult.validation?.issues?.length > 0 && (
                       <div className="validation-issues">
                         <h4>Issues Found:</h4>
                         <ul>
