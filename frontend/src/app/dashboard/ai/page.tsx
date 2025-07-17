@@ -73,6 +73,8 @@ export default function AIAssistantPage() {
   const [handwritingResult, setHandwritingResult] = useState<HandwritingScanResult | null>(null);
   const [showHandwritingPreview, setShowHandwritingPreview] = useState(false);
   const [showProjectSelector, setShowProjectSelector] = useState(false);
+  const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
+const [isAnalyzingDocuments, setIsAnalyzingDocuments] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const handwritingInputRef = useRef<HTMLInputElement>(null);
@@ -350,6 +352,14 @@ export default function AIAssistantPage() {
     router.push(`/dashboard/ai?projectId=${project.id}`);
   };
 
+  const handleReadWithAI = (docId: string) => {
+    setSelectedDocuments([docId]);
+    toast({
+      title: 'Document Selected',
+      description: 'You can now ask questions about this document using the chat.',
+    });
+  };
+
   if (!isAuthenticated) {
     return (
       <div className="ai-page">
@@ -475,14 +485,16 @@ export default function AIAssistantPage() {
                   <p className="empty-state">No documents uploaded yet. Upload PDFs or Word documents to get started.</p>
                 ) : (
                   documents.map(doc => (
-                    <div key={doc.id} className="document-item">
+                    <div key={doc.id} className={`document-item${selectedDocuments.includes(doc.id) ? ' selected' : ''}`}>
                       <div className="doc-info">
                         <span className="doc-name">{doc.name}</span>
                         <span className="doc-date">
                           {new Date(doc.uploadedAt).toLocaleDateString()}
                         </span>
                       </div>
-                      <button className="btn-read-ai">Read with AI</button>
+                      <button className="btn-read-ai" onClick={() => handleReadWithAI(doc.id)}>
+                        Read with AI
+                      </button>
                     </div>
                   ))
                 )}
@@ -537,7 +549,11 @@ export default function AIAssistantPage() {
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                  placeholder={selectedProject ? "Ask a question about your documents..." : "Select a project first"}
+                  placeholder={selectedProject ?
+                    (selectedDocuments.length > 0
+                      ? `Ask a question about ${documents.find(d => d.id === selectedDocuments[0])?.name || 'this document'}...`
+                      : 'Ask a question about your documents...')
+                    : 'Select a project first'}
                   disabled={!selectedProject}
                 />
                 <button 
