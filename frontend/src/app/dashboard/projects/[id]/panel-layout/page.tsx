@@ -71,6 +71,9 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
   const [aiExecutionResults, setAiExecutionResults] = useState<any[]>([]);
   const [showAIExecutionOverlay, setShowAIExecutionOverlay] = useState(false);
   
+  // Window dimensions state
+  const [windowDimensions, setWindowDimensions] = useState({ width: 800, height: 600 });
+  
   // Get AI actions from session storage
   const { executeActions } = useCanvasActionExecutor(id);
   
@@ -203,40 +206,69 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
     resolveParams();
   }, [params]);
 
+  // Handle window dimensions
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const updateDimensions = () => {
+        setWindowDimensions({
+          width: window.innerWidth,
+          height: window.innerHeight
+        });
+      };
+      
+      updateDimensions();
+      window.addEventListener('resize', updateDimensions);
+      
+      return () => window.removeEventListener('resize', updateDimensions);
+    }
+  }, []);
+
   // Check for AI-generated actions when component mounts
   useEffect(() => {
     if (!id) return;
     
-    // Check if we came from AI generation
-    const urlParams = new URLSearchParams(window.location.search);
-    const aiGenerated = urlParams.get('aiGenerated');
-    
-    if (aiGenerated === 'true') {
-      // Load AI actions from session storage
-      const storedActions = sessionStorage.getItem(`aiLayoutActions_${id}`);
-      const storedSummary = sessionStorage.getItem(`aiLayoutSummary_${id}`);
+    try {
+      // Check if we came from AI generation
+      const urlParams = new URLSearchParams(window.location.search);
+      const aiGenerated = urlParams.get('aiGenerated');
       
-      if (storedActions) {
-        try {
-          const actions = JSON.parse(storedActions);
-          setAiActions(actions);
-          
-          if (storedSummary) {
-            const summary = JSON.parse(storedSummary);
-            console.log('AI Layout Summary:', summary);
+      if (aiGenerated === 'true') {
+        // Load AI actions from session storage
+        const storedActions = sessionStorage.getItem(`aiLayoutActions_${id}`);
+        const storedSummary = sessionStorage.getItem(`aiLayoutSummary_${id}`);
+        
+        if (storedActions) {
+          try {
+            const actions = JSON.parse(storedActions);
+            console.log('Loaded AI actions:', actions);
+            setAiActions(actions);
+            
+            if (storedSummary) {
+              const summary = JSON.parse(storedSummary);
+              console.log('AI Layout Summary:', summary);
+            }
+            
+            // Show AI execution overlay
+            setShowAIExecutionOverlay(true);
+            
+            toast({
+              title: 'AI Layout Ready',
+              description: `Found ${actions.length} AI-generated panel actions. Click "Execute AI Layout" to apply them.`,
+            });
+          } catch (error) {
+            console.error('Error parsing AI actions:', error);
+            toast({
+              title: 'Error',
+              description: 'Failed to load AI layout actions.',
+              variant: 'destructive',
+            });
           }
-          
-          // Show AI execution overlay
-          setShowAIExecutionOverlay(true);
-          
-          toast({
-            title: 'AI Layout Ready',
-            description: `Found ${actions.length} AI-generated panel actions. Click "Execute AI Layout" to apply them.`,
-          });
-        } catch (error) {
-          console.error('Error parsing AI actions:', error);
+        } else {
+          console.log('No AI actions found in session storage');
         }
       }
+    } catch (error) {
+      console.error('Error checking for AI actions:', error);
     }
   }, [id, toast]);
 
@@ -777,48 +809,102 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
 
       {/* AI Layout Execution UI */}
       {showAIExecutionOverlay && (
-        <AIExecutionOverlay
-          isVisible={showAIExecutionOverlay}
-          isExecuting={isExecutingAI}
-          actions={aiActions}
-          progress={aiExecutionProgress}
-          onExecute={handleExecuteAILayout}
-          onCancel={handleCancelAILayout}
-        />
+        <div className="ai-execution-wrapper">
+          {(() => {
+            try {
+              return (
+                <AIExecutionOverlay
+                  isVisible={showAIExecutionOverlay}
+                  isExecuting={isExecutingAI}
+                  actions={aiActions || []}
+                  progress={aiExecutionProgress}
+                  onExecute={handleExecuteAILayout}
+                  onCancel={handleCancelAILayout}
+                />
+              );
+            } catch (error) {
+              console.error('Error rendering AI execution overlay:', error);
+              return (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                  <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+                    <div className="text-center">
+                      <h2 className="text-xl font-bold text-red-600 mb-4">Error</h2>
+                      <p className="text-gray-600 mb-4">Failed to load AI execution overlay</p>
+                      <Button onClick={handleCancelAILayout} className="w-full">
+                        Close
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+          })()}
+        </div>
       )}
 
       <Card className="w-full">
         <CardHeader>
-          <ControlToolbar
-            scale={layout.scale}
-            onScaleChange={handleScaleChange}
-            onAddPanel={handleAddPanel}
-            selectedPanel={selectedPanel}
-            onEditPanel={handleEditPanel}
-            onProjectLoad={handleProjectLoad}
-            currentProject={project}
-            onZoomToFit={handleZoomToFit}
-            onResetView={handleResetView}
-          />
+          {(() => {
+            try {
+              return (
+                <ControlToolbar
+                  scale={layout.scale}
+                  onScaleChange={handleScaleChange}
+                  onAddPanel={handleAddPanel}
+                  selectedPanel={selectedPanel}
+                  onEditPanel={handleEditPanel}
+                  onProjectLoad={handleProjectLoad}
+                  currentProject={project}
+                  onZoomToFit={handleZoomToFit}
+                  onResetView={handleResetView}
+                />
+              );
+            } catch (error) {
+              console.error('Error rendering ControlToolbar:', error);
+              return (
+                <div className="p-4 text-center">
+                  <p className="text-red-600">Error loading toolbar</p>
+                </div>
+              );
+            }
+          })()}
         </CardHeader>
         <CardContent className="p-0">
           <div className="w-full h-[calc(100vh-300px)] overflow-hidden">
-            <PanelGrid
-              panels={(() => { 
+            {(() => {
+              try {
                 console.log('[DEBUG] Raw panels from layout:', layout.panels);
                 console.log('[DEBUG] Layout scale:', layout.scale);
                 console.log('[DEBUG] Layout dimensions:', { width: layout.width, height: layout.height });
                 const mappedPanels = layout.panels.map(mapPanelFields);
                 console.log('[DEBUG] Mapped panels for PanelGrid:', mappedPanels);
-                return mappedPanels;
-              })()}
-              width={window.innerWidth - 64}
-              height={window.innerHeight - 300}
-              onPanelUpdate={handlePanelUpdate}
-              selectedPanel={selectedPanel}
-              onEditPanel={handlePanelSelect}
-              onPositionChange={handlePositionChange}
-            />
+                
+                return (
+                  <PanelGrid
+                    panels={mappedPanels}
+                    width={windowDimensions.width - 64}
+                    height={windowDimensions.height - 300}
+                    onPanelUpdate={handlePanelUpdate}
+                    selectedPanel={selectedPanel}
+                    onEditPanel={handlePanelSelect}
+                    onPositionChange={handlePositionChange}
+                  />
+                );
+              } catch (error) {
+                console.error('Error rendering PanelGrid:', error);
+                return (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-center">
+                      <h3 className="text-lg font-semibold text-red-600 mb-2">Error Loading Panel Grid</h3>
+                      <p className="text-gray-600 mb-4">Failed to render the panel layout</p>
+                      <Button onClick={() => window.location.reload()} variant="outline">
+                        Reload Page
+                      </Button>
+                    </div>
+                  </div>
+                );
+              }
+            })()}
           </div>
         </CardContent>
       </Card>
