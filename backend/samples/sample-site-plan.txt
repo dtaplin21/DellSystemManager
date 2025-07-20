@@ -1,0 +1,49 @@
+SITE PLAN - PROJECT: Sample Waste Management Facility
+
+Site Dimensions:
+- Width: 1,000 feet
+- Length: 800 feet
+- Total Area: 800,000 sq ft
+- Elevation: 1,200 feet above sea level
+
+Site Boundaries:
+- North: Property line at coordinate (0, 800)
+- South: Property line at coordinate (0, 0)
+- East: Property line at coordinate (1000, 0)
+- West: Property line at coordinate (0, 0)
+
+Obstacles:
+1. Building A: Located at coordinates (200, 300), Dimensions: 50 ft x 30 ft, Type: Office building
+2. Utility Pole: Located at coordinates (500, 400), Type: Electrical, Height: 40 ft
+3. Tree Cluster: Located at coordinates (700, 200), Dimensions: 20 ft x 15 ft, Type: Mature oak trees
+4. Storage Shed: Located at coordinates (150, 600), Dimensions: 20 ft x 15 ft, Type: Equipment storage
+5. Water Tank: Located at coordinates (800, 600), Dimensions: 30 ft diameter, Type: Water storage
+
+Access Paths:
+1. Main Entrance: From (0, 0) to (100, 0), Width: 20 ft, Type: Paved road
+2. Service Road: From (0, 400) to (1000, 400), Width: 15 ft, Type: Gravel road
+3. Emergency Access: From (900, 0) to (900, 100), Width: 12 ft, Type: Emergency vehicle access
+
+Terrain Type: Flat with slight slope (2% grade from North to South)
+Soil Conditions: Clay loam, suitable for geosynthetic installation
+
+Installation Constraints:
+- Minimum 6-inch overlap on all seams
+- Anchor panels at 10-foot intervals on perimeter
+- Maintain 5-foot clearance from all obstacles
+- Follow 2% slope for drainage
+- Install drainage layer beneath all panels
+- Use fusion welding for all seams
+- Maintain 20-foot access corridor around perimeter
+
+Environmental Considerations:
+- Wetland area at coordinates (50, 50), Dimensions: 100 ft x 50 ft (avoid installation)
+- Protected tree area at coordinates (750, 150), Dimensions: 50 ft x 30 ft (maintain 10-foot buffer)
+- Drainage outlet required at coordinates (950, 0)
+
+Quality Control Requirements:
+- Verify panel dimensions before installation
+- Check seam quality after welding
+- Document all installation activities
+- Perform leak testing on all seams
+- Maintain installation log with photos 

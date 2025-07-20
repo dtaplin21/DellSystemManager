@@ -181,6 +181,9 @@ router.post('/automate-layout', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Project ID is required' });
     }
 
+    console.log(`[AI ROUTE] Starting enhanced layout generation for project ${projectId}`);
+    console.log(`[AI ROUTE] Documents provided: ${documents?.length || 0}`);
+
     // Set job status to processing
     jobStatus.set(projectId, {
       status: 'processing',
@@ -188,15 +191,17 @@ router.post('/automate-layout', requireAuth, async (req, res) => {
       completed_at: null
     });
 
-    // Import the AI layout generator
-    const aiLayoutGenerator = require('../services/aiLayoutGenerator');
+    // Import the enhanced AI layout generator
+    const enhancedAILayoutGenerator = require('../services/enhancedAILayoutGenerator');
 
-    // Generate AI layout actions
-    const result = await aiLayoutGenerator.generateLayoutActions(documents, siteConstraints);
+    // Generate AI layout actions using enhanced generator
+    const result = await enhancedAILayoutGenerator.generateLayoutActions(documents, projectId);
 
     if (!result.success) {
-      // If AI generation fails, use fallback actions
-      console.warn('AI generation failed, using fallback actions');
+      console.warn('[AI ROUTE] Enhanced AI generation failed, using fallback actions');
+      
+      // Import the original AI layout generator for fallback
+      const aiLayoutGenerator = require('../services/aiLayoutGenerator');
       const fallbackResult = aiLayoutGenerator.generateFallbackActions(siteConstraints);
       
       // Update job status with fallback actions
@@ -219,6 +224,9 @@ router.post('/automate-layout', requireAuth, async (req, res) => {
       return;
     }
 
+    console.log(`[AI ROUTE] Enhanced AI generation successful. Generated ${result.actions.length} actions`);
+    console.log(`[AI ROUTE] Analysis confidence: ${result.analysis?.confidence || 0}`);
+
     // Update job status with generated actions
     jobStatus.set(projectId, {
       status: 'completed',
@@ -226,19 +234,21 @@ router.post('/automate-layout', requireAuth, async (req, res) => {
       completed_at: new Date().toISOString(),
       actions: result.actions,
       summary: result.summary,
+      analysis: result.analysis,
       tokensUsed: result.tokensUsed
     });
 
     res.json({
-      message: 'AI layout actions generated successfully',
+      message: 'Enhanced AI layout actions generated successfully',
       actions: result.actions,
       summary: result.summary,
+      analysis: result.analysis,
       jobId: projectId,
       tokensUsed: result.tokensUsed
     });
 
   } catch (error) {
-    console.error('Error in AI layout generation:', error);
+    console.error('[AI ROUTE] Error in enhanced AI layout generation:', error);
     
     // Update job status to failed
     if (req.body.projectId) {
@@ -251,7 +261,7 @@ router.post('/automate-layout', requireAuth, async (req, res) => {
     }
 
     res.status(500).json({ 
-      error: 'Failed to generate AI layout',
+      error: 'Failed to generate enhanced AI layout',
       details: error.message 
     });
   }

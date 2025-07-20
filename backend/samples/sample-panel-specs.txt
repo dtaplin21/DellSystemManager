@@ -1,0 +1,81 @@
+PANEL SPECIFICATIONS - PROJECT: Sample Waste Management Facility
+
+Panel P001:
+- Roll Number: R001
+- Dimensions: 40 ft x 100 ft
+- Material: HDPE
+- Thickness: 60 mils
+- Location: Northwest corner
+- Notes: Starting panel for grid layout, primary containment area
+
+Panel P002:
+- Roll Number: R002
+- Dimensions: 40 ft x 100 ft
+- Material: HDPE
+- Thickness: 60 mils
+- Location: Northeast corner
+- Notes: Second panel in row 1, adjacent to P001
+
+Panel P003:
+- Roll Number: R003
+- Dimensions: 40 ft x 100 ft
+- Material: HDPE
+- Thickness: 60 mils
+- Location: Southwest corner
+- Notes: First panel in row 2, below P001
+
+Panel P004:
+- Roll Number: R004
+- Dimensions: 40 ft x 100 ft
+- Material: HDPE
+- Thickness: 60 mils
+- Location: Southeast corner
+- Notes: Second panel in row 2, adjacent to P003
+
+Panel P005:
+- Roll Number: R005
+- Dimensions: 40 ft x 100 ft
+- Material: HDPE
+- Thickness: 60 mils
+- Location: Center North
+- Notes: Third panel in row 1, between P001 and P002
+
+Panel P006:
+- Roll Number: R006
+- Dimensions: 40 ft x 100 ft
+- Material: HDPE
+- Thickness: 60 mils
+- Location: Center South
+- Notes: Third panel in row 2, between P003 and P004
+
+Panel P007:
+- Roll Number: R007
+- Dimensions: 40 ft x 100 ft
+- Material: HDPE
+- Thickness: 60 mils
+- Location: West Center
+- Notes: Third panel in column 1, between P001 and P003
+
+Panel P008:
+- Roll Number: R008
+- Dimensions: 40 ft x 100 ft
+- Material: HDPE
+- Thickness: 60 mils
+- Location: East Center
+- Notes: Third panel in column 2, between P002 and P004
+
+Panel P009:
+- Roll Number: R009
+- Dimensions: 40 ft x 100 ft
+- Material: HDPE
+- Thickness: 60 mils
+- Location: Center
+- Notes: Center panel, completing the 3x3 grid layout
+
+Panel P010:
+- Roll Number: R010
+- Dimensions: 40 ft x 100 ft
+- Material: HDPE
+- Thickness: 60 mils
+- Location: North Extension
+- Notes: Extension panel for additional containment area 
