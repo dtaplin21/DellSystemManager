@@ -438,4 +438,45 @@ Please extract the data in a structured JSON format with appropriate fields for 
   }
 });
 
+// Test endpoint for enhanced AI services
+router.get('/test-enhanced', requireAuth, async (req, res) => {
+  try {
+    // Test the enhanced layout generator
+    const enhancedAILayoutGenerator = require('../services/enhancedAILayoutGenerator');
+    const panelDocumentAnalyzer = require('../services/panelDocumentAnalyzer');
+    
+    // Test with sample data
+    const testDocuments = [
+      {
+        filename: 'test-panel-specs.txt',
+        text: 'Panel P001: Roll Number: R001, Dimensions: 40 ft x 100 ft, Material: HDPE, Thickness: 60 mils'
+      }
+    ];
+    
+    const result = await enhancedAILayoutGenerator.generateLayoutActions(testDocuments, 'test-project');
+    
+    res.json({
+      success: true,
+      message: 'Enhanced AI services are working correctly',
+      testResult: {
+        success: result.success,
+        actionsCount: result.actions?.length || 0,
+        analysis: result.analysis ? {
+          confidence: result.analysis.confidence,
+          documentTypes: result.analysis.documentTypes,
+          panelSpecsCount: result.analysis.panelSpecifications?.length || 0
+        } : null
+      }
+    });
+    
+  } catch (error) {
+    console.error('[AI TEST] Error testing enhanced services:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Enhanced AI services test failed',
+      details: error.message 
+    });
+  }
+});
+
 module.exports = router;
