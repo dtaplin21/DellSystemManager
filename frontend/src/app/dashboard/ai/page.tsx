@@ -7,6 +7,7 @@ import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
 import { useProjects } from '@/contexts/ProjectsProvider';
 import ProjectSelector from '@/components/projects/project-selector';
 import NoProjectSelected from '@/components/ui/no-project-selected';
+import { AIGuidanceDisplay } from '@/components/ai-document-analysis/AIGuidanceDisplay';
 import { scanHandwriting, automateLayout } from '@/lib/api';
 import { getCurrentSession } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
@@ -34,11 +35,15 @@ interface Document {
 }
 
 interface JobStatus {
-  status: 'idle' | 'processing' | 'completed' | 'failed';
+  status: 'idle' | 'processing' | 'success' | 'partial' | 'error' | 'fallback' | 'insufficient_information';
   created_at?: string;
   completed_at?: string;
   actions?: any[];
   summary?: any;
+  guidance?: any;
+  missingParameters?: any;
+  warnings?: any[];
+  analysis?: any;
 }
 
 interface HandwritingScanResult {
@@ -354,11 +359,11 @@ const [isAnalyzingDocuments, setIsAnalyzingDocuments] = useState(false);
     setJobStatus({ status: 'processing' });
 
     try {
-      // Generate AI layout actions
+      // Generate AI layout actions using actual uploaded documents
       const result = await automateLayout(
         selectedProject.id,
-        selectedProject.panels,
-        selectedProject.documents
+        [], // panels array (empty for now)
+        documents // Use actual uploaded documents from state
       );
       
       console.log('AI layout generation result:', result);
@@ -371,14 +376,14 @@ const [isAnalyzingDocuments, setIsAnalyzingDocuments] = useState(false);
       }
       
       setJobStatus({ 
-        status: 'completed', 
+        status: 'success', 
         created_at: new Date().toISOString(),
         actions: result.actions,
         summary: result.summary
       });
     } catch (error) {
       console.error('Error generating layout:', error);
-      setJobStatus({ status: 'failed' });
+      setJobStatus({ status: 'error' });
     } finally {
       setIsGeneratingLayout(false);
     }
@@ -712,15 +717,42 @@ const [isAnalyzingDocuments, setIsAnalyzingDocuments] = useState(false);
               
               <div className="layout-info">
                 <p>Generate optimized panel layouts based on your project requirements and uploaded documents.</p>
+                
+                {/* AI Guidance Display */}
+                {(jobStatus.status === 'insufficient_information' || 
+                  jobStatus.status === 'success' || 
+                  jobStatus.status === 'error') && 
+                  jobStatus.guidance && (
+                  <AIGuidanceDisplay
+                    status={jobStatus.status}
+                    guidance={jobStatus.guidance}
+                    missingParameters={jobStatus.missingParameters}
+                    warnings={jobStatus.warnings}
+                    analysis={jobStatus.analysis}
+                    onUploadDocuments={() => fileInputRef.current?.click()}
+                    onViewTemplates={() => {
+                      // Open templates in new tab
+                      window.open('/backend/templates/panel-document-templates.md', '_blank');
+                    }}
+                  />
+                )}
+                
                 {jobStatus.status === 'processing' && (
                   <div className="generation-status">
                     <div className="loading-spinner"></div>
                     <span>Generating optimized panel layout...</span>
                   </div>
                 )}
-                {jobStatus.status === 'completed' && (
+                
+                {jobStatus.status === 'success' && jobStatus.actions && jobStatus.actions.length > 0 && (
                   <div className="generation-complete">
                     <span className="success-message">✓ Layout generated successfully!</span>
+                    <div className="generation-summary">
+                      <span>Generated {jobStatus.actions.length} panel actions</span>
+                      {jobStatus.summary && (
+                        <span>Estimated area: {jobStatus.summary.estimatedArea?.toFixed(0) || 0} sq ft</span>
+                      )}
+                    </div>
                     <button 
                       onClick={() => {
                         // Navigate to panel layout page with AI actions flag
@@ -732,7 +764,8 @@ const [isAnalyzingDocuments, setIsAnalyzingDocuments] = useState(false);
                     </button>
                   </div>
                 )}
-                {jobStatus.status === 'failed' && (
+                
+                {jobStatus.status === 'error' && !jobStatus.guidance && (
                   <div className="generation-failed">
                     <span className="error-message">✗ Failed to generate layout. Please try again.</span>
                   </div>

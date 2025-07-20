@@ -191,11 +191,79 @@ router.post('/automate-layout', requireAuth, async (req, res) => {
       completed_at: null
     });
 
+    // Enhance documents with text content if not already present
+    let enhancedDocuments = documents || [];
+    if (enhancedDocuments.length > 0) {
+      console.log('[AI ROUTE] Enhancing documents with text content...');
+      
+      try {
+        // Import document service to fetch text content
+        const documentService = require('../services/documentService');
+        
+        enhancedDocuments = await Promise.all(
+          enhancedDocuments.map(async (doc) => {
+            if (!doc.text && doc.id) {
+              try {
+                console.log(`[AI ROUTE] Fetching text for document: ${doc.name || doc.id}`);
+                const documentText = await documentService.getDocumentText(doc.id);
+                return {
+                  ...doc,
+                  text: documentText,
+                  filename: doc.name || doc.filename
+                };
+              } catch (textError) {
+                console.warn(`[AI ROUTE] Could not fetch text for document ${doc.id}:`, textError.message);
+                return doc;
+              }
+            }
+            return {
+              ...doc,
+              filename: doc.name || doc.filename
+            };
+          })
+        );
+        
+        console.log(`[AI ROUTE] Enhanced ${enhancedDocuments.length} documents with text content`);
+        console.log(`[AI ROUTE] Documents with text: ${enhancedDocuments.filter(d => d.text).length}`);
+      } catch (enhanceError) {
+        console.warn('[AI ROUTE] Error enhancing documents with text:', enhanceError.message);
+        // Continue with original documents if enhancement fails
+      }
+    }
+
     // Import the enhanced AI layout generator
     const enhancedAILayoutGenerator = require('../services/enhancedAILayoutGenerator');
 
-    // Generate AI layout actions using enhanced generator
-    const result = await enhancedAILayoutGenerator.generateLayoutActions(documents, projectId);
+    // Generate AI layout actions using enhanced generator with text content
+    const result = await enhancedAILayoutGenerator.generateLayoutActions(enhancedDocuments, projectId);
+
+    console.log(`[AI ROUTE] Enhanced AI generation result status: ${result.status}`);
+
+    // Handle different response statuses
+    if (result.status === 'insufficient_information') {
+      console.log('[AI ROUTE] Insufficient information - returning guidance');
+      
+      // Update job status with guidance
+      jobStatus.set(projectId, {
+        status: 'insufficient_information',
+        created_at: jobStatus.get(projectId)?.created_at || new Date().toISOString(),
+        completed_at: new Date().toISOString(),
+        guidance: result.guidance,
+        missingParameters: result.missingParameters,
+        analysis: result.analysis
+      });
+
+      res.json({
+        success: false,
+        status: 'insufficient_information',
+        message: result.guidance.title,
+        guidance: result.guidance,
+        missingParameters: result.missingParameters,
+        analysis: result.analysis,
+        jobId: projectId
+      });
+      return;
+    }
 
     if (!result.success) {
       console.warn('[AI ROUTE] Enhanced AI generation failed, using fallback actions');
@@ -206,18 +274,32 @@ router.post('/automate-layout', requireAuth, async (req, res) => {
       
       // Update job status with fallback actions
       jobStatus.set(projectId, {
-        status: 'completed',
+        status: 'completed_fallback',
         created_at: jobStatus.get(projectId)?.created_at || new Date().toISOString(),
         completed_at: new Date().toISOString(),
         actions: fallbackResult.actions,
         summary: fallbackResult.summary,
-        isFallback: true
+        isFallback: true,
+        guidance: {
+          title: 'Fallback Mode',
+          message: 'AI generation failed, using default panel layout. Please check your documents and try again.',
+          requiredDocuments: ['Panel specifications', 'Site plan', 'Material specifications'],
+          recommendedActions: ['Upload properly formatted documents', 'Check document content', 'Try again with different documents']
+        }
       });
 
       res.json({
+        success: true,
+        status: 'fallback',
         message: 'Layout generation completed (fallback mode)',
         actions: fallbackResult.actions,
         summary: fallbackResult.summary,
+        guidance: {
+          title: 'Fallback Mode',
+          message: 'AI generation failed, using default panel layout. Please check your documents and try again.',
+          requiredDocuments: ['Panel specifications', 'Site plan', 'Material specifications'],
+          recommendedActions: ['Upload properly formatted documents', 'Check document content', 'Try again with different documents']
+        },
         jobId: projectId,
         isFallback: true
       });
@@ -226,6 +308,9 @@ router.post('/automate-layout', requireAuth, async (req, res) => {
 
     console.log(`[AI ROUTE] Enhanced AI generation successful. Generated ${result.actions.length} actions`);
     console.log(`[AI ROUTE] Analysis confidence: ${result.analysis?.confidence || 0}`);
+    if (result.warnings && result.warnings.length > 0) {
+      console.log(`[AI ROUTE] Warnings: ${result.warnings.length}`);
+    }
 
     // Update job status with generated actions
     jobStatus.set(projectId, {
@@ -235,14 +320,20 @@ router.post('/automate-layout', requireAuth, async (req, res) => {
       actions: result.actions,
       summary: result.summary,
       analysis: result.analysis,
+      warnings: result.warnings,
+      guidance: result.guidance,
       tokensUsed: result.tokensUsed
     });
 
     res.json({
+      success: true,
+      status: 'success',
       message: 'Enhanced AI layout actions generated successfully',
       actions: result.actions,
       summary: result.summary,
       analysis: result.analysis,
+      warnings: result.warnings,
+      guidance: result.guidance,
       jobId: projectId,
       tokensUsed: result.tokensUsed
     });
@@ -256,13 +347,27 @@ router.post('/automate-layout', requireAuth, async (req, res) => {
         status: 'failed',
         created_at: jobStatus.get(req.body.projectId)?.created_at || new Date().toISOString(),
         completed_at: new Date().toISOString(),
-        error: error.message
+        error: error.message,
+        guidance: {
+          title: 'System Error',
+          message: 'An error occurred while processing your documents. Please try again.',
+          requiredDocuments: [],
+          recommendedActions: ['Check document format', 'Ensure documents contain panel information', 'Try uploading different documents']
+        }
       });
     }
 
     res.status(500).json({ 
+      success: false,
+      status: 'error',
       error: 'Failed to generate enhanced AI layout',
-      details: error.message 
+      details: error.message,
+      guidance: {
+        title: 'System Error',
+        message: 'An error occurred while processing your documents. Please try again.',
+        requiredDocuments: [],
+        recommendedActions: ['Check document format', 'Ensure documents contain panel information', 'Try uploading different documents']
+      }
     });
   }
 });
@@ -474,6 +579,101 @@ router.get('/test-enhanced', requireAuth, async (req, res) => {
     res.status(500).json({ 
       success: false,
       error: 'Enhanced AI services test failed',
+      details: error.message 
+    });
+  }
+});
+
+// Test endpoint to verify document analysis workflow
+router.post('/test-document-analysis', requireAuth, async (req, res) => {
+  try {
+    const { projectId, documents } = req.body;
+
+    console.log(`[TEST] Testing document analysis for project ${projectId}`);
+    console.log(`[TEST] Documents provided: ${documents?.length || 0}`);
+
+    // Test document enhancement
+    let enhancedDocuments = documents || [];
+    if (enhancedDocuments.length > 0) {
+      console.log('[TEST] Testing document enhancement...');
+      
+      try {
+        const documentService = require('../services/documentService');
+        
+        enhancedDocuments = await Promise.all(
+          enhancedDocuments.map(async (doc) => {
+            console.log(`[TEST] Processing document: ${doc.name || doc.id}`);
+            if (!doc.text && doc.id) {
+              try {
+                const documentText = await documentService.getDocumentText(doc.id);
+                console.log(`[TEST] Extracted text length: ${documentText ? documentText.length : 0}`);
+                return {
+                  ...doc,
+                  text: documentText,
+                  filename: doc.name || doc.filename
+                };
+              } catch (textError) {
+                console.warn(`[TEST] Text extraction failed for ${doc.id}:`, textError.message);
+                return doc;
+              }
+            }
+            return {
+              ...doc,
+              filename: doc.name || doc.filename
+            };
+          })
+        );
+      } catch (enhanceError) {
+        console.warn('[TEST] Document enhancement failed:', enhanceError.message);
+      }
+    }
+
+    // Test document categorization
+    const panelDocumentAnalyzer = require('../services/panelDocumentAnalyzer');
+    const categories = panelDocumentAnalyzer.categorizeDocuments(enhancedDocuments);
+    
+    console.log('[TEST] Document categorization results:');
+    Object.entries(categories).forEach(([category, docs]) => {
+      console.log(`[TEST] ${category}: ${docs.length} documents`);
+      docs.forEach(doc => {
+        console.log(`[TEST]   - ${doc.name || doc.filename} (text: ${doc.text ? 'yes' : 'no'})`);
+      });
+    });
+
+    // Test AI analysis
+    const analysis = await panelDocumentAnalyzer.analyzePanelDocuments(enhancedDocuments);
+    
+    console.log('[TEST] AI analysis results:', {
+      confidence: analysis.confidence,
+      panelCount: analysis.panels?.length || 0,
+      rollCount: analysis.rolls?.length || 0,
+      siteInfo: !!analysis.siteInfo,
+      materialInfo: !!analysis.materialInfo,
+      installationInfo: !!analysis.installationInfo
+    });
+
+    res.json({
+      success: true,
+      testResults: {
+        documentsProcessed: enhancedDocuments.length,
+        documentsWithText: enhancedDocuments.filter(d => d.text).length,
+        categorization: categories,
+        analysis: {
+          confidence: analysis.confidence,
+          panelCount: analysis.panels?.length || 0,
+          rollCount: analysis.rolls?.length || 0,
+          hasSiteInfo: !!analysis.siteInfo,
+          hasMaterialInfo: !!analysis.materialInfo,
+          hasInstallationInfo: !!analysis.installationInfo
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('[TEST] Error in document analysis test:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Test failed',
       details: error.message 
     });
   }

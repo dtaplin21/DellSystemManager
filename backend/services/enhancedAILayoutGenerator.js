@@ -6,39 +6,310 @@ const panelDocumentAnalyzer = require('./panelDocumentAnalyzer');
 
 class EnhancedAILayoutGenerator {
   /**
-   * Generate AI layout actions based on analyzed panel documents
+   * Generate layout actions using enhanced AI analysis
    */
   async generateLayoutActions(documents, projectId) {
     try {
       console.log(`[ENHANCED AI] Starting layout generation for project ${projectId}`);
+      console.log(`[ENHANCED AI] Documents received: ${documents?.length || 0}`);
+      
+      // Log document details for debugging
+      if (documents && documents.length > 0) {
+        documents.forEach((doc, index) => {
+          console.log(`[ENHANCED AI] Document ${index + 1}:`, {
+            id: doc.id,
+            name: doc.name || doc.filename,
+            hasText: !!doc.text,
+            textLength: doc.text ? doc.text.length : 0,
+            textPreview: doc.text ? doc.text.substring(0, 100) + '...' : 'No text'
+          });
+        });
+      }
+      
+      // Check if we have documents with text content
+      const documentsWithText = documents?.filter(doc => doc.text && doc.text.trim().length > 0) || [];
+      console.log(`[ENHANCED AI] Documents with text content: ${documentsWithText.length}`);
+      
+      if (documentsWithText.length === 0) {
+        console.warn('[ENHANCED AI] No documents with text content found');
+        return this.generateInsufficientInformationResponse('No document text content available');
+      }
       
       // Step 1: Analyze documents for panel-specific information
       const documentAnalysis = await panelDocumentAnalyzer.analyzePanelDocuments(documents);
       console.log(`[ENHANCED AI] Document analysis complete. Confidence: ${documentAnalysis.confidence}`);
       
-      // Step 2: Generate layout actions based on analysis
+      // Step 2: Analyze information completeness and identify missing parameters
+      const completenessAnalysis = this.analyzeInformationCompleteness(documentAnalysis);
+      console.log(`[ENHANCED AI] Completeness analysis: ${completenessAnalysis.status}`);
+      
+      // Step 3: If insufficient information, return guidance response
+      if (completenessAnalysis.status === 'insufficient') {
+        return {
+          success: false,
+          status: 'insufficient_information',
+          guidance: completenessAnalysis.guidance,
+          missingParameters: completenessAnalysis.missingParameters,
+          analysis: documentAnalysis,
+          actions: [],
+          summary: {
+            totalActions: 0,
+            actionTypes: {},
+            estimatedPanels: 0,
+            estimatedArea: 0,
+            confidence: documentAnalysis.confidence,
+            documentTypes: documentAnalysis.documentTypes,
+            materialUsed: 'Unknown',
+            siteDimensions: null
+          }
+        };
+      }
+      
+      // Step 4: Generate layout actions based on analysis
       const layoutActions = await this.generateActionsFromAnalysis(documentAnalysis, projectId);
       
-      // Step 3: Validate and optimize the layout
+      // Step 5: Validate and optimize the layout
       const optimizedActions = this.optimizeLayoutActions(layoutActions, documentAnalysis);
+      
+      // Step 6: Add warnings for any remaining missing information
+      const warnings = this.generateWarnings(documentAnalysis, completenessAnalysis);
       
       return {
         success: true,
+        status: 'success',
         actions: optimizedActions,
         summary: this.generateActionSummary(optimizedActions, documentAnalysis),
         analysis: documentAnalysis,
-        tokensUsed: 0 // Will be updated if we use OpenAI
+        warnings: warnings,
+        guidance: completenessAnalysis.guidance,
+        tokensUsed: 0
       };
 
     } catch (error) {
       console.error('[ENHANCED AI] Error generating layout actions:', error);
       return {
         success: false,
+        status: 'error',
         error: error.message,
         actions: [],
-        analysis: null
+        analysis: null,
+        guidance: {
+          title: 'System Error',
+          message: 'An error occurred while processing your documents. Please try again.',
+          requiredDocuments: [],
+          recommendedActions: ['Check document format', 'Ensure documents contain panel information', 'Try uploading different documents']
+        }
       };
     }
+  }
+
+  /**
+   * Analyze information completeness and identify missing parameters
+   */
+  analyzeInformationCompleteness(analysis) {
+    const missingParameters = {
+      panelSpecifications: [],
+      siteConstraints: [],
+      materialRequirements: [],
+      rollInformation: [],
+      installationNotes: []
+    };
+
+    const guidance = {
+      title: '',
+      message: '',
+      requiredDocuments: [],
+      recommendedActions: [],
+      confidence: analysis.confidence
+    };
+
+    // Check panel specifications completeness
+    if (analysis.panelSpecifications.length === 0) {
+      missingParameters.panelSpecifications.push('No panel specifications found');
+      guidance.requiredDocuments.push('Panel specifications document');
+    } else {
+      // Check each panel specification for completeness
+      analysis.panelSpecifications.forEach((panel, index) => {
+        const panelIssues = [];
+        
+        if (!panel.panelNumber) panelIssues.push('Panel number missing');
+        if (!panel.rollNumber) panelIssues.push('Roll number missing');
+        if (!panel.dimensions || !panel.dimensions.width || !panel.dimensions.length) {
+          panelIssues.push('Panel dimensions missing or incomplete');
+        }
+        if (!panel.material) panelIssues.push('Material type missing');
+        if (!panel.thickness) panelIssues.push('Material thickness missing');
+        
+        if (panelIssues.length > 0) {
+          missingParameters.panelSpecifications.push(`Panel ${index + 1}: ${panelIssues.join(', ')}`);
+        }
+      });
+    }
+
+    // Check site constraints completeness
+    if (!analysis.siteConstraints.siteDimensions) {
+      missingParameters.siteConstraints.push('Site dimensions missing');
+      guidance.requiredDocuments.push('Site plan document');
+    } else {
+      if (!analysis.siteConstraints.siteDimensions.width || !analysis.siteConstraints.siteDimensions.length) {
+        missingParameters.siteConstraints.push('Site dimensions incomplete (width or length missing)');
+      }
+    }
+
+    if (analysis.siteConstraints.obstacles === undefined) {
+      missingParameters.siteConstraints.push('Site obstacles information missing');
+    }
+
+    // Check material requirements completeness
+    if (!analysis.materialRequirements.primaryMaterial) {
+      missingParameters.materialRequirements.push('Primary material specifications missing');
+      guidance.requiredDocuments.push('Material specifications document');
+    } else {
+      if (!analysis.materialRequirements.primaryMaterial.type) {
+        missingParameters.materialRequirements.push('Material type missing');
+      }
+      if (!analysis.materialRequirements.primaryMaterial.thickness) {
+        missingParameters.materialRequirements.push('Material thickness missing');
+      }
+    }
+
+    if (!analysis.materialRequirements.seamRequirements) {
+      missingParameters.materialRequirements.push('Seam requirements missing');
+    } else {
+      if (!analysis.materialRequirements.seamRequirements.overlap) {
+        missingParameters.materialRequirements.push('Seam overlap specification missing');
+      }
+    }
+
+    // Check roll information completeness
+    if (analysis.rollInformation.length === 0) {
+      missingParameters.rollInformation.push('No roll inventory information found');
+      guidance.requiredDocuments.push('Roll inventory document');
+    } else {
+      analysis.rollInformation.forEach((roll, index) => {
+        const rollIssues = [];
+        
+        if (!roll.rollNumber) rollIssues.push('Roll number missing');
+        if (!roll.dimensions || !roll.dimensions.width || !roll.dimensions.length) {
+          rollIssues.push('Roll dimensions missing or incomplete');
+        }
+        if (!roll.material) rollIssues.push('Roll material missing');
+        
+        if (rollIssues.length > 0) {
+          missingParameters.rollInformation.push(`Roll ${index + 1}: ${rollIssues.join(', ')}`);
+        }
+      });
+    }
+
+    // Check installation notes completeness
+    if (analysis.installationNotes.length === 0) {
+      missingParameters.installationNotes.push('No installation requirements found');
+      guidance.requiredDocuments.push('Installation notes document');
+    }
+
+    // Determine overall status
+    const totalMissing = Object.values(missingParameters).flat().length;
+    const criticalMissing = missingParameters.panelSpecifications.length + 
+                           missingParameters.siteConstraints.length + 
+                           missingParameters.materialRequirements.length;
+
+    let status = 'sufficient';
+    if (criticalMissing > 0) {
+      status = 'insufficient';
+    } else if (totalMissing > 0) {
+      status = 'partial';
+    }
+
+    // Generate guidance based on missing information
+    if (status === 'insufficient') {
+      guidance.title = 'Insufficient Information for Panel Generation';
+      guidance.message = 'The AI cannot generate accurate panel layouts because critical information is missing. Please provide the required documents and information.';
+      
+      if (missingParameters.panelSpecifications.length > 0) {
+        guidance.recommendedActions.push('Upload panel specifications document with panel numbers, dimensions, and materials');
+      }
+      if (missingParameters.siteConstraints.length > 0) {
+        guidance.recommendedActions.push('Upload site plan document with site dimensions and constraints');
+      }
+      if (missingParameters.materialRequirements.length > 0) {
+        guidance.recommendedActions.push('Upload material specifications document with material type, thickness, and seam requirements');
+      }
+    } else if (status === 'partial') {
+      guidance.title = 'Partial Information - Panel Generation May Be Limited';
+      guidance.message = 'The AI can generate panel layouts, but some information is missing which may affect accuracy. Consider providing additional documents for better results.';
+      
+      if (missingParameters.rollInformation.length > 0) {
+        guidance.recommendedActions.push('Upload roll inventory for optimal material usage');
+      }
+      if (missingParameters.installationNotes.length > 0) {
+        guidance.recommendedActions.push('Upload installation notes for better positioning and overlap specifications');
+      }
+    } else {
+      guidance.title = 'Complete Information Available';
+      guidance.message = 'All required information is available. The AI can generate accurate panel layouts based on your specifications.';
+      guidance.recommendedActions.push('Review generated layout and make adjustments as needed');
+    }
+
+    return {
+      status,
+      missingParameters,
+      guidance,
+      totalMissing,
+      criticalMissing
+    };
+  }
+
+  /**
+   * Generate warnings for any remaining missing information
+   */
+  generateWarnings(analysis, completenessAnalysis) {
+    const warnings = [];
+
+    if (completenessAnalysis.status === 'partial') {
+      warnings.push({
+        type: 'warning',
+        message: 'Some information is missing. Generated layout may use default values.',
+        details: completenessAnalysis.missingParameters
+      });
+    }
+
+    if (analysis.confidence < 0.5) {
+      warnings.push({
+        type: 'low_confidence',
+        message: 'Low confidence in document analysis. Please verify extracted information.',
+        details: `Analysis confidence: ${(analysis.confidence * 100).toFixed(1)}%`
+      });
+    }
+
+    if (analysis.panelSpecifications.length > 0) {
+      const incompletePanels = analysis.panelSpecifications.filter(panel => 
+        !panel.dimensions || !panel.material || !panel.thickness
+      );
+      
+      if (incompletePanels.length > 0) {
+        warnings.push({
+          type: 'incomplete_panels',
+          message: `${incompletePanels.length} panel(s) have incomplete specifications.`,
+          details: incompletePanels.map((panel, index) => 
+            `Panel ${index + 1}: Missing ${this.getMissingPanelFields(panel)}`
+          )
+        });
+      }
+    }
+
+    return warnings;
+  }
+
+  /**
+   * Get missing fields for a panel specification
+   */
+  getMissingPanelFields(panel) {
+    const missing = [];
+    if (!panel.dimensions) missing.push('dimensions');
+    if (!panel.material) missing.push('material');
+    if (!panel.thickness) missing.push('thickness');
+    if (!panel.rollNumber) missing.push('roll number');
+    return missing.join(', ');
   }
 
   /**
@@ -440,6 +711,36 @@ class EnhancedAILayoutGenerator {
     });
 
     return summary;
+  }
+
+  /**
+   * Generate a response indicating insufficient information
+   */
+  generateInsufficientInformationResponse(message) {
+    return {
+      success: false,
+      status: 'insufficient_information',
+      guidance: {
+        title: 'Insufficient Information',
+        message: message || 'The AI cannot generate accurate panel layouts because critical information is missing. Please provide the required documents and information.',
+        requiredDocuments: [],
+        recommendedActions: ['Check document format', 'Ensure documents contain panel information', 'Try uploading different documents']
+      },
+      missingParameters: {},
+      analysis: null,
+      actions: [],
+      summary: {
+        totalActions: 0,
+        actionTypes: {},
+        estimatedPanels: 0,
+        estimatedArea: 0,
+        confidence: 0,
+        documentTypes: [],
+        materialUsed: 'Unknown',
+        siteDimensions: null
+      },
+      warnings: []
+    };
   }
 }
 
