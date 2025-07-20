@@ -10,18 +10,15 @@ from flask_cors import cross_origin
 import sys
 from pathlib import Path
 import os
-
-# Add AI service to path
-sys.path.append(str(Path(__file__).parent.parent.parent / "ai-service"))
-from openai_service import OpenAIService
+import openai
 
 logger = logging.getLogger(__name__)
 
 # Create blueprint
 ai_enhanced_bp = Blueprint('ai_enhanced', __name__)
 
-# Initialize OpenAI service
-openai_service = OpenAIService(api_key=os.getenv("OPENAI_API_KEY"))
+# Initialize OpenAI client
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # === ENHANCED PANEL ROUTES ===
 @ai_enhanced_bp.route('/api/ai/panels/optimize', methods=['POST'])
@@ -38,11 +35,13 @@ async def optimize_panels():
             return jsonify({"error": "No panels provided", "success": False}), 400
         
         # Use OpenAI for optimization
-        result = openai_service.optimize_panel_layout(
-            panels=panels,
-            strategy=strategy,
-            site_config=site_config
+        prompt = f"Optimize panel layout with strategy: {strategy}. Panels: {json.dumps(panels)}. Site config: {json.dumps(site_config)}"
+        response = openai.ChatCompletion.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=1000
         )
+        result = response.choices[0].message.content
         
         return jsonify({"result": result, "success": True})
     except Exception as e:
@@ -63,7 +62,13 @@ async def analyze_document():
             return jsonify({"error": "No document text provided", "success": False}), 400
         
         # Use OpenAI for analysis
-        result = openai_service.analyze_document_content(document_text, question)
+        prompt = f"Question: {question}\n\nDocument: {document_text}"
+        response = openai.ChatCompletion.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=1000
+        )
+        result = response.choices[0].message.content
         
         return jsonify({"result": result, "success": True})
     except Exception as e:
@@ -93,7 +98,13 @@ async def extract_document_data():
         extraction_prompt = extraction_prompts.get(extraction_type, extraction_prompts['qc_data'])
         
         # Use OpenAI for extraction
-        result = openai_service.extract_structured_data(document_text, extraction_prompt)
+        prompt = f"{extraction_prompt}\n\nDocument: {document_text}"
+        response = openai.ChatCompletion.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=1000
+        )
+        result = response.choices[0].message.content
         
         return jsonify({"result": result, "success": True})
     except Exception as e:
@@ -116,7 +127,13 @@ async def analyze_qc_data():
         qc_data_json = json.dumps(qc_data)
         
         # Use OpenAI for analysis
-        result = openai_service.analyze_qc_data(qc_data_json)
+        prompt = f"Analyze this QC data and provide insights: {qc_data_json}"
+        response = openai.ChatCompletion.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=1000
+        )
+        result = response.choices[0].message.content
         
         return jsonify({"result": result, "success": True})
     except Exception as e:
@@ -136,7 +153,13 @@ async def generate_recommendations():
             return jsonify({"error": "No project data provided", "success": False}), 400
         
         # Use OpenAI for recommendations
-        result = openai_service.generate_project_recommendations(project_data)
+        prompt = f"Generate project recommendations based on this data: {json.dumps(project_data)}"
+        response = openai.ChatCompletion.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=1000
+        )
+        result = response.choices[0].message.content
         
         return jsonify({"result": result, "success": True})
     except Exception as e:
