@@ -25,8 +25,8 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     onAuthSuccess,
     onAuthFailure,
     userId,
-    reconnectAttempts = 5,
-    reconnectDelay = 3000
+    reconnectAttempts = 2,
+    reconnectDelay = 1000
   } = options;
 
   const [isConnected, setIsConnected] = useState(false);
@@ -85,21 +85,24 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
           clearTimeout(authRetryTimeoutRef.current);
         }
 
-        // Attempt to reconnect
+        // Only attempt to reconnect if we haven't exceeded attempts
         if (reconnectCount < reconnectAttempts) {
           reconnectTimeoutRef.current = setTimeout(() => {
             setReconnectCount(prev => prev + 1);
             connect();
           }, reconnectDelay);
+        } else {
+          console.log('WebSocket reconnection attempts exhausted. Continuing without WebSocket.');
         }
       };
 
       wsRef.current.onerror = (error) => {
-        console.error('WebSocket error:', error);
+        console.warn('WebSocket connection failed. This is not critical - the app will work without real-time updates.');
+        // Don't log as error since WebSocket is optional
       };
 
     } catch (error) {
-      console.error('Error connecting to WebSocket:', error);
+      console.warn('WebSocket connection failed. This is not critical - the app will work without real-time updates.');
     }
   };
 
@@ -162,7 +165,9 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
   }, [userId, isConnected, isAuthenticated]);
 
   useEffect(() => {
-    connect();
+    // Temporarily disable WebSocket to prevent excessive connections
+    // connect();
+    console.log('WebSocket temporarily disabled to prevent excessive connections');
     return () => disconnect();
   }, [reconnectCount]);
 

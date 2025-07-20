@@ -197,6 +197,9 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
     }
   });
 
+  // Note: WebSocket is temporarily disabled to prevent excessive network requests
+  // To re-enable: uncomment the connect() call in use-websocket.ts
+
   useEffect(() => {
     const resolveParams = async () => {
       const resolvedParams = await params;
@@ -270,7 +273,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
     } catch (error) {
       console.error('Error checking for AI actions:', error);
     }
-  }, [id, toast]);
+  }, [id]); // Only depend on id, not toast
 
   useEffect(() => {
     console.log('[DEBUG] Load: useEffect triggered, id:', id);
@@ -336,7 +339,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
     };
 
     loadProjectAndLayout();
-  }, [id, toast, router]);
+  }, [id]); // Only depend on id, not toast or router
 
   // AI Layout Execution Functions
   const handleExecuteAILayout = async () => {
@@ -804,6 +807,17 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
           <Button variant="outline" onClick={handleManualSave}>
             Save Project
           </Button>
+          {aiActions.length > 0 && !showAIExecutionOverlay && (
+            <Button 
+              onClick={() => setShowAIExecutionOverlay(true)}
+              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+            >
+              Execute AI Layout ({aiActions.length} actions)
+            </Button>
+          )}
+          <Button variant="outline" onClick={createTestPanels}>
+            Add Test Panels
+          </Button>
         </div>
       </div>
 
@@ -878,6 +892,41 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
                 console.log('[DEBUG] Layout dimensions:', { width: layout.width, height: layout.height });
                 const mappedPanels = layout.panels.map(mapPanelFields);
                 console.log('[DEBUG] Mapped panels for PanelGrid:', mappedPanels);
+                console.log('[DEBUG] Panel dimensions sample:', mappedPanels.slice(0, 3).map(p => ({
+                  id: p.id,
+                  x: p.x,
+                  y: p.y,
+                  width: p.width,
+                  length: p.length,
+                  visible: p.width > 1 && p.length > 1
+                })));
+                
+                // Check if any panels are visible (larger than 1 unit)
+                const visiblePanels = mappedPanels.filter(p => p.width > 1 && p.length > 1);
+                console.log('[DEBUG] Visible panels count:', visiblePanels.length, 'out of', mappedPanels.length);
+                
+                if (visiblePanels.length === 0 && mappedPanels.length > 0) {
+                  return (
+                    <div className="flex items-center justify-center h-full">
+                      <div className="text-center">
+                        <h3 className="text-lg font-semibold text-orange-600 mb-2">Panels Too Small</h3>
+                        <p className="text-gray-600 mb-4">
+                          Found {mappedPanels.length} panels, but they are too small to display.
+                          <br />
+                          Try zooming in or check panel dimensions.
+                        </p>
+                        <div className="space-y-2">
+                          <Button onClick={() => handleZoomToFit()} variant="outline">
+                            Zoom to Fit
+                          </Button>
+                          <Button onClick={createTestPanels} variant="outline">
+                            Add Test Panels
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
                 
                 return (
                   <PanelGrid
