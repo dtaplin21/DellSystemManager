@@ -12,6 +12,7 @@ import { scanHandwriting, automateLayout } from '@/lib/api';
 import { getCurrentSession } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 import './ai.css';
+import { AlertTriangle } from 'lucide-react';
 
 interface Message {
   id: string;
@@ -367,6 +368,14 @@ const [isAnalyzingDocuments, setIsAnalyzingDocuments] = useState(false);
       );
       
       console.log('AI layout generation result:', result);
+      
+      // Debug logging for insufficient information
+      if (result.status === 'insufficient_information') {
+        console.log('🔍 Insufficient information detected:');
+        console.log('  - Guidance object:', result.guidance);
+        console.log('  - Missing parameters:', result.missingParameters);
+        console.log('  - Analysis:', result.analysis);
+      }
       
       // Store the generated actions for later execution
       if (result.actions && Array.isArray(result.actions)) {
@@ -735,6 +744,62 @@ const [isAnalyzingDocuments, setIsAnalyzingDocuments] = useState(false);
                       window.open('/backend/templates/panel-document-templates.md', '_blank');
                     }}
                   />
+                )}
+                
+                {/* Fallback display for insufficient information without guidance */}
+                {jobStatus.status === 'insufficient_information' && !jobStatus.guidance && (
+                  <div className="ai-guidance-fallback">
+                    <div className="guidance-card border-red-200 bg-red-50 p-4 rounded-lg">
+                      <div className="flex items-center gap-2 mb-3">
+                        <AlertTriangle className="h-5 w-5 text-red-600" />
+                        <span className="font-semibold text-red-800">Insufficient Information</span>
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                          Insufficient
+                        </span>
+                      </div>
+                      
+                      <p className="text-red-700 mb-4">
+                        The AI cannot generate a panel layout because it doesn't have enough information from your documents.
+                      </p>
+                      
+                      <div className="space-y-3">
+                        <div>
+                          <h4 className="font-medium text-red-800 mb-2">Required Documents:</h4>
+                          <ul className="text-sm text-red-700 space-y-1">
+                            <li>• Panel specifications with dimensions and materials</li>
+                            <li>• Site plans with boundaries and obstacles</li>
+                            <li>• Material specifications and roll information</li>
+                            <li>• Installation requirements and constraints</li>
+                          </ul>
+                        </div>
+                        
+                        <div>
+                          <h4 className="font-medium text-red-800 mb-2">Recommended Actions:</h4>
+                          <ul className="text-sm text-red-700 space-y-1">
+                            <li>• Upload documents containing panel specifications</li>
+                            <li>• Include site plans and material information</li>
+                            <li>• Ensure documents have clear, readable text</li>
+                            <li>• Check document format (PDF, DOCX supported)</li>
+                          </ul>
+                        </div>
+                      </div>
+                      
+                      <div className="flex gap-2 mt-4">
+                        <button 
+                          onClick={() => fileInputRef.current?.click()}
+                          className="btn-upload bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm"
+                        >
+                          Upload Documents
+                        </button>
+                        <button 
+                          onClick={() => window.open('/backend/templates/panel-document-templates.md', '_blank')}
+                          className="btn-templates bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded text-sm"
+                        >
+                          View Templates
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 )}
                 
                 {jobStatus.status === 'processing' && (
