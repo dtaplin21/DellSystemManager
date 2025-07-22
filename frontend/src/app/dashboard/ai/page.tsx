@@ -87,6 +87,11 @@ const [isAnalyzingDocuments, setIsAnalyzingDocuments] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const handwritingInputRef = useRef<HTMLInputElement>(null);
 
+  // Debug logging for jobStatus changes
+  useEffect(() => {
+    console.log('🔍 JobStatus changed:', jobStatus);
+  }, [jobStatus]);
+
   // All hooks must be called before any conditional logic
   // Get project ID from URL params and sync with context
   useEffect(() => {
@@ -377,6 +382,16 @@ const [isAnalyzingDocuments, setIsAnalyzingDocuments] = useState(false);
         console.log('  - Analysis:', result.analysis);
       }
       
+      // Comprehensive debug logging
+      console.log('🔍 Full result analysis:');
+      console.log('  - Result status:', result.status);
+      console.log('  - Result success:', result.success);
+      console.log('  - Result message:', result.message);
+      console.log('  - Result guidance:', result.guidance);
+      console.log('  - Result missingParameters:', result.missingParameters);
+      console.log('  - Result warnings:', result.warnings);
+      console.log('  - Result analysis:', result.analysis);
+      
       // Store the generated actions for later execution
       if (result.actions && Array.isArray(result.actions)) {
         // Store actions in session storage for the panel layout page
@@ -385,7 +400,7 @@ const [isAnalyzingDocuments, setIsAnalyzingDocuments] = useState(false);
       }
       
       // Set job status based on the actual response from AI
-      setJobStatus({ 
+      const newJobStatus = { 
         status: result.status || 'success', 
         created_at: new Date().toISOString(),
         actions: result.actions || [],
@@ -394,7 +409,10 @@ const [isAnalyzingDocuments, setIsAnalyzingDocuments] = useState(false);
         missingParameters: result.missingParameters,
         warnings: result.warnings,
         analysis: result.analysis
-      });
+      };
+      
+      console.log('🔍 Setting job status to:', newJobStatus);
+      setJobStatus(newJobStatus);
     } catch (error) {
       console.error('Error generating layout:', error);
       setJobStatus({ status: 'error' });
@@ -731,6 +749,11 @@ const [isAnalyzingDocuments, setIsAnalyzingDocuments] = useState(false);
               
               <div className="layout-info">
                 <p>Generate optimized panel layouts based on your project requirements and uploaded documents.</p>
+                
+                {/* Temporary debug display */}
+                <div className="debug-info bg-gray-100 p-2 rounded text-xs mb-4">
+                  <strong>Debug - Current jobStatus:</strong> {JSON.stringify(jobStatus, null, 2)}
+                </div>
                 
                 {/* AI Guidance Display */}
                 {(jobStatus.status === 'insufficient_information' || 
