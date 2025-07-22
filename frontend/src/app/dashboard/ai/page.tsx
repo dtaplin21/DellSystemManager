@@ -384,11 +384,16 @@ const [isAnalyzingDocuments, setIsAnalyzingDocuments] = useState(false);
         sessionStorage.setItem(`aiLayoutSummary_${selectedProject.id}`, JSON.stringify(result.summary));
       }
       
+      // Set job status based on the actual response from AI
       setJobStatus({ 
-        status: 'success', 
+        status: result.status || 'success', 
         created_at: new Date().toISOString(),
-        actions: result.actions,
-        summary: result.summary
+        actions: result.actions || [],
+        summary: result.summary,
+        guidance: result.guidance,
+        missingParameters: result.missingParameters,
+        warnings: result.warnings,
+        analysis: result.analysis
       });
     } catch (error) {
       console.error('Error generating layout:', error);
@@ -783,6 +788,64 @@ const [isAnalyzingDocuments, setIsAnalyzingDocuments] = useState(false);
                           </ul>
                         </div>
                       </div>
+                      
+                      <div className="flex gap-2 mt-4">
+                        <button 
+                          onClick={() => fileInputRef.current?.click()}
+                          className="btn-upload bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm"
+                        >
+                          Upload Documents
+                        </button>
+                        <button 
+                          onClick={() => window.open('/backend/templates/panel-document-templates.md', '_blank')}
+                          className="btn-templates bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded text-sm"
+                        >
+                          View Templates
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Simple insufficient information display - always show when status is insufficient_information */}
+                {jobStatus.status === 'insufficient_information' && (
+                  <div className="ai-guidance-simple">
+                    <div className="guidance-card border-red-200 bg-red-50 p-4 rounded-lg">
+                      <div className="flex items-center gap-2 mb-3">
+                        <AlertTriangle className="h-5 w-5 text-red-600" />
+                        <span className="font-semibold text-red-800">
+                          {jobStatus.guidance?.title || 'Insufficient Information'}
+                        </span>
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                          Insufficient
+                        </span>
+                      </div>
+                      
+                      <p className="text-red-700 mb-4">
+                        {jobStatus.guidance?.message || 'The AI cannot generate a panel layout because it doesn\'t have enough information from your documents.'}
+                      </p>
+                      
+                      {jobStatus.guidance?.requiredDocuments && jobStatus.guidance.requiredDocuments.length > 0 && (
+                        <div className="mb-3">
+                          <h4 className="font-medium text-red-800 mb-2">Required Documents:</h4>
+                          <ul className="text-sm text-red-700 space-y-1">
+                            {jobStatus.guidance.requiredDocuments.map((doc: string, index: number) => (
+                              <li key={index}>• {doc}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      
+                      {jobStatus.guidance?.recommendedActions && jobStatus.guidance.recommendedActions.length > 0 && (
+                        <div className="mb-3">
+                          <h4 className="font-medium text-red-800 mb-2">Recommended Actions:</h4>
+                          <ul className="text-sm text-red-700 space-y-1">
+                            {jobStatus.guidance.recommendedActions.map((action: string, index: number) => (
+                              <li key={index}>• {action}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                       
                       <div className="flex gap-2 mt-4">
                         <button 
