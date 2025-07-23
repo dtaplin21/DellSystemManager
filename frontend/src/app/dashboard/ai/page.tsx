@@ -8,11 +8,11 @@ import { useProjects } from '@/contexts/ProjectsProvider';
 import ProjectSelector from '@/components/projects/project-selector';
 import NoProjectSelected from '@/components/ui/no-project-selected';
 import { AIGuidanceDisplay } from '@/components/ai-document-analysis/AIGuidanceDisplay';
-import { scanHandwriting, automateLayout } from '@/lib/api';
+import { scanHandwriting, automateLayout, downloadDocument } from '@/lib/api';
 import { getCurrentSession } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 import './ai.css';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Download, FileText } from 'lucide-react';
 
 interface Message {
   id: string;
@@ -435,6 +435,34 @@ const [isAnalyzingDocuments, setIsAnalyzingDocuments] = useState(false);
     });
   };
 
+  const handleDownloadDocument = async (docId: string, docName: string) => {
+    try {
+      const blob = await downloadDocument(docId);
+      
+      // Create a download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = docName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      toast({
+        title: 'Download Started',
+        description: `${docName} is being downloaded.`,
+      });
+    } catch (error) {
+      console.error('Error downloading document:', error);
+      toast({
+        title: 'Download Failed',
+        description: 'Failed to download the document. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   if (!isAuthenticated) {
     return (
       <div className="ai-page">
@@ -549,7 +577,7 @@ const [isAnalyzingDocuments, setIsAnalyzingDocuments] = useState(false);
                   ref={fileInputRef}
                   type="file"
                   multiple
-                  accept=".pdf,.docx"
+                  accept=".pdf,.docx,.xlsx,.xls"
                   onChange={handleFileUpload}
                   style={{ display: 'none' }}
                 />
@@ -557,7 +585,7 @@ const [isAnalyzingDocuments, setIsAnalyzingDocuments] = useState(false);
               
               <div className="document-list">
                 {documents.length === 0 ? (
-                  <p className="empty-state">No documents uploaded yet. Upload PDFs or Word documents to get started.</p>
+                  <p className="empty-state">No documents uploaded yet. Upload PDFs, Word documents, or Excel files to get started.</p>
                 ) : (
                   documents.map(doc => (
                     <div key={doc.id} className={`document-item${selectedDocuments.includes(doc.id) ? ' selected' : ''}`}>
@@ -567,9 +595,14 @@ const [isAnalyzingDocuments, setIsAnalyzingDocuments] = useState(false);
                           {new Date(doc.uploadedAt).toLocaleDateString()}
                         </span>
                       </div>
-                      <button className="btn-read-ai" onClick={() => handleReadWithAI(doc.id)}>
-                        Read with AI
-                      </button>
+                      <div className="doc-actions">
+                        <button className="btn-read-ai" onClick={() => handleReadWithAI(doc.id)}>
+                          <FileText className="h-4 w-4 mr-1" /> Read
+                        </button>
+                        <button className="btn-download" onClick={() => handleDownloadDocument(doc.id, doc.name)}>
+                          <Download className="h-4 w-4 mr-1" /> Download
+                        </button>
+                      </div>
                     </div>
                   ))
                 )}

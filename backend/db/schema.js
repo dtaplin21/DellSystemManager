@@ -58,6 +58,7 @@ const documents = pgTable('documents', {
   path: text('path').notNull(),
   uploadedAt: timestamp('uploaded_at').notNull(),
   uploadedBy: varchar('uploaded_by', { length: 255 }).notNull(),
+  textContent: text('text_content'), // Added for AI analysis
 });
 
 // QC Data table

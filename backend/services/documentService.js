@@ -13,7 +13,7 @@ class DocumentService {
       // First try to get from database
       const { data: document, error } = await supabase
         .from('documents')
-        .select('text_content, file_path, name')
+        .select('text_content, path, name')
         .eq('id', documentId)
         .single();
       
@@ -34,9 +34,9 @@ class DocumentService {
       }
       
       // If no text content in database, try to extract from file
-      if (document.file_path) {
-        console.log(`[DOCUMENT SERVICE] Extracting text from file: ${document.file_path}`);
-        const extractedText = await this.extractTextFromFile(document.file_path);
+      if (document.path) {
+        console.log(`[DOCUMENT SERVICE] Extracting text from file: ${document.path}`);
+        const extractedText = await this.extractTextFromFile(document.path);
         
         if (extractedText) {
           // Update database with extracted text
@@ -149,7 +149,7 @@ class DocumentService {
     try {
       const { data: documents, error } = await supabase
         .from('documents')
-        .select('id, name, text_content, file_path, uploaded_at')
+        .select('id, name, text_content, path, uploaded_at')
         .eq('project_id', projectId)
         .order('uploaded_at', { ascending: false });
       

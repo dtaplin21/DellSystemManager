@@ -290,4 +290,89 @@ router.post('/:projectId/analyze', auth, async (req, res, next) => {
   }
 });
 
+// Download document
+router.get('/download/:documentId', auth, async (req, res, next) => {
+  try {
+    const { documentId } = req.params;
+    
+    // Validate document ID
+    if (!validateObjectId(documentId)) {
+      return res.status(400).json({ message: 'Invalid document ID' });
+    }
+    
+    // Get document details
+    const [document] = await db
+      .select({
+        id: documents.id,
+        name: documents.name,
+        path: documents.path,
+        projectId: documents.projectId
+      })
+      .from(documents)
+      .where(eq(documents.id, documentId));
+    
+    if (!document) {
+      return res.status(404).json({ message: 'Document not found' });
+    }
+    
+    // Verify project belongs to user
+    const [project] = await db
+      .select()
+      .from(projects)
+      .where(and(
+        eq(projects.id, document.projectId),
+        eq(projects.userId, req.user.id)
+      ));
+    
+    if (!project) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+    
+    // Check if file exists
+    if (!document.path || !fs.existsSync(document.path)) {
+      return res.status(404).json({ message: 'File not found on server' });
+    }
+    
+    // Set response headers for file download
+    const ext = path.extname(document.name).toLowerCase();
+    let contentType = 'application/octet-stream';
+    
+    // Set appropriate content type based on file extension
+    switch (ext) {
+      case '.pdf':
+        contentType = 'application/pdf';
+        break;
+      case '.xlsx':
+        contentType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+        break;
+      case '.xls':
+        contentType = 'application/vnd.ms-excel';
+        break;
+      case '.docx':
+        contentType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+        break;
+      case '.doc':
+        contentType = 'application/msword';
+        break;
+      case '.txt':
+        contentType = 'text/plain';
+        break;
+      case '.csv':
+        contentType = 'text/csv';
+        break;
+    }
+    
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${document.name}"`);
+    
+    // Stream the file
+    const fileStream = fs.createReadStream(document.path);
+    fileStream.pipe(res);
+    
+  } catch (error) {
+    console.error('Error downloading document:', error);
+    next(error);
+  }
+});
+
 module.exports = router;

@@ -493,3 +493,23 @@ export async function automateLayout(projectId: string, panels: any[], documents
     throw error;
   }
 }
+
+export async function downloadDocument(documentId: string): Promise<Blob> {
+  try {
+    const authHeaders = await getAuthHeaders();
+    const response = await fetch(`${BACKEND_URL}/api/documents/download/${documentId}`, {
+      method: 'GET',
+      headers: authHeaders,
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to download document');
+    }
+
+    return await response.blob();
+  } catch (error) {
+    console.error('Download document error:', error);
+    throw error;
+  }
+}
