@@ -1,4 +1,4 @@
-const { pgTable, uuid, varchar, text, timestamp, integer, decimal, boolean, json, serial } = require('drizzle-orm/pg-core');
+const { pgTable, uuid, varchar, text, timestamp, integer, decimal, boolean, json, serial, jsonb } = require('drizzle-orm/pg-core');
 
 // Users table
 const users = pgTable('users', {
@@ -90,6 +90,19 @@ const notifications = pgTable('notifications', {
   date: timestamp('date').notNull(),
 });
 
+const panelLayoutRequirements = pgTable('panel_layout_requirements', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  panelSpecifications: jsonb('panel_specifications'),
+  materialRequirements: jsonb('material_requirements'),
+  rollInventory: jsonb('roll_inventory'),
+  installationNotes: jsonb('installation_notes'),
+  siteDimensions: jsonb('site_dimensions'),
+  confidenceScore: decimal('confidence_score', { precision: 5, scale: 2 }),
+  lastUpdated: timestamp('last_updated').defaultNow(),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
 module.exports = {
   users,
   projects,
@@ -97,4 +110,5 @@ module.exports = {
   documents,
   qcData,
   notifications,
+  panelLayoutRequirements, // Add to exports
 };

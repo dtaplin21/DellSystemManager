@@ -513,3 +513,60 @@ export async function downloadDocument(documentId: string): Promise<Blob> {
     throw error;
   }
 }
+
+// Panel Requirements API functions
+export async function getPanelRequirements(projectId: string): Promise<any> {
+  try {
+    const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/panel-requirements/${projectId}`, {
+      method: 'GET',
+    });
+    return response.json();
+  } catch (error) {
+    console.error('Get panel requirements error:', error);
+    throw error;
+  }
+}
+
+export async function savePanelRequirements(projectId: string, requirements: any): Promise<any> {
+  try {
+    const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/panel-requirements/${projectId}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requirements),
+    });
+    return response.json();
+  } catch (error) {
+    console.error('Save panel requirements error:', error);
+    throw error;
+  }
+}
+
+export async function updatePanelRequirements(projectId: string, fields: any): Promise<any> {
+  try {
+    const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/panel-requirements/${projectId}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(fields),
+    });
+    return response.json();
+  } catch (error) {
+    console.error('Update panel requirements error:', error);
+    throw error;
+  }
+}
+
+export async function getPanelRequirementsAnalysis(projectId: string): Promise<any> {
+  try {
+    const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/panel-requirements/${projectId}/analysis`, {
+      method: 'GET',
+    });
+    return response.json();
+  } catch (error) {
+    console.error('Get panel requirements analysis error:', error);
+    throw error;
+  }
+}

@@ -172,17 +172,16 @@ Please provide a structured analysis in JSON format with the following sections:
   }
 });
 
-// Enhanced AI layout generation endpoint with action-based system
+// Enhanced AI layout generation endpoint with panel requirements system
 router.post('/automate-layout', requireAuth, async (req, res) => {
   try {
-    const { projectId, documents, siteConstraints = {} } = req.body;
+    const { projectId } = req.body;
 
     if (!projectId) {
       return res.status(400).json({ error: 'Project ID is required' });
     }
 
-    console.log(`[AI ROUTE] Starting enhanced layout generation for project ${projectId}`);
-    console.log(`[AI ROUTE] Documents provided: ${documents?.length || 0}`);
+    console.log(`[AI ROUTE] Starting panel requirements-based layout generation for project ${projectId}`);
 
     // Set job status to processing
     jobStatus.set(projectId, {
@@ -191,53 +190,13 @@ router.post('/automate-layout', requireAuth, async (req, res) => {
       completed_at: null
     });
 
-    // Enhance documents with text content if not already present
-    let enhancedDocuments = documents || [];
-    if (enhancedDocuments.length > 0) {
-      console.log('[AI ROUTE] Enhancing documents with text content...');
-      
-      try {
-        // Import document service to fetch text content
-        const documentService = require('../services/documentService');
-        
-        enhancedDocuments = await Promise.all(
-          enhancedDocuments.map(async (doc) => {
-            if (!doc.text && doc.id) {
-              try {
-                console.log(`[AI ROUTE] Fetching text for document: ${doc.name || doc.id}`);
-                const documentText = await documentService.getDocumentText(doc.id);
-                return {
-                  ...doc,
-                  text: documentText,
-                  filename: doc.name || doc.filename
-                };
-              } catch (textError) {
-                console.warn(`[AI ROUTE] Could not fetch text for document ${doc.id}:`, textError.message);
-                return doc;
-              }
-            }
-            return {
-              ...doc,
-              filename: doc.name || doc.filename
-            };
-          })
-        );
-        
-        console.log(`[AI ROUTE] Enhanced ${enhancedDocuments.length} documents with text content`);
-        console.log(`[AI ROUTE] Documents with text: ${enhancedDocuments.filter(d => d.text).length}`);
-      } catch (enhanceError) {
-        console.warn('[AI ROUTE] Error enhancing documents with text:', enhanceError.message);
-        // Continue with original documents if enhancement fails
-      }
-    }
-
     // Import the enhanced AI layout generator
     const enhancedAILayoutGenerator = require('../services/enhancedAILayoutGenerator');
 
-    // Generate AI layout actions using enhanced generator with text content
-    const result = await enhancedAILayoutGenerator.generateLayoutActions(enhancedDocuments, projectId);
+    // Generate AI layout actions using panel requirements
+    const result = await enhancedAILayoutGenerator.generateLayoutActions(projectId);
 
-    console.log(`[AI ROUTE] Enhanced AI generation result status: ${result.status}`);
+    console.log(`[AI ROUTE] Panel requirements-based generation result status: ${result.status}`);
 
     // Handle different response statuses
     if (result.status === 'insufficient_information') {
@@ -250,124 +209,84 @@ router.post('/automate-layout', requireAuth, async (req, res) => {
         completed_at: new Date().toISOString(),
         guidance: result.guidance,
         missingParameters: result.missingParameters,
-        analysis: result.analysis
+        analysis: result.analysis,
+        confidence: result.confidence
       });
 
       res.json({
-        success: false,
+        success: true,
         status: 'insufficient_information',
         message: result.guidance.title,
         guidance: result.guidance,
         missingParameters: result.missingParameters,
         analysis: result.analysis,
+        confidence: result.confidence,
         jobId: projectId
       });
       return;
     }
 
     if (!result.success) {
-      console.warn('[AI ROUTE] Enhanced AI generation failed, using fallback actions');
+      console.warn('[AI ROUTE] Panel requirements-based generation failed');
       
-      // Import the original AI layout generator for fallback
-      const aiLayoutGenerator = require('../services/aiLayoutGenerator');
-      const fallbackResult = aiLayoutGenerator.generateFallbackActions(siteConstraints);
-      
-      // Update job status with fallback actions
+      // Update job status with error
       jobStatus.set(projectId, {
-        status: 'completed_fallback',
+        status: 'error',
         created_at: jobStatus.get(projectId)?.created_at || new Date().toISOString(),
         completed_at: new Date().toISOString(),
-        actions: fallbackResult.actions,
-        summary: fallbackResult.summary,
-        isFallback: true,
-        guidance: {
-          title: 'Fallback Mode',
-          message: 'AI generation failed, using default panel layout. Please check your documents and try again.',
-          requiredDocuments: ['Panel specifications', 'Site plan', 'Material specifications'],
-          recommendedActions: ['Upload properly formatted documents', 'Check document content', 'Try again with different documents']
-        }
+        error: result.error || 'Unknown error'
       });
 
-      res.json({
-        success: true,
-        status: 'fallback',
-        message: 'Layout generation completed (fallback mode)',
-        actions: fallbackResult.actions,
-        summary: fallbackResult.summary,
-        guidance: {
-          title: 'Fallback Mode',
-          message: 'AI generation failed, using default panel layout. Please check your documents and try again.',
-          requiredDocuments: ['Panel specifications', 'Site plan', 'Material specifications'],
-          recommendedActions: ['Upload properly formatted documents', 'Check document content', 'Try again with different documents']
-        },
-        jobId: projectId,
-        isFallback: true
+      res.status(500).json({
+        success: false,
+        status: 'error',
+        message: 'Failed to generate panel layout',
+        error: result.error || 'Unknown error',
+        jobId: projectId
       });
       return;
     }
 
-    console.log(`[AI ROUTE] Enhanced AI generation successful. Generated ${result.actions.length} actions`);
-    console.log(`[AI ROUTE] Analysis confidence: ${result.analysis?.confidence || 0}`);
-    if (result.warnings && result.warnings.length > 0) {
-      console.log(`[AI ROUTE] Warnings: ${result.warnings.length}`);
-    }
-
-    // Update job status with generated actions
+    // Success case
+    console.log('[AI ROUTE] Panel requirements-based generation successful');
+    
+    // Update job status with success
     jobStatus.set(projectId, {
-      status: 'completed',
+      status: result.status || 'success',
       created_at: jobStatus.get(projectId)?.created_at || new Date().toISOString(),
       completed_at: new Date().toISOString(),
       actions: result.actions,
       summary: result.summary,
       analysis: result.analysis,
-      warnings: result.warnings,
-      guidance: result.guidance,
-      tokensUsed: result.tokensUsed
+      confidence: result.confidence
     });
 
     res.json({
       success: true,
-      status: 'success',
-      message: 'Enhanced AI layout actions generated successfully',
+      status: result.status || 'success',
       actions: result.actions,
       summary: result.summary,
       analysis: result.analysis,
-      warnings: result.warnings,
-      guidance: result.guidance,
-      jobId: projectId,
-      tokensUsed: result.tokensUsed
+      confidence: result.confidence,
+      jobId: projectId
     });
 
   } catch (error) {
-    console.error('[AI ROUTE] Error in enhanced AI layout generation:', error);
+    console.error('[AI ROUTE] Error in automate-layout:', error);
     
-    // Update job status to failed
-    if (req.body.projectId) {
-      jobStatus.set(req.body.projectId, {
-        status: 'failed',
-        created_at: jobStatus.get(req.body.projectId)?.created_at || new Date().toISOString(),
-        completed_at: new Date().toISOString(),
-        error: error.message,
-        guidance: {
-          title: 'System Error',
-          message: 'An error occurred while processing your documents. Please try again.',
-          requiredDocuments: [],
-          recommendedActions: ['Check document format', 'Ensure documents contain panel information', 'Try uploading different documents']
-        }
-      });
-    }
+    // Update job status with error
+    jobStatus.set(req.body.projectId, {
+      status: 'error',
+      created_at: new Date().toISOString(),
+      completed_at: new Date().toISOString(),
+      error: error.message
+    });
 
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
       status: 'error',
-      error: 'Failed to generate enhanced AI layout',
-      details: error.message,
-      guidance: {
-        title: 'System Error',
-        message: 'An error occurred while processing your documents. Please try again.',
-        requiredDocuments: [],
-        recommendedActions: ['Check document format', 'Ensure documents contain panel information', 'Try uploading different documents']
-      }
+      message: 'Failed to generate panel layout',
+      error: error.message
     });
   }
 });
