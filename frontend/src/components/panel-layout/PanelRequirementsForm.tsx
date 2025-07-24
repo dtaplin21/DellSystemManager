@@ -10,12 +10,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import { 
-  getPanelRequirements, 
-  savePanelRequirements, 
-  updatePanelRequirements,
-  getPanelRequirementsAnalysis 
-} from '@/lib/api';
-import { 
   FileText, 
   Package, 
   Ruler, 
@@ -24,12 +18,27 @@ import {
   Save, 
   RefreshCw,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  Upload,
+  Brain,
+  Download
 } from 'lucide-react';
+import { 
+  getPanelRequirements, 
+  savePanelRequirements, 
+  updatePanelRequirements,
+  getPanelRequirementsAnalysis,
+  uploadDocument,
+  fetchDocuments,
+  downloadDocument,
+  automateLayout
+} from '@/lib/api';
+import { useToast } from '@/hooks/use-toast';
 
 interface PanelRequirementsFormProps {
   projectId: string;
   onRequirementsChange?: (requirements: any, confidence: number) => void;
+  onLayoutGenerated?: (result: any) => void;
 }
 
 interface PanelRequirements {
@@ -65,16 +74,30 @@ interface PanelRequirements {
   };
 }
 
-export default function PanelRequirementsForm({ projectId, onRequirementsChange }: PanelRequirementsFormProps) {
+interface Document {
+  id: string;
+  name: string;
+  type: string;
+  size: number;
+  uploadedAt: string;
+  uploadedBy: string;
+}
+
+export default function PanelRequirementsForm({ projectId, onRequirementsChange, onLayoutGenerated }: PanelRequirementsFormProps) {
+  const { toast } = useToast();
   const [requirements, setRequirements] = useState<PanelRequirements>({});
   const [confidence, setConfidence] = useState(0);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [analysis, setAnalysis] = useState<any>(null);
   const [activeTab, setActiveTab] = useState('panel-specs');
+  const [documents, setDocuments] = useState<Document[]>([]);
 
   useEffect(() => {
     loadRequirements();
+    loadDocuments();
   }, [projectId]);
 
   const loadRequirements = async () => {
@@ -102,6 +125,15 @@ export default function PanelRequirementsForm({ projectId, onRequirementsChange 
     }
   };
 
+  const loadDocuments = async () => {
+    try {
+      const response = await fetchDocuments(projectId);
+      setDocuments(response.documents || []);
+    } catch (error) {
+      console.error('Error loading documents:', error);
+    }
+  };
+
   const saveRequirements = async () => {
     try {
       setSaving(true);
@@ -112,11 +144,120 @@ export default function PanelRequirementsForm({ projectId, onRequirementsChange 
         if (onRequirementsChange) {
           onRequirementsChange(response.requirements, response.confidence);
         }
+        toast({
+          title: 'Success',
+          description: 'Panel requirements saved successfully',
+        });
       }
     } catch (error) {
       console.error('Error saving panel requirements:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to save panel requirements',
+        variant: 'destructive',
+      });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files) return;
+
+    setUploading(true);
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        await uploadDocument(projectId, file);
+      }
+      
+      toast({
+        title: 'Success',
+        description: 'Documents uploaded successfully',
+      });
+      
+      loadDocuments();
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to upload documents',
+        variant: 'destructive',
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDownloadDocument = async (documentId: string, filename: string) => {
+    try {
+      const blob = await downloadDocument(documentId);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Download error:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to download document',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleGenerateLayout = async () => {
+    if (confidence < 50) {
+      toast({
+        title: 'Insufficient Requirements',
+        description: 'Please complete more requirements before generating layout',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setGenerating(true);
+    try {
+      console.log('🚀 Starting AI layout generation with requirements:', requirements);
+      
+      const result = await automateLayout(
+        projectId,
+        [], // panels array (empty for now, as AI generates new ones)
+        documents // Use uploaded documents
+      );
+
+      console.log('🎯 AI layout generation result:', result);
+      
+      if (onLayoutGenerated) {
+        onLayoutGenerated(result);
+      }
+
+      if (result.status === 'success') {
+        toast({
+          title: 'Success',
+          description: 'Panel layout generated successfully!',
+        });
+      } else if (result.status === 'insufficient_information') {
+        toast({
+          title: 'Insufficient Information',
+          description: 'Please provide more requirements for accurate panel generation',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      console.error('Layout generation error:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to generate panel layout',
+        variant: 'destructive',
+      });
+    } finally {
+      setGenerating(false);
     }
   };
 
@@ -136,6 +277,7 @@ export default function PanelRequirementsForm({ projectId, onRequirementsChange 
     { id: 'rolls', label: 'Roll Inventory', icon: Ruler },
     { id: 'installation', label: 'Installation Notes', icon: Settings },
     { id: 'site', label: 'Site Dimensions', icon: MapPin },
+    { id: 'documents', label: 'Documents', icon: Upload },
   ];
 
   const getStatusColor = (confidence: number) => {
@@ -163,23 +305,50 @@ export default function PanelRequirementsForm({ projectId, onRequirementsChange 
 
   return (
     <div className="space-y-6">
-      {/* Header with Confidence Score */}
+      {/* Header with Confidence Score and Generate Button */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center">
-              <Settings className="h-5 w-5 mr-2" />
-              Panel Layout Requirements
-            </CardTitle>
             <div className="flex items-center space-x-4">
-              <div className="text-right">
-                <div className="text-sm text-gray-600">Confidence Score</div>
-                <div className={`text-lg font-semibold ${getStatusColor(confidence)} flex items-center`}>
+              <CardTitle className="flex items-center">
+                <Settings className="h-5 w-5 mr-2" />
+                Panel Layout Requirements
+              </CardTitle>
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-gray-600">Confidence:</span>
+                <span className={`text-lg font-semibold ${getStatusColor(confidence)} flex items-center`}>
                   {getStatusIcon(confidence)}
                   <span className="ml-1">{confidence}%</span>
-                </div>
+                </span>
+                <Progress value={confidence} className="w-24" />
               </div>
-              <Progress value={confidence} className="w-24" />
+            </div>
+            <div className="flex items-center space-x-2">
+              <Button 
+                onClick={saveRequirements} 
+                disabled={saving}
+                variant="outline"
+                className="flex items-center space-x-2"
+              >
+                {saving ? (
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
+                <span>{saving ? 'Saving...' : 'Save Requirements'}</span>
+              </Button>
+              <Button 
+                onClick={handleGenerateLayout}
+                disabled={generating || confidence < 50}
+                className="flex items-center space-x-2 bg-green-600 hover:bg-green-700"
+              >
+                {generating ? (
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Brain className="h-4 w-4" />
+                )}
+                <span>{generating ? 'Generating...' : 'Generate Layout'}</span>
+              </Button>
             </div>
           </div>
         </CardHeader>
@@ -420,24 +589,78 @@ export default function PanelRequirementsForm({ projectId, onRequirementsChange 
               </div>
             </div>
           )}
+
+          {activeTab === 'documents' && (
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">Project Documents</h3>
+              
+              {/* Upload Section */}
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6">
+                <div className="text-center">
+                  <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <h4 className="text-lg font-medium text-gray-900 mb-2">Upload Documents</h4>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Upload panel specifications, material data, site plans, and other relevant documents
+                  </p>
+                  <Input
+                    type="file"
+                    multiple
+                    accept=".pdf,.docx,.txt,.xlsx,.xls"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                    id="file-upload"
+                  />
+                  <Label htmlFor="file-upload" className="cursor-pointer">
+                    <Button variant="outline" disabled={uploading}>
+                      {uploading ? (
+                        <>
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                          Uploading...
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-4 w-4 mr-2" />
+                          Upload Documents
+                        </>
+                      )}
+                    </Button>
+                  </Label>
+                </div>
+              </div>
+
+              {/* Documents List */}
+              <div className="space-y-2">
+                <h4 className="font-semibold">Uploaded Documents</h4>
+                {documents.map((doc) => (
+                  <div key={doc.id} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      <FileText className="h-5 w-5 text-gray-400" />
+                      <div>
+                        <p className="font-medium">{doc.name}</p>
+                        <p className="text-sm text-gray-500">
+                          {new Date(doc.uploadedAt).toLocaleDateString()} • {doc.type}
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDownloadDocument(doc.id, doc.name)}
+                    >
+                      <Download className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+                {documents.length === 0 && (
+                  <p className="text-gray-500 text-center py-4">
+                    No documents uploaded yet. Upload documents to help with panel generation.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
-
-      {/* Save Button */}
-      <div className="flex justify-end">
-        <Button 
-          onClick={saveRequirements} 
-          disabled={saving}
-          className="flex items-center space-x-2"
-        >
-          {saving ? (
-            <RefreshCw className="h-4 w-4 animate-spin" />
-          ) : (
-            <Save className="h-4 w-4" />
-          )}
-          <span>{saving ? 'Saving...' : 'Save Requirements'}</span>
-        </Button>
-      </div>
 
       {/* Analysis Display */}
       {analysis && (

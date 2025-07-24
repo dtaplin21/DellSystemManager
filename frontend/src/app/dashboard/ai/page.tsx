@@ -101,9 +101,17 @@ export default function AIPage() {
     try {
       console.log('Loading projects for authenticated user...');
       const response = await fetchProjects();
-      setProjects(response.projects || []);
-      if (response.projects && response.projects.length > 0) {
-        setSelectedProject(response.projects[0]);
+      console.log('Projects response:', response);
+      
+      // Backend returns projects as array directly, not wrapped in { projects: [...] }
+      const projectsArray = Array.isArray(response) ? response : (response.projects || []);
+      setProjects(projectsArray);
+      
+      if (projectsArray.length > 0) {
+        setSelectedProject(projectsArray[0]);
+        console.log('Selected first project:', projectsArray[0]);
+      } else {
+        console.log('No projects found');
       }
     } catch (error) {
       console.error('Error loading projects:', error);
@@ -398,6 +406,18 @@ export default function AIPage() {
         <PanelRequirementsForm
           projectId={selectedProject.id}
           onRequirementsChange={handleRequirementsChange}
+          onLayoutGenerated={(result) => {
+            setJobStatus({
+              status: result.status || 'success',
+              created_at: new Date().toISOString(),
+              actions: result.actions || [],
+              summary: result.summary,
+              guidance: result.guidance,
+              missingParameters: result.missingParameters,
+              warnings: result.warnings,
+              analysis: result.analysis
+            });
+          }}
         />
       )}
 
