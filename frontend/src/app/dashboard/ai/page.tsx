@@ -8,12 +8,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Progress } from '@/components/ui/progress';
 import { 
   FileText, 
   Upload, 
   Download, 
-  Brain, 
   Settings,
   CheckCircle,
   AlertCircle,
@@ -24,7 +22,6 @@ import {
   uploadDocument, 
   fetchDocuments, 
   downloadDocument,
-  automateLayout,
   getPanelRequirements,
   savePanelRequirements,
   getPanelRequirementsAnalysis
@@ -72,7 +69,7 @@ export default function AIPage() {
   const [jobStatus, setJobStatus] = useState<JobStatus>({ status: 'idle' });
   const [requirements, setRequirements] = useState<any>(null);
   const [requirementsConfidence, setRequirementsConfidence] = useState(0);
-  const [activeSection, setActiveSection] = useState<'documents' | 'requirements' | 'generation'>('requirements');
+  const [activeSection, setActiveSection] = useState<'documents' | 'requirements'>('requirements');
 
   // Check authentication
   useEffect(() => {
@@ -216,82 +213,11 @@ export default function AIPage() {
     });
   };
 
-  const handleGenerateLayout = async () => {
-    if (!selectedProject) return;
 
-    setJobStatus({ status: 'processing' });
-    
-    try {
-      console.log('🚀 Starting AI layout generation with requirements:', requirements);
-      
-      const result = await automateLayout(
-        selectedProject.id,
-        [], // panels array (empty for now, as AI generates new ones)
-        documents // Use actual uploaded documents from state
-      );
-
-      console.log('🎯 AI layout generation result:', result);
-      
-      // Set job status based on the actual response from AI
-      setJobStatus({
-        status: result.status || 'success',
-        created_at: new Date().toISOString(),
-        actions: result.actions || [],
-        summary: result.summary,
-        guidance: result.guidance,
-        missingParameters: result.missingParameters,
-        warnings: result.warnings,
-        analysis: result.analysis
-      });
-
-      console.log('📊 Updated jobStatus:', jobStatus);
-
-      if (result.status === 'success') {
-        toast({
-          title: 'Success',
-          description: 'Panel layout generated successfully!',
-        });
-      } else if (result.status === 'insufficient_information') {
-        toast({
-          title: 'Insufficient Information',
-          description: 'Please provide more requirements for accurate panel generation',
-          variant: 'destructive',
-        });
-      }
-    } catch (error) {
-      console.error('Layout generation error:', error);
-      setJobStatus({ status: 'error' });
-      toast({
-        title: 'Error',
-        description: 'Failed to generate panel layout',
-        variant: 'destructive',
-      });
-    }
-  };
 
   const handleRequirementsChange = (newRequirements: any, confidence: number) => {
     setRequirements(newRequirements);
     setRequirementsConfidence(confidence);
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'success': return 'text-green-600';
-      case 'insufficient_information': return 'text-red-600';
-      case 'partial': return 'text-yellow-600';
-      case 'error': return 'text-red-600';
-      default: return 'text-gray-600';
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'success': return <CheckCircle className="h-4 w-4" />;
-      case 'insufficient_information': return <AlertCircle className="h-4 w-4" />;
-      case 'partial': return <AlertCircle className="h-4 w-4" />;
-      case 'error': return <AlertCircle className="h-4 w-4" />;
-      default: return <Info className="h-4 w-4" />;
-    }
   };
 
   // Show loading state while checking authentication
@@ -388,17 +314,7 @@ export default function AIPage() {
           <FileText className="h-4 w-4" />
           <span>Documents</span>
         </button>
-        <button
-          onClick={() => setActiveSection('generation')}
-          className={`flex items-center space-x-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-            activeSection === 'generation'
-              ? 'bg-white text-blue-600 shadow-sm'
-              : 'text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          <Brain className="h-4 w-4" />
-          <span>Layout Generation</span>
-        </button>
+
       </div>
 
       {/* Panel Requirements Section */}
@@ -476,91 +392,6 @@ export default function AIPage() {
                 <p className="text-gray-500 text-center py-4">
                   No documents uploaded yet. Upload documents to get started.
                 </p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Layout Generation Section */}
-      {activeSection === 'generation' && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span>Panel Layout Generation</span>
-              <Button
-                onClick={handleGenerateLayout}
-                disabled={jobStatus.status === 'processing' || requirementsConfidence < 50}
-                className="btn-view-layout"
-              >
-                <Brain className="h-4 w-4 mr-2" />
-                {jobStatus.status === 'processing' ? 'Generating...' : 'Generate Layout'}
-              </Button>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {/* Requirements Status */}
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <div>
-                  <h4 className="font-semibold">Requirements Status</h4>
-                  <p className="text-sm text-gray-600">
-                    {requirementsConfidence >= 80 
-                      ? 'Ready for panel generation' 
-                      : requirementsConfidence >= 50 
-                        ? 'Partial requirements - generation may be limited'
-                        : 'Insufficient requirements - please complete the requirements form'
-                    }
-                  </p>
-                </div>
-                <div className="text-right">
-                  <div className="text-2xl font-bold text-blue-600">{requirementsConfidence}%</div>
-                  <Progress value={requirementsConfidence} className="w-24" />
-                </div>
-              </div>
-
-              {/* Job Status Display */}
-              {jobStatus.status !== 'idle' && (
-                <div className="space-y-4">
-                  <div className={`flex items-center space-x-2 p-4 rounded-lg border ${
-                    jobStatus.status === 'success' ? 'border-green-200 bg-green-50' :
-                    jobStatus.status === 'insufficient_information' ? 'border-red-200 bg-red-50' :
-                    jobStatus.status === 'error' ? 'border-red-200 bg-red-50' :
-                    'border-gray-200 bg-gray-50'
-                  }`}>
-                    {getStatusIcon(jobStatus.status)}
-                    <div>
-                      <h4 className="font-semibold">Generation Status</h4>
-                      <p className="text-sm">
-                        {jobStatus.status === 'success' && 'Panel layout generated successfully!'}
-                        {jobStatus.status === 'insufficient_information' && 'Insufficient information for panel generation'}
-                        {jobStatus.status === 'error' && 'Error occurred during generation'}
-                        {jobStatus.status === 'processing' && 'Processing...'}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Debug Information */}
-                  {process.env.NODE_ENV === 'development' && (
-                    <details className="bg-gray-100 p-4 rounded-lg">
-                      <summary className="cursor-pointer font-semibold">Debug - Current jobStatus</summary>
-                      <pre className="mt-2 text-xs overflow-auto">
-                        {JSON.stringify(jobStatus, null, 2)}
-                      </pre>
-                    </details>
-                  )}
-
-                  {/* Insufficient Information Display */}
-                  {jobStatus.status === 'insufficient_information' && !jobStatus.guidance && (
-                    <Alert>
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertDescription>
-                        The AI cannot generate accurate panel layouts because critical information is missing. 
-                        Please complete the requirements form above.
-                      </AlertDescription>
-                    </Alert>
-                  )}
-                </div>
               )}
             </div>
           </CardContent>
