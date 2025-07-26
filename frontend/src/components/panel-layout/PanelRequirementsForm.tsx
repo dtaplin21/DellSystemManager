@@ -21,7 +21,8 @@ import {
   AlertCircle,
   Upload,
   Brain,
-  Download
+  Download,
+  Info
 } from 'lucide-react';
 import { 
   getPanelRequirements, 
@@ -31,7 +32,8 @@ import {
   uploadDocument,
   fetchDocuments,
   downloadDocument,
-  automateLayout
+  automateLayout,
+  analyzeDocumentsForPanelRequirements
 } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 
@@ -92,8 +94,11 @@ export default function PanelRequirementsForm({ projectId, onRequirementsChange,
   const [uploading, setUploading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [analysis, setAnalysis] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState('panel-specs');
+  const [activeTab, setActiveTab] = useState('ai-analysis');
   const [documents, setDocuments] = useState<Document[]>([]);
+  const [aiAnalyzing, setAiAnalyzing] = useState(false);
+  const [aiAnalysisResult, setAiAnalysisResult] = useState<any>(null);
+  const [selectedDocumentsForAnalysis, setSelectedDocumentsForAnalysis] = useState<string[]>([]);
 
   useEffect(() => {
     loadRequirements();
@@ -261,6 +266,80 @@ export default function PanelRequirementsForm({ projectId, onRequirementsChange,
     }
   };
 
+  const handleAIAnalysis = async () => {
+    if (selectedDocumentsForAnalysis.length === 0) {
+      toast({
+        title: 'No Documents Selected',
+        description: 'Please select at least one document for AI analysis',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setAiAnalyzing(true);
+    try {
+      console.log('🤖 Starting AI analysis of documents:', selectedDocumentsForAnalysis);
+      
+      // Get the selected documents
+      const documentsToAnalyze = documents.filter(doc => 
+        selectedDocumentsForAnalysis.includes(doc.id)
+      );
+
+      const result = await analyzeDocumentsForPanelRequirements(projectId, documentsToAnalyze);
+      
+      console.log('✅ AI analysis result:', result);
+
+      if (result.success) {
+        // Auto-populate form with extracted requirements
+        setRequirements(result.requirements);
+        setConfidence(result.confidence);
+        setAiAnalysisResult(result.analysis);
+        
+        // Update parent component
+        if (onRequirementsChange) {
+          onRequirementsChange(result.requirements, result.confidence);
+        }
+
+        toast({
+          title: 'AI Analysis Complete',
+          description: `Successfully extracted requirements with ${result.confidence}% confidence`,
+        });
+
+        // Show missing requirements if any
+        if (result.missingRequirements && Object.keys(result.missingRequirements).length > 0) {
+          toast({
+            title: 'Missing Information Detected',
+            description: 'Some requirements could not be extracted. Please review and complete manually.',
+            variant: 'destructive',
+          });
+        }
+      } else {
+        toast({
+          title: 'Analysis Failed',
+          description: result.error || 'Failed to analyze documents',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      console.error('AI analysis error:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to analyze documents with AI',
+        variant: 'destructive',
+      });
+    } finally {
+      setAiAnalyzing(false);
+    }
+  };
+
+  const toggleDocumentSelection = (documentId: string) => {
+    setSelectedDocumentsForAnalysis(prev => 
+      prev.includes(documentId) 
+        ? prev.filter(id => id !== documentId)
+        : [...prev, documentId]
+    );
+  };
+
   const updateField = (section: keyof PanelRequirements, field: string, value: any) => {
     setRequirements(prev => ({
       ...prev,
@@ -272,6 +351,7 @@ export default function PanelRequirementsForm({ projectId, onRequirementsChange,
   };
 
   const tabs = [
+    { id: 'ai-analysis', label: 'AI Analysis', icon: Brain },
     { id: 'panel-specs', label: 'Panel Specifications', icon: FileText },
     { id: 'materials', label: 'Material Requirements', icon: Package },
     { id: 'rolls', label: 'Roll Inventory', icon: Ruler },
@@ -378,6 +458,135 @@ export default function PanelRequirementsForm({ projectId, onRequirementsChange,
       {/* Tab Content */}
       <Card>
         <CardContent className="p-6">
+          {activeTab === 'ai-analysis' && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold">AI Document Analysis</h3>
+                <Button
+                  onClick={handleAIAnalysis}
+                  disabled={aiAnalyzing || selectedDocumentsForAnalysis.length === 0}
+                  className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700"
+                >
+                  {aiAnalyzing ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                      <span>Analyzing...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Brain className="h-4 w-4" />
+                      <span>Analyze Documents</span>
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-start space-x-3">
+                  <Info className="h-5 w-5 text-blue-600 mt-0.5" />
+                  <div>
+                    <h4 className="font-semibold text-blue-900">How AI Analysis Works</h4>
+                    <p className="text-sm text-blue-700 mt-1">
+                      Select documents below and click "Analyze Documents" to automatically extract panel requirements. 
+                      The AI will analyze your documents and populate the form fields with extracted information.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Document Selection */}
+              <div className="space-y-4">
+                <h4 className="font-semibold">Select Documents for Analysis</h4>
+                <div className="grid gap-3">
+                  {documents.map((doc) => (
+                    <div
+                      key={doc.id}
+                      className={`flex items-center space-x-3 p-3 border rounded-lg cursor-pointer transition-colors ${
+                        selectedDocumentsForAnalysis.includes(doc.id)
+                          ? 'border-blue-500 bg-blue-50'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                      onClick={() => toggleDocumentSelection(doc.id)}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedDocumentsForAnalysis.includes(doc.id)}
+                        onChange={() => toggleDocumentSelection(doc.id)}
+                        className="h-4 w-4 text-blue-600"
+                      />
+                      <FileText className="h-5 w-5 text-gray-400" />
+                      <div className="flex-1">
+                        <p className="font-medium">{doc.name}</p>
+                        <p className="text-sm text-gray-500">
+                          {new Date(doc.uploadedAt).toLocaleDateString()} • {doc.type}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                  {documents.length === 0 && (
+                    <div className="text-center py-8 text-gray-500">
+                      <Upload className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                      <p>No documents uploaded yet.</p>
+                      <p className="text-sm">Upload documents in the Documents tab to analyze them.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* AI Analysis Results */}
+              {aiAnalysisResult && (
+                <div className="space-y-4">
+                  <h4 className="font-semibold">Analysis Results</h4>
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div className="flex items-center space-x-2 mb-3">
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                      <span className="font-semibold text-green-900">Analysis Complete</span>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="font-medium">Document Types Analyzed:</span>
+                        <p className="text-gray-600">{aiAnalysisResult.documentTypes?.join(', ') || 'Unknown'}</p>
+                      </div>
+                      <div>
+                        <span className="font-medium">Panel Specifications Found:</span>
+                        <p className="text-gray-600">{aiAnalysisResult.panelSpecifications?.length || 0} panels</p>
+                      </div>
+                      <div>
+                        <span className="font-medium">Roll Information Found:</span>
+                        <p className="text-gray-600">{aiAnalysisResult.rollInformation?.length || 0} rolls</p>
+                      </div>
+                      <div>
+                        <span className="font-medium">Material Requirements:</span>
+                        <p className="text-gray-600">{aiAnalysisResult.materialRequirements ? 'Extracted' : 'Not found'}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Confidence Indicator */}
+              {confidence > 0 && (
+                <div className="space-y-2">
+                  <h4 className="font-semibold">Extraction Confidence</h4>
+                  <div className="flex items-center space-x-3">
+                    <Progress value={confidence} className="flex-1" />
+                    <span className={`font-semibold ${getStatusColor(confidence)}`}>
+                      {confidence}%
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    {confidence >= 80 
+                      ? 'High confidence - Most requirements extracted successfully'
+                      : confidence >= 50 
+                        ? 'Medium confidence - Some requirements may need manual review'
+                        : 'Low confidence - Please review and complete requirements manually'
+                    }
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
           {activeTab === 'panel-specs' && (
             <div className="space-y-4">
               <h3 className="text-lg font-semibold">Panel Specifications</h3>

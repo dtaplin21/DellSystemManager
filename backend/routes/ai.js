@@ -462,6 +462,208 @@ Please extract the data in a structured JSON format with appropriate fields for 
   }
 });
 
+// Enhanced document analysis for panel requirements
+router.post('/analyze-panel-requirements', requireAuth, async (req, res) => {
+  try {
+    const { projectId, documents } = req.body;
+
+    if (!projectId) {
+      return res.status(400).json({ error: 'Project ID is required' });
+    }
+
+    if (!documents || documents.length === 0) {
+      return res.status(400).json({ error: 'Documents are required' });
+    }
+
+    console.log(`[AI ROUTE] Analyzing ${documents.length} documents for panel requirements in project ${projectId}`);
+
+    // Import required services
+    const panelDocumentAnalyzer = require('../services/panelDocumentAnalyzer');
+    const documentService = require('../services/documentService');
+    const panelRequirementsService = require('../services/panelRequirementsService');
+
+    // Enhance documents with text content if not already present
+    let enhancedDocuments = documents;
+    try {
+      enhancedDocuments = await Promise.all(
+        documents.map(async (doc) => {
+          if (!doc.text && doc.id) {
+            try {
+              const documentText = await documentService.getDocumentText(doc.id);
+              return {
+                ...doc,
+                text: documentText,
+                filename: doc.name || doc.filename
+              };
+            } catch (textError) {
+              console.warn(`[AI ROUTE] Text extraction failed for ${doc.id}:`, textError.message);
+              return doc;
+            }
+          }
+          return {
+            ...doc,
+            filename: doc.name || doc.filename
+          };
+        })
+      );
+    } catch (enhanceError) {
+      console.warn('[AI ROUTE] Document enhancement failed:', enhanceError.message);
+    }
+
+    // Analyze documents for panel requirements
+    const analysisResult = await panelDocumentAnalyzer.analyzePanelDocuments(enhancedDocuments);
+    
+    console.log(`[AI ROUTE] Document analysis completed with confidence: ${analysisResult.confidence}%`);
+
+    // Extract panel requirements from analysis
+    const extractedRequirements = {
+      panelSpecifications: {
+        panelCount: analysisResult.panelSpecifications?.length || 0,
+        dimensions: extractPanelDimensions(analysisResult.panelSpecifications),
+        materials: extractMaterials(analysisResult.panelSpecifications, analysisResult.materialRequirements),
+        panelNumbers: analysisResult.panelSpecifications?.map(p => p.panelNumber) || []
+      },
+      materialRequirements: {
+        primaryMaterial: extractPrimaryMaterial(analysisResult.panelSpecifications),
+        thickness: extractThickness(analysisResult.panelSpecifications),
+        seamRequirements: analysisResult.materialRequirements?.seamRequirements || 'Standard 6-inch overlap',
+        secondaryMaterial: analysisResult.materialRequirements?.secondaryMaterial || null
+      },
+      rollInventory: {
+        rolls: analysisResult.rollInformation?.map(roll => ({
+          id: roll.rollNumber,
+          dimensions: `${roll.dimensions?.width || 0}ft x ${roll.dimensions?.length || 0}ft`,
+          quantity: 1
+        })) || [],
+        totalQuantity: analysisResult.rollInformation?.length || 0
+      },
+      installationNotes: {
+        requirements: extractInstallationRequirements(analysisResult.installationNotes),
+        constraints: extractInstallationConstraints(analysisResult.siteConstraints),
+        notes: extractInstallationNotes(analysisResult.installationNotes)
+      },
+      siteDimensions: {
+        width: analysisResult.siteConstraints?.dimensions?.width || null,
+        length: analysisResult.siteConstraints?.dimensions?.length || null,
+        terrainType: analysisResult.siteConstraints?.terrainType || 'flat'
+      }
+    };
+
+    // Calculate confidence score
+    const confidence = panelRequirementsService.calculateConfidenceScore(extractedRequirements);
+    
+    // Get missing requirements
+    const missingRequirements = panelRequirementsService.getMissingRequirements(extractedRequirements);
+
+    // Save extracted requirements to database
+    const savedRequirements = await panelRequirementsService.upsertRequirements(projectId, extractedRequirements);
+
+    console.log(`[AI ROUTE] Panel requirements extracted and saved with confidence: ${confidence}%`);
+
+    res.json({
+      success: true,
+      requirements: extractedRequirements,
+      confidence,
+      missingRequirements,
+      analysis: {
+        documentTypes: analysisResult.documentTypes,
+        panelSpecifications: analysisResult.panelSpecifications,
+        rollInformation: analysisResult.rollInformation,
+        materialRequirements: analysisResult.materialRequirements,
+        siteConstraints: analysisResult.siteConstraints,
+        installationNotes: analysisResult.installationNotes
+      },
+      savedRequirements
+    });
+
+  } catch (error) {
+    console.error('[AI ROUTE] Error analyzing panel requirements:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to analyze documents for panel requirements',
+      details: error.message
+    });
+  }
+});
+
+// Helper methods for extracting specific data
+function extractPanelDimensions(panelSpecs) {
+  if (!panelSpecs || panelSpecs.length === 0) return null;
+  
+  const dimensions = panelSpecs.map(p => `${p.dimensions?.width || 0}ft x ${p.dimensions?.length || 0}ft`);
+  return dimensions.join(', ');
+}
+
+function extractMaterials(panelSpecs, materialReqs) {
+  const materials = new Set();
+  
+  if (materialReqs?.type) {
+    materials.add(materialReqs.type);
+  }
+  
+  if (panelSpecs) {
+    panelSpecs.forEach(p => {
+      if (p.material) materials.add(p.material);
+    });
+  }
+  
+  return Array.from(materials).join(', ') || 'HDPE';
+}
+
+function extractPrimaryMaterial(panelSpecs) {
+  if (!panelSpecs || panelSpecs.length === 0) return 'HDPE';
+  
+  const materialCounts = {};
+  panelSpecs.forEach(p => {
+    if (p.material) {
+      materialCounts[p.material] = (materialCounts[p.material] || 0) + 1;
+    }
+  });
+  
+  return Object.keys(materialCounts).sort((a, b) => materialCounts[b] - materialCounts[a])[0] || 'HDPE';
+}
+
+function extractThickness(panelSpecs) {
+  if (!panelSpecs || panelSpecs.length === 0) return '60 mils';
+  
+  const thicknesses = panelSpecs.map(p => p.thickness).filter(t => t);
+  if (thicknesses.length === 0) return '60 mils';
+  
+  return thicknesses[0] + ' mils';
+}
+
+function extractInstallationRequirements(installationNotes) {
+  if (!installationNotes || installationNotes.length === 0) {
+    return 'Standard geosynthetic installation procedures';
+  }
+  
+  return installationNotes.map(note => note.requirements).filter(r => r).join('; ') || 
+         'Standard geosynthetic installation procedures';
+}
+
+function extractInstallationConstraints(siteConstraints) {
+  if (!siteConstraints) return 'Standard site constraints apply';
+  
+  const constraints = [];
+  if (siteConstraints.obstacles && siteConstraints.obstacles.length > 0) {
+    constraints.push(`Site obstacles: ${siteConstraints.obstacles.join(', ')}`);
+  }
+  if (siteConstraints.terrainType && siteConstraints.terrainType !== 'flat') {
+    constraints.push(`Terrain type: ${siteConstraints.terrainType}`);
+  }
+  
+  return constraints.join('; ') || 'Standard site constraints apply';
+}
+
+function extractInstallationNotes(installationNotes) {
+  if (!installationNotes || installationNotes.length === 0) {
+    return 'Follow manufacturer specifications and industry standards';
+  }
+  
+  return installationNotes.map(note => note.notes).filter(n => n).join('; ') || 
+         'Follow manufacturer specifications and industry standards';
+}
+
 // Test endpoint for enhanced AI services
 router.get('/test-enhanced', requireAuth, async (req, res) => {
   try {

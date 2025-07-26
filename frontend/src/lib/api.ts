@@ -543,14 +543,14 @@ export async function savePanelRequirements(projectId: string, requirements: any
   }
 }
 
-export async function updatePanelRequirements(projectId: string, fields: any): Promise<any> {
+export async function updatePanelRequirements(projectId: string, requirements: any): Promise<any> {
   try {
     const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/panel-requirements/${projectId}`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(fields),
+      body: JSON.stringify(requirements),
     });
     return response.json();
   } catch (error) {
@@ -567,6 +567,31 @@ export async function getPanelRequirementsAnalysis(projectId: string): Promise<a
     return response.json();
   } catch (error) {
     console.error('Get panel requirements analysis error:', error);
+    throw error;
+  }
+}
+
+// AI-powered document analysis for panel requirements
+export async function analyzeDocumentsForPanelRequirements(projectId: string, documents: any[]): Promise<any> {
+  try {
+    console.log('🔍 Analyzing documents for panel requirements:', documents.length, 'documents');
+    
+    const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/ai/analyze-panel-requirements`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        projectId,
+        documents
+      }),
+    });
+    
+    const result = await response.json();
+    console.log('✅ Document analysis result:', result);
+    return result;
+  } catch (error) {
+    console.error('❌ Document analysis error:', error);
     throw error;
   }
 }
