@@ -22,7 +22,8 @@ import {
   Upload,
   Brain,
   Download,
-  Info
+  Info,
+  Target
 } from 'lucide-react';
 import { 
   getPanelRequirements, 
@@ -36,6 +37,7 @@ import {
   analyzeDocumentsForPanelRequirements
 } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
+import { EnhancedAnalysisDisplay } from '@/components/ai-document-analysis/EnhancedAnalysisDisplay';
 
 interface PanelRequirementsFormProps {
   projectId: string;
@@ -535,33 +537,7 @@ export default function PanelRequirementsForm({ projectId, onRequirementsChange,
 
               {/* AI Analysis Results */}
               {aiAnalysisResult && (
-                <div className="space-y-4">
-                  <h4 className="font-semibold">Analysis Results</h4>
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                    <div className="flex items-center space-x-2 mb-3">
-                      <CheckCircle className="h-5 w-5 text-green-600" />
-                      <span className="font-semibold text-green-900">Analysis Complete</span>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <span className="font-medium">Document Types Analyzed:</span>
-                        <p className="text-gray-600">{aiAnalysisResult.documentTypes?.join(', ') || 'Unknown'}</p>
-                      </div>
-                      <div>
-                        <span className="font-medium">Panel Specifications Found:</span>
-                        <p className="text-gray-600">{aiAnalysisResult.panelSpecifications?.length || 0} panels</p>
-                      </div>
-                      <div>
-                        <span className="font-medium">Roll Information Found:</span>
-                        <p className="text-gray-600">{aiAnalysisResult.rollInformation?.length || 0} rolls</p>
-                      </div>
-                      <div>
-                        <span className="font-medium">Material Requirements:</span>
-                        <p className="text-gray-600">{aiAnalysisResult.materialRequirements ? 'Extracted' : 'Not found'}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <EnhancedAnalysisDisplay analysisResult={aiAnalysisResult} />
               )}
 
               {/* Confidence Indicator */}

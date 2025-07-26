@@ -574,7 +574,7 @@ export async function getPanelRequirementsAnalysis(projectId: string): Promise<a
 // AI-powered document analysis for panel requirements
 export async function analyzeDocumentsForPanelRequirements(projectId: string, documents: any[]): Promise<any> {
   try {
-    console.log('🔍 Analyzing documents for panel requirements:', documents.length, 'documents');
+    console.log('🔍 Phase 2: Analyzing documents for panel requirements:', documents.length, 'documents');
     
     const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/ai/analyze-panel-requirements`, {
       method: 'POST',
@@ -588,10 +588,36 @@ export async function analyzeDocumentsForPanelRequirements(projectId: string, do
     });
     
     const result = await response.json();
-    console.log('✅ Document analysis result:', result);
-    return result;
+    console.log('✅ Phase 2: Document analysis result:', result);
+    
+    // Phase 2: Enhanced response handling with detailed breakdown
+    if (result.success) {
+      // Enhanced response includes detailed validation and confidence breakdown
+      const enhancedResult = {
+        ...result,
+        phase: '2',
+        enhancedFeatures: {
+          validation: result.validationResults || {},
+          confidence: result.confidenceResults || {},
+          suggestions: result.suggestions || [],
+          riskAssessment: result.riskAssessment || {}
+        }
+      };
+      
+      console.log('🎯 Phase 2: Enhanced analysis features:', {
+        validationIssues: enhancedResult.enhancedFeatures.validation.issues?.length || 0,
+        confidenceScore: enhancedResult.enhancedFeatures.confidence.overall || 0,
+        suggestions: enhancedResult.enhancedFeatures.suggestions.length,
+        riskLevel: enhancedResult.enhancedFeatures.riskAssessment.level || 'unknown'
+      });
+      
+      return enhancedResult;
+    } else {
+      console.error('❌ Phase 2: Document analysis failed:', result.error);
+      throw new Error(result.error || 'Document analysis failed');
+    }
   } catch (error) {
-    console.error('❌ Document analysis error:', error);
+    console.error('❌ Phase 2: Document analysis error:', error);
     throw error;
   }
 }

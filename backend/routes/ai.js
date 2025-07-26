@@ -462,7 +462,7 @@ Please extract the data in a structured JSON format with appropriate fields for 
   }
 });
 
-// Enhanced document analysis for panel requirements
+// Enhanced document analysis for panel requirements (Phase 2)
 router.post('/analyze-panel-requirements', requireAuth, async (req, res) => {
   try {
     const { projectId, documents } = req.body;
@@ -475,10 +475,17 @@ router.post('/analyze-panel-requirements', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Documents are required' });
     }
 
-    console.log(`[AI ROUTE] Analyzing ${documents.length} documents for panel requirements in project ${projectId}`);
+    console.log(`[AI ROUTE] Phase 2: Analyzing ${documents.length} documents for panel requirements in project ${projectId}`);
 
-    // Import required services
-    const panelDocumentAnalyzer = require('../services/panelDocumentAnalyzer');
+    // Import enhanced services for Phase 2
+    const EnhancedDocumentAnalyzer = require('../services/enhancedDocumentAnalyzer');
+    const EnhancedValidationService = require('../services/enhancedValidationService');
+    const EnhancedConfidenceService = require('../services/enhancedConfidenceService');
+    
+    // Instantiate enhanced services
+    const enhancedDocumentAnalyzer = new EnhancedDocumentAnalyzer();
+    const enhancedValidationService = new EnhancedValidationService();
+    const enhancedConfidenceService = new EnhancedConfidenceService();
     const documentService = require('../services/documentService');
     const panelRequirementsService = require('../services/panelRequirementsService');
 
@@ -510,68 +517,84 @@ router.post('/analyze-panel-requirements', requireAuth, async (req, res) => {
       console.warn('[AI ROUTE] Document enhancement failed:', enhanceError.message);
     }
 
-    // Analyze documents for panel requirements
-    const analysisResult = await panelDocumentAnalyzer.analyzePanelDocuments(enhancedDocuments);
+    // Phase 2: Enhanced document analysis with advanced parsing and validation
+    const enhancedAnalysisResult = await enhancedDocumentAnalyzer.analyzeDocumentsEnhanced(enhancedDocuments, { projectId });
     
-    console.log(`[AI ROUTE] Document analysis completed with confidence: ${analysisResult.confidence}%`);
+    console.log(`[AI ROUTE] Phase 2: Enhanced analysis completed with confidence: ${enhancedAnalysisResult.confidence}%`);
 
-    // Extract panel requirements from analysis
+    // Phase 2: Enhanced validation with detailed results
+    const validationResults = await enhancedValidationService.validateExtractedData(enhancedAnalysisResult);
+    
+    console.log(`[AI ROUTE] Phase 2: Validation completed. Valid: ${validationResults.isValid}, Issues: ${validationResults.issues.length}`);
+
+    // Phase 2: Enhanced confidence calculation with detailed breakdown
+    const confidenceResults = await enhancedConfidenceService.calculateEnhancedConfidence(enhancedAnalysisResult, validationResults);
+    
+    console.log(`[AI ROUTE] Phase 2: Enhanced confidence calculation completed. Overall: ${confidenceResults.overall}%`);
+
+    // Extract panel requirements from enhanced analysis
     const extractedRequirements = {
       panelSpecifications: {
-        panelCount: analysisResult.panelSpecifications?.length || 0,
-        dimensions: extractPanelDimensions(analysisResult.panelSpecifications),
-        materials: extractMaterials(analysisResult.panelSpecifications, analysisResult.materialRequirements),
-        panelNumbers: analysisResult.panelSpecifications?.map(p => p.panelNumber) || []
+        panelCount: enhancedAnalysisResult.panelSpecifications?.length || 0,
+        dimensions: extractPanelDimensions(enhancedAnalysisResult.panelSpecifications),
+        materials: extractMaterials(enhancedAnalysisResult.panelSpecifications, enhancedAnalysisResult.materialRequirements),
+        panelNumbers: enhancedAnalysisResult.panelSpecifications?.map(p => p.panelId) || [],
+        confidence: enhancedAnalysisResult.panelSpecifications?.map(p => p.confidence) || []
       },
       materialRequirements: {
-        primaryMaterial: extractPrimaryMaterial(analysisResult.panelSpecifications),
-        thickness: extractThickness(analysisResult.panelSpecifications),
-        seamRequirements: analysisResult.materialRequirements?.seamRequirements || 'Standard 6-inch overlap',
-        secondaryMaterial: analysisResult.materialRequirements?.secondaryMaterial || null
+        primaryMaterial: extractPrimaryMaterial(enhancedAnalysisResult.panelSpecifications),
+        thickness: extractThickness(enhancedAnalysisResult.panelSpecifications),
+        seamRequirements: enhancedAnalysisResult.materialRequirements?.seamRequirements || 'Standard 6-inch overlap',
+        secondaryMaterial: enhancedAnalysisResult.materialRequirements?.secondaryMaterial || null,
+        qualityStandards: enhancedAnalysisResult.materialRequirements?.qualityStandards || []
       },
       rollInventory: {
-        rolls: analysisResult.rollInformation?.map(roll => ({
+        rolls: enhancedAnalysisResult.rollInformation?.map(roll => ({
           id: roll.rollNumber,
           dimensions: `${roll.dimensions?.width || 0}ft x ${roll.dimensions?.length || 0}ft`,
-          quantity: 1
+          quantity: 1,
+          status: roll.status || 'available',
+          confidence: roll.confidence || 0
         })) || [],
-        totalQuantity: analysisResult.rollInformation?.length || 0
+        totalQuantity: enhancedAnalysisResult.rollInformation?.length || 0,
+        totalArea: enhancedAnalysisResult.rollInformation?.reduce((total, roll) => {
+          return total + (roll.dimensions?.width * roll.dimensions?.length || 0);
+        }, 0) || 0
       },
       installationNotes: {
-        requirements: extractInstallationRequirements(analysisResult.installationNotes),
-        constraints: extractInstallationConstraints(analysisResult.siteConstraints),
-        notes: extractInstallationNotes(analysisResult.installationNotes)
+        requirements: extractInstallationRequirements(enhancedAnalysisResult.installationNotes),
+        constraints: extractInstallationConstraints(enhancedAnalysisResult.siteConstraints),
+        notes: extractInstallationNotes(enhancedAnalysisResult.installationNotes),
+        safety: enhancedAnalysisResult.installationNotes?.safety || {}
       },
       siteDimensions: {
-        width: analysisResult.siteConstraints?.dimensions?.width || null,
-        length: analysisResult.siteConstraints?.dimensions?.length || null,
-        terrainType: analysisResult.siteConstraints?.terrainType || 'flat'
+        width: enhancedAnalysisResult.siteConstraints?.siteDimensions?.width || null,
+        length: enhancedAnalysisResult.siteConstraints?.siteDimensions?.length || null,
+        terrainType: enhancedAnalysisResult.siteConstraints?.terrain?.type || 'flat',
+        constraints: enhancedAnalysisResult.siteConstraints?.constraints || []
       }
     };
 
-    // Calculate confidence score
-    const confidence = panelRequirementsService.calculateConfidenceScore(extractedRequirements);
-    
-    // Get missing requirements
+    // Phase 2: Enhanced missing requirements analysis
     const missingRequirements = panelRequirementsService.getMissingRequirements(extractedRequirements);
 
     // Save extracted requirements to database
     const savedRequirements = await panelRequirementsService.upsertRequirements(projectId, extractedRequirements);
 
-    console.log(`[AI ROUTE] Panel requirements extracted and saved with confidence: ${confidence}%`);
+    console.log(`[AI ROUTE] Panel requirements extracted and saved with confidence: ${confidenceResults.overall}%`);
 
     res.json({
       success: true,
       requirements: extractedRequirements,
-      confidence,
+      confidence: confidenceResults.overall,
       missingRequirements,
       analysis: {
-        documentTypes: analysisResult.documentTypes,
-        panelSpecifications: analysisResult.panelSpecifications,
-        rollInformation: analysisResult.rollInformation,
-        materialRequirements: analysisResult.materialRequirements,
-        siteConstraints: analysisResult.siteConstraints,
-        installationNotes: analysisResult.installationNotes
+        documentTypes: enhancedAnalysisResult.documentTypes,
+        panelSpecifications: enhancedAnalysisResult.panelSpecifications,
+        rollInformation: enhancedAnalysisResult.rollInformation,
+        materialRequirements: enhancedAnalysisResult.materialRequirements,
+        siteConstraints: enhancedAnalysisResult.siteConstraints,
+        installationNotes: enhancedAnalysisResult.installationNotes
       },
       savedRequirements
     });
