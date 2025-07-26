@@ -482,10 +482,16 @@ router.post('/analyze-panel-requirements', requireAuth, async (req, res) => {
     const EnhancedValidationService = require('../services/enhancedValidationService');
     const EnhancedConfidenceService = require('../services/enhancedConfidenceService');
     
+    // Import Phase 3 services
+    const Phase3AILayoutGenerator = require('../services/phase3AILayoutGenerator');
+    
     // Instantiate enhanced services
     const enhancedDocumentAnalyzer = new EnhancedDocumentAnalyzer();
     const enhancedValidationService = new EnhancedValidationService();
     const enhancedConfidenceService = new EnhancedConfidenceService();
+    
+    // Instantiate Phase 3 services
+    const phase3AILayoutGenerator = new Phase3AILayoutGenerator();
     const documentService = require('../services/documentService');
     const panelRequirementsService = require('../services/panelRequirementsService');
 
@@ -605,6 +611,47 @@ router.post('/analyze-panel-requirements', requireAuth, async (req, res) => {
       success: false,
       error: 'Failed to analyze documents for panel requirements',
       details: error.message
+    });
+  }
+});
+
+// Phase 3: Advanced AI Layout Generation Route
+router.post('/generate-advanced-layout', requireAuth, async (req, res) => {
+  try {
+    console.log('[AI ROUTE] Phase 3: Advanced layout generation request received');
+    
+    const { projectId, options = {} } = req.body;
+
+    if (!projectId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Project ID is required'
+      });
+    }
+
+    console.log('[AI ROUTE] Phase 3: Generating advanced layout for project:', projectId);
+    console.log('[AI ROUTE] Phase 3: Options:', options);
+
+    // Import Phase 3 services if not already imported
+    const Phase3AILayoutGenerator = require('../services/phase3AILayoutGenerator');
+    const phase3AILayoutGenerator = new Phase3AILayoutGenerator();
+
+    // Generate advanced layout using Phase 3 AI Layout Generator
+    const result = await phase3AILayoutGenerator.generateAdvancedLayout(projectId, options);
+
+    console.log('[AI ROUTE] Phase 3: Advanced layout generation completed');
+    console.log('[AI ROUTE] Phase 3: Result status:', result.success);
+    console.log('[AI ROUTE] Phase 3: Panel count:', result.layout?.length || 0);
+
+    res.json(result);
+
+  } catch (error) {
+    console.error('[AI ROUTE] Phase 3: Error generating advanced layout:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to generate advanced layout',
+      details: error.message,
+      phase: '3'
     });
   }
 });

@@ -815,8 +815,18 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
               Execute AI Layout ({aiActions.length} actions)
             </Button>
           )}
-          <Button variant="outline" onClick={createTestPanels}>
-            Add Test Panels
+          <Button 
+            onClick={() => {
+              // Phase 3: Advanced AI Layout Generation
+              toast({
+                title: 'Phase 3: Advanced AI Layout',
+                description: 'Opening Phase 3 advanced layout generation...',
+              });
+              // TODO: Implement Phase 3 layout generation
+            }}
+            className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white"
+          >
+            Phase 3: Advanced AI Layout
           </Button>
         </div>
       </div>

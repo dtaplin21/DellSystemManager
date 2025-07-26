@@ -621,3 +621,31 @@ export async function analyzeDocumentsForPanelRequirements(projectId: string, do
     throw error;
   }
 }
+
+export async function generateAdvancedLayout(projectId: string, options: any = {}): Promise<any> {
+  try {
+    console.log('🚀 Phase 3: Generating advanced layout for project:', projectId, 'with options:', options);
+    const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/ai/generate-advanced-layout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ projectId, options }),
+    });
+    const result = await response.json();
+    console.log('✅ Phase 3: Advanced layout generation result:', result);
+    if (result.success) {
+      console.log('🎯 Phase 3: Advanced layout features:', {
+        panelCount: result.layout?.length || 0,
+        optimizationStrategy: result.optimization?.strategy || 'unknown',
+        algorithm: result.optimization?.algorithm || 'unknown',
+        confidence: result.confidence || 0
+      });
+      return result;
+    } else {
+      console.error('❌ Phase 3: Advanced layout generation failed:', result.error);
+      throw new Error(result.error || 'Advanced layout generation failed');
+    }
+  } catch (error) {
+    console.error('❌ Phase 3: Advanced layout generation error:', error);
+    throw error;
+  }
+}
