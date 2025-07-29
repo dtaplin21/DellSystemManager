@@ -231,12 +231,18 @@ export async function deleteDocument(documentId: string): Promise<void> {
 }
 
 export async function uploadDocument(projectId: string, file: File): Promise<any> {
+  console.log('🔍 uploadDocument called with:', { projectId, fileName: file.name, fileSize: file.size });
+  
   const formData = new FormData();
-  formData.append('document', file);
+  formData.append('documents', file); // Changed from 'document' to 'documents' to match backend expectation
 
   const headers = await getAuthHeaders();
   // Remove Content-Type for FormData
   const { 'Content-Type': _, ...formHeaders } = headers;
+
+  console.log('📤 Making upload request to:', `${BACKEND_URL}/api/documents/${projectId}/upload`);
+  console.log('📤 Headers:', formHeaders);
+  console.log('📤 FormData entries:', Array.from(formData.entries()));
 
   const response = await fetch(`${BACKEND_URL}/api/documents/${projectId}/upload`, {
     method: 'POST',
@@ -244,11 +250,18 @@ export async function uploadDocument(projectId: string, file: File): Promise<any
     body: formData
   });
 
+  console.log('📥 Response status:', response.status);
+  console.log('📥 Response ok:', response.ok);
+
   if (!response.ok) {
-    throw new Error('Failed to upload document');
+    const errorText = await response.text();
+    console.error('❌ Upload failed:', errorText);
+    throw new Error(`Failed to upload document: ${response.status} ${response.statusText}`);
   }
 
-  return response.json();
+  const result = await response.json();
+  console.log('✅ Upload successful:', result);
+  return result;
 }
 
 export async function createProject(data: {

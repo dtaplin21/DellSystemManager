@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import './ai.css';
 import { 
   FileText, 
   Upload, 
@@ -155,14 +156,24 @@ export default function AIPage() {
   };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('🔍 handleFileUpload called');
+    console.log('Files selected:', event.target.files);
+    console.log('Selected project:', selectedProject);
+    
     const files = event.target.files;
-    if (!files || !selectedProject) return;
+    if (!files || !selectedProject) {
+      console.log('❌ No files or no project selected');
+      return;
+    }
 
+    console.log(`📁 Uploading ${files.length} files...`);
     setUploading(true);
     try {
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
+        console.log(`📤 Uploading file ${i + 1}:`, file.name, file.size, file.type);
         await uploadDocument(selectedProject.id, file);
+        console.log(`✅ File ${i + 1} uploaded successfully`);
       }
       
       toast({
@@ -172,7 +183,7 @@ export default function AIPage() {
       
       loadDocuments();
     } catch (error) {
-      console.error('Upload error:', error);
+      console.error('❌ Upload error:', error);
       toast({
         title: 'Error',
         description: 'Failed to upload documents',
@@ -353,7 +364,15 @@ export default function AIPage() {
                   id="file-upload"
                 />
                 <Label htmlFor="file-upload" className="cursor-pointer">
-                  <Button variant="outline" disabled={uploading}>
+                  <Button 
+                    variant="outline" 
+                    disabled={uploading}
+                    onClick={() => {
+                      console.log('🔍 Upload button clicked');
+                      console.log('Selected project:', selectedProject);
+                      console.log('Uploading state:', uploading);
+                    }}
+                  >
                     {uploading ? (
                       <>
                         <Upload className="h-4 w-4 mr-2 animate-spin" />
