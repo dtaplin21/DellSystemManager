@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -62,6 +62,7 @@ export default function AIPage() {
   const router = useRouter();
   const { toast } = useToast();
   const { user, isAuthenticated, loading } = useSupabaseAuth();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -231,6 +232,15 @@ export default function AIPage() {
     setRequirementsConfidence(confidence);
   };
 
+  const handleUploadClick = () => {
+    console.log('🔍 Upload button clicked - triggering file input');
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    } else {
+      console.error('❌ File input ref not found');
+    }
+  };
+
   // Show loading state while checking authentication
   if (loading) {
     return (
@@ -356,6 +366,7 @@ export default function AIPage() {
               <span>Project Documents</span>
               <div className="flex items-center space-x-2">
                 <Input
+                  ref={fileInputRef}
                   type="file"
                   multiple
                   accept=".pdf,.docx,.txt,.xlsx,.xls"
@@ -363,29 +374,24 @@ export default function AIPage() {
                   className="hidden"
                   id="file-upload"
                 />
-                <Label htmlFor="file-upload" className="cursor-pointer">
-                  <Button 
-                    variant="outline" 
-                    disabled={uploading}
-                    onClick={() => {
-                      console.log('🔍 Upload button clicked');
-                      console.log('Selected project:', selectedProject);
-                      console.log('Uploading state:', uploading);
-                    }}
-                  >
-                    {uploading ? (
-                      <>
-                        <Upload className="h-4 w-4 mr-2 animate-spin" />
-                        Uploading...
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="h-4 w-4 mr-2" />
-                        Upload Documents
-                      </>
-                    )}
-                  </Button>
-                </Label>
+                <Button 
+                  variant="outline" 
+                  disabled={uploading}
+                  type="button"
+                  onClick={handleUploadClick}
+                >
+                  {uploading ? (
+                    <>
+                      <Upload className="h-4 w-4 mr-2 animate-spin" />
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-4 w-4 mr-2" />
+                      Upload Documents
+                    </>
+                  )}
+                </Button>
               </div>
             </CardTitle>
           </CardHeader>
