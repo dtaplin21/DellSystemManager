@@ -34,13 +34,13 @@ export default function DocumentsPage() {
       
       setIsLoading(true);
       try {
-        const response = await fetch(`/api/connected-workflow/documents/${selectedProjectId}`, {
+        const response = await fetch(`/api/documents/${selectedProjectId}`, {
           credentials: 'include',
         });
         
         if (response.ok) {
           const data = await response.json();
-          setDocuments(data.success ? data.documents : []);
+          setDocuments(data);
         } else {
           console.error('Failed to fetch documents:', response.status);
           setDocuments([]);
@@ -187,12 +187,12 @@ export default function DocumentsPage() {
           
           // Refresh the documents list
           console.log('🔄 Fetching updated document list...');
-          const docsResponse = await fetch(`/api/connected-workflow/documents/${selectedProjectId}`, {
+          const docsResponse = await fetch(`/api/documents/${selectedProjectId}`, {
             credentials: 'include',
           });
           if (docsResponse.ok) {
             const docsData = await docsResponse.json();
-            setDocuments(docsData.success ? docsData.documents : []);
+            setDocuments(docsData);
             console.log('✅ Document list updated');
           }
           setShowUploadModal(false);

@@ -49,8 +49,18 @@ console.log('✅ /api/connected-workflow route registered');
 
 // Error handler
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ message: 'Something went wrong!' });
+  console.error('=== ERROR HANDLER ===');
+  console.error('Error message:', err.message);
+  console.error('Error stack:', err.stack);
+  console.error('Error details:', {
+    name: err.name,
+    code: err.code,
+    status: err.status
+  });
+  res.status(500).json({ 
+    message: 'Something went wrong!',
+    error: process.env.NODE_ENV === 'development' ? err.message : undefined
+  });
 });
 
 // Database connection

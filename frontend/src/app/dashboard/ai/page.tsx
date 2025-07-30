@@ -1,11 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import './ai.css';
@@ -62,7 +59,6 @@ export default function AIPage() {
   const router = useRouter();
   const { toast } = useToast();
   const { user, isAuthenticated, loading } = useSupabaseAuth();
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -136,7 +132,7 @@ export default function AIPage() {
     
     try {
       const response = await fetchDocuments(selectedProject.id);
-      setDocuments(response.documents || []);
+      setDocuments(response || []);
     } catch (error) {
       console.error('Error loading documents:', error);
     }
@@ -153,45 +149,6 @@ export default function AIPage() {
       }
     } catch (error) {
       console.error('Error loading requirements:', error);
-    }
-  };
-
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    console.log('🔍 handleFileUpload called');
-    console.log('Files selected:', event.target.files);
-    console.log('Selected project:', selectedProject);
-    
-    const files = event.target.files;
-    if (!files || !selectedProject) {
-      console.log('❌ No files or no project selected');
-      return;
-    }
-
-    console.log(`📁 Uploading ${files.length} files...`);
-    setUploading(true);
-    try {
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        console.log(`📤 Uploading file ${i + 1}:`, file.name, file.size, file.type);
-        await uploadDocument(selectedProject.id, file);
-        console.log(`✅ File ${i + 1} uploaded successfully`);
-      }
-      
-      toast({
-        title: 'Success',
-        description: 'Documents uploaded successfully',
-      });
-      
-      loadDocuments();
-    } catch (error) {
-      console.error('❌ Upload error:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to upload documents',
-        variant: 'destructive',
-      });
-    } finally {
-      setUploading(false);
     }
   };
 
@@ -233,12 +190,68 @@ export default function AIPage() {
   };
 
   const handleUploadClick = () => {
-    console.log('🔍 Upload button clicked - triggering file input');
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
-    } else {
-      console.error('❌ File input ref not found');
+    // Check if we're in the right section
+    if (activeSection !== 'documents') {
+      return;
     }
+    
+    // Check if project is selected
+    if (!selectedProject) {
+      toast({
+        title: 'Error',
+        description: 'Please select a project first',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    // Create a file input element dynamically (like the working documents page)
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.multiple = true;
+    fileInput.accept = '.pdf,.docx,.txt,.xlsx,.xls';
+    
+    fileInput.onchange = async (event) => {
+      const files = (event.target as HTMLInputElement).files;
+      if (!files || files.length === 0) {
+        return;
+      }
+      
+      if (!selectedProject) {
+        toast({
+          title: 'Error',
+          description: 'Please select a project first',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      setUploading(true);
+      try {
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          await uploadDocument(selectedProject.id, file);
+        }
+        
+        toast({
+          title: 'Success',
+          description: 'Documents uploaded successfully',
+        });
+        
+        loadDocuments();
+      } catch (error) {
+        console.error('Upload error:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to upload documents',
+          variant: 'destructive',
+        });
+      } finally {
+        setUploading(false);
+      }
+    };
+    
+    fileInput.click();
   };
 
   // Show loading state while checking authentication
@@ -365,20 +378,13 @@ export default function AIPage() {
             <CardTitle className="flex items-center justify-between">
               <span>Project Documents</span>
               <div className="flex items-center space-x-2">
-                <Input
-                  ref={fileInputRef}
-                  type="file"
-                  multiple
-                  accept=".pdf,.docx,.txt,.xlsx,.xls"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                  id="file-upload"
-                />
-                <Button 
-                  variant="outline" 
+                <button 
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                   disabled={uploading}
                   type="button"
-                  onClick={handleUploadClick}
+                  onClick={(e) => {
+                    handleUploadClick();
+                  }}
                 >
                   {uploading ? (
                     <>
@@ -391,7 +397,7 @@ export default function AIPage() {
                       Upload Documents
                     </>
                   )}
-                </Button>
+                </button>
               </div>
             </CardTitle>
           </CardHeader>
