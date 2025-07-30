@@ -355,6 +355,7 @@ export default function AIPage() {
       {activeSection === 'requirements' && selectedProject && (
         <PanelRequirementsForm
           projectId={selectedProject.id}
+          documents={documents}
           onRequirementsChange={handleRequirementsChange}
           onLayoutGenerated={(result) => {
             setJobStatus({

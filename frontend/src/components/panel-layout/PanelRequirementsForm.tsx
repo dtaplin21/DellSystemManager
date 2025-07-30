@@ -41,6 +41,7 @@ import { EnhancedAnalysisDisplay } from '@/components/ai-document-analysis/Enhan
 
 interface PanelRequirementsFormProps {
   projectId: string;
+  documents?: Document[];
   onRequirementsChange?: (requirements: any, confidence: number) => void;
   onLayoutGenerated?: (result: any) => void;
 }
@@ -87,7 +88,7 @@ interface Document {
   uploadedBy: string;
 }
 
-export default function PanelRequirementsForm({ projectId, onRequirementsChange, onLayoutGenerated }: PanelRequirementsFormProps) {
+export default function PanelRequirementsForm({ projectId, documents: propDocuments, onRequirementsChange, onLayoutGenerated }: PanelRequirementsFormProps) {
   const { toast } = useToast();
   const [requirements, setRequirements] = useState<PanelRequirements>({});
   const [confidence, setConfidence] = useState(0);
@@ -97,15 +98,22 @@ export default function PanelRequirementsForm({ projectId, onRequirementsChange,
   const [generating, setGenerating] = useState(false);
   const [analysis, setAnalysis] = useState<any>(null);
   const [activeTab, setActiveTab] = useState('ai-analysis');
-  const [documents, setDocuments] = useState<Document[]>([]);
+  const [documents, setDocuments] = useState<Document[]>(propDocuments || []);
   const [aiAnalyzing, setAiAnalyzing] = useState(false);
   const [aiAnalysisResult, setAiAnalysisResult] = useState<any>(null);
   const [selectedDocumentsForAnalysis, setSelectedDocumentsForAnalysis] = useState<string[]>([]);
 
   useEffect(() => {
     loadRequirements();
-    loadDocuments();
+    // loadDocuments(); // This line is removed as documents are now passed as a prop
   }, [projectId]);
+
+  // Update documents when prop changes
+  useEffect(() => {
+    if (propDocuments) {
+      setDocuments(propDocuments);
+    }
+  }, [propDocuments]);
 
   const loadRequirements = async () => {
     try {
@@ -132,14 +140,14 @@ export default function PanelRequirementsForm({ projectId, onRequirementsChange,
     }
   };
 
-  const loadDocuments = async () => {
-    try {
-      const response = await fetchDocuments(projectId);
-      setDocuments(response.documents || []);
-    } catch (error) {
-      console.error('Error loading documents:', error);
-    }
-  };
+  // const loadDocuments = async () => { // This function is removed as documents are now passed as a prop
+  //   try {
+  //     const response = await fetchDocuments(projectId);
+  //     setDocuments(response || []);
+  //   } catch (error) {
+  //     console.error('Error loading documents:', error);
+  //   }
+  // };
 
   const saveRequirements = async () => {
     try {
@@ -184,7 +192,7 @@ export default function PanelRequirementsForm({ projectId, onRequirementsChange,
         description: 'Documents uploaded successfully',
       });
       
-      loadDocuments();
+      // loadDocuments(); // This line is removed as documents are now passed as a prop
     } catch (error) {
       console.error('Upload error:', error);
       toast({

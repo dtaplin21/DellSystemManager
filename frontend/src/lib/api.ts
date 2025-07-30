@@ -589,6 +589,9 @@ export async function analyzeDocumentsForPanelRequirements(projectId: string, do
   try {
     console.log('🔍 Phase 2: Analyzing documents for panel requirements:', documents.length, 'documents');
     
+    // Extract only document IDs to reduce payload size
+    const documentIds = documents.map(doc => doc.id);
+    
     const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/ai/analyze-panel-requirements`, {
       method: 'POST',
       headers: {
@@ -596,7 +599,7 @@ export async function analyzeDocumentsForPanelRequirements(projectId: string, do
       },
       body: JSON.stringify({
         projectId,
-        documents
+        documentIds
       }),
     });
     

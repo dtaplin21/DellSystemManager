@@ -465,17 +465,17 @@ Please extract the data in a structured JSON format with appropriate fields for 
 // Enhanced document analysis for panel requirements (Phase 2)
 router.post('/analyze-panel-requirements', requireAuth, async (req, res) => {
   try {
-    const { projectId, documents } = req.body;
+    const { projectId, documentIds } = req.body;
 
     if (!projectId) {
       return res.status(400).json({ error: 'Project ID is required' });
     }
 
-    if (!documents || documents.length === 0) {
-      return res.status(400).json({ error: 'Documents are required' });
+    if (!documentIds || documentIds.length === 0) {
+      return res.status(400).json({ error: 'Document IDs are required' });
     }
 
-    console.log(`[AI ROUTE] Phase 2: Analyzing ${documents.length} documents for panel requirements in project ${projectId}`);
+    console.log(`[AI ROUTE] Phase 2: Analyzing ${documentIds.length} documents for panel requirements in project ${projectId}`);
 
     // Import enhanced services for Phase 2
     const EnhancedDocumentAnalyzer = require('../services/enhancedDocumentAnalyzer');
@@ -495,32 +495,45 @@ router.post('/analyze-panel-requirements', requireAuth, async (req, res) => {
     const documentService = require('../services/documentService');
     const panelRequirementsService = require('../services/panelRequirementsService');
 
-    // Enhance documents with text content if not already present
-    let enhancedDocuments = documents;
+    // Fetch document content from database using document IDs
+    let enhancedDocuments = [];
     try {
       enhancedDocuments = await Promise.all(
-        documents.map(async (doc) => {
-          if (!doc.text && doc.id) {
-            try {
-              const documentText = await documentService.getDocumentText(doc.id);
-              return {
-                ...doc,
-                text: documentText,
-                filename: doc.name || doc.filename
-              };
-            } catch (textError) {
-              console.warn(`[AI ROUTE] Text extraction failed for ${doc.id}:`, textError.message);
-              return doc;
-            }
+        documentIds.map(async (docId) => {
+          try {
+            const documentText = await documentService.getDocumentText(docId);
+            // Get document metadata from database
+            const { db } = require('../db/index');
+            const { documents } = require('../db/schema');
+            const { eq } = require('drizzle-orm');
+            
+            const [doc] = await db
+              .select()
+              .from(documents)
+              .where(eq(documents.id, docId));
+            
+            return {
+              id: docId,
+              text: documentText,
+              filename: doc?.name || 'Unknown document',
+              type: doc?.type || 'application/octet-stream',
+              size: doc?.size || 0
+            };
+          } catch (textError) {
+            console.warn(`[AI ROUTE] Text extraction failed for ${docId}:`, textError.message);
+            return {
+              id: docId,
+              text: '',
+              filename: 'Unknown document',
+              type: 'application/octet-stream',
+              size: 0
+            };
           }
-          return {
-            ...doc,
-            filename: doc.name || doc.filename
-          };
         })
       );
     } catch (enhanceError) {
       console.warn('[AI ROUTE] Document enhancement failed:', enhanceError.message);
+      return res.status(500).json({ error: 'Failed to fetch document content' });
     }
 
     // Phase 2: Enhanced document analysis with advanced parsing and validation
