@@ -27,6 +27,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
 import PanelRequirementsForm from '@/components/panel-layout/PanelRequirementsForm';
+import { Button } from '@/components/ui/button';
 
 interface Project {
   id: string;
