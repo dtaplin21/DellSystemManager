@@ -68,6 +68,9 @@ class DocumentService {
           return await this.extractTextFromPdf(filePath);
         case '.docx':
           return await this.extractTextFromDocx(filePath);
+        case '.xlsx':
+        case '.xls':
+          return await this.extractTextFromExcel(filePath);
         default:
           console.warn(`[DOCUMENT SERVICE] Unsupported file type: ${fileExtension}`);
           return null;
@@ -119,6 +122,57 @@ class DocumentService {
     } catch (error) {
       console.warn(`[DOCUMENT SERVICE] DOCX parsing not available for ${filePath}:`, error.message);
       return '[DOCX content - text extraction not available]';
+    }
+  }
+
+  /**
+   * Extract text from Excel file
+   */
+  async extractTextFromExcel(filePath) {
+    try {
+      // Use xlsx library if available, otherwise return placeholder
+      const xlsx = require('xlsx');
+      const workbook = xlsx.readFile(filePath);
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      
+      // Convert to JSON for structured data
+      const jsonData = xlsx.utils.sheet_to_json(worksheet);
+      
+      // Get cell range for raw text extraction
+      const range = xlsx.utils.decode_range(worksheet['!ref'] || 'A1');
+      let rawText = '';
+      
+      // Extract text from each cell
+      for (let row = range.s.r; row <= range.e.r; row++) {
+        for (let col = range.s.c; col <= range.e.c; col++) {
+          const cellAddress = xlsx.utils.encode_cell({ r: row, c: col });
+          const cell = worksheet[cellAddress];
+          if (cell && cell.v !== undefined) {
+            rawText += cell.v.toString() + '\t';
+          } else {
+            rawText += '\t';
+          }
+        }
+        rawText += '\n';
+      }
+      
+      // Combine both formats for comprehensive analysis
+      let extractedText = `Excel File Content:\n\n`;
+      extractedText += `Sheet: ${sheetName}\n`;
+      extractedText += `Total Rows: ${jsonData.length}\n`;
+      extractedText += `Range: ${worksheet['!ref'] || 'A1'}\n\n`;
+      
+      // Add structured data
+      extractedText += `Structured Data:\n`;
+      extractedText += JSON.stringify(jsonData, null, 2);
+      extractedText += `\n\nRaw Text Content:\n`;
+      extractedText += rawText || 'No raw text content available';
+      
+      return extractedText;
+    } catch (error) {
+      console.warn(`[DOCUMENT SERVICE] Excel parsing not available for ${filePath}:`, error.message);
+      return '[Excel content - text extraction not available]';
     }
   }
   

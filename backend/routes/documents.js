@@ -147,7 +147,7 @@ router.post('/:projectId/upload', auth, upload.array('documents', 5), async (req
         type: file.mimetype,
         size: file.size,
         path: file.path,
-        uploadedAt: new Date(),
+        uploaded_at: new Date(),
         uploadedBy: req.user.displayName || req.user.email,
       };
       
