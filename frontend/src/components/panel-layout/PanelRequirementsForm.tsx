@@ -23,7 +23,8 @@ import {
   Brain,
   Download,
   Info,
-  Target
+  Target,
+  XCircle
 } from 'lucide-react';
 import { 
   getPanelRequirements, 
@@ -227,7 +228,7 @@ export default function PanelRequirementsForm({ projectId, documents: propDocume
   };
 
   const handleGenerateLayout = async () => {
-    if (confidence < 50) {
+    if (confidence < 30) {
       toast({
         title: 'Insufficient Requirements',
         description: 'Please complete more requirements before generating layout',
@@ -372,14 +373,14 @@ export default function PanelRequirementsForm({ projectId, documents: propDocume
 
   const getStatusColor = (confidence: number) => {
     if (confidence >= 80) return 'text-green-600';
-    if (confidence >= 50) return 'text-yellow-600';
+    if (confidence >= 30) return 'text-yellow-600';
     return 'text-red-600';
   };
 
   const getStatusIcon = (confidence: number) => {
     if (confidence >= 80) return <CheckCircle className="h-4 w-4" />;
-    if (confidence >= 50) return <AlertCircle className="h-4 w-4" />;
-    return <AlertCircle className="h-4 w-4" />;
+    if (confidence >= 30) return <AlertCircle className="h-4 w-4" />;
+    return <XCircle className="h-4 w-4" />;
   };
 
   if (loading) {
@@ -429,7 +430,7 @@ export default function PanelRequirementsForm({ projectId, documents: propDocume
               </Button>
               <Button 
                 onClick={handleGenerateLayout}
-                disabled={generating || confidence < 50}
+                disabled={generating || confidence < 30}
                 className="flex items-center space-x-2 bg-green-600 hover:bg-green-700"
               >
                 {generating ? (
@@ -561,7 +562,7 @@ export default function PanelRequirementsForm({ projectId, documents: propDocume
                   <p className="text-sm text-gray-600">
                     {confidence >= 80 
                       ? 'High confidence - Most requirements extracted successfully'
-                      : confidence >= 50 
+                      : confidence >= 30 
                         ? 'Medium confidence - Some requirements may need manual review'
                         : 'Low confidence - Please review and complete requirements manually'
                     }

@@ -485,33 +485,33 @@ Return ONLY the JSON response.
     let confidence = 0;
     let totalChecks = 0;
 
-    // Check panel specifications
+    // Check panel specifications (ESSENTIAL - 70% weight)
     if (analysisResults.panelSpecifications.length > 0) {
-      confidence += 0.3;
+      confidence += 0.7;
       totalChecks++;
     }
 
-    // Check roll data
+    // Check roll data (OPTIONAL - 15% weight)
     if (analysisResults.rollInformation.length > 0) {
-      confidence += 0.2;
+      confidence += 0.15;
       totalChecks++;
     }
 
-    // Check site constraints
+    // Check site constraints (OPTIONAL - 5% weight)
     if (analysisResults.siteConstraints.siteDimensions) {
-      confidence += 0.2;
+      confidence += 0.05;
       totalChecks++;
     }
 
-    // Check material requirements
+    // Check material requirements (OPTIONAL - 5% weight)
     if (analysisResults.materialRequirements.primaryMaterial) {
-      confidence += 0.15;
+      confidence += 0.05;
       totalChecks++;
     }
 
-    // Check installation notes
+    // Check installation notes (OPTIONAL - 5% weight)
     if (analysisResults.installationNotes.length > 0) {
-      confidence += 0.15;
+      confidence += 0.05;
       totalChecks++;
     }
 

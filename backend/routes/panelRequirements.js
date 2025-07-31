@@ -175,9 +175,9 @@ router.get('/:projectId/analysis', auth, async (req, res) => {
     }
 
     let status = 'complete';
-    if (confidence < 50) {
+    if (confidence < 30) {
       status = 'insufficient';
-    } else if (confidence < 80) {
+    } else if (confidence < 70) {
       status = 'partial';
     }
 

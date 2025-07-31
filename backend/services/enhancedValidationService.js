@@ -206,11 +206,16 @@ class EnhancedValidationService {
         panelValidation.issues.push('Missing panel dimensions');
       }
 
-      // Validate materials
+      // Validate roll number (required)
+      if (!panel.rollNumber) {
+        panelValidation.issues.push('Missing roll number');
+        panelValidation.corrections.rollNumber = `R${i + 1}`;
+      }
+
+      // Validate materials (OPTIONAL - don't fail validation)
       if (panel.material) {
         const materialValidation = this.validateMaterialSpec(panel.material);
-        panelValidation.issues.push(...materialValidation.issues);
-        panelValidation.warnings.push(...materialValidation.warnings);
+        panelValidation.warnings.push(...materialValidation.warnings); // Only warnings, not issues
         if (materialValidation.corrections) {
           panelValidation.corrections.material = materialValidation.corrections;
         }
@@ -545,9 +550,9 @@ class EnhancedValidationService {
       corrections: {}
     };
 
+    // Material type is optional - don't fail validation if missing
     if (!material.type) {
-      validation.issues.push('Missing material type');
-      validation.isValid = false;
+      validation.warnings.push('Material type not specified - will be determined during installation');
       return validation;
     }
 
@@ -566,7 +571,7 @@ class EnhancedValidationService {
       }
     }
 
-    validation.isValid = validation.issues.length === 0;
+    validation.isValid = true; // Always valid since material is optional
     return validation;
   }
 
