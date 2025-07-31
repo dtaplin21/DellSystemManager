@@ -143,7 +143,7 @@ class DocumentService {
       const range = xlsx.utils.decode_range(worksheet['!ref'] || 'A1');
       let rawText = '';
       
-      // Extract text from each cell
+      // Extract text from each cell with better formatting
       for (let row = range.s.r; row <= range.e.r; row++) {
         for (let col = range.s.c; col <= range.e.c; col++) {
           const cellAddress = xlsx.utils.encode_cell({ r: row, c: col });
@@ -157,23 +157,82 @@ class DocumentService {
         rawText += '\n';
       }
       
-      // Combine both formats for comprehensive analysis
-      let extractedText = `Excel File Content:\n\n`;
+      // Enhanced Excel content for better AI analysis
+      let extractedText = `=== EXCEL FILE ANALYSIS ===\n\n`;
+      extractedText += `File: ${path.basename(filePath)}\n`;
       extractedText += `Sheet: ${sheetName}\n`;
       extractedText += `Total Rows: ${jsonData.length}\n`;
-      extractedText += `Range: ${worksheet['!ref'] || 'A1'}\n\n`;
+      extractedText += `Total Columns: ${range.e.c - range.s.c + 1}\n`;
+      extractedText += `Range: ${worksheet['!ref'] || 'A1'}\n`;
+      extractedText += `Available Sheets: ${workbook.SheetNames.join(', ')}\n\n`;
       
-      // Add structured data
-      extractedText += `Structured Data:\n`;
+      // Add column headers if available
+      if (jsonData.length > 0) {
+        const headers = Object.keys(jsonData[0]);
+        extractedText += `Column Headers: ${headers.join(', ')}\n\n`;
+      }
+      
+      // Add structured data with better formatting
+      extractedText += `=== STRUCTURED DATA ===\n`;
       extractedText += JSON.stringify(jsonData, null, 2);
-      extractedText += `\n\nRaw Text Content:\n`;
+      extractedText += `\n\n=== RAW TEXT CONTENT ===\n`;
       extractedText += rawText || 'No raw text content available';
+      
+      // Add data summary for AI analysis
+      extractedText += `\n\n=== DATA SUMMARY ===\n`;
+      extractedText += `- Total data rows: ${jsonData.length}\n`;
+      extractedText += `- Data types present: ${this.analyzeDataTypes(jsonData)}\n`;
+      extractedText += `- Numeric values: ${this.countNumericValues(jsonData)}\n`;
+      extractedText += `- Text values: ${this.countTextValues(jsonData)}\n`;
       
       return extractedText;
     } catch (error) {
       console.warn(`[DOCUMENT SERVICE] Excel parsing not available for ${filePath}:`, error.message);
       return '[Excel content - text extraction not available]';
     }
+  }
+
+  // Helper methods for Excel analysis
+  analyzeDataTypes(jsonData) {
+    if (!jsonData || jsonData.length === 0) return 'No data';
+    
+    const types = new Set();
+    jsonData.forEach(row => {
+      Object.values(row).forEach(value => {
+        if (typeof value === 'number') types.add('numeric');
+        else if (typeof value === 'string') types.add('text');
+        else if (typeof value === 'boolean') types.add('boolean');
+        else if (value === null || value === undefined) types.add('empty');
+      });
+    });
+    
+    return Array.from(types).join(', ');
+  }
+
+  countNumericValues(jsonData) {
+    if (!jsonData || jsonData.length === 0) return 0;
+    
+    let count = 0;
+    jsonData.forEach(row => {
+      Object.values(row).forEach(value => {
+        if (typeof value === 'number') count++;
+      });
+    });
+    
+    return count;
+  }
+
+  countTextValues(jsonData) {
+    if (!jsonData || jsonData.length === 0) return 0;
+    
+    let count = 0;
+    jsonData.forEach(row => {
+      Object.values(row).forEach(value => {
+        if (typeof value === 'string') count++;
+      });
+    });
+    
+    return count;
   }
   
   /**
