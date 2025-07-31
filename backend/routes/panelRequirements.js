@@ -147,10 +147,10 @@ router.get('/:projectId/analysis', auth, async (req, res) => {
           confidence: 0,
           missing: panelRequirementsService.getMissingRequirements({}),
           recommendations: [
-            'Upload panel specifications document with panel numbers, dimensions, and materials',
-            'Upload material specifications document with material type, thickness, and seam requirements',
-            'Upload roll inventory document with roll dimensions and quantities',
-            'Upload installation notes document with requirements and constraints'
+            'Upload panel specifications document with panel numbers, dimensions, and roll numbers',
+            'Upload material specifications document (optional) for material recognition',
+            'Upload roll inventory document (optional) for roll tracking',
+            'Upload installation notes document (optional) for installation procedures'
           ]
         }
       });
@@ -162,16 +162,16 @@ router.get('/:projectId/analysis', auth, async (req, res) => {
     // Generate recommendations based on missing data
     const recommendations = [];
     if (missing.panelSpecifications.length > 0) {
-      recommendations.push('Upload panel specifications document with panel numbers, dimensions, and materials');
+      recommendations.push('Upload panel specifications document with panel numbers, dimensions, and roll numbers');
     }
     if (missing.materialRequirements.length > 0) {
-      recommendations.push('Upload material specifications document with material type, thickness, and seam requirements');
+      recommendations.push('Upload material specifications document (optional) for material recognition');
     }
     if (missing.rollInventory.length > 0) {
-      recommendations.push('Upload roll inventory document with roll dimensions and quantities');
+      recommendations.push('Upload roll inventory document (optional) for roll tracking');
     }
     if (missing.installationNotes.length > 0) {
-      recommendations.push('Upload installation notes document with requirements and constraints');
+      recommendations.push('Upload installation notes document (optional) for installation procedures');
     }
 
     let status = 'complete';
