@@ -43,8 +43,8 @@ class Phase3AILayoutGenerator {
       console.log('📊 Phase 3: Requirements confidence score:', confidence);
       console.log('🔍 Phase 3: Missing requirements:', missing);
 
-      // Enhanced confidence threshold for Phase 3
-      if (confidence < 70) {
+      // Enhanced confidence threshold for Phase 3 (lowered from 70% to 40%)
+      if (confidence < 40) {
         return this.generateInsufficientInformationResponse(confidence, missing, requirements);
       }
 
@@ -812,27 +812,26 @@ class Phase3AILayoutGenerator {
       phase: '3',
       guidance: {
         title: 'Phase 3: Insufficient Information for Advanced Layout Generation',
-        message: 'Advanced AI layout generation requires comprehensive requirements data. Please ensure all required information is provided.',
+        message: 'Advanced AI layout generation requires essential panel specifications. Please ensure panel numbers, dimensions, and roll numbers are provided.',
         requiredDocuments: [
-          'Complete panel specifications with dimensions and materials',
-          'Detailed material requirements and seam specifications',
-          'Comprehensive roll inventory information',
-          'Complete installation notes and site constraints',
-          'Terrain analysis and elevation data'
+          'Panel specifications with panel numbers, dimensions, and roll numbers',
+          'Material specifications (optional) for optimization',
+          'Roll inventory information (optional) for tracking',
+          'Installation notes (optional) for procedures'
         ],
         recommendedActions: [
-          'Complete the panel requirements form with all fields',
-          'Upload comprehensive project documentation',
-          'Provide detailed site analysis and constraints',
-          'Specify material requirements and optimization preferences'
+          'Complete the panel requirements form with essential panel data',
+          'Upload panel specifications document with panel numbers, dimensions, and roll numbers',
+          'Provide material specifications for optimization (optional)',
+          'Include roll inventory for tracking (optional)'
         ]
       },
       confidence,
       missingParameters: missing,
       warnings: [
-        'Phase 3 requires higher confidence threshold (70%+)',
-        'Advanced optimization features unavailable with current data',
-        'Consider completing requirements before proceeding'
+        'Phase 3 requires confidence threshold (40%+)',
+        'Advanced optimization features may be limited with current data',
+        'Consider adding optional data for better optimization'
       ],
       analysis: requirements
     };

@@ -20,24 +20,20 @@ class EnhancedAILayoutGenerator {
             title: 'No Panel Requirements Found',
             message: 'Please complete the panel requirements form before generating layouts.',
             requiredDocuments: [
-              'Panel specifications with dimensions and materials',
-              'Material requirements and seam specifications',
-              'Roll inventory information',
-              'Installation notes and constraints'
+              'Panel specifications with panel numbers, dimensions, and roll numbers'
             ],
             recommendedActions: [
-              'Fill out the panel requirements form',
-              'Provide site dimensions and terrain information',
-              'Specify material requirements and seam methods'
+              'Fill out the panel requirements form with essential panel data',
+              'Upload documents containing panel specifications'
             ]
           },
           confidence: 0,
           missingParameters: {
             panelSpecifications: ['No panel specifications found'],
-            materialRequirements: ['No material requirements found'],
-            rollInventory: ['No roll inventory found'],
-            installationNotes: ['No installation notes found'],
-            siteDimensions: ['No site dimensions found']
+            materialRequirements: [],
+            rollInventory: [],
+            installationNotes: [],
+            siteDimensions: []
           }
         };
       }
@@ -49,33 +45,28 @@ class EnhancedAILayoutGenerator {
       console.log('📊 Requirements confidence score:', confidence);
       console.log('🔍 Missing requirements:', missing);
 
-      // Check if we have sufficient information
-      if (confidence < 50) {
+      // Check if we have sufficient information (lowered threshold to 30%)
+      if (confidence < 30) {
         console.log('⚠️ Insufficient information for panel generation');
         return {
           success: false,
           status: 'insufficient_information',
           guidance: {
             title: 'Insufficient Information for Panel Generation',
-            message: 'The AI cannot generate accurate panel layouts because critical information is missing. Please provide the required documents and information.',
+            message: 'The AI cannot generate accurate panel layouts because essential panel information is missing. Please provide panel specifications with panel numbers, dimensions, and roll numbers.',
             requiredDocuments: [
-              'Panel specifications document',
-              'Material specifications document',
-              'Roll inventory document',
-              'Installation notes document'
+              'Panel specifications document with panel numbers, dimensions, and roll numbers'
             ],
             recommendedActions: [
-              'Upload panel specifications document with panel numbers, dimensions, and materials',
-              'Upload material specifications document with material type, thickness, and seam requirements',
-              'Upload roll inventory document with roll dimensions and quantities',
-              'Upload installation notes document with requirements and constraints'
+              'Upload panel specifications document with panel numbers, dimensions, and roll numbers',
+              'Ensure panel specifications include panel ID, dimensions, and roll numbers'
             ]
           },
           confidence,
           missingParameters: missing,
           warnings: [
-            'Low confidence score indicates incomplete requirements',
-            'Panel generation may be inaccurate with current data'
+            'Low confidence score indicates missing essential panel data',
+            'Panel generation requires panel numbers, dimensions, and roll numbers'
           ],
           analysis: {
             panelSpecifications: requirements.panelSpecifications || {},

@@ -57,11 +57,11 @@ class EnhancedConfidenceService {
    */
   initializeScoringWeights() {
     return {
-      panelSpecifications: 0.35,
-      rollData: 0.25,
-      siteConstraints: 0.20,
-      materialRequirements: 0.15,
-      installationNotes: 0.05
+      panelSpecifications: 0.70, // ESSENTIAL - increased weight
+      rollData: 0.10, // OPTIONAL - reduced weight
+      siteConstraints: 0.05, // OPTIONAL - reduced weight
+      materialRequirements: 0.10, // OPTIONAL - reduced weight
+      installationNotes: 0.05 // OPTIONAL - reduced weight
     };
   }
 
@@ -128,7 +128,7 @@ class EnhancedConfidenceService {
     let totalFields = 0;
     let presentFields = 0;
 
-    // Check panel specifications completeness
+    // Check panel specifications completeness (REQUIRED)
     if (extractedData.panelSpecifications) {
       const panelCompleteness = this.calculatePanelCompleteness(extractedData.panelSpecifications);
       completeness.breakdown.panels = panelCompleteness;
@@ -136,43 +136,40 @@ class EnhancedConfidenceService {
       presentFields += panelCompleteness.presentFields;
     } else {
       completeness.missing.push('Panel specifications');
-      completeness.suggestions.push('Add panel specification documents');
+      completeness.suggestions.push('Add panel specification documents with panel numbers, dimensions, and roll numbers');
     }
 
-    // Check roll data completeness
+    // Check roll data completeness (OPTIONAL)
     if (extractedData.rollInformation) {
       const rollCompleteness = this.calculateRollCompleteness(extractedData.rollInformation);
       completeness.breakdown.rolls = rollCompleteness;
-      totalFields += rollCompleteness.totalFields;
-      presentFields += rollCompleteness.presentFields;
+      // Don't add to total fields since this is optional
     } else {
-      completeness.missing.push('Roll inventory data');
-      completeness.suggestions.push('Add roll inventory documents');
+      // Don't add to missing since this is optional
+      completeness.suggestions.push('Add roll inventory documents (optional) for better tracking');
     }
 
-    // Check site constraints completeness
+    // Check site constraints completeness (OPTIONAL)
     if (extractedData.siteConstraints) {
       const siteCompleteness = this.calculateSiteCompleteness(extractedData.siteConstraints);
       completeness.breakdown.site = siteCompleteness;
-      totalFields += siteCompleteness.totalFields;
-      presentFields += siteCompleteness.presentFields;
+      // Don't add to total fields since this is optional
     } else {
-      completeness.missing.push('Site constraints');
-      completeness.suggestions.push('Add site plan documents');
+      // Don't add to missing since this is optional
+      completeness.suggestions.push('Add site plan documents (optional) for constraint analysis');
     }
 
-    // Check material requirements completeness
+    // Check material requirements completeness (OPTIONAL)
     if (extractedData.materialRequirements) {
       const materialCompleteness = this.calculateMaterialCompleteness(extractedData.materialRequirements);
       completeness.breakdown.materials = materialCompleteness;
-      totalFields += materialCompleteness.totalFields;
-      presentFields += materialCompleteness.presentFields;
+      // Don't add to total fields since this is optional
     } else {
-      completeness.missing.push('Material requirements');
-      completeness.suggestions.push('Add material specification documents');
+      // Don't add to missing since this is optional
+      completeness.suggestions.push('Add material specification documents (optional) for optimization');
     }
 
-    // Calculate overall completeness score
+    // Calculate overall completeness score (only based on required fields)
     completeness.score = totalFields > 0 ? (presentFields / totalFields) * 100 : 0;
 
     return completeness;
@@ -443,7 +440,7 @@ class EnhancedConfidenceService {
 
   // Helper methods for completeness calculations
   calculatePanelCompleteness(panelSpecs) {
-    const requiredFields = ['panelId', 'dimensions'];
+    const requiredFields = ['panelId', 'rollNumber', 'dimensions'];
     const optionalFields = ['material', 'location', 'installationNotes'];
     
     let totalFields = 0;
@@ -457,7 +454,7 @@ class EnhancedConfidenceService {
         if (panel[field]) presentFields++;
       }
       
-      // Check optional fields
+      // Check optional fields (but don't penalize for missing them)
       for (const field of optionalFields) {
         if (panel[field]) presentFields++;
       }
@@ -497,8 +494,8 @@ class EnhancedConfidenceService {
   }
 
   calculateSiteCompleteness(siteConstraints) {
-    const requiredFields = ['siteDimensions'];
-    const optionalFields = ['constraints', 'access', 'environmental'];
+    const requiredFields = []; // No required fields for site constraints
+    const optionalFields = ['siteDimensions', 'constraints', 'access', 'environmental'];
     
     let totalFields = requiredFields.length + optionalFields.length;
     let presentFields = 0;
@@ -512,7 +509,7 @@ class EnhancedConfidenceService {
     }
 
     return {
-      score: totalFields > 0 ? (presentFields / totalFields) * 100 : 0,
+      score: totalFields > 0 ? (presentFields / totalFields) * 100 : 100, // Default to 100% if no fields to check
       totalFields,
       presentFields
     };
