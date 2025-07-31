@@ -10,7 +10,8 @@ class EnhancedValidationService {
   initializeValidationRules() {
     return {
       panelSpecifications: {
-        required: ['panelId', 'dimensions'],
+        required: ['panelId', 'rollNumber', 'dimensions'],
+        optional: ['location', 'installationNotes', 'material'],
         dimensions: {
           minWidth: 1,
           maxWidth: 200,

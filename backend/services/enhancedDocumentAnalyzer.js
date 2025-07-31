@@ -18,8 +18,12 @@ class EnhancedDocumentAnalyzer {
         minWidth: 1, // feet
         maxWidth: 200, // feet
         minLength: 1, // feet
-        maxLength: 800, // feet
+        maxLength: 800, // feet - updated to 800 feet
         requiredFields: ['width', 'length']
+      },
+      panelSpecifications: {
+        required: ['panelId', 'rollNumber', 'dimensions'],
+        optional: ['location', 'installationNotes', 'material']
       },
       materials: {
         validTypes: ['HDPE', 'LLDPE', 'PVC', 'PP', 'PET', 'GCL'],
@@ -237,12 +241,11 @@ Extract panel specifications in this exact JSON format:
   "panels": [
     {
       "panelId": "string (e.g., P001, Panel-1)",
+      "rollNumber": "string (e.g., R001, 1059)",
       "dimensions": {
         "width": "number in feet",
         "length": "number in feet"
       },
-      "location": "string (e.g., Northwest corner)",
-      "installationNotes": "string",
       "confidence": "number (0-1)"
     }
   ],
@@ -259,7 +262,7 @@ ENHANCED RULES:
 3. Calculate total area for layout planning
 4. Flag any inconsistencies or missing critical data
 5. Provide confidence scores for each panel specification
-6. Material type is NOT required for panel generation - only dimensions and location matter
+6. ONLY extract: panel number, width, length, and roll number - location and installation notes are NOT required
 
 Return ONLY the JSON response.
 `;

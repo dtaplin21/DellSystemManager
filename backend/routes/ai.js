@@ -558,6 +558,7 @@ router.post('/analyze-panel-requirements', requireAuth, async (req, res) => {
         dimensions: extractPanelDimensions(enhancedAnalysisResult.panelSpecifications),
         materials: extractMaterials(enhancedAnalysisResult.panelSpecifications, enhancedAnalysisResult.materialRequirements),
         panelNumbers: enhancedAnalysisResult.panelSpecifications?.map(p => p.panelId) || [],
+        rollNumbers: extractRollNumbers(enhancedAnalysisResult.panelSpecifications),
         confidence: enhancedAnalysisResult.panelSpecifications?.map(p => p.confidence) || []
       },
       materialRequirements: {
@@ -726,6 +727,12 @@ function extractThickness(panelSpecs) {
   }
   
   return thicknesses[0] + ' mils';
+}
+
+function extractRollNumbers(panelSpecs) {
+  if (!panelSpecs || panelSpecs.length === 0) return [];
+  
+  return panelSpecs.map(p => p.rollNumber).filter(r => r);
 }
 
 function extractInstallationRequirements(installationNotes) {
