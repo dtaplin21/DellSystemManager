@@ -15,12 +15,13 @@ class EnhancedValidationService {
           minWidth: 1,
           maxWidth: 200,
           minLength: 1,
-          maxLength: 200,
+          maxLength: 800, // Updated to 800 feet
           unit: 'feet'
         },
         materials: {
           validTypes: ['HDPE', 'LLDPE', 'PVC', 'PP', 'PET', 'GCL'],
-          thicknessRange: { min: 10, max: 200, unit: 'mils' }
+          thicknessRange: { min: 10, max: 200, unit: 'mils' },
+          required: false // Material information is not required for panel generation
         }
       },
       rollData: {
@@ -29,13 +30,13 @@ class EnhancedValidationService {
           minWidth: 1,
           maxWidth: 200,
           minLength: 1,
-          maxLength: 200,
+          maxLength: 800, // Updated to 800 feet
           unit: 'feet'
         },
         status: ['available', 'allocated', 'used', 'damaged']
       },
       siteConstraints: {
-        required: ['siteDimensions'],
+        required: [], // Site dimensions are not required for panel generation
         dimensions: {
           minArea: 100,
           maxArea: 1000000,
@@ -43,7 +44,7 @@ class EnhancedValidationService {
         }
       },
       materialRequirements: {
-        required: ['primaryMaterial'],
+        required: [], // Material requirements are not required for panel generation
         thickness: {
           min: 10,
           max: 200,

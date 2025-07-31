@@ -678,39 +678,52 @@ function extractPanelDimensions(panelSpecs) {
 }
 
 function extractMaterials(panelSpecs, materialReqs) {
+  // Material information is optional for panel generation
+  // Return default if no material information is available
+  if (!materialReqs && (!panelSpecs || panelSpecs.length === 0)) {
+    return 'Material type not specified - will be determined during installation';
+  }
+  
   const materials = new Set();
   
-  if (materialReqs?.type) {
-    materials.add(materialReqs.type);
+  if (materialReqs?.primaryMaterial?.type) {
+    materials.add(materialReqs.primaryMaterial.type);
   }
   
   if (panelSpecs) {
     panelSpecs.forEach(p => {
-      if (p.material) materials.add(p.material);
+      if (p.material?.type) materials.add(p.material.type);
     });
   }
   
-  return Array.from(materials).join(', ') || 'HDPE';
+  return Array.from(materials).join(', ') || 'Material type not specified - will be determined during installation';
 }
 
 function extractPrimaryMaterial(panelSpecs) {
-  if (!panelSpecs || panelSpecs.length === 0) return 'HDPE';
+  if (!panelSpecs || panelSpecs.length === 0) {
+    return 'Material type not specified - will be determined during installation';
+  }
   
   const materialCounts = {};
   panelSpecs.forEach(p => {
-    if (p.material) {
-      materialCounts[p.material] = (materialCounts[p.material] || 0) + 1;
+    if (p.material?.type) {
+      materialCounts[p.material.type] = (materialCounts[p.material.type] || 0) + 1;
     }
   });
   
-  return Object.keys(materialCounts).sort((a, b) => materialCounts[b] - materialCounts[a])[0] || 'HDPE';
+  return Object.keys(materialCounts).sort((a, b) => materialCounts[b] - materialCounts[a])[0] || 
+         'Material type not specified - will be determined during installation';
 }
 
 function extractThickness(panelSpecs) {
-  if (!panelSpecs || panelSpecs.length === 0) return '60 mils';
+  if (!panelSpecs || panelSpecs.length === 0) {
+    return 'Thickness not specified - will be determined during installation';
+  }
   
-  const thicknesses = panelSpecs.map(p => p.thickness).filter(t => t);
-  if (thicknesses.length === 0) return '60 mils';
+  const thicknesses = panelSpecs.map(p => p.material?.thickness).filter(t => t);
+  if (thicknesses.length === 0) {
+    return 'Thickness not specified - will be determined during installation';
+  }
   
   return thicknesses[0] + ' mils';
 }

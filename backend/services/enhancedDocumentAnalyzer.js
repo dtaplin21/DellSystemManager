@@ -18,7 +18,7 @@ class EnhancedDocumentAnalyzer {
         minWidth: 1, // feet
         maxWidth: 200, // feet
         minLength: 1, // feet
-        maxLength: 200, // feet
+        maxLength: 800, // feet
         requiredFields: ['width', 'length']
       },
       materials: {
@@ -237,15 +237,9 @@ Extract panel specifications in this exact JSON format:
   "panels": [
     {
       "panelId": "string (e.g., P001, Panel-1)",
-      "rollNumber": "string (e.g., R001)",
       "dimensions": {
         "width": "number in feet",
         "length": "number in feet"
-      },
-      "material": {
-        "type": "string (e.g., HDPE, LLDPE)",
-        "thickness": "number in mils",
-        "grade": "string (e.g., Standard, Premium)"
       },
       "location": "string (e.g., Northwest corner)",
       "installationNotes": "string",
@@ -255,18 +249,17 @@ Extract panel specifications in this exact JSON format:
   "validation": {
     "totalPanels": "number",
     "totalArea": "number in square feet",
-    "materialConsistency": "boolean",
     "dimensionConsistency": "boolean"
   }
 }
 
 ENHANCED RULES:
-1. Validate all dimensions are within reasonable ranges (1-200 feet)
-2. Check for material consistency across panels
-3. Verify panel IDs follow consistent naming patterns
-4. Calculate total area and validate against site constraints
-5. Flag any inconsistencies or missing critical data
-6. Provide confidence scores for each panel specification
+1. Validate all dimensions are within reasonable ranges (1-200 feet width, 1-800 feet length)
+2. Verify panel IDs follow consistent naming patterns
+3. Calculate total area for layout planning
+4. Flag any inconsistencies or missing critical data
+5. Provide confidence scores for each panel specification
+6. Material type is NOT required for panel generation - only dimensions and location matter
 
 Return ONLY the JSON response.
 `;
@@ -308,7 +301,7 @@ Return ONLY the JSON response.
     const documentText = this.extractDocumentText(documents);
     
     const prompt = `
-Analyze these roll inventory documents with enhanced validation and cross-referencing.
+Analyze these roll inventory documents for recognition and reference purposes.
 
 DOCUMENTS:
 ${documentText}
@@ -343,12 +336,12 @@ Extract roll information in this exact JSON format:
 }
 
 ENHANCED RULES:
-1. Validate roll dimensions are within reasonable ranges
+1. Recognize and extract roll data for reference purposes
 2. Check for duplicate roll numbers
 3. Calculate total available area
 4. Verify material consistency
 5. Flag any damaged or unavailable rolls
-6. Cross-reference with panel specifications for allocation
+6. NOTE: Roll data is for recognition only - NOT required for panel layout generation
 
 Return ONLY the JSON response.
 `;
@@ -397,16 +390,6 @@ ${documentText}
 
 Extract site information in this exact JSON format:
 {
-  "siteDimensions": {
-    "width": "number in feet",
-    "length": "number in feet",
-    "area": "number in square feet"
-  },
-  "terrain": {
-    "type": "string (flat, sloped, irregular)",
-    "slope": "number in degrees (if applicable)",
-    "elevation": "object with min/max values"
-  },
   "constraints": [
     {
       "type": "string (obstacle, boundary, utility, environmental)",
@@ -429,12 +412,12 @@ Extract site information in this exact JSON format:
 }
 
 ENHANCED RULES:
-1. Validate site dimensions are reasonable
-2. Identify all potential constraints and obstacles
-3. Assess impact of constraints on panel layout
-4. Verify access points and equipment requirements
-5. Consider environmental factors affecting installation
-6. Flag any critical constraints that may affect project feasibility
+1. Identify all potential constraints and obstacles that affect panel placement
+2. Assess impact of constraints on panel layout
+3. Verify access points and equipment requirements
+4. Consider environmental factors affecting installation
+5. Flag any critical constraints that may affect project feasibility
+6. Site dimensions are NOT required for panel generation - focus on constraints only
 
 Return ONLY the JSON response.
 `;
@@ -476,7 +459,7 @@ Return ONLY the JSON response.
     const documentText = this.extractDocumentText(documents);
     
     const prompt = `
-Analyze these material specification documents with enhanced validation and standards compliance.
+Analyze these material specification documents for recognition and reference purposes.
 
 DOCUMENTS:
 ${documentText}
@@ -520,12 +503,12 @@ Extract material information in this exact JSON format:
 }
 
 ENHANCED RULES:
-1. Validate material specifications against industry standards
+1. Recognize and extract material specifications for reference purposes
 2. Check thickness requirements are within acceptable ranges
 3. Verify seam requirements are appropriate for material type
 4. Ensure quality standards are current and applicable
 5. Flag any non-compliant or missing specifications
-6. Cross-reference with panel specifications for consistency
+6. NOTE: Material specifications are for recognition only - NOT required for panel layout generation
 
 Return ONLY the JSON response.
 `;

@@ -467,11 +467,13 @@ class Phase3AILayoutGenerator {
     
     const optimizedPanels = [...panels];
     
-    // Phase 3: Optimize roll assignments
-    const rollAssignments = this.optimizeRollAssignments(optimizedPanels, rollInventory);
+    // Phase 3: Optimize roll assignments (if roll inventory is available)
+    const rollAssignments = rollInventory?.rolls?.length > 0 ? 
+      this.optimizeRollAssignments(optimizedPanels, rollInventory) : [];
     
-    // Phase 3: Minimize waste
-    const wasteOptimized = this.minimizeMaterialWaste(optimizedPanels, materialReqs);
+    // Phase 3: Minimize waste (if material requirements are available)
+    const wasteOptimized = materialReqs ? 
+      this.minimizeMaterialWaste(optimizedPanels, materialReqs) : optimizedPanels;
     
     // Phase 3: Calculate material efficiency
     for (let i = 0; i < optimizedPanels.length; i++) {
@@ -482,9 +484,10 @@ class Phase3AILayoutGenerator {
         ...panel,
         materialOptimization: {
           rollNumber: rollAssignment?.rollNumber || 'R-UNASSIGNED',
-          materialEfficiency: rollAssignment?.efficiency || 0,
-          wasteReduction: this.calculateWasteReduction(panel, materialReqs),
-          costSavings: this.calculateCostSavings(panel, materialReqs)
+          materialEfficiency: rollAssignment?.efficiency || 0.8,
+          wasteReduction: materialReqs ? this.calculateWasteReduction(panel, materialReqs) : 0,
+          costSavings: materialReqs ? this.calculateCostSavings(panel, materialReqs) : 0,
+          note: materialReqs ? 'Material optimization applied' : 'Material type not specified - optimization skipped'
         }
       };
     }
@@ -553,11 +556,13 @@ class Phase3AILayoutGenerator {
 
   generateInstallationNotes(panelIndex, materialReqs) {
     return {
-      seamType: materialReqs?.seamRequirements || 'fusion',
-      overlap: '6 inches',
-      temperature: '450°F',
-      pressure: '40 PSI',
-      notes: `Panel ${panelIndex} installation requirements`
+      seamType: materialReqs?.seamRequirements?.type || 'Standard fusion',
+      overlap: materialReqs?.seamRequirements?.overlap || '6 inches',
+      temperature: materialReqs?.seamRequirements?.temperature || '450°F',
+      pressure: materialReqs?.seamRequirements?.pressure || '40 PSI',
+      notes: materialReqs ? 
+        `Panel ${panelIndex} installation requirements` : 
+        `Panel ${panelIndex} - follow standard geosynthetic installation procedures`
     };
   }
 
