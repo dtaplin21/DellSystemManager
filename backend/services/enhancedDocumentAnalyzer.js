@@ -689,8 +689,8 @@ Return ONLY the JSON response.
    */
   assessDataQuality(analysisResults) {
     const metrics = {
-      completeness: this.calculateCompleteness(analysisResults),
-      consistency: this.calculateConsistency(analysisResults),
+      completeness: this.calculateDataCompleteness(analysisResults),
+      consistency: this.calculateDataConsistency(analysisResults),
       accuracy: this.calculateAccuracy(analysisResults),
       reliability: this.calculateReliability(analysisResults)
     };

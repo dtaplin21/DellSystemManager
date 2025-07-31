@@ -645,9 +645,15 @@ class EnhancedValidationService {
   }
 
   aggregateValidationResults(mainResults, subResults) {
-    if (subResults.issues) mainResults.issues.push(...subResults.issues);
-    if (subResults.warnings) mainResults.warnings.push(...subResults.warnings);
-    if (subResults.corrections) mainResults.corrections.push(...subResults.corrections);
+    if (subResults.issues && Array.isArray(subResults.issues)) {
+      mainResults.issues.push(...subResults.issues);
+    }
+    if (subResults.warnings && Array.isArray(subResults.warnings)) {
+      mainResults.warnings.push(...subResults.warnings);
+    }
+    if (subResults.corrections && Array.isArray(subResults.corrections)) {
+      mainResults.corrections.push(...subResults.corrections);
+    }
   }
 
   calculateValidationConfidence(validationResults) {
