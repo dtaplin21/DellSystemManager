@@ -323,6 +323,10 @@ export default function PanelRequirementsForm({ projectId, documents: propDocume
             description: 'Some requirements could not be extracted. Please review and complete manually.',
             variant: 'destructive',
           });
+          
+          // Log detailed missing requirements for debugging
+          console.log('🔍 Missing Requirements Details:', result.missingRequirements);
+          console.log('🔍 AI Analysis Result:', result.analysis);
         }
       } else {
         toast({
@@ -884,6 +888,63 @@ export default function PanelRequirementsForm({ projectId, documents: propDocume
                 </ul>
               </div>
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* AI Analysis Debug Panel */}
+      {aiAnalysisResult && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Brain className="h-5 w-5 mr-2" />
+              AI Analysis Results (Debug)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {/* Extracted Data */}
+              <div>
+                <h4 className="font-semibold mb-2 text-green-600">✅ Extracted Information:</h4>
+                <div className="bg-green-50 p-3 rounded-lg">
+                  <pre className="text-xs overflow-auto max-h-40">
+                    {JSON.stringify(aiAnalysisResult, null, 2)}
+                  </pre>
+                </div>
+              </div>
+
+              {/* Missing Requirements */}
+              <div>
+                <h4 className="font-semibold mb-2 text-red-600">❌ Missing Requirements:</h4>
+                <div className="bg-red-50 p-3 rounded-lg">
+                  <pre className="text-xs overflow-auto max-h-40">
+                    {JSON.stringify(requirements, null, 2)}
+                  </pre>
+                </div>
+              </div>
+
+              {/* Confidence Breakdown */}
+              <div>
+                <h4 className="font-semibold mb-2 text-blue-600">📊 Confidence Breakdown:</h4>
+                <div className="bg-blue-50 p-3 rounded-lg">
+                  <p className="text-sm">
+                    <strong>Overall Confidence:</strong> {confidence}%
+                  </p>
+                  <p className="text-sm">
+                    <strong>Panel Specifications:</strong> {aiAnalysisResult.panelSpecifications?.length || 0} found
+                  </p>
+                  <p className="text-sm">
+                    <strong>Roll Information:</strong> {aiAnalysisResult.rollInformation?.length || 0} found
+                  </p>
+                  <p className="text-sm">
+                    <strong>Material Requirements:</strong> {aiAnalysisResult.materialRequirements ? 'Found' : 'Missing'}
+                  </p>
+                  <p className="text-sm">
+                    <strong>Site Constraints:</strong> {aiAnalysisResult.siteConstraints ? 'Found' : 'Missing'}
+                  </p>
+                </div>
+              </div>
+            </div>
           </CardContent>
         </Card>
       )}
