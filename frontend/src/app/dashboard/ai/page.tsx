@@ -65,6 +65,8 @@ export default function AIPage() {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [projectsLoading, setProjectsLoading] = useState(false);
+  const [hasAttemptedLoad, setHasAttemptedLoad] = useState(false);
   const [jobStatus, setJobStatus] = useState<JobStatus>({ status: 'idle' });
   const [requirements, setRequirements] = useState<any>(null);
   const [requirementsConfidence, setRequirementsConfidence] = useState(0);
@@ -79,12 +81,13 @@ export default function AIPage() {
     }
   }, [isAuthenticated, loading, router]);
 
-  // Load projects only when authenticated
+  // Load projects only when authenticated and not already attempted
   useEffect(() => {
-    if (isAuthenticated && !loading) {
+    if (isAuthenticated && !loading && !projectsLoading && !hasAttemptedLoad) {
+      setHasAttemptedLoad(true);
       loadProjects();
     }
-  }, [isAuthenticated, loading]);
+  }, [isAuthenticated, loading, projectsLoading, hasAttemptedLoad]);
 
   useEffect(() => {
     if (selectedProject) {
@@ -94,6 +97,11 @@ export default function AIPage() {
   }, [selectedProject]);
 
   const loadProjects = async () => {
+    // Prevent multiple simultaneous calls
+    if (projectsLoading) return;
+    
+    setProjectsLoading(true);
+    
     try {
       console.log('Loading projects for authenticated user...');
       const response = await fetchProjects();
@@ -117,7 +125,10 @@ export default function AIPage() {
           description: 'Please log in to access your projects',
           variant: 'destructive',
         });
-        router.push('/login');
+        // Prevent redirect loop by checking if we're already on login page
+        if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
+          router.push('/login');
+        }
       } else {
         toast({
           title: 'Error',
@@ -125,6 +136,8 @@ export default function AIPage() {
           variant: 'destructive',
         });
       }
+    } finally {
+      setProjectsLoading(false);
     }
   };
 

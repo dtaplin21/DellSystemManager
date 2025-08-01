@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { fetchProjects as fetchProjectsAPI, fetchProjectById, fetchPanelLayout, fetchDocuments } from '../lib/api';
+import { useSupabaseAuth } from '../hooks/use-supabase-auth';
 import type { Panel as CanonicalPanel } from '../types/panel';
 
 interface ProjectSummary {
@@ -93,9 +94,16 @@ export function ProjectsProvider({ children }: ProjectsProviderProps) {
   const [selectedProject, setSelectedProject] = useState<ProjectDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { isAuthenticated, loading: authLoading } = useSupabaseAuth();
 
   // Fetch all projects using the API helper
   const fetchProjects = async () => {
+    // Don't fetch if not authenticated
+    if (!isAuthenticated || authLoading) {
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
     
@@ -192,10 +200,15 @@ export function ProjectsProvider({ children }: ProjectsProviderProps) {
     await fetchProjects();
   };
 
-  // Fetch projects on mount
+  // Fetch projects on mount only when authenticated
   useEffect(() => {
-    fetchProjects();
-  }, []);
+    if (isAuthenticated && !authLoading) {
+      fetchProjects();
+    } else if (!authLoading) {
+      // If not authenticated and auth loading is done, set loading to false
+      setIsLoading(false);
+    }
+  }, [isAuthenticated, authLoading]);
 
   const value: ProjectsContextType = {
     projects,
