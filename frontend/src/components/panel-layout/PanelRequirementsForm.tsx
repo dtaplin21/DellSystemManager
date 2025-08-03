@@ -240,10 +240,20 @@ export default function PanelRequirementsForm({ projectId, documents: propDocume
     setGenerating(true);
     try {
       console.log('🚀 Starting AI layout generation with requirements:', requirements);
+      console.log('🎯 AI Analysis result available:', aiAnalysisResult);
+      
+      // Extract panels from AI analysis if available
+      let panelsToUse = [];
+      if (aiAnalysisResult && aiAnalysisResult.panelSpecifications) {
+        console.log('📋 Using extracted panels from AI analysis:', aiAnalysisResult.panelSpecifications);
+        panelsToUse = aiAnalysisResult.panelSpecifications;
+      } else {
+        console.log('⚠️ No AI analysis panels available, using empty array');
+      }
       
       const result = await automateLayout(
         projectId,
-        [], // panels array (empty for now, as AI generates new ones)
+        panelsToUse, // Use extracted panels from AI analysis
         documents // Use uploaded documents
       );
 

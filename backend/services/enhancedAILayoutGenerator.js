@@ -118,8 +118,36 @@ class EnhancedAILayoutGenerator {
     try {
       const { panelSpecifications, materialRequirements, rollInventory, siteDimensions } = requirements;
 
-      // Generate panels based on specifications
-      if (panelSpecifications && panelSpecifications.panelCount) {
+      // Use actual extracted panel specifications if available
+      if (panelSpecifications && panelSpecifications.panelSpecifications && panelSpecifications.panelSpecifications.length > 0) {
+        console.log('🎯 Using extracted panel specifications:', panelSpecifications.panelSpecifications.length, 'panels');
+        
+        // Use the actual extracted panels
+        panelSpecifications.panelSpecifications.forEach((panel, index) => {
+          const position = this.calculatePanelPosition(index + 1, panelSpecifications.panelSpecifications.length, 
+            panel.dimensions?.width || 20, panel.dimensions?.length || 100, siteDimensions);
+          
+          actions.push({
+            type: 'CREATE_PANEL',
+            data: {
+              id: `panel-${index + 1}`,
+              x: position.x,
+              y: position.y,
+              width: panel.dimensions?.width || 20,
+              height: panel.dimensions?.length || 100,
+              panelNumber: panel.panelId || `P${String(index + 1).padStart(3, '0')}`,
+              rollNumber: panel.rollNumber || null,
+              material: materialRequirements?.primaryMaterial || 'HDPE Geomembrane',
+              thickness: materialRequirements?.thickness || '60 mil',
+              seamRequirements: materialRequirements?.seamRequirements || 'Standard seam',
+              confidence: panel.confidence || 0.95
+            }
+          });
+        });
+      } else if (panelSpecifications && panelSpecifications.panelCount) {
+        // Fallback to generic panel generation if no specific panels extracted
+        console.log('⚠️ No specific panel data found, using generic generation for', panelSpecifications.panelCount, 'panels');
+        
         const panelCount = panelSpecifications.panelCount;
         const dimensions = panelSpecifications.dimensions || '20ft x 100ft';
         
