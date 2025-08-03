@@ -296,6 +296,15 @@ export default function PanelRequirementsForm({ projectId, documents: propDocume
         selectedDocumentsForAnalysis.includes(doc.id)
       );
 
+      console.log('📋 Documents being sent to backend for analysis:');
+      documentsToAnalyze.forEach((doc, index) => {
+        console.log(`  ${index + 1}. ID: ${doc.id}`);
+        console.log(`     Name: ${doc.name}`);
+        console.log(`     Type: ${doc.type}`);
+        console.log(`     Size: ${doc.size} bytes`);
+        console.log(`     Uploaded: ${doc.uploadedAt}`);
+      });
+
       const result = await analyzeDocumentsForPanelRequirements(projectId, documentsToAnalyze);
       
       console.log('✅ AI analysis result:', result);

@@ -273,7 +273,7 @@ Return ONLY the JSON response.
         messages: [
           {
             role: "system",
-            content: "You are an expert geosynthetic engineer specializing in panel specifications. Extract and validate panel data with high precision."
+            content: "You are an expert geosynthetic engineer specializing in panel layout design. Extract panel specifications with high precision and validation."
           },
           {
             role: "user",
@@ -281,13 +281,38 @@ Return ONLY the JSON response.
           }
         ],
         response_format: { type: "json_object" },
-        max_tokens: 2000,
+        max_tokens: 8000,
         temperature: 0.1
       });
 
-      const result = JSON.parse(response.choices[0].message.content);
-      console.log(`[ENHANCED ANALYZER] Extracted ${result.panels?.length || 0} panel specifications with validation`);
-      return result.panels || [];
+      // Add detailed logging to debug the JSON parsing issue
+      const responseContent = response.choices[0].message.content;
+      console.log(`[ENHANCED ANALYZER] Raw AI response length: ${responseContent.length}`);
+      console.log(`[ENHANCED ANALYZER] Raw AI response (first 500 chars): ${responseContent.substring(0, 500)}`);
+      console.log(`[ENHANCED ANALYZER] Raw AI response (last 500 chars): ${responseContent.substring(Math.max(0, responseContent.length - 500))}`);
+      
+      try {
+        const result = JSON.parse(responseContent);
+        console.log(`[ENHANCED ANALYZER] Extracted ${result.panels?.length || 0} panel specifications with validation`);
+        return result.panels || [];
+      } catch (parseError) {
+        console.error('[ENHANCED ANALYZER] JSON parsing error:', parseError.message);
+        console.error('[ENHANCED ANALYZER] Response content that failed to parse:', responseContent);
+        console.error('[ENHANCED ANALYZER] Response content length:', responseContent.length);
+        
+        // Try to find where the JSON breaks
+        const lines = responseContent.split('\n');
+        for (let i = 0; i < lines.length; i++) {
+          try {
+            JSON.parse(lines.slice(0, i + 1).join('\n'));
+          } catch (e) {
+            console.error(`[ENHANCED ANALYZER] JSON breaks at line ${i + 1}:`, lines[i]);
+            break;
+          }
+        }
+        
+        return [];
+      }
 
     } catch (error) {
       console.error('[ENHANCED ANALYZER] Error analyzing panel specifications:', error);
@@ -363,13 +388,23 @@ Return ONLY the JSON response.
           }
         ],
         response_format: { type: "json_object" },
-        max_tokens: 2000,
+        max_tokens: 8000,
         temperature: 0.1
       });
 
-      const result = JSON.parse(response.choices[0].message.content);
-      console.log(`[ENHANCED ANALYZER] Extracted ${result.rolls?.length || 0} roll specifications with inventory analysis`);
-      return result.rolls || [];
+      // Add detailed logging to debug the JSON parsing issue
+      const responseContent = response.choices[0].message.content;
+      console.log(`[ENHANCED ANALYZER] Raw AI response length: ${responseContent.length}`);
+      
+      try {
+        const result = JSON.parse(responseContent);
+        console.log(`[ENHANCED ANALYZER] Extracted ${result.rolls?.length || 0} roll specifications with inventory analysis`);
+        return result.rolls || [];
+      } catch (parseError) {
+        console.error('[ENHANCED ANALYZER] JSON parsing error in roll data:', parseError.message);
+        console.error('[ENHANCED ANALYZER] Response content that failed to parse:', responseContent);
+        return [];
+      }
 
     } catch (error) {
       console.error('[ENHANCED ANALYZER] Error analyzing roll data:', error);

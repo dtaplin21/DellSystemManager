@@ -476,6 +476,7 @@ router.post('/analyze-panel-requirements', requireAuth, async (req, res) => {
     }
 
     console.log(`[AI ROUTE] Phase 2: Analyzing ${documentIds.length} documents for panel requirements in project ${projectId}`);
+    console.log(`[AI ROUTE] Document IDs received:`, documentIds);
 
     // Import enhanced services for Phase 2
     const EnhancedDocumentAnalyzer = require('../services/enhancedDocumentAnalyzer');
@@ -501,6 +502,7 @@ router.post('/analyze-panel-requirements', requireAuth, async (req, res) => {
       enhancedDocuments = await Promise.all(
         documentIds.map(async (docId) => {
           try {
+            console.log(`[AI ROUTE] Processing document ID: ${docId}`);
             const documentText = await documentService.getDocumentText(docId);
             // Get document metadata from database
             const { db } = require('../db/index');
@@ -511,6 +513,14 @@ router.post('/analyze-panel-requirements', requireAuth, async (req, res) => {
               .select()
               .from(documents)
               .where(eq(documents.id, docId));
+            
+            console.log(`[AI ROUTE] Document metadata for ${docId}:`, {
+              name: doc?.name,
+              type: doc?.type,
+              size: doc?.size,
+              hasTextContent: !!documentText,
+              textContentLength: documentText ? documentText.length : 0
+            });
             
             return {
               id: docId,
