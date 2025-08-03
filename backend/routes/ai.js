@@ -569,7 +569,9 @@ router.post('/analyze-panel-requirements', requireAuth, async (req, res) => {
         materials: extractMaterials(enhancedAnalysisResult.panelSpecifications, enhancedAnalysisResult.materialRequirements),
         panelNumbers: enhancedAnalysisResult.panelSpecifications?.map(p => p.panelId) || [],
         rollNumbers: extractRollNumbers(enhancedAnalysisResult.panelSpecifications),
-        confidence: enhancedAnalysisResult.panelSpecifications?.map(p => p.confidence) || []
+        confidence: enhancedAnalysisResult.panelSpecifications?.map(p => p.confidence) || [],
+        // Include the actual panel specifications for layout generation
+        panelSpecifications: enhancedAnalysisResult.panelSpecifications || []
       },
       materialRequirements: {
         primaryMaterial: extractPrimaryMaterial(enhancedAnalysisResult.panelSpecifications),
@@ -612,6 +614,11 @@ router.post('/analyze-panel-requirements', requireAuth, async (req, res) => {
     const savedRequirements = await panelRequirementsService.upsertRequirements(projectId, extractedRequirements);
 
     console.log(`[AI ROUTE] Panel requirements extracted and saved with confidence: ${confidenceResults.overall}%`);
+    console.log(`[AI ROUTE] Saved panel specifications:`, {
+      panelCount: extractedRequirements.panelSpecifications.panelCount,
+      actualPanels: extractedRequirements.panelSpecifications.panelSpecifications?.length || 0,
+      hasPanelData: !!extractedRequirements.panelSpecifications.panelSpecifications?.length
+    });
 
     res.json({
       success: true,
