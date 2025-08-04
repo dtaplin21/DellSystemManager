@@ -617,7 +617,8 @@ router.post('/analyze-panel-requirements', requireAuth, async (req, res) => {
     console.log(`[AI ROUTE] Saved panel specifications:`, {
       panelCount: extractedRequirements.panelSpecifications.panelCount,
       actualPanels: extractedRequirements.panelSpecifications.panelSpecifications?.length || 0,
-      hasPanelData: !!extractedRequirements.panelSpecifications.panelSpecifications?.length
+      hasPanelData: !!extractedRequirements.panelSpecifications.panelSpecifications?.length,
+      panelData: extractedRequirements.panelSpecifications.panelSpecifications?.slice(0, 3) || 'No panel data'
     });
 
     res.json({

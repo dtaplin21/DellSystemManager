@@ -38,6 +38,13 @@ class EnhancedAILayoutGenerator {
         };
       }
 
+      console.log('📋 Retrieved requirements from database:', {
+        panelCount: requirements.panelSpecifications?.panelCount || 0,
+        actualPanels: requirements.panelSpecifications?.panelSpecifications?.length || 0,
+        hasPanelData: !!requirements.panelSpecifications?.panelSpecifications?.length,
+        panelData: requirements.panelSpecifications?.panelSpecifications?.slice(0, 3) || 'No panel data'
+      });
+
       // Calculate confidence score
       const confidence = panelRequirementsService.calculateConfidenceScore(requirements);
       const missing = panelRequirementsService.getMissingRequirements(requirements);
