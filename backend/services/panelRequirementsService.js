@@ -51,7 +51,22 @@ class PanelRequirementsService {
         .where(eq(panelLayoutRequirements.projectId, projectId))
         .limit(1);
       
-      return requirements[0] || null;
+      const result = requirements[0] || null;
+      
+      if (result) {
+        console.log('📋 Retrieved requirements from database:', {
+          projectId: result.projectId,
+          panelCount: result.panelSpecifications?.panelCount || 0,
+          actualPanels: result.panelSpecifications?.panelSpecifications?.length || 0,
+          hasPanelData: !!result.panelSpecifications?.panelSpecifications?.length,
+          rollNumbersCount: result.panelSpecifications?.rollNumbers?.length || 0,
+          panelNumbersCount: result.panelSpecifications?.panelNumbers?.length || 0,
+          hasDimensions: !!result.panelSpecifications?.dimensions,
+          confidenceScore: result.confidenceScore
+        });
+      }
+      
+      return result;
     } catch (error) {
       console.error('Error getting panel requirements:', error);
       throw error;
@@ -86,13 +101,34 @@ class PanelRequirementsService {
     let score = 0;
     let totalFields = 0;
 
+    console.log('🔍 Calculating confidence score for requirements:', {
+      hasPanelSpecs: !!requirements.panelSpecifications,
+      panelCount: requirements.panelSpecifications?.panelCount || 0,
+      hasDimensions: !!requirements.panelSpecifications?.dimensions,
+      rollNumbersCount: requirements.panelSpecifications?.rollNumbers?.length || 0,
+      panelNumbersCount: requirements.panelSpecifications?.panelNumbers?.length || 0,
+      actualPanelsCount: requirements.panelSpecifications?.panelSpecifications?.length || 0
+    });
+
     // Panel Specifications (70% weight - ESSENTIAL)
     if (requirements.panelSpecifications) {
       const specs = requirements.panelSpecifications;
-      if (specs.panelCount && specs.panelCount > 0) score += 20;
-      if (specs.dimensions) score += 20;
-      if (specs.rollNumbers && specs.rollNumbers.length > 0) score += 20;
-      if (specs.panelNumbers && specs.panelNumbers.length > 0) score += 10;
+      if (specs.panelCount && specs.panelCount > 0) {
+        score += 20;
+        console.log('✅ Panel count found:', specs.panelCount, '(+20 points)');
+      }
+      if (specs.dimensions) {
+        score += 20;
+        console.log('✅ Panel dimensions found:', specs.dimensions, '(+20 points)');
+      }
+      if (specs.rollNumbers && specs.rollNumbers.length > 0) {
+        score += 20;
+        console.log('✅ Roll numbers found:', specs.rollNumbers.length, '(+20 points)');
+      }
+      if (specs.panelNumbers && specs.panelNumbers.length > 0) {
+        score += 10;
+        console.log('✅ Panel numbers found:', specs.panelNumbers.length, '(+10 points)');
+      }
     }
     totalFields += 70;
 
@@ -150,19 +186,38 @@ class PanelRequirementsService {
       siteDimensions: []
     };
 
+    console.log('🔍 Checking for missing requirements:', {
+      hasPanelSpecs: !!requirements.panelSpecifications,
+      panelCount: requirements.panelSpecifications?.panelCount || 0,
+      hasDimensions: !!requirements.panelSpecifications?.dimensions,
+      rollNumbersCount: requirements.panelSpecifications?.rollNumbers?.length || 0,
+      panelNumbersCount: requirements.panelSpecifications?.panelNumbers?.length || 0,
+      actualPanelsCount: requirements.panelSpecifications?.panelSpecifications?.length || 0
+    });
+
     // Check Panel Specifications (REQUIRED)
     if (!requirements.panelSpecifications) {
       missing.panelSpecifications.push('No panel specifications found');
+      console.log('❌ No panel specifications found');
     } else {
       const specs = requirements.panelSpecifications;
       if (!specs.panelCount || specs.panelCount === 0) {
         missing.panelSpecifications.push('Panel count missing or zero');
+        console.log('❌ Panel count missing or zero:', specs.panelCount);
+      } else {
+        console.log('✅ Panel count found:', specs.panelCount);
       }
       if (!specs.dimensions) {
         missing.panelSpecifications.push('Panel dimensions missing');
+        console.log('❌ Panel dimensions missing');
+      } else {
+        console.log('✅ Panel dimensions found:', specs.dimensions);
       }
       if (!specs.rollNumbers || specs.rollNumbers.length === 0) {
         missing.panelSpecifications.push('Roll numbers missing');
+        console.log('❌ Roll numbers missing or empty:', specs.rollNumbers?.length || 0);
+      } else {
+        console.log('✅ Roll numbers found:', specs.rollNumbers.length);
       }
     }
 
