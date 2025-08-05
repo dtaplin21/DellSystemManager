@@ -144,7 +144,7 @@ router.get('/layout/:projectId', auth, async (req, res, next) => {
 });
 
 // Update panel layout
-router.patch('/layout/:projectId', auth, subscriptionCheck('premium'), async (req, res, next) => {
+router.patch('/layout/:projectId', auth, async (req, res, next) => {
   try {
     res.setHeader('Cache-Control', 'no-store');
     console.log('🔍 PATCH /layout/:projectId called');

@@ -57,26 +57,52 @@ const makeAuthenticatedRequest = async (url: string, options: RequestInit = {}, 
     if (response.status === 401 && retryCount < 1) {
       console.log('🔄 Received 401, attempting token refresh...');
       
-      // Try to refresh the session using Supabase's native refresh
-      const { data: refreshed, error } = await supabase.auth.refreshSession();
-      
-      if (!error && refreshed.session) {
-        console.log('✅ Token refreshed successfully, retrying request...');
-        return makeAuthenticatedRequest(url, options, retryCount + 1);
-      } else {
-        console.error('❌ Token refresh failed:', error);
-        // Clear session and redirect to login
+      try {
+        // Try to refresh the session using Supabase's native refresh
+        const { data: refreshed, error } = await supabase.auth.refreshSession();
+        
+        if (!error && refreshed.session) {
+          console.log('✅ Token refreshed successfully, retrying request...');
+          return makeAuthenticatedRequest(url, options, retryCount + 1);
+        } else {
+          console.error('❌ Token refresh failed:', error);
+          // Clear session and redirect to login
+          await supabase.auth.signOut();
+          if (typeof window !== 'undefined') {
+            window.location.href = '/login';
+          }
+          throw new Error('Session expired. Please log in again.');
+        }
+      } catch (refreshError) {
+        console.error('❌ Network error during token refresh:', refreshError);
+        
+        // Check if it's a network connectivity issue
+        if (refreshError.message.includes('fetch') || 
+            refreshError.message.includes('network') ||
+            refreshError.message.includes('ERR_INTERNET_DISCONNECTED')) {
+          throw new Error('Network connection lost. Please check your internet connection and try again.');
+        }
+        
+        // For other errors, clear session and redirect
         await supabase.auth.signOut();
         if (typeof window !== 'undefined') {
           window.location.href = '/login';
         }
-        throw new Error('Session expired. Please log in again.');
+        throw new Error('Authentication failed. Please log in again.');
       }
     }
 
     return response;
   } catch (error) {
     console.error('❌ makeAuthenticatedRequest error:', error);
+    
+    // Handle network connectivity errors
+    if (error.message.includes('fetch') || 
+        error.message.includes('network') ||
+        error.message.includes('ERR_INTERNET_DISCONNECTED')) {
+      throw new Error('Network connection lost. Please check your internet connection and try again.');
+    }
+    
     throw error;
   }
 };
