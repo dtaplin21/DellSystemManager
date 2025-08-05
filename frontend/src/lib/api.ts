@@ -500,7 +500,33 @@ export async function automateLayout(projectId: string, panels: any[], documents
       throw new Error('Failed to automate layout');
     }
 
-    return await response.json();
+    const result = await response.json();
+    
+    // If layout generation was successful and returned actions, execute them
+    if (result.success && result.actions && result.actions.length > 0) {
+      console.log('🎯 Executing AI layout actions:', result.actions.length, 'actions');
+      
+      const executeResponse = await makeAuthenticatedRequest(`${BACKEND_URL}/api/ai/execute-ai-layout`, {
+        method: 'POST',
+        body: JSON.stringify({ projectId, actions: result.actions }),
+      });
+
+      if (executeResponse.ok) {
+        const executeResult = await executeResponse.json();
+        console.log('✅ AI actions executed successfully:', executeResult);
+        
+        // Return the combined result
+        return {
+          ...result,
+          executedActions: executeResult
+        };
+      } else {
+        console.error('❌ Failed to execute AI actions');
+        throw new Error('Failed to execute AI layout actions');
+      }
+    }
+
+    return result;
   } catch (error) {
     console.error('Automate layout error:', error);
     throw error;

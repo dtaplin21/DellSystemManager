@@ -311,7 +311,7 @@ router.post('/execute-ai-layout', requireAuth, async (req, res) => {
       try {
         switch (action.type) {
           case 'CREATE_PANEL':
-            const newPanel = await panelLayoutService.createPanel(projectId, action.payload);
+            const newPanel = await panelLayoutService.createPanel(projectId, action.data || action.payload);
             results.push({ 
               success: true, 
               type: 'CREATE_PANEL', 
@@ -323,8 +323,8 @@ router.post('/execute-ai-layout', requireAuth, async (req, res) => {
           case 'MOVE_PANEL':
             const movedPanel = await panelLayoutService.movePanel(
               projectId, 
-              action.payload.panelId, 
-              action.payload.newPosition
+              (action.data || action.payload).panelId, 
+              (action.data || action.payload).newPosition
             );
             results.push({ 
               success: true, 
@@ -337,7 +337,7 @@ router.post('/execute-ai-layout', requireAuth, async (req, res) => {
           case 'DELETE_PANEL':
             const deleteResult = await panelLayoutService.deletePanel(
               projectId, 
-              action.payload.panelId
+              (action.data || action.payload).panelId
             );
             results.push({ 
               success: true, 

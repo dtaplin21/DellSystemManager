@@ -38,20 +38,20 @@ class PanelLayoutService {
       const newPanel = {
         id: Date.now().toString(),
         date: new Date().toISOString().slice(0, 10),
-        panelNumber: `P${currentPanels.length + 1}`,
-        length: panelData.dimensions?.height || 100,
-        width: panelData.dimensions?.width || 40,
-        rollNumber: `R-${100 + currentPanels.length + 1}`,
+        panelNumber: panelData.panelNumber || `P${currentPanels.length + 1}`,
+        length: panelData.dimensions?.height || panelData.height || 100,
+        width: panelData.dimensions?.width || panelData.width || 40,
+        rollNumber: panelData.rollNumber || `R-${100 + currentPanels.length + 1}`,
         location: panelData.properties?.location || 'AI Generated',
-        x: panelData.position?.x || 50,
-        y: panelData.position?.y || 50,
+        x: panelData.position?.x || panelData.x || 50,
+        y: panelData.position?.y || panelData.y || 50,
         shape: panelData.properties?.shape || 'rectangle',
         rotation: panelData.rotation || 0,
         fill: panelData.properties?.fill || '#E3F2FD',
         color: panelData.properties?.color || '#E3F2FD',
-        material: panelData.properties?.material || 'HDPE',
-        thickness: panelData.properties?.thickness || 60,
-        seamsType: panelData.properties?.seamsType || 'fusion',
+        material: panelData.material || panelData.properties?.material || 'HDPE',
+        thickness: panelData.thickness || panelData.properties?.thickness || 60,
+        seamsType: panelData.seamRequirements || panelData.properties?.seamsType || 'fusion',
         notes: panelData.properties?.notes || `AI-generated panel ${currentPanels.length + 1}`,
         ...panelData.properties
       };
@@ -64,7 +64,7 @@ class PanelLayoutService {
           .update(panels)
           .set({
             panels: JSON.stringify(currentPanels),
-            lastUpdated: new Date().toISOString()
+            lastUpdated: new Date()
           })
           .where(eq(panels.projectId, projectId));
       } else {
@@ -74,7 +74,7 @@ class PanelLayoutService {
           width: project.layoutWidth || 1000,
           height: project.layoutHeight || 800,
           scale: project.scale || 1,
-          lastUpdated: new Date().toISOString()
+          lastUpdated: new Date()
         });
       }
 
@@ -119,7 +119,7 @@ class PanelLayoutService {
         .update(panels)
         .set({
           panels: JSON.stringify(currentPanels),
-          lastUpdated: new Date().toISOString()
+          lastUpdated: new Date()
         })
         .where(eq(panels.projectId, projectId));
 
@@ -156,7 +156,7 @@ class PanelLayoutService {
         .update(panels)
         .set({
           panels: JSON.stringify(filteredPanels),
-          lastUpdated: new Date().toISOString()
+          lastUpdated: new Date()
         })
         .where(eq(panels.projectId, projectId));
 
