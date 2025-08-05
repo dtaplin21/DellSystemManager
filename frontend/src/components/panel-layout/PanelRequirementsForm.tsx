@@ -53,6 +53,17 @@ interface PanelRequirements {
     dimensions?: string;
     materials?: string;
     panelNumbers?: string[];
+    rollNumbers?: string[];
+    confidence?: number[];
+    panelSpecifications?: Array<{
+      panelId: string;
+      rollNumber: string;
+      dimensions: {
+        width: number;
+        length: number;
+      };
+      confidence: number;
+    }>;
   };
   materialRequirements?: {
     primaryMaterial?: string;
@@ -927,7 +938,7 @@ export default function PanelRequirementsForm({ projectId, documents: propDocume
                 <h4 className="font-semibold mb-2 text-green-600">✅ Extracted Information:</h4>
                 <div className="bg-green-50 p-3 rounded-lg">
                   <pre className="text-xs overflow-auto max-h-40">
-                    {JSON.stringify(aiAnalysisResult, null, 2)}
+                    {JSON.stringify(requirements, null, 2)}
                   </pre>
                 </div>
               </div>
@@ -937,7 +948,7 @@ export default function PanelRequirementsForm({ projectId, documents: propDocume
                 <h4 className="font-semibold mb-2 text-red-600">❌ Missing Requirements:</h4>
                 <div className="bg-red-50 p-3 rounded-lg">
                   <pre className="text-xs overflow-auto max-h-40">
-                    {JSON.stringify(requirements, null, 2)}
+                    {JSON.stringify(aiAnalysisResult, null, 2)}
                   </pre>
                 </div>
               </div>
@@ -950,16 +961,16 @@ export default function PanelRequirementsForm({ projectId, documents: propDocume
                     <strong>Overall Confidence:</strong> {confidence}%
                   </p>
                   <p className="text-sm">
-                    <strong>Panel Specifications:</strong> {aiAnalysisResult.panelSpecifications?.length || 0} found
+                    <strong>Panel Specifications:</strong> {requirements.panelSpecifications?.panelSpecifications?.length || 0} found
                   </p>
                   <p className="text-sm">
-                    <strong>Roll Information:</strong> {aiAnalysisResult.rollInformation?.length || 0} found
+                    <strong>Roll Information:</strong> {requirements.panelSpecifications?.rollNumbers?.length || 0} found
                   </p>
                   <p className="text-sm">
-                    <strong>Material Requirements:</strong> {aiAnalysisResult.materialRequirements ? 'Found' : 'Missing'}
+                    <strong>Material Requirements:</strong> {requirements.materialRequirements ? 'Found' : 'Missing'}
                   </p>
                   <p className="text-sm">
-                    <strong>Site Constraints:</strong> {aiAnalysisResult.siteConstraints ? 'Found' : 'Missing'}
+                    <strong>Site Constraints:</strong> {requirements.siteDimensions ? 'Found' : 'Missing'}
                   </p>
                 </div>
               </div>

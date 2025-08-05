@@ -201,6 +201,22 @@ class PanelRequirementsService {
       console.log('❌ No panel specifications found');
     } else {
       const specs = requirements.panelSpecifications;
+      console.log('🔍 Detailed panel specs check:', {
+        panelCount: specs.panelCount,
+        hasDimensions: !!specs.dimensions,
+        dimensionsValue: specs.dimensions,
+        rollNumbersType: typeof specs.rollNumbers,
+        rollNumbersIsArray: Array.isArray(specs.rollNumbers),
+        rollNumbersLength: specs.rollNumbers?.length || 0,
+        rollNumbersSample: specs.rollNumbers?.slice(0, 3) || 'No roll numbers',
+        panelNumbersType: typeof specs.panelNumbers,
+        panelNumbersIsArray: Array.isArray(specs.panelNumbers),
+        panelNumbersLength: specs.panelNumbers?.length || 0,
+        actualPanelsType: typeof specs.panelSpecifications,
+        actualPanelsIsArray: Array.isArray(specs.panelSpecifications),
+        actualPanelsLength: specs.panelSpecifications?.length || 0
+      });
+      
       if (!specs.panelCount || specs.panelCount === 0) {
         missing.panelSpecifications.push('Panel count missing or zero');
         console.log('❌ Panel count missing or zero:', specs.panelCount);
@@ -216,8 +232,10 @@ class PanelRequirementsService {
       if (!specs.rollNumbers || specs.rollNumbers.length === 0) {
         missing.panelSpecifications.push('Roll numbers missing');
         console.log('❌ Roll numbers missing or empty:', specs.rollNumbers?.length || 0);
+        console.log('❌ Roll numbers data:', specs.rollNumbers);
       } else {
         console.log('✅ Roll numbers found:', specs.rollNumbers.length);
+        console.log('✅ Roll numbers sample:', specs.rollNumbers.slice(0, 5));
       }
     }
 
