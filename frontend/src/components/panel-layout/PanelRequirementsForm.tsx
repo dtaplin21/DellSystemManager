@@ -270,20 +270,44 @@ export default function PanelRequirementsForm({ projectId, documents: propDocume
 
       console.log('🎯 AI layout generation result:', result);
       
+      // Log detailed results
+      if (result.success) {
+        console.log('✅ Layout Generation Summary:', {
+          status: result.status,
+          actionsCount: result.actions?.length || 0,
+          summary: result.summary,
+          confidence: result.confidence,
+          totalPanels: result.summary?.totalPanels || 0,
+          totalArea: result.summary?.totalArea || 0,
+          estimatedCost: result.summary?.estimatedCost || 0,
+          layoutType: result.summary?.layoutType || 'Unknown'
+        });
+      }
+      
       if (onLayoutGenerated) {
         onLayoutGenerated(result);
       }
 
-      if (result.status === 'success') {
+      if (result.status === 'success' || result.status === 'partial') {
+        const summary = result.summary || {};
+        const panelCount = summary.totalPanels || result.actions?.length || 0;
+        const area = summary.totalArea || 0;
+        const cost = summary.estimatedCost || 0;
+        
         toast({
           title: 'Success',
-          description: 'Panel layout generated successfully!',
+          description: `Panel layout generated successfully! ${panelCount} panels, ${area.toLocaleString()} sq ft, $${cost.toLocaleString()} estimated cost. ${result.status === 'partial' ? '(Partial completion - some optimizations applied)' : ''}`,
         });
       } else if (result.status === 'insufficient_information') {
         toast({
           title: 'Insufficient Information',
           description: 'Please provide more requirements for accurate panel generation',
           variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Layout Generation Complete',
+          description: `Layout generation completed with status: ${result.status}`,
         });
       }
     } catch (error) {
