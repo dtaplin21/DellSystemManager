@@ -347,7 +347,11 @@ export default function PanelRequirementsForm({ projectId, documents: propDocume
         });
 
         // Show missing requirements if any
-        if (result.missingRequirements && Object.keys(result.missingRequirements).length > 0) {
+        if (result.missingRequirements && 
+            Object.keys(result.missingRequirements).some(key => 
+              Array.isArray(result.missingRequirements[key]) && 
+              result.missingRequirements[key].length > 0
+            )) {
           toast({
             title: 'Missing Information Detected',
             description: 'Some requirements could not be extracted. Please review and complete manually.',
@@ -406,13 +410,13 @@ export default function PanelRequirementsForm({ projectId, documents: propDocume
   ];
 
   const getStatusColor = (confidence: number) => {
-    if (confidence >= 80) return 'text-green-600';
+    if (confidence >= 50) return 'text-green-600';
     if (confidence >= 30) return 'text-yellow-600';
     return 'text-red-600';
   };
 
   const getStatusIcon = (confidence: number) => {
-    if (confidence >= 80) return <CheckCircle className="h-4 w-4" />;
+    if (confidence >= 50) return <CheckCircle className="h-4 w-4" />;
     if (confidence >= 30) return <AlertCircle className="h-4 w-4" />;
     return <XCircle className="h-4 w-4" />;
   };
@@ -594,8 +598,8 @@ export default function PanelRequirementsForm({ projectId, documents: propDocume
                     </span>
                   </div>
                   <p className="text-sm text-gray-600">
-                    {confidence >= 80 
-                      ? 'High confidence - Most requirements extracted successfully'
+                    {confidence >= 50 
+                      ? 'High confidence - Requirements extracted successfully'
                       : confidence >= 30 
                         ? 'Medium confidence - Some requirements may need manual review'
                         : 'Low confidence - Please review and complete requirements manually'
@@ -948,7 +952,20 @@ export default function PanelRequirementsForm({ projectId, documents: propDocume
                 <h4 className="font-semibold mb-2 text-red-600">❌ Missing Requirements:</h4>
                 <div className="bg-red-50 p-3 rounded-lg">
                   <pre className="text-xs overflow-auto max-h-40">
-                    {JSON.stringify(aiAnalysisResult, null, 2)}
+                    {(() => {
+                      // Check if there are actually missing requirements
+                      const hasMissingRequirements = aiAnalysisResult && 
+                        (aiAnalysisResult.panelSpecifications?.length === 0 || 
+                         Object.keys(aiAnalysisResult).some(key => 
+                           Array.isArray(aiAnalysisResult[key]) && aiAnalysisResult[key].length === 0
+                         ));
+                      
+                      if (!hasMissingRequirements) {
+                        return JSON.stringify({ message: "No missing requirements detected - all essential data has been extracted successfully!" }, null, 2);
+                      }
+                      
+                      return JSON.stringify(aiAnalysisResult, null, 2);
+                    })()}
                   </pre>
                 </div>
               </div>
