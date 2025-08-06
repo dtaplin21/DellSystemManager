@@ -230,9 +230,21 @@ export async function fetchProjectStats(): Promise<any> {
 
 export async function analyzeDocuments(projectId: string, documentIds: string[], question: string): Promise<any> {
   try {
-    const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/documents/analyze`, {
+    // Get the full document data for the selected documents
+    const documents = await fetchDocuments(projectId);
+    const selectedDocs = documents.filter((doc: any) => documentIds.includes(doc.id));
+    
+    const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/ai/query`, {
       method: 'POST',
-      body: JSON.stringify({ projectId, documentIds, question }),
+      body: JSON.stringify({ 
+        projectId, 
+        question,
+        documents: selectedDocs.map((doc: any) => ({
+          id: doc.id,
+          filename: doc.name,
+          text: doc.text_content || doc.content || ''
+        }))
+      }),
     });
     
     if (!response.ok) {

@@ -6,6 +6,7 @@ import { useProjects } from '@/contexts/ProjectsProvider';
 import { getCurrentSession } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 import NoProjectSelected from '@/components/ui/no-project-selected';
+import AIAnalysis from '@/components/documents/ai-analysis';
 import './documents.css';
 
 interface Document {
@@ -25,6 +26,7 @@ export default function DocumentsPage() {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<'documents' | 'ai-analysis'>('documents');
   
   // ✅ FIXED: Move early return after all hooks
   // Fetch documents for the selected project
@@ -228,6 +230,20 @@ export default function DocumentsPage() {
       <div className="documents-container">
         <div className="documents-header">
           <h1 className="documents-title">Documents</h1>
+          <div className="documents-tabs">
+            <button 
+              className={`tab-button ${activeTab === 'documents' ? 'active' : ''}`}
+              onClick={() => setActiveTab('documents')}
+            >
+              📄 Documents
+            </button>
+            <button 
+              className={`tab-button ${activeTab === 'ai-analysis' ? 'active' : ''}`}
+              onClick={() => setActiveTab('ai-analysis')}
+            >
+              🤖 AI Analysis
+            </button>
+          </div>
           <button 
             onClick={() => setShowUploadModal(true)}
             className="btn-upload"
@@ -236,76 +252,87 @@ export default function DocumentsPage() {
           </button>
         </div>
         
-        <div className="search-section">
-          <div className="search-container">
-            <span className="search-icon">🔍</span>
-            <input
-              type="text"
-              placeholder="Search documents by name, project, or type..."
-              className="search-input"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+        {activeTab === 'documents' ? (
+          <>
+            <div className="search-section">
+              <div className="search-container">
+                <span className="search-icon">🔍</span>
+                <input
+                  type="text"
+                  placeholder="Search documents by name, project, or type..."
+                  className="search-input"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+            </div>
+            
+            <div className="documents-grid">
+              {isLoading ? (
+                <div className="loading-state">
+                  <div className="loading-icon">⏳</div>
+                  <p>Loading documents...</p>
+                </div>
+              ) : filteredDocuments.length > 0 ? (
+                filteredDocuments.map((doc) => (
+                  <div key={doc.id} className="document-card">
+                    <div className="document-card-header">
+                      <div className="document-header-content">
+                        <div className={getDocumentIconClass(doc.name)}>
+                          {getDocumentIcon(doc.name)}
+                        </div>
+                        <div>
+                          <h3 className="document-title">{doc.name}</h3>
+                          <p className="document-project">{doc.type}</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="document-card-body">
+                      <div className="document-details">
+                        <span className={getTypeClass(doc.name)}>{getFileType(doc.name)}</span>
+                        <span>{getFileSize(doc.size)}</span>
+                      </div>
+                      <div className="document-uploaded">
+                        Uploaded: {new Date(doc.uploadedAt).toLocaleDateString()}
+                      </div>
+                      <div className="document-actions">
+                        <button 
+                          onClick={() => handleDownload(doc.id)}
+                          className="btn-action primary"
+                        >
+                          📥 Download
+                        </button>
+                        <button 
+                          onClick={() => handleViewDetails(doc.id)}
+                          className="btn-action"
+                        >
+                          👁️ Details
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="empty-state">
+                  <div className="empty-icon">📄</div>
+                  <h3 className="empty-title">No documents found</h3>
+                  <p className="empty-message">
+                    {searchQuery
+                      ? `No documents matching "${searchQuery}"`
+                      : "Upload documents to get started."}
+                  </p>
+                </div>
+              )}
+            </div>
+          </>
+        ) : (
+          <div className="ai-analysis-section">
+            <AIAnalysis 
+              projectId={selectedProjectId} 
+              documents={documents}
             />
           </div>
-        </div>
-        
-        <div className="documents-grid">
-          {isLoading ? (
-            <div className="loading-state">
-              <div className="loading-icon">⏳</div>
-              <p>Loading documents...</p>
-            </div>
-          ) : filteredDocuments.length > 0 ? (
-            filteredDocuments.map((doc) => (
-              <div key={doc.id} className="document-card">
-                <div className="document-card-header">
-                  <div className="document-header-content">
-                    <div className={getDocumentIconClass(doc.name)}>
-                      {getDocumentIcon(doc.name)}
-                    </div>
-                    <div>
-                      <h3 className="document-title">{doc.name}</h3>
-                      <p className="document-project">{doc.type}</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="document-card-body">
-                  <div className="document-details">
-                    <span className={getTypeClass(doc.name)}>{getFileType(doc.name)}</span>
-                    <span>{getFileSize(doc.size)}</span>
-                  </div>
-                  <div className="document-uploaded">
-                    Uploaded: {new Date(doc.uploadedAt).toLocaleDateString()}
-                  </div>
-                  <div className="document-actions">
-                    <button 
-                      onClick={() => handleDownload(doc.id)}
-                      className="btn-action primary"
-                    >
-                      📥 Download
-                    </button>
-                    <button 
-                      onClick={() => handleViewDetails(doc.id)}
-                      className="btn-action"
-                    >
-                      👁️ Details
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="empty-state">
-              <div className="empty-icon">📄</div>
-              <h3 className="empty-title">No documents found</h3>
-              <p className="empty-message">
-                {searchQuery
-                  ? `No documents matching "${searchQuery}"`
-                  : "Upload documents to get started."}
-              </p>
-            </div>
-          )}
-        </div>
+        )}
 
         {/* Upload Modal */}
         {showUploadModal && (
