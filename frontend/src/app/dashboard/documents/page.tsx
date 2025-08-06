@@ -7,6 +7,7 @@ import { getCurrentSession } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 import NoProjectSelected from '@/components/ui/no-project-selected';
 import AIAnalysis from '@/components/documents/ai-analysis';
+import { uploadDocument, fetchDocuments } from '@/lib/api';
 import './documents.css';
 
 interface Document {
@@ -31,22 +32,13 @@ export default function DocumentsPage() {
   // ✅ FIXED: Move early return after all hooks
   // Fetch documents for the selected project
   useEffect(() => {
-    const fetchDocuments = async () => {
+    const loadDocuments = async () => {
       if (!selectedProjectId) return;
       
       setIsLoading(true);
       try {
-        const response = await fetch(`/api/documents/${selectedProjectId}`, {
-          credentials: 'include',
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          setDocuments(data);
-        } else {
-          console.error('Failed to fetch documents:', response.status);
-          setDocuments([]);
-        }
+        const data = await fetchDocuments(selectedProjectId);
+        setDocuments(data);
       } catch (error) {
         console.error('Error fetching documents:', error);
         setDocuments([]);
@@ -55,7 +47,7 @@ export default function DocumentsPage() {
       }
     };
 
-    fetchDocuments();
+    loadDocuments();
   }, [selectedProjectId]);
   
   // ✅ FIXED: Early return moved after all hooks
@@ -154,69 +146,28 @@ export default function DocumentsPage() {
       console.log('Selected project ID:', selectedProjectId);
       
       try {
-        const formData = new FormData();
-        Array.from(files).forEach(file => {
-          formData.append('documents', file);
-        });
-        
-        // Get authentication headers
-        console.log('🔐 Getting authentication session...');
-        const session = await getCurrentSession();
-        console.log('Session status:', session ? 'valid' : 'null');
-        console.log('Session token preview:', session?.access_token ? session.access_token.substring(0, 20) + '...' : 'none');
-        
-        const headers: Record<string, string> = {};
-        if (session?.access_token) {
-          headers['Authorization'] = `Bearer ${session.access_token}`;
+        // Upload each file using the API helper
+        for (const file of Array.from(files)) {
+          console.log('📤 Uploading file:', file.name);
+          await uploadDocument(selectedProjectId, file);
         }
         
-        console.log('🌐 Making upload request to:', `/api/documents/${selectedProjectId}/upload`);
-        console.log('Request headers:', headers);
+        // Refresh the documents list
+        console.log('🔄 Fetching updated document list...');
+        const docsData = await fetchDocuments(selectedProjectId);
+        setDocuments(docsData);
+        console.log('✅ Document list updated');
         
-        const response = await fetch(`/api/documents/${selectedProjectId}/upload`, {
-          method: 'POST',
-          headers,
-          body: formData,
-          credentials: 'include',
+        setShowUploadModal(false);
+        toast({
+          title: 'Upload Successful',
+          description: `Successfully uploaded ${files.length} document(s)`,
         });
-        
-        console.log('📥 Response status:', response.status);
-        console.log('📥 Response headers:', Object.fromEntries(response.headers.entries()));
-        
-        if (response.ok) {
-          const data = await response.json();
-          console.log('✅ Upload response data:', data);
-          
-          // Refresh the documents list
-          console.log('🔄 Fetching updated document list...');
-          const docsResponse = await fetch(`/api/documents/${selectedProjectId}`, {
-            credentials: 'include',
-          });
-          if (docsResponse.ok) {
-            const docsData = await docsResponse.json();
-            setDocuments(docsData);
-            console.log('✅ Document list updated');
-          }
-          setShowUploadModal(false);
-          toast({
-            title: 'Upload Successful',
-            description: `Successfully uploaded ${data.documents.length} document(s)`,
-          });
-        } else {
-          const errorData = await response.json();
-          console.error('❌ Upload failed with status:', response.status);
-          console.error('❌ Error data:', errorData);
-          toast({
-            title: 'Upload Failed',
-            description: errorData.message || 'Unknown error',
-            variant: 'destructive',
-          });
-        }
       } catch (error) {
         console.error('❌ Upload error:', error);
         toast({
           title: 'Upload Failed',
-          description: 'Upload failed. Please try again.',
+          description: error instanceof Error ? error.message : 'Upload failed. Please try again.',
           variant: 'destructive',
         });
       }

@@ -42,6 +42,13 @@ export default function AIAnalysis({ projectId, documents }: AIAnalysisProps) {
       setIsAnalyzing(true);
       setAnalysisResult(null);
       
+      console.log('🔍 AI Analysis started:', {
+        projectId,
+        selectedDocuments,
+        question,
+        activeTab
+      });
+      
       // Different analysis based on active tab
       let analysisQuestion = question;
       
@@ -51,7 +58,10 @@ export default function AIAnalysis({ projectId, documents }: AIAnalysisProps) {
         analysisQuestion = 'Provide a comprehensive summary of these documents, including key dates, results, and panel information.';
       }
       
+      console.log('🤖 Calling analyzeDocuments with question:', analysisQuestion);
       const result = await analyzeDocuments(projectId, selectedDocuments, analysisQuestion);
+      console.log('✅ AI Analysis result:', result);
+      
       setAnalysisResult(result);
       
       toast({
@@ -59,6 +69,7 @@ export default function AIAnalysis({ projectId, documents }: AIAnalysisProps) {
         description: 'AI has completed analyzing the selected documents.',
       });
     } catch (error) {
+      console.error('❌ AI Analysis failed:', error);
       toast({
         title: 'Analysis Failed',
         description: 'Failed to analyze documents. Please try again.',
@@ -230,17 +241,25 @@ export default function AIAnalysis({ projectId, documents }: AIAnalysisProps) {
                       </Button>
                     </div>
                     <div className="bg-gray-50 p-4 rounded-md whitespace-pre-line">
-                      {analysisResult.analysis}
+                      {analysisResult.answer}
                     </div>
                     
-                    {analysisResult.extractedData && (
+                    {analysisResult.references && analysisResult.references.length > 0 && (
                       <div className="mt-4">
-                        <h4 className="text-sm font-semibold mb-2">Extracted Data</h4>
-                        <div className="bg-gray-50 p-4 rounded-md overflow-x-auto">
-                          <pre className="text-xs">
-                            {JSON.stringify(analysisResult.extractedData, null, 2)}
-                          </pre>
+                        <h4 className="text-sm font-semibold mb-2">References</h4>
+                        <div className="bg-gray-50 p-4 rounded-md">
+                          {analysisResult.references.map((ref: any, index: number) => (
+                            <div key={index} className="mb-2 text-sm">
+                              <strong>Document {index + 1}:</strong> {ref.excerpt}
+                            </div>
+                          ))}
                         </div>
+                      </div>
+                    )}
+                    
+                    {analysisResult.tokensUsed && (
+                      <div className="mt-2 text-xs text-gray-500">
+                        Tokens used: {analysisResult.tokensUsed}
                       </div>
                     )}
                   </div>
