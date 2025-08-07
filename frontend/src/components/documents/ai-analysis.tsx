@@ -17,7 +17,7 @@ export default function AIAnalysis({ projectId, documents }: AIAnalysisProps) {
   const [question, setQuestion] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'question' | 'anomalies' | 'summary'>('question');
+  const [activeTab, setActiveTab] = useState<'question'>('question');
   const { toast } = useToast();
 
   const toggleDocument = (documentId: string) => {
@@ -49,14 +49,8 @@ export default function AIAnalysis({ projectId, documents }: AIAnalysisProps) {
         activeTab
       });
       
-      // Different analysis based on active tab
+      // Use the user's question directly
       let analysisQuestion = question;
-      
-      if (activeTab === 'anomalies') {
-        analysisQuestion = 'Identify any anomalies, patterns, or outliers in the destructive and trial weld data.';
-      } else if (activeTab === 'summary') {
-        analysisQuestion = 'Provide a comprehensive summary of these documents, including key dates, results, and panel information.';
-      }
       
       console.log('🤖 Calling analyzeDocuments with question:', analysisQuestion);
       const result = await analyzeDocuments(projectId, selectedDocuments, analysisQuestion);
@@ -145,79 +139,26 @@ export default function AIAnalysis({ projectId, documents }: AIAnalysisProps) {
           <Card>
             <CardContent>
               <div className="p-4">
-                <div className="flex space-x-2 mb-4">
-                  <Button 
-                    size="sm" 
-                    variant={activeTab === 'question' ? 'default' : 'outline'}
-                    onClick={() => setActiveTab('question')}
-                  >
-                    Ask a Question
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    variant={activeTab === 'anomalies' ? 'default' : 'outline'}
-                    onClick={() => setActiveTab('anomalies')}
-                  >
-                    Find Anomalies
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    variant={activeTab === 'summary' ? 'default' : 'outline'}
-                    onClick={() => setActiveTab('summary')}
-                  >
-                    Generate Summary
-                  </Button>
+                <div className="mb-4">
+                  <h3 className="text-sm font-semibold">Ask a Question</h3>
                 </div>
                 
-                {activeTab === 'question' && (
-                  <div className="space-y-4">
-                    <h3 className="text-sm font-semibold">Ask a Question</h3>
-                    <div className="flex space-x-2">
-                      <Input
-                        placeholder="e.g., What are the most common issues in panel seaming?"
-                        value={question}
-                        onChange={(e) => setQuestion(e.target.value)}
-                        disabled={isAnalyzing}
-                      />
-                      <Button 
-                        onClick={handleAnalyze}
-                        disabled={isAnalyzing || !question.trim()}
-                      >
-                        {isAnalyzing ? 'Analyzing...' : 'Ask'}
-                      </Button>
-                    </div>
-                  </div>
-                )}
-                
-                {activeTab === 'anomalies' && (
-                  <div className="space-y-4">
-                    <h3 className="text-sm font-semibold">Find Anomalies</h3>
-                    <p className="text-sm text-gray-500">
-                      AI will analyze your destructive and trial weld data to find patterns and anomalies.
-                    </p>
+                <div className="space-y-4">
+                  <div className="flex space-x-2">
+                    <Input
+                      placeholder="e.g., What are the most common issues in panel seaming?"
+                      value={question}
+                      onChange={(e) => setQuestion(e.target.value)}
+                      disabled={isAnalyzing}
+                    />
                     <Button 
                       onClick={handleAnalyze}
-                      disabled={isAnalyzing}
+                      disabled={isAnalyzing || !question.trim()}
                     >
-                      {isAnalyzing ? 'Analyzing...' : 'Find Anomalies'}
+                      {isAnalyzing ? 'Analyzing...' : 'Ask'}
                     </Button>
                   </div>
-                )}
-                
-                {activeTab === 'summary' && (
-                  <div className="space-y-4">
-                    <h3 className="text-sm font-semibold">Generate Summary</h3>
-                    <p className="text-sm text-gray-500">
-                      AI will create a comprehensive summary of the selected documents.
-                    </p>
-                    <Button 
-                      onClick={handleAnalyze}
-                      disabled={isAnalyzing}
-                    >
-                      {isAnalyzing ? 'Analyzing...' : 'Generate Summary'}
-                    </Button>
-                  </div>
-                )}
+                </div>
                 
                 {isAnalyzing && (
                   <div className="mt-4 text-center">
