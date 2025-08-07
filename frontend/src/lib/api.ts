@@ -242,7 +242,7 @@ export async function analyzeDocuments(projectId: string, documentIds: string[],
         documents: selectedDocs.map((doc: any) => ({
           id: doc.id,
           filename: doc.name,
-          text: doc.text_content || doc.content || ''
+          text: doc.textContent || doc.text_content || doc.content || ''
         }))
       }),
     });

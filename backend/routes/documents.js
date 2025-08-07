@@ -8,7 +8,7 @@ const { auth } = require('../middlewares/auth');
 const { db } = require('../db/index');
 const { documents, projects } = require('../db/schema');
 const { eq, and } = require('drizzle-orm');
-const axios = require('axios');
+const { DocumentService } = require('../services/documentService');
 
 // Simple validation function
 const validateObjectId = (id) => {
@@ -67,13 +67,41 @@ router.get('/:projectId', auth, async (req, res, next) => {
       return res.status(404).json({ message: 'Project not found' });
     }
     
-    // Get documents
+    // Get documents with text content
     const projectDocuments = await db
       .select()
       .from(documents)
       .where(eq(documents.projectId, projectId));
     
-    res.status(200).json(projectDocuments);
+    // Enhance documents with text content if missing
+    const enhancedDocuments = await Promise.all(
+      projectDocuments.map(async (doc) => {
+        // If text content is missing, try to extract it
+        if (!doc.textContent && doc.path) {
+          try {
+            console.log(`📄 Extracting missing text content for: ${doc.name}`);
+            const extractedText = await documentService.extractTextFromFile(doc.path);
+            if (extractedText) {
+              // Update the document in database
+              await db
+                .update(documents)
+                .set({ textContent: extractedText })
+                .where(eq(documents.id, doc.id));
+              
+              return {
+                ...doc,
+                textContent: extractedText
+              };
+            }
+          } catch (extractError) {
+            console.warn(`⚠️ Failed to extract text for ${doc.name}:`, extractError.message);
+          }
+        }
+        return doc;
+      })
+    );
+    
+    res.status(200).json(enhancedDocuments);
   } catch (error) {
     next(error);
   }
@@ -137,9 +165,21 @@ router.post('/:projectId/upload', auth, upload.array('documents', 5), async (req
     
     const uploadedDocuments = [];
     
-    // Save file info to database
+    // Save file info to database and extract text content
     for (const file of req.files) {
       console.log('💾 Saving file to database:', file.originalname);
+      
+      // Extract text content from the uploaded file
+      let textContent = '';
+      try {
+        console.log('📄 Extracting text content from:', file.originalname);
+        textContent = await documentService.extractTextFromFile(file.path);
+        console.log('✅ Text extraction successful, length:', textContent.length);
+      } catch (extractError) {
+        console.warn('⚠️ Text extraction failed for:', file.originalname, extractError.message);
+        textContent = ''; // Empty if extraction fails
+      }
+      
       const newDocument = {
         id: uuidv4(),
         projectId,
@@ -149,6 +189,7 @@ router.post('/:projectId/upload', auth, upload.array('documents', 5), async (req
         path: file.path,
         uploadedAt: new Date(),
         uploadedBy: req.user.displayName || req.user.email,
+        textContent: textContent, // Store extracted text content
       };
       
       const [document] = await db
@@ -157,7 +198,7 @@ router.post('/:projectId/upload', auth, upload.array('documents', 5), async (req
         .returning();
       
       uploadedDocuments.push(document);
-      console.log('✅ File saved:', file.originalname);
+      console.log('✅ File saved with text content:', file.originalname);
     }
     
     console.log('🎉 All files uploaded successfully:', uploadedDocuments.length);
@@ -371,6 +412,57 @@ router.get('/download/:documentId', auth, async (req, res, next) => {
     
   } catch (error) {
     console.error('Error downloading document:', error);
+    next(error);
+  }
+});
+
+// Test endpoint to check document text content
+router.get('/:projectId/test-text', auth, async (req, res, next) => {
+  try {
+    const { projectId } = req.params;
+    
+    // Validate project ID
+    if (!validateObjectId(projectId)) {
+      return res.status(400).json({ message: 'Invalid project ID' });
+    }
+    
+    // Verify project belongs to user
+    const [project] = await db
+      .select()
+      .from(projects)
+      .where(and(
+        eq(projects.id, projectId),
+        eq(projects.userId, req.user.id)
+      ));
+    
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
+    
+    // Get documents with text content info
+    const projectDocuments = await db
+      .select()
+      .from(documents)
+      .where(eq(documents.projectId, projectId));
+    
+    const documentsWithTextInfo = projectDocuments.map(doc => ({
+      id: doc.id,
+      name: doc.name,
+      hasTextContent: !!doc.textContent,
+      textContentLength: doc.textContent ? doc.textContent.length : 0,
+      hasPath: !!doc.path,
+      type: doc.type,
+      size: doc.size
+    }));
+    
+    res.status(200).json({
+      projectId,
+      totalDocuments: documentsWithTextInfo.length,
+      documentsWithText: documentsWithTextInfo.filter(d => d.hasTextContent).length,
+      documentsWithoutText: documentsWithTextInfo.filter(d => !d.hasTextContent).length,
+      documents: documentsWithTextInfo
+    });
+  } catch (error) {
     next(error);
   }
 });

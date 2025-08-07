@@ -38,8 +38,14 @@ router.post('/query', requireAuth, async (req, res) => {
     let context = '';
     const references = [];
     
+    console.log(`🤖 AI Query - Processing ${documents ? documents.length : 0} documents`);
+    
     if (documents && documents.length > 0) {
       documents.forEach((doc, index) => {
+        console.log(`📄 Document ${index + 1}: ${doc.filename}`);
+        console.log(`   - Has text: ${!!doc.text}`);
+        console.log(`   - Text length: ${doc.text ? doc.text.length : 0} characters`);
+        
         if (doc.text) {
           context += `Document: ${doc.filename}\nContent: ${doc.text}\n\n`;
           
@@ -52,9 +58,15 @@ router.post('/query', requireAuth, async (req, res) => {
               excerpt: words.slice(0, 20).join(' ') + '...'
             });
           }
+        } else {
+          console.warn(`⚠️ No text content for document: ${doc.filename}`);
         }
       });
+    } else {
+      console.warn('⚠️ No documents provided for AI analysis');
     }
+    
+    console.log(`📝 Total context length: ${context.length} characters`);
 
     // Create the prompt
     const prompt = `Based on the following project documents and context, please answer the user's question.

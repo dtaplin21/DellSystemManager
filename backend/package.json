@@ -25,6 +25,7 @@
     "openai": "^5.10.0",
     "pdf-parse": "^1.1.1",
     "pg": "^8.16.0",
+    "mammoth": "^1.7.0",
     "react-konva": "^19.0.6",
     "typescript": "^5.8.3",
     "xlsx": "^0.18.5",
