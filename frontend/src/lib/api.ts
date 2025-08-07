@@ -3,7 +3,7 @@ import { supabase, getCurrentSession } from './supabase';
 const BACKEND_URL = 'http://localhost:8003';
 
 // Helper function to get auth headers using Supabase's native token management
-const getAuthHeaders = async () => {
+export const getAuthHeaders = async () => {
   try {
     console.log('🔍 getAuthHeaders: Getting auth headers...');
     

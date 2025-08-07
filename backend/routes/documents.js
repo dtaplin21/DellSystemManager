@@ -404,7 +404,16 @@ router.get('/download/:documentId', auth, async (req, res, next) => {
     }
     
     res.setHeader('Content-Type', contentType);
-    res.setHeader('Content-Disposition', `attachment; filename="${document.name}"`);
+    
+    // Check if this is a preview request (no download parameter)
+    const isPreview = !req.query.download;
+    if (isPreview) {
+      // For preview, don't force download
+      res.setHeader('Content-Disposition', `inline; filename="${document.name}"`);
+    } else {
+      // For download, force attachment
+      res.setHeader('Content-Disposition', `attachment; filename="${document.name}"`);
+    }
     
     // Stream the file
     const fileStream = fs.createReadStream(document.path);

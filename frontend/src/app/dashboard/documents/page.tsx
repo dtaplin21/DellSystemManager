@@ -7,7 +7,7 @@ import { getCurrentSession } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 import NoProjectSelected from '@/components/ui/no-project-selected';
 import AIAnalysis from '@/components/documents/ai-analysis';
-import { uploadDocument, fetchDocuments } from '@/lib/api';
+import { uploadDocument, fetchDocuments, getAuthHeaders } from '@/lib/api';
 import './documents.css';
 
 interface Document {
@@ -18,6 +18,7 @@ interface Document {
   type: string;
   size: number;
   status?: string;
+  textContent?: string;
 }
 
 export default function DocumentsPage() {
@@ -28,6 +29,7 @@ export default function DocumentsPage() {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'documents' | 'ai-analysis'>('documents');
+
   
   // ✅ FIXED: Move early return after all hooks
   // Fetch documents for the selected project
@@ -122,13 +124,59 @@ export default function DocumentsPage() {
     return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
   };
 
-  const handleDownload = (docId: string) => {
-    alert(`Download functionality ready! This will download document ${docId} when connected to backend.`);
+  const handleDownload = async (docId: string) => {
+    try {
+      const selectedDoc = documents.find(d => d.id === docId);
+      if (!selectedDoc) {
+        toast({
+          title: 'Error',
+          description: 'Document not found.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Show loading toast
+      toast({
+        title: 'Downloading...',
+        description: `Preparing ${selectedDoc.name} for download.`,
+      });
+
+      // Use the download endpoint with download parameter
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003'}/api/documents/download/${docId}?download=true`, {
+        headers: await getAuthHeaders(),
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to download document');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = selectedDoc.name;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast({
+        title: 'Download Complete',
+        description: `${selectedDoc.name} has been downloaded successfully.`,
+      });
+    } catch (error) {
+      console.error('Download error:', error);
+      toast({
+        title: 'Download Failed',
+        description: 'Failed to download document. Please try again.',
+        variant: 'destructive',
+      });
+    }
   };
 
-  const handleViewDetails = (docId: string) => {
-    alert(`View details functionality ready! This will show document ${docId} details when connected to backend.`);
-  };
+
 
   const handleUpload = async () => {
     // Create a file input element
@@ -252,12 +300,6 @@ export default function DocumentsPage() {
                           className="btn-action primary"
                         >
                           📥 Download
-                        </button>
-                        <button 
-                          onClick={() => handleViewDetails(doc.id)}
-                          className="btn-action"
-                        >
-                          👁️ Details
                         </button>
                       </div>
                     </div>
