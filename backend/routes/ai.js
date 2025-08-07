@@ -28,15 +28,21 @@ router.get('/health', (req, res) => {
 // Query endpoint for chat functionality
 router.post('/query', requireAuth, async (req, res) => {
   try {
+    console.log('🤖 AI Query endpoint called');
+    console.log('Request body:', JSON.stringify(req.body, null, 2));
+    
     const { projectId, question, documents } = req.body;
 
     if (!question) {
+      console.log('❌ No question provided');
       return res.status(400).json({ error: 'Question is required' });
     }
 
-    // Prepare context from documents
+    // Prepare context from documents with token limit management
     let context = '';
     const references = [];
+    const maxTokens = 25000; // Leave room for response tokens
+    let currentTokens = 0;
     
     console.log(`🤖 AI Query - Processing ${documents ? documents.length : 0} documents`);
     
@@ -47,16 +53,31 @@ router.post('/query', requireAuth, async (req, res) => {
         console.log(`   - Text length: ${doc.text ? doc.text.length : 0} characters`);
         
         if (doc.text) {
-          context += `Document: ${doc.filename}\nContent: ${doc.text}\n\n`;
+          // Estimate tokens (roughly 4 characters per token)
+          const estimatedTokens = Math.ceil(doc.text.length / 4);
+          console.log(`   - Estimated tokens: ${estimatedTokens}`);
           
-          // Extract relevant excerpts for references
-          const words = doc.text.split(' ');
-          if (words.length > 20) {
-            references.push({
-              docId: doc.id,
-              page: 1,
-              excerpt: words.slice(0, 20).join(' ') + '...'
-            });
+          // If adding this document would exceed the limit, truncate it
+          let documentText = doc.text;
+          if (currentTokens + estimatedTokens > maxTokens) {
+            const maxChars = (maxTokens - currentTokens) * 4;
+            documentText = doc.text.substring(0, maxChars);
+            console.log(`   - Truncated to ${documentText.length} characters to stay within token limit`);
+          }
+          
+          if (documentText.length > 0) {
+            context += `Document: ${doc.filename}\nContent: ${documentText}\n\n`;
+            currentTokens += Math.ceil(documentText.length / 4);
+            
+            // Extract relevant excerpts for references
+            const words = documentText.split(' ');
+            if (words.length > 20) {
+              references.push({
+                docId: doc.id,
+                page: 1,
+                excerpt: words.slice(0, 20).join(' ') + '...'
+              });
+            }
           }
         } else {
           console.warn(`⚠️ No text content for document: ${doc.filename}`);
@@ -67,6 +88,7 @@ router.post('/query', requireAuth, async (req, res) => {
     }
     
     console.log(`📝 Total context length: ${context.length} characters`);
+    console.log(`📊 Estimated tokens: ${currentTokens}`);
 
     // Create the prompt
     const prompt = `Based on the following project documents and context, please answer the user's question.
@@ -80,23 +102,64 @@ User Question: ${question}
 
 Please provide a comprehensive answer based on the available information. If you need to reference specific documents, be specific about which document you're referencing.`;
 
-    // Call OpenAI API
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
-      messages: [
-        {
-          role: "system",
-          content: "You are an AI assistant specialized in geosynthetic engineering and quality control. Provide detailed, technical answers based on the provided documents and context."
-        },
-        {
-          role: "user",
-          content: prompt
-        }
-      ],
-      max_tokens: 1500,
-      temperature: 0.7
-    });
+    console.log('🤖 Calling OpenAI API with prompt length:', prompt.length);
+    
+    // Call OpenAI API with retry logic for token limits
+    let response;
+    try {
+      response = await openai.chat.completions.create({
+        model: "gpt-4o", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
+        messages: [
+          {
+            role: "system",
+            content: "You are an AI assistant specialized in geosynthetic engineering and quality control. Provide detailed, technical answers based on the provided documents and context."
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        max_tokens: 1500,
+        temperature: 0.7
+      });
+    } catch (openaiError) {
+      console.error('❌ OpenAI API error:', openaiError.message);
+      
+      // If it's a token limit error, try with a smaller context
+      if (openaiError.message.includes('429') || openaiError.message.includes('too large')) {
+        console.log('🔄 Token limit exceeded, trying with reduced context...');
+        
+        // Create a simplified prompt with just the question and document summaries
+        const simplifiedPrompt = `Based on the following document summaries, please answer the user's question.
 
+User Question: ${question}
+
+Document Summaries:
+${documents.map((doc, index) => `Document ${index + 1}: ${doc.filename} (${doc.text ? doc.text.length : 0} characters)`).join('\n')}
+
+Please provide a general answer based on the available information. If you need specific details from the documents, please ask the user to provide more specific questions about particular documents.`;
+
+        response = await openai.chat.completions.create({
+          model: "gpt-4o",
+          messages: [
+            {
+              role: "system",
+              content: "You are an AI assistant specialized in geosynthetic engineering and quality control. Provide helpful answers based on available information."
+            },
+            {
+              role: "user",
+              content: simplifiedPrompt
+            }
+          ],
+          max_tokens: 1000,
+          temperature: 0.7
+        });
+      } else {
+        throw openaiError;
+      }
+    }
+
+    console.log('✅ OpenAI API call successful');
     const answer = response.choices[0].message.content;
 
     res.json({
@@ -106,7 +169,13 @@ Please provide a comprehensive answer based on the available information. If you
     });
 
   } catch (error) {
-    console.error('Error in AI query:', error);
+    console.error('❌ Error in AI query:', error);
+    console.error('Error stack:', error.stack);
+    console.error('Error details:', {
+      name: error.name,
+      message: error.message,
+      code: error.code
+    });
     res.status(500).json({ 
       error: 'Failed to process AI query',
       details: error.message 

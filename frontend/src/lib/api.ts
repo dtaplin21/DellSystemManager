@@ -230,30 +230,58 @@ export async function fetchProjectStats(): Promise<any> {
 
 export async function analyzeDocuments(projectId: string, documentIds: string[], question: string): Promise<any> {
   try {
+    console.log('🔍 analyzeDocuments called with:', { projectId, documentIds, question });
+    
     // Get the full document data for the selected documents
     const documents = await fetchDocuments(projectId);
+    console.log('📄 Fetched documents:', documents.length);
+    
     const selectedDocs = documents.filter((doc: any) => documentIds.includes(doc.id));
+    console.log('📄 Selected documents:', selectedDocs.length);
+    
+    // Log document details for debugging
+    selectedDocs.forEach((doc, index) => {
+      console.log(`📄 Document ${index + 1}:`, {
+        id: doc.id,
+        name: doc.name,
+        hasTextContent: !!doc.textContent,
+        hasTextContentAlt: !!doc.text_content,
+        hasContent: !!doc.content,
+        textLength: doc.textContent ? doc.textContent.length : 0
+      });
+    });
+    
+    const requestBody = {
+      projectId, 
+      question,
+      documents: selectedDocs.map((doc: any) => ({
+        id: doc.id,
+        filename: doc.name,
+        text: doc.textContent || doc.text_content || doc.content || ''
+      }))
+    };
+    
+    console.log('📤 Sending request body:', JSON.stringify(requestBody, null, 2));
     
     const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/ai/query`, {
       method: 'POST',
-      body: JSON.stringify({ 
-        projectId, 
-        question,
-        documents: selectedDocs.map((doc: any) => ({
-          id: doc.id,
-          filename: doc.name,
-          text: doc.textContent || doc.text_content || doc.content || ''
-        }))
-      }),
+      body: JSON.stringify(requestBody),
     });
     
+    console.log('📥 Response status:', response.status);
+    console.log('📥 Response ok:', response.ok);
+    
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ Response error text:', errorText);
       throw new Error('Failed to analyze documents');
     }
     
-    return await response.json();
+    const result = await response.json();
+    console.log('✅ Analysis result:', result);
+    return result;
   } catch (error) {
-    console.error('Error analyzing documents:', error);
+    console.error('❌ Error analyzing documents:', error);
     throw error;
   }
 }
