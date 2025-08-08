@@ -17,6 +17,18 @@ import type { Panel } from '../../types/panel';
 import { useTooltip } from '@/components/ui/tooltip';
 import { applyPanelSnapping } from '@/lib/resize-utils';
 
+// === World/acre config ===
+export const FEET_PER_ACRE = 43560;
+// Toggle which interpretation you want
+export const GRID_MODE: 'FIVE_BY_FIVE_ACRES' | 'TOTAL_FIVE_ACRES' = 'FIVE_BY_FIVE_ACRES';
+
+const sideFeetFor5AcreSquare = Math.sqrt(5 * FEET_PER_ACRE); // ≈ 466.69 ft
+export const WORLD_WIDTH_FT = GRID_MODE === 'FIVE_BY_FIVE_ACRES' ? 5 * sideFeetFor5AcreSquare : sideFeetFor5AcreSquare;
+export const WORLD_HEIGHT_FT = GRID_MODE === 'FIVE_BY_FIVE_ACRES' ? 5 * sideFeetFor5AcreSquare : sideFeetFor5AcreSquare;
+
+export const GRID_CELL_SIZE_FT = 5; // small cells for precise snap (tune as needed)
+export const SNAP_THRESHOLD_FT = 1; // snap threshold in feet
+
 interface TextProps {
   text: string;
   x: number;

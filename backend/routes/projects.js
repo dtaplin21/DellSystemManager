@@ -209,7 +209,48 @@ router.delete('/:id', auth, async (req, res, next) => {
       return res.status(404).json({ message: 'Project not found' });
     }
     
-    // Delete project using Supabase
+    // Delete dependent data first to satisfy foreign key constraints
+    // 1) Delete documents for the project
+    const { error: docsDeleteError } = await supabase
+      .from('documents')
+      .delete()
+      .eq('project_id', id);
+    if (docsDeleteError) {
+      console.error('Error deleting project documents from Supabase:', docsDeleteError);
+      return res.status(500).json({ message: 'Failed to delete project documents' });
+    }
+
+    // 2) Delete QC data for the project
+    const { error: qcDeleteError } = await supabase
+      .from('qc_data')
+      .delete()
+      .eq('project_id', id);
+    if (qcDeleteError) {
+      console.error('Error deleting project QC data from Supabase:', qcDeleteError);
+      return res.status(500).json({ message: 'Failed to delete project QC data' });
+    }
+
+    // 3) Delete panel layouts for the project
+    const { error: panelsDeleteError } = await supabase
+      .from('panel_layouts')
+      .delete()
+      .eq('project_id', id);
+    if (panelsDeleteError) {
+      console.error('Error deleting project panel layouts from Supabase:', panelsDeleteError);
+      return res.status(500).json({ message: 'Failed to delete panel layouts' });
+    }
+
+    // 4) Delete panel layout requirements for the project
+    const { error: reqsDeleteError } = await supabase
+      .from('panel_layout_requirements')
+      .delete()
+      .eq('project_id', id);
+    if (reqsDeleteError) {
+      console.error('Error deleting project panel requirements from Supabase:', reqsDeleteError);
+      return res.status(500).json({ message: 'Failed to delete panel requirements' });
+    }
+
+    // Finally, delete the project itself
     const { error: deleteError } = await supabase
       .from('projects')
       .delete()
