@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { fetchProjectById, fetchPanelLayout, updatePanelLayout } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import PanelGrid from '@/components/panel-layout/panel-grid';
+import PanelLayout from '@/components/panels/PanelLayout';
 import ControlToolbar from '@/components/panel-layout/control-toolbar';
 import ExportDialog from '@/components/panel-layout/export-dialog';
 import EditPanelDialog from '@/components/panel-layout/edit-panel-dialog';
@@ -939,15 +939,18 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
                 }
                 
                 return (
-                  <PanelGrid
-                    panels={mappedPanels}
-                    width={windowDimensions.width - 64}
-                    height={windowDimensions.height - 300}
-                    onPanelUpdate={handlePanelUpdate}
-                    selectedPanel={selectedPanel}
-                    onEditPanel={handlePanelSelect}
-                    onPositionChange={handlePositionChange}
-                  />
+                  <div className="w-full h-[calc(100vh-300px)]">
+                    <PanelLayout
+                      mode="manual"
+                      projectInfo={{
+                        projectName: project.name,
+                        location: project.location || '',
+                        description: project.description || '',
+                        manager: '',
+                        material: ''
+                      }}
+                    />
+                  </div>
                 );
               } catch (error) {
                 console.error('Error rendering PanelGrid:', error);

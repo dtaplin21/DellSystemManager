@@ -45,7 +45,7 @@ export function useZoomPan(opts?: UseZoomPanOptions): any {
     maxScale = 8,
     initialFit = 'extent',
     marginPct = 0.06,
-  } = opts;
+  } = (opts || {} as UseZoomPanOptions);
 
   const [vw, setVw] = useState(viewportWidth);
   const [vh, setVh] = useState(viewportHeight);
