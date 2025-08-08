@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { fetchProjectById } from '@/lib/api';
+import ProjectEditModal from '@/components/project-edit-modal.jsx'
+import { updateProject } from '@/lib/api'
 
 interface Project {
   id: string;
@@ -26,6 +28,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const [id, setId] = useState<string>('');
+  const [isEditOpen, setIsEditOpen] = useState(false);
 
   useEffect(() => {
     const loadParams = async () => {
@@ -85,7 +88,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
           <p className="text-gray-500">{project.description}</p>
         </div>
         <div className="flex space-x-2">
-          <Button variant="outline">Edit Project</Button>
+          <Button variant="outline" onClick={() => setIsEditOpen(true)}>Edit Project</Button>
           <Button variant="destructive">Delete Project</Button>
         </div>
       </div>
@@ -221,6 +224,29 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
           </Card>
         </TabsContent>
       </Tabs>
+
+      {project && (
+        <ProjectEditModal
+          isOpen={isEditOpen}
+          onClose={() => setIsEditOpen(false)}
+          project={project}
+          onSave={async (updated) => {
+            try {
+              const saved = await updateProject(project.id, {
+                name: updated.name,
+                description: updated.description,
+                location: updated.location,
+                status: updated.status,
+                scale: undefined,
+              });
+              setProject({ ...project, ...saved });
+              toast({ title: 'Project updated', description: 'Changes saved successfully.' });
+            } catch (err) {
+              toast({ title: 'Update failed', description: 'Could not save changes.', variant: 'destructive' });
+            }
+          }}
+        />
+      )}
     </div>
   );
 }
