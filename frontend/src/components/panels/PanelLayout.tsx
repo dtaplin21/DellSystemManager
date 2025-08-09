@@ -32,7 +32,7 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
   const containerRef = useRef<HTMLDivElement>(null)
 
   // Use the unified zoom/pan hook
-  const { scale, x, y, onWheel, onDragStart, onDragMove, onDragEnd, zoomIn, zoomOut, fitToExtent, setViewportSize, toWorld } = useZoomPan({
+  const { scale, x, y, onWheel, onDoubleClick, onDragStart, onDragMove, onDragEnd, zoomIn, zoomOut, fitToExtent, setViewportSize, toWorld } = useZoomPan({
     worldWidth: WORLD_WIDTH_FT,
     worldHeight: WORLD_HEIGHT_FT,
     viewportWidth: containerSize.width,
@@ -235,41 +235,7 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
             <Layer>
               {gridLines}
               
-              {/* X and Y axis indicators */}
-              <Line
-                points={[0, 0, 5000, 0]}
-                stroke="#999"
-                strokeWidth={2}
-              />
-              <Line
-                points={[0, 0, 0, 5000]}
-                stroke="#999"
-                strokeWidth={2}
-              />
-              
-              {/* X-axis labels */}
-              {Array.from({ length: Math.floor(gridWidth / 100) + 1 }).map((_, i) => (
-                <Text
-                  key={`x-label-${i}`}
-                  x={i * 100}
-                  y={10}
-                  text={`${i * 100}'`}
-                  fontSize={14}
-                  fill="#666"
-                />
-              ))}
-              
-              {/* Y-axis labels */}
-              {Array.from({ length: Math.floor(gridHeight / 100) + 1 }).map((_, i) => (
-                <Text
-                  key={`y-label-${i}`}
-                  x={10}
-                  y={i * 100}
-                  text={`${i * 100}'`}
-                  fontSize={14}
-                  fill="#666"
-                />
-              ))}
+              {/* Axis guides removed to avoid undefined vars; optional to re-add with world units */}
               
               {/* Panels (fixed-size; drag + snap only) */}
               {panels.map((panel) => {
