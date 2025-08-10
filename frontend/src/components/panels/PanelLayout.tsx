@@ -94,6 +94,18 @@ const useSimpleResize = () => {
   }
 }
 
+// Throttle utility function
+const throttle = <T extends (...args: any[]) => any>(func: T, delay: number): T => {
+  let lastCall = 0
+  return ((...args: any[]) => {
+    const now = Date.now()
+    if (now - lastCall >= delay) {
+      lastCall = now
+      return func(...args)
+    }
+  }) as T
+}
+
 // Constants
 const GRID_CELL_SIZE_FT = 100
 const WORLD_WIDTH_FT = 2000
@@ -114,6 +126,8 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
   // Performance optimizations
   const containerRef = useRef<HTMLDivElement>(null)
   const stageRef = useRef<any>(null)
+  const frameTimeRef = useRef<number>(0)
+  const renderCountRef = useRef<number>(0)
 
   // Resize settings
   const [resizeSettings, setResizeSettings] = useState<ResizeSettings>({
@@ -134,6 +148,8 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
   // Simple zoom/pan hook
   const {
     scale,
+    x,
+    y,
     isDragging,
     setIsDragging,
     zoomIn,
@@ -144,6 +160,27 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
     setViewportSize,
     viewportSize
   } = useSimpleZoomPan()
+
+  // Throttled mouse move handler for better performance
+  const throttledMouseMove = useCallback(
+    throttle((e: any) => {
+      if (!isDragging) return
+      
+      const stage = e.target.getStage()
+      if (!stage) return
+      
+      const pointer = stage.getPointerPosition()
+      if (!pointer) return
+      
+      const dx = pointer.x - stage.x()
+      const dy = pointer.y - stage.y()
+      
+      stage.x(dx)
+      stage.y(dy)
+      stage.batchDraw()
+    }, 16), // ~60fps
+    [isDragging]
+  )
 
   // Simple resize hook
   const {
@@ -220,38 +257,36 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
     setIsMounted(true)
   }, [])
 
-  // Viewport size management
-  useEffect(() => {
-    if (!containerRef.current) return
-    const update = () => {
-      const rect = containerRef.current!.getBoundingClientRect()
-      const w = Math.max(100, Math.floor(rect.width))
-      const h = Math.max(100, Math.floor(rect.height))
-      setViewportSize(w, h)
-    }
-    update()
-    const ro = new ResizeObserver(update)
-    ro.observe(containerRef.current)
-    return () => ro.disconnect()
-  }, [setViewportSize])
-
-  // Update container size for Stage
+  // Optimized viewport and container size management with debounced updates
   const [containerSize, setContainerSize] = useState<{ width: number; height: number }>({ width: 800, height: 600 })
   
   useEffect(() => {
     if (!containerRef.current) return
+    
+    let timeoutId: NodeJS.Timeout
+    
     const updateSize = () => {
       const rect = containerRef.current!.getBoundingClientRect()
-      setContainerSize({
-        width: Math.max(100, Math.floor(rect.width)),
-        height: Math.max(100, Math.floor(rect.height))
-      })
+      const newWidth = Math.max(100, Math.floor(rect.width))
+      const newHeight = Math.max(100, Math.floor(rect.height))
+      
+      // Debounce size updates to avoid excessive re-renders
+      clearTimeout(timeoutId)
+      timeoutId = setTimeout(() => {
+        setContainerSize({ width: newWidth, height: newHeight })
+        setViewportSize(newWidth, newHeight)
+      }, 100)
     }
+    
     updateSize()
     const ro = new ResizeObserver(updateSize)
     ro.observe(containerRef.current)
-    return () => ro.disconnect()
-  }, [])
+    
+    return () => {
+      ro.disconnect()
+      clearTimeout(timeoutId)
+    }
+  }, [setViewportSize])
 
   // Panel interaction handlers
   const handlePanelClick = useCallback((panelId: string) => {
@@ -353,15 +388,30 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
     }
   }, [])
 
-  // Simple grid lines - render in world coordinates (Konva will handle transformation)
+  // Adaptive grid lines with dynamic density based on zoom level
   const gridLines = useMemo(() => {
     const lines: JSX.Element[] = []
-    const startX = 0
-    const endX = WORLD_WIDTH_FT
-    const startY = 0
-    const endY = WORLD_HEIGHT_FT
+    const padding = 200 // Extra padding around viewport
     
-    for (let gx = startX; gx <= endX; gx += GRID_CELL_SIZE_FT) {
+    // Adaptive grid density based on zoom level
+    let gridSpacing = GRID_CELL_SIZE_FT
+    if (scale < 0.2) gridSpacing = GRID_CELL_SIZE_FT * 4      // Very zoomed out: sparse grid
+    else if (scale < 0.5) gridSpacing = GRID_CELL_SIZE_FT * 2  // Zoomed out: medium grid
+    else if (scale < 1.0) gridSpacing = GRID_CELL_SIZE_FT      // Normal: standard grid
+    else gridSpacing = GRID_CELL_SIZE_FT / 2                    // Zoomed in: dense grid
+    
+    // Calculate visible grid range based on current viewport
+    const startX = Math.max(0, Math.floor((x - padding) / gridSpacing) * gridSpacing)
+    const endX = Math.min(WORLD_WIDTH_FT, Math.ceil((x + containerSize.width / scale + padding) / gridSpacing) * gridSpacing)
+    const startY = Math.max(0, Math.floor((y - padding) / gridSpacing) * gridSpacing)
+    const endY = Math.min(WORLD_HEIGHT_FT, Math.ceil((y + containerSize.height / scale + padding) / gridSpacing) * gridSpacing)
+    
+    // Limit grid lines for performance with large viewports
+    const maxGridLines = 50
+    let lineCount = 0
+    
+    // Only render grid lines within visible area
+    for (let gx = startX; gx <= endX && lineCount < maxGridLines; gx += gridSpacing) {
       lines.push(
         <Line 
           key={`gv-${gx}`} 
@@ -371,8 +421,9 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
           listening={false} 
         />
       )
+      lineCount++
     }
-    for (let gy = startY; gy <= endY; gy += GRID_CELL_SIZE_FT) {
+    for (let gy = startY; gy <= endY && lineCount < maxGridLines; gy += gridSpacing) {
       lines.push(
         <Line 
           key={`gh-${gy}`} 
@@ -382,12 +433,78 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
           listening={false} 
         />
       )
+      lineCount++
     }
     
     return lines
-  }, [])
+  }, [x, y, scale, containerSize.width, containerSize.height])
 
-  // Simple panel rendering - use world coordinates (Konva will handle transformation)
+  // Spatial indexing for efficient panel culling with 300+ panels
+  const panelSpatialIndex = useMemo(() => {
+    const index: { [key: string]: Panel[] } = {}
+    const cellSize = Math.max(GRID_CELL_SIZE_FT, 200) // Larger cells for better performance
+    
+    panels.forEach(panel => {
+      const cellX = Math.floor(panel.x / cellSize)
+      const cellY = Math.floor(panel.y / cellSize)
+      const cellKey = `${cellX},${cellY}`
+      
+      if (!index[cellKey]) {
+        index[cellKey] = []
+      }
+      index[cellKey].push(panel)
+    })
+    
+    return index
+  }, [panels])
+
+  // Optimized viewport culling using spatial index
+  const visiblePanels = useMemo(() => {
+    const padding = 150 // Increased padding for better user experience
+    const cellSize = Math.max(GRID_CELL_SIZE_FT, 200)
+    
+    // Calculate which spatial cells are visible
+    const viewportLeft = x - padding
+    const viewportRight = x + containerSize.width / scale + padding
+    const viewportTop = y - padding
+    const viewportBottom = y + containerSize.height / scale + padding
+    
+    const startCellX = Math.floor(viewportLeft / cellSize)
+    const endCellX = Math.floor(viewportRight / cellSize)
+    const startCellY = Math.floor(viewportTop / cellSize)
+    const endCellY = Math.floor(viewportBottom / cellSize)
+    
+    const visible: Panel[] = []
+    const seen = new Set<string>()
+    
+    // Check only relevant spatial cells
+    for (let cellX = startCellX; cellX <= endCellX; cellX++) {
+      for (let cellY = startCellY; cellY <= endCellY; cellY++) {
+        const cellKey = `${cellX},${cellY}`
+        const cellPanels = panelSpatialIndex[cellKey] || []
+        
+        cellPanels.forEach(panel => {
+          if (!seen.has(panel.id)) {
+            seen.add(panel.id)
+            // Fine-grained culling check
+            const panelRight = panel.x + panel.width
+            const panelBottom = panel.y + panel.height
+            
+            if (panel.x < viewportRight &&
+                panelRight > viewportLeft &&
+                panel.y < viewportBottom &&
+                panelBottom > viewportTop) {
+              visible.push(panel)
+            }
+          }
+        })
+      }
+    }
+    
+    return visible
+  }, [panelSpatialIndex, x, y, scale, containerSize.width, containerSize.height])
+
+  // Optimized panel rendering with batching for 300+ panels
   const renderPanel = useCallback((panel: Panel) => {
     const isSelected = panel.id === selectedPanelId
     
@@ -409,19 +526,42 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
           }}
           onClick={() => handlePanelClick(panel.id)}
         />
-        <Text
-          x={panel.x + 5}
-          y={panel.y + 5}
-          text={panel.panelNumber ?? panel.id}
-          fontSize={12}
-          fill="#ffffff"
-          stroke="#000000"
-          strokeWidth={0.5}
-          listening={false}
-        />
+        {/* Only render text for selected panels or when zoomed in enough */}
+        {(isSelected || scale > 0.5) && (
+          <Text
+            x={panel.x + 5}
+            y={panel.y + 5}
+            text={panel.panelNumber ?? panel.id}
+            fontSize={Math.max(8, 12 / scale)}
+            fill="#ffffff"
+            stroke="#000000"
+            strokeWidth={0.5}
+            listening={false}
+          />
+        )}
       </Group>
     )
-  }, [selectedPanelId, handlePanelDragEnd, handlePanelClick])
+  }, [selectedPanelId, handlePanelDragEnd, handlePanelClick, scale])
+
+  // Panel batching for better performance with large datasets
+  const batchedPanels = useMemo(() => {
+    if (visiblePanels.length <= 100) {
+      return visiblePanels
+    }
+    
+    // For very large datasets, implement level-of-detail rendering
+    const detailLevel = scale > 0.3 ? 'high' : scale > 0.1 ? 'medium' : 'low'
+    
+    if (detailLevel === 'low' && visiblePanels.length > 200) {
+      // Render only every 3rd panel at low detail
+      return visiblePanels.filter((_, index) => index % 3 === 0)
+    } else if (detailLevel === 'medium' && visiblePanels.length > 150) {
+      // Render only every 2nd panel at medium detail
+      return visiblePanels.filter((_, index) => index % 2 === 0)
+    }
+    
+    return visiblePanels
+  }, [visiblePanels, scale])
 
   return (
     <div className="flex flex-row gap-0 w-full h-screen">
@@ -506,6 +646,17 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
               </button>
             </div>
 
+            {/* Performance Status */}
+            <div className="space-y-2">
+              <h4 className="text-sm font-medium text-neutral-700">Performance</h4>
+              <div className="text-xs text-neutral-600 space-y-1">
+                <div>Total Panels: {panels.length}</div>
+                <div>Visible: {visiblePanels.length}</div>
+                <div>Rendered: {batchedPanels.length}</div>
+                <div>Zoom: {scale.toFixed(2)}x</div>
+              </div>
+            </div>
+
             {/* Reset */}
             <div className="space-y-2">
               <button 
@@ -532,7 +683,7 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
               ref={stageRef}
               width={containerSize.width}
               height={containerSize.height}
-              onWheel={(e: any) => {
+              onWheel={useCallback((e: any) => {
                 e.evt.preventDefault()
                 const stage = e.target.getStage()
                 if (!stage) return
@@ -558,29 +709,14 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
                 }
                 stage.position(newPos)
                 stage.batchDraw()
-              }}
+              }, [])}
               onMouseDown={(e: any) => {
                 if (e.target === e.target.getStage()) {
                   setIsDragging(true)
                 }
               }}
               onMouseUp={() => setIsDragging(false)}
-              onMouseMove={(e: any) => {
-                if (!isDragging) return
-                
-                const stage = e.target.getStage()
-                if (!stage) return
-                
-                const pointer = stage.getPointerPosition()
-                if (!pointer) return
-                
-                const dx = pointer.x - stage.x()
-                const dy = pointer.y - stage.y()
-                
-                stage.x(dx)
-                stage.y(dy)
-                stage.batchDraw()
-              }}
+              onMouseMove={throttledMouseMove}
               onDoubleClick={(e: any) => {
                 if (e.target === e.target.getStage()) {
                   fitToExtent()
@@ -592,7 +728,7 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
                 {gridLines}
                 
                 {/* Panels */}
-                {panels.length > 0 && panels.map(renderPanel)}
+                {batchedPanels.length > 0 && batchedPanels.map(renderPanel)}
               </Layer>
             </Stage>
           )}
