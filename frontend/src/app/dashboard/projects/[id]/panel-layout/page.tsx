@@ -15,6 +15,7 @@ import EditPanelDialog from '@/components/panel-layout/edit-panel-dialog';
 import AIExecutionOverlay from '@/components/panel-layout/ai-execution-overlay';
 import { generateId } from '@/lib/utils';
 import { useCanvasActionExecutor, AILayoutAction } from '@/services/canvasActionExecutor';
+import { Panel } from '@/types/panel';
 
 interface Project {
   id: string;
@@ -154,7 +155,8 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
       x: x,
       y: y,
       width: width,
-      length: length,
+      height: length, // Map length to height for Panel type compatibility
+      length: length, // Keep length for backward compatibility
       rotation: Number(panel.rotation || 0),
       fill: panel.fill || '#3b82f6',
       color: panel.color || panel.fill || '#3b82f6',
@@ -162,6 +164,10 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
       panelNumber: panel.panelNumber || '',
       date: panel.date || '',
       location: panel.location || '',
+      meta: {
+        repairs: [],
+        location: { x, y, gridCell: { row: 0, col: 0 } }
+      }
     };
     console.log(`[MAP DEBUG] Mapped panel ${index}:`, mapped);
     return mapped;
@@ -505,22 +511,33 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
     setPosition({ x: 0, y: 0 });
   };
 
-  const handlePanelUpdate = async (updatedPanels: any[]) => {
-    console.log('[DEBUG] PanelUpdate: Updating layout with panels:', updatedPanels);
+  const handlePanelUpdate = async (updatedPanels: Panel[]) => {
+    console.log('🔍 [PanelLayoutPage] handlePanelUpdate called with panels:', updatedPanels);
+    console.log('🔍 [PanelLayoutPage] Updated panels count:', updatedPanels.length);
+    console.log('🔍 [PanelLayoutPage] First panel example:', updatedPanels[0]);
+    
+    console.log('🔍 [PanelLayoutPage] Updating local state...');
     setLayout((prev) => {
-      if (!prev) return null;
+      if (!prev) {
+        console.log('❌ [PanelLayoutPage] No previous layout, cannot update');
+        return null;
+      }
       const newLayout = {
         ...prev,
         panels: updatedPanels,
         lastUpdated: new Date().toISOString()
       };
-      console.log('[DEBUG] PanelUpdate: New layout state:', newLayout);
+      console.log('🔍 [PanelLayoutPage] New layout state created:', newLayout);
+      console.log('🔍 [PanelLayoutPage] New layout panels count:', newLayout.panels.length);
       return newLayout;
     });
+    
+    console.log('🔍 [PanelLayoutPage] Local state updated, now persisting to backend...');
+    
     // Persist to backend
     try {
-      console.log('[DEBUG] PanelUpdate: Saving panels to backend:', updatedPanels);
-      console.log('[DEBUG] PanelUpdate: Project ID:', id);
+      console.log('🔍 [PanelLayoutPage] Converting panels for backend...');
+      console.log('🔍 [PanelLayoutPage] Project ID:', id);
       
       // Convert panels to the format expected by the backend
       const backendPanels = updatedPanels.map(panel => ({
@@ -539,15 +556,21 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
         location: panel.location || '',
       }));
       
-      console.log('[DEBUG] PanelUpdate: Converted panels for backend:', backendPanels);
-      console.log('[DEBUG] PanelUpdate: Sending to updatePanelLayout with projectId:', id);
+      console.log('🔍 [PanelLayoutPage] Converted panels for backend:', backendPanels);
+      console.log('🔍 [PanelLayoutPage] Sending to updatePanelLayout with projectId:', id);
+      
       const data = await updatePanelLayout(id, { panels: backendPanels });
-      console.log('[DEBUG] PanelUpdate: Backend response:', data);
-      console.log('[DEBUG] PanelUpdate: Backend response type:', typeof data);
-      console.log('[DEBUG] PanelUpdate: Backend response panels:', data?.panels);
+      
+      console.log('🔍 [PanelLayoutPage] Backend response received:', data);
+      console.log('🔍 [PanelLayoutPage] Backend response type:', typeof data);
+      console.log('🔍 [PanelLayoutPage] Backend response panels:', data?.panels);
+      console.log('🔍 [PanelLayoutPage] Backend response panels count:', data?.panels?.length);
+      
     } catch (error) {
-      console.error('[DEBUG] PanelUpdate: Error saving panels to backend:', error);
+      console.error('❌ [PanelLayoutPage] Error saving panels to backend:', error);
     }
+    
+    console.log('🔍 [PanelLayoutPage] Sending WebSocket update...');
     if (isConnected) {
       sendMessage('PANEL_UPDATE', {
         projectId: id,
@@ -555,15 +578,36 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
         userId: user?.id,
         timestamp: new Date().toISOString()
       });
+      console.log('🔍 [PanelLayoutPage] WebSocket message sent');
+    } else {
+      console.log('🔍 [PanelLayoutPage] WebSocket not connected, skipping message');
     }
+    
+    console.log('🔍 [PanelLayoutPage] handlePanelUpdate completed successfully');
   };
 
-  const handleAddPanel = (panel: any) => {
-    if (!layout) return;
-    console.log('Adding new panel:', panel);
-    const newPanels = [...layout.panels, panel];
-    console.log('Updated panels array:', newPanels);
+  const handleAddPanel = (panel: Panel) => {
+    console.log('🔍 [PanelLayoutPage] handleAddPanel called with panel:', panel);
+    console.log('🔍 [PanelLayoutPage] Current layout:', layout);
+    console.log('🔍 [PanelLayoutPage] Layout panels count:', layout?.panels?.length);
+    
+    if (!layout) {
+      console.log('❌ [PanelLayoutPage] No layout available, returning early');
+      return;
+    }
+    
+    // Normalize the panel data using mapPanelFields to ensure consistency
+    const normalizedPanel = mapPanelFields(panel, layout.panels.length);
+    console.log('🔍 [PanelLayoutPage] Normalized panel:', normalizedPanel);
+    
+    console.log('🔍 [PanelLayoutPage] Adding new panel to existing panels');
+    const newPanels = [...layout.panels, normalizedPanel];
+    console.log('🔍 [PanelLayoutPage] Updated panels array:', newPanels);
+    console.log('🔍 [PanelLayoutPage] New panels count:', newPanels.length);
+    
+    console.log('🔍 [PanelLayoutPage] Calling handlePanelUpdate with new panels');
     handlePanelUpdate(newPanels);
+    console.log('🔍 [PanelLayoutPage] handlePanelUpdate called successfully');
   };
 
   // Add a test function to create sample panels
@@ -578,38 +622,42 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
       return { ...prev, scale: newScale };
     });
     
-    const testPanels = [
+    const testPanels: Panel[] = [
       {
         id: 'test-panel-1',
-        type: 'rectangle',
+        shape: 'rectangle',
         x: 50,
         y: 50,
         width: 100,
         height: 80,
+        length: 80, // Keep length for backward compatibility
         rotation: 0,
         fill: '#ff0000', // Bright red to make it very visible
-        stroke: '#000000',
-        strokeWidth: 3,
+        color: '#000000',
         rollNumber: 'R001',
         panelNumber: 'P001',
-        widthFeet: 10,
-        heightFeet: 7.5
+        meta: {
+          repairs: [],
+          location: { x: 50, y: 50, gridCell: { row: 0, col: 0 } }
+        }
       },
       {
         id: 'test-panel-2',
-        type: 'rectangle',
+        shape: 'rectangle',
         x: 200,
         y: 50,
         width: 120,
         height: 90,
+        length: 90, // Keep length for backward compatibility
         rotation: 0,
         fill: '#00ff00', // Bright green to make it very visible
-        stroke: '#000000',
-        strokeWidth: 3,
+        color: '#000000',
         rollNumber: 'R002',
         panelNumber: 'P002',
-        widthFeet: 9,
-        heightFeet: 6
+        meta: {
+          repairs: [],
+          location: { x: 200, y: 50, gridCell: { row: 0, col: 0 } }
+        }
       }
     ];
     
@@ -949,6 +997,8 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
                         manager: '',
                         material: ''
                       }}
+                      externalPanels={mappedPanels}
+                      onPanelUpdate={handlePanelUpdate}
                     />
                   </div>
                 );

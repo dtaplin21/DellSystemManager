@@ -99,27 +99,41 @@ export default function ControlToolbar({
   };
 
   const validateForm = () => {
+    console.log('🔍 [ControlToolbar] validateForm called with:', panelForm);
     if (!panelForm.rollNumber || !panelForm.panelNumber) {
+      console.log('❌ [ControlToolbar] Validation failed: Missing roll number or panel number');
       alert('Please enter both Roll Number and Panel Number');
       return false;
     }
     if (!panelForm.width || !panelForm.height) {
+      console.log('❌ [ControlToolbar] Validation failed: Missing width or height');
       alert('Please enter both Width and Height in feet');
       return false;
     }
     const width = parseFloat(panelForm.width);
     const height = parseFloat(panelForm.height);
     if (isNaN(width) || isNaN(height) || width <= 0 || height <= 0) {
+      console.log('❌ [ControlToolbar] Validation failed: Invalid width or height values:', { width, height });
       alert('Width and Height must be positive numbers');
       return false;
     }
+    console.log('✅ [ControlToolbar] Form validation passed:', { width, height });
     return true;
   };
 
   const handleAddRectangle = () => {
-    if (!validateForm()) return;
+    console.log('🔍 [ControlToolbar] handleAddRectangle called');
+    console.log('🔍 [ControlToolbar] Current panelForm:', panelForm);
+    
+    if (!validateForm()) {
+      console.log('❌ [ControlToolbar] Form validation failed, returning early');
+      return;
+    }
 
+    console.log('🔍 [ControlToolbar] Creating new panel...');
     const color = generatePastelColor();
+    console.log('🔍 [ControlToolbar] Generated color:', color);
+    
     const newPanel = {
       id: generateId(),
       date: new Date().toISOString().slice(0, 10),
@@ -135,8 +149,14 @@ export default function ControlToolbar({
       fill: color,
       color: color
     };
-
+    
+    console.log('🔍 [ControlToolbar] New panel created:', newPanel);
+    console.log('🔍 [ControlToolbar] Calling onAddPanel with:', newPanel);
+    console.log('🔍 [ControlToolbar] onAddPanel function type:', typeof onAddPanel);
+    
     onAddPanel(newPanel);
+    
+    console.log('🔍 [ControlToolbar] onAddPanel called successfully');
     
     // Reset form after adding panel
     setPanelForm({
@@ -146,6 +166,8 @@ export default function ControlToolbar({
       rollNumber: '',
       panelNumber: '',
     });
+    
+    console.log('🔍 [ControlToolbar] Form reset completed');
   };
 
   const handleAddTriangle = () => {

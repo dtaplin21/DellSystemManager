@@ -130,6 +130,18 @@ export default function PanelGrid({
   onScaleChange,
   onPositionChange
 }: PanelGridProps) {
+  console.log('🔍 [PanelGrid] Component rendered with props:', {
+    panelsCount: panels?.length || 0,
+    width,
+    height,
+    hasOnPanelUpdate: !!onPanelUpdate,
+    hasOnEditPanel: !!onEditPanel,
+    hasOnScaleChange: !!onScaleChange,
+    hasOnPositionChange: !!onPositionChange
+  });
+  
+  console.log('🔍 [PanelGrid] Panels array:', panels);
+  console.log('🔍 [PanelGrid] First panel example:', panels?.[0]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [snappedPairs, setSnappedPairs] = useState<Set<string>>(new Set());
   const [preSnapPairs, setPreSnapPairs] = useState<Set<string>>(new Set());
@@ -385,7 +397,11 @@ export default function PanelGrid({
 
   // Memoized panel rendering with viewport culling
   const visiblePanels = useMemo(() => {
-    return panels.filter(panel => 
+    console.log('🔍 [PanelGrid] Calculating visible panels...');
+    console.log('🔍 [PanelGrid] Total panels:', panels.length);
+    console.log('🔍 [PanelGrid] Viewport bounds:', { width, height });
+    
+    const filtered = panels.filter(panel => 
       isInViewport({
         x: panel.x,
         y: panel.y,
@@ -393,9 +409,15 @@ export default function PanelGrid({
         height: panel.length
       })
     );
-  }, [panels, isInViewport]);
+    
+    console.log('🔍 [PanelGrid] Visible panels count:', filtered.length);
+    console.log('🔍 [PanelGrid] Visible panels:', filtered);
+    
+    return filtered;
+  }, [panels, isInViewport, width, height]);
 
   const renderPanel = useCallback((panel: Panel) => {
+    console.log('🔍 [PanelGrid] Rendering panel:', panel.id, panel);
     const isSelected = selectedId === panel.id;
     const isSnapped = panels.some(otherPanel => 
       otherPanel.id !== panel.id && arePanelsSnapped(panel.id, otherPanel.id)
@@ -425,6 +447,18 @@ export default function PanelGrid({
       strokeColor = "#ffff00";
       strokeWidth = 5;
     }
+    
+    console.log('🔍 [PanelGrid] Panel render details:', {
+      id: panel.id,
+      isSelected,
+      isSnapped,
+      isPreSnap,
+      centerX,
+      centerY,
+      label,
+      strokeColor,
+      strokeWidth
+    });
     
     // Handle mouse enter for tooltip
     const handleMouseEnter = (e: KonvaEventObject<MouseEvent>) => {
@@ -739,7 +773,16 @@ export default function PanelGrid({
             ))}
             
             {/* Only render visible panels */}
-            {visiblePanels.map(renderPanel)}
+            {(() => {
+              console.log('🔍 [PanelGrid] About to render panels in Stage');
+              console.log('🔍 [PanelGrid] Visible panels to render:', visiblePanels);
+              console.log('🔍 [PanelGrid] renderPanel function type:', typeof renderPanel);
+              
+              const renderedPanels = visiblePanels.map(renderPanel);
+              console.log('🔍 [PanelGrid] Rendered panels result:', renderedPanels);
+              
+              return renderedPanels;
+            })()}
             
             {/* Transformer */}
             <Transformer

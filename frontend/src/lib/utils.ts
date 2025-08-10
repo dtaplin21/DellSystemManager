@@ -6,7 +6,9 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function generateId(): string {
-  return Math.random().toString(36).substr(2, 9)
+  const id = Math.random().toString(36).substr(2, 9);
+  console.log('🔍 [Utils] generateId generated:', id);
+  return id;
 }
 
 export function formatFileSize(bytes: number): string {

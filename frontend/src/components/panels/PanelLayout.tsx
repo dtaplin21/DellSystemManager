@@ -15,6 +15,8 @@ interface PanelLayoutProps {
     manager: string
     material: string
   }
+  externalPanels?: Panel[]
+  onPanelUpdate?: (panels: Panel[]) => void
 }
 
 interface ResizeSettings {
@@ -145,12 +147,26 @@ type PanelAction =
   | { type: 'RESET_PANELS' }
 
 const panelReducer = (state: PanelState, action: PanelAction): PanelState => {
+  console.log('🔍 [PanelReducer] Called with action:', action.type);
+  console.log('🔍 [PanelReducer] Current state panels count:', state.panels.length);
+  console.log('🔍 [PanelReducer] Current state panels:', state.panels);
+  
   switch (action.type) {
     case 'SET_PANELS':
+      console.log('🔍 [PanelReducer] SET_PANELS: Setting panels, new count:', action.payload.length);
+      console.log('🔍 [PanelReducer] SET_PANELS: New panels:', action.payload);
       return { ...state, panels: action.payload }
     case 'ADD_PANEL':
-      return { ...state, panels: [...state.panels, action.payload] }
+      console.log('🔍 [PanelReducer] ADD_PANEL: Adding panel to existing panels');
+      console.log('🔍 [PanelReducer] ADD_PANEL: Panel to add:', action.payload);
+      console.log('🔍 [PanelReducer] ADD_PANEL: Current panels before adding:', state.panels);
+      const newPanels = [...state.panels, action.payload];
+      console.log('🔍 [PanelReducer] ADD_PANEL: New panels array after adding:', newPanels);
+      console.log('🔍 [PanelReducer] ADD_PANEL: New count:', newPanels.length);
+      return { ...state, panels: newPanels }
     case 'UPDATE_PANEL':
+      console.log('🔍 [PanelReducer] UPDATE_PANEL: Updating panel with ID:', action.payload.id);
+      console.log('🔍 [PanelReducer] UPDATE_PANEL: Updates:', action.payload.updates);
       return {
         ...state,
         panels: state.panels.map(p => 
@@ -158,24 +174,41 @@ const panelReducer = (state: PanelState, action: PanelAction): PanelState => {
         )
       }
     case 'DELETE_PANEL':
+      console.log('🔍 [PanelReducer] DELETE_PANEL: Deleting panel with ID:', action.payload);
       return {
         ...state,
         panels: state.panels.filter(p => p.id !== action.payload),
         selectedPanelId: state.selectedPanelId === action.payload ? null : state.selectedPanelId
       }
     case 'SELECT_PANEL':
+      console.log('🔍 [PanelReducer] SELECT_PANEL: Selecting panel with ID:', action.payload);
       return { ...state, selectedPanelId: action.payload }
     case 'RESET_PANELS':
+      console.log('🔍 [PanelReducer] RESET_PANELS: Resetting all panels');
       return { panels: [], selectedPanelId: null }
     default:
+      console.log('🔍 [PanelReducer] Unknown action type:', (action as any).type);
       return state
   }
 }
 
-export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
+export default function PanelLayout({ mode, projectInfo, externalPanels, onPanelUpdate }: PanelLayoutProps) {
   // Core state using reducer for panels
   const [panelState, dispatch] = useReducer(panelReducer, { panels: [], selectedPanelId: null })
   const { panels, selectedPanelId } = panelState
+  
+  // Use external panels if provided, otherwise use internal state
+  const effectivePanels = externalPanels || panels
+  
+  console.log('🔍 [PanelLayout] Component rendered with state:', {
+    mode,
+    projectInfo,
+    panelsCount: effectivePanels.length,
+    selectedPanelId,
+    panelState
+  });
+  
+  console.log('🔍 [PanelLayout] All panels:', effectivePanels);
   
   // UI state
   const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false)
@@ -296,9 +329,14 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
     getResizeHandles
   } = useSimpleResize()
 
-  // Initialize with sample panels in auto mode
+  // Load initial panels based on mode
   useEffect(() => {
-    if (mode === 'auto' && panels.length === 0) {
+    console.log('🔍 [PanelLayout] Initial panel loading effect triggered');
+    console.log('🔍 [PanelLayout] Mode:', mode);
+    console.log('🔍 [PanelLayout] Current panels count:', effectivePanels.length);
+    
+    if (mode === 'auto' && effectivePanels.length === 0) {
+      console.log('🔍 [PanelLayout] Loading demo panels...');
       dispatch({
         type: 'SET_PANELS',
         payload: [
@@ -310,7 +348,7 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
             width: 40,
             height: 100,
             rollNumber: 'R-101',
-            location: 'Northeast corner',
+            location: 'Primary area',
             x: 50,
             y: 50,
             shape: 'rectangle',
@@ -337,9 +375,12 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
             meta: { repairs: [], location: { x: 150, y: 50 } }
           }
         ]
-      })
+      });
+      console.log('🔍 [PanelLayout] Demo panels dispatched');
+    } else {
+      console.log('🔍 [PanelLayout] Not loading demo panels - mode:', mode, 'panels count:', effectivePanels.length);
     }
-  }, [mode, panels.length])
+  }, [mode, effectivePanels.length])
 
   // Fullscreen state sync with proper cleanup
   useEffect(() => {
@@ -421,6 +462,54 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
     }
   }, [setViewportSize])
 
+  // Handle container size changes
+  useEffect(() => {
+    console.log('🔍 [PanelLayout] Container size effect triggered');
+    console.log('🔍 [PanelLayout] Container ref:', containerRef.current);
+    
+    if (containerRef.current) {
+      const updateSize = () => {
+        const rect = containerRef.current!.getBoundingClientRect();
+        console.log('🔍 [PanelLayout] Container rect:', rect);
+        console.log('🔍 [PanelLayout] Setting container size to:', { width: rect.width, height: rect.height });
+        setContainerSize({ width: rect.width, height: rect.height });
+      };
+      
+      updateSize();
+      const resizeObserver = new ResizeObserver(updateSize);
+      resizeObserver.observe(containerRef.current);
+      
+      console.log('🔍 [PanelLayout] ResizeObserver set up for container');
+      
+      return () => {
+        console.log('🔍 [PanelLayout] Cleaning up ResizeObserver');
+        resizeObserver.disconnect();
+      };
+    } else {
+      console.log('🔍 [PanelLayout] Container ref not available');
+    }
+  }, [])
+
+  // Handle viewport size changes
+  useEffect(() => {
+    console.log('🔍 [PanelLayout] Viewport size effect triggered');
+    console.log('🔍 [PanelLayout] Container size:', containerSize);
+    console.log('🔍 [PanelLayout] Scale:', scale);
+    console.log('🔍 [PanelLayout] Position:', { x, y });
+    
+    if (containerSize.width > 0 && containerSize.height > 0) {
+      console.log('🔍 [PanelLayout] Calculating viewport size...');
+      const newViewportSize = {
+        width: containerSize.width / scale,
+        height: containerSize.height / scale
+      };
+      console.log('🔍 [PanelLayout] New viewport size:', newViewportSize);
+      setViewportSize(containerSize.width, containerSize.height);
+    } else {
+      console.log('🔍 [PanelLayout] Container size not ready yet');
+    }
+  }, [containerSize, scale, setViewportSize])
+
   // Panel interaction handlers
   const handlePanelClick = useCallback((panelId: string) => {
     dispatch({
@@ -454,6 +543,8 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
     location?: string
   }) => {
     try {
+      console.log('🔍 Creating panel with data:', panelData)
+      
       const newPanel: Panel = {
         id: `panel-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         shape: 'rectangle',
@@ -474,14 +565,21 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
         rollNumber: panelData.rollNumber ?? 'R-New',
         location: panelData.location ?? 'Unknown'
       }
+      
+      console.log('🔍 New panel created:', newPanel)
+      console.log('🔍 Current panels before adding:', panels)
+      
       dispatch({ type: 'ADD_PANEL', payload: newPanel })
+      
+      console.log('🔍 Panel added to state, current panels:', [...panels, newPanel])
+      
       setIsCreateModalOpen(false)
       setError(null) // Clear any previous errors
     } catch (err) {
       setError('Failed to create panel. Please try again.')
       console.error('Panel creation error:', err)
     }
-  }, [])
+  }, [panels])
 
   const handleDeletePanel = useCallback(() => {
     if (selectedPanelId) {
@@ -599,39 +697,124 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
     return lines
   }, [x, y, scale, containerSize.width, containerSize.height])
 
-  // Simplified viewport culling for 300+ panels (no complex spatial indexing)
+  // Simplified viewport culling for performance
   const visiblePanels = useMemo(() => {
-    const padding = 200 // Increased padding for better user experience
+    console.log('🔍 [PanelLayout] Calculating visiblePanels...');
+    console.log('🔍 [PanelLayout] All panels:', effectivePanels);
+    console.log('🔍 [PanelLayout] Container size:', containerSize);
+    console.log('🔍 [PanelLayout] Viewport position:', { x, y });
+    console.log('🔍 [PanelLayout] Scale:', scale);
     
-    // Simple viewport-based filtering
-    const viewportLeft = x - padding
-    const viewportRight = x + containerSize.width / scale + padding
-    const viewportTop = y - padding
-    const viewportBottom = y + containerSize.height / scale + padding
+    const filtered = effectivePanels.filter(panel => {
+      const panelBounds = {
+        left: panel.x,
+        top: panel.y,
+        right: panel.x + panel.width,
+        bottom: panel.y + panel.height
+      };
+      
+      const viewportBounds = {
+        left: -x / scale,
+        top: -y / scale,
+        right: (-x + containerSize.width) / scale,
+        bottom: (-y + containerSize.height) / scale
+      };
+      
+      const isVisible = !(
+        panelBounds.right < viewportBounds.left ||
+        panelBounds.left > viewportBounds.right ||
+        panelBounds.bottom < viewportBounds.top ||
+        panelBounds.top > viewportBounds.bottom
+      );
+      
+      console.log('🔍 [PanelLayout] Panel visibility check:', {
+        id: panel.id,
+        panelBounds,
+        viewportBounds,
+        isVisible
+      });
+      
+      return isVisible;
+    });
     
-    // Limit the number of panels processed for performance
-    const maxPanelsToProcess = 500
-    let processedCount = 0
+    console.log('🔍 [PanelLayout] Visible panels result:', filtered);
+    console.log('🔍 [PanelLayout] Visible panels count:', filtered.length);
     
-    return panels.filter(panel => {
-      if (processedCount >= maxPanelsToProcess) return false
+    return filtered;
+  }, [effectivePanels, containerSize, x, y, scale])
+
+  // Update visible panels when panels change
+  useEffect(() => {
+    console.log('🔍 [PanelLayout] useEffect triggered - panels changed');
+    console.log('🔍 [PanelLayout] New panels array:', effectivePanels);
+    console.log('🔍 [PanelLayout] Panels count:', effectivePanels.length);
+    console.log('🔍 [PanelLayout] First panel example:', effectivePanels[0]);
+    
+    // Recalculate visible panels
+    const newVisiblePanels = effectivePanels.filter(panel => {
+      const panelBounds = {
+        left: panel.x,
+        top: panel.y,
+        right: panel.x + panel.width,
+        bottom: panel.y + panel.height
+      };
       
-      const panelRight = panel.x + panel.width
-      const panelBottom = panel.y + panel.height
+      const viewportBounds = {
+        left: -x / scale,
+        top: -y / scale,
+        right: (-x + containerSize.width) / scale,
+        bottom: (-y + containerSize.height) / scale
+      };
       
-      const isVisible = panel.x < viewportRight &&
-                       panelRight > viewportLeft &&
-                       panel.y < viewportBottom &&
-                       panelBottom > viewportTop
+      const isVisible = panelBounds.left < viewportBounds.right &&
+                       panelBounds.right > viewportBounds.left &&
+                       panelBounds.top < viewportBounds.bottom &&
+                       panelBounds.bottom > viewportBounds.top;
       
-      if (isVisible) processedCount++
-      return isVisible
-    })
-  }, [panels, x, y, scale, containerSize.width, containerSize.height])
+      console.log('🔍 [PanelLayout] Panel visibility check:', {
+        panelId: panel.id,
+        panelBounds,
+        viewportBounds,
+        isVisible
+      });
+      
+      return isVisible;
+    });
+    
+    console.log('🔍 [PanelLayout] New visible panels calculated:', newVisiblePanels);
+    // setVisiblePanels(newVisiblePanels); // This line was removed as per the edit hint
+  }, [effectivePanels, x, y, scale, containerSize.width, containerSize.height])
+
+  // Sync external panels with internal state and notify parent
+  useEffect(() => {
+    if (externalPanels && onPanelUpdate) {
+      console.log('🔍 [PanelLayout] Syncing external panels with internal state');
+      console.log('🔍 [PanelLayout] External panels:', externalPanels);
+      
+      // Update internal state to match external panels
+      dispatch({ type: 'SET_PANELS', payload: externalPanels });
+      
+      // Notify parent of any changes
+      onPanelUpdate(externalPanels);
+    }
+  }, [externalPanels, onPanelUpdate]);
 
   // Simplified panel rendering function (no conditional hook dependencies)
   const renderPanel = useCallback((panel: Panel) => {
+    console.log('🔍 [PanelLayout] renderPanel called for panel:', panel.id, panel);
+    
     const isSelected = panel.id === selectedPanelId
+    
+    console.log('🔍 [PanelLayout] Panel render details:', {
+      id: panel.id,
+      isSelected,
+      x: panel.x,
+      y: panel.y,
+      width: panel.width,
+      height: panel.height,
+      fill: panel.fill,
+      color: panel.color
+    });
     
     return (
       <Group key={panel.id}>
@@ -667,6 +850,9 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
 
   // Simple panel filtering for performance (no conditional hook calls)
   const renderablePanels = useMemo(() => {
+    console.log('🔍 [PanelLayout] Calculating renderablePanels...');
+    console.log('🔍 [PanelLayout] visiblePanels:', visiblePanels);
+    console.log('🔍 [PanelLayout] renderablePanels result:', visiblePanels);
     return visiblePanels
   }, [visiblePanels])
 
@@ -951,7 +1137,23 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
                 {gridLines}
                 
                 {/* Panels */}
-                {renderablePanels.length > 0 && renderablePanels.map(renderPanel)}
+                {(() => {
+                  console.log('🔍 [PanelLayout] About to render panels in Stage');
+                  console.log('🔍 [PanelLayout] renderablePanels count:', renderablePanels.length);
+                  console.log('🔍 [PanelLayout] renderablePanels:', renderablePanels);
+                  console.log('🔍 [PanelLayout] renderPanel function type:', typeof renderPanel);
+                  
+                  if (renderablePanels.length === 0) {
+                    console.log('🔍 [PanelLayout] No panels to render');
+                    return null;
+                  }
+                  
+                  const renderedPanels = renderablePanels.map(renderPanel);
+                  console.log('🔍 [PanelLayout] Rendered panels result:', renderedPanels);
+                  console.log('🔍 [PanelLayout] Rendered panels count:', renderedPanels.length);
+                  
+                  return renderedPanels;
+                })()}
               </Layer>
             </Stage>
           )}
