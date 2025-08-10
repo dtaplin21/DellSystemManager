@@ -2,6 +2,12 @@
 # Core AI and ML libraries
 openai>=1.0.0
 
+# Hybrid AI Architecture dependencies
+crewai>=0.28.0
+langchain>=0.1.0
+langchain-openai>=0.0.5
+ollama>=0.1.7
+
 # Database and caching
 redis>=5.0.0
 

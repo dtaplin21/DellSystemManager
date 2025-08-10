@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase, getCurrentSession } from '../lib/supabase';
 import type { User, Session } from '@supabase/supabase-js';
 
@@ -201,7 +201,7 @@ export function useSupabaseAuth() {
   };
 
   // Function to manually refresh session using Supabase's native refresh
-  const refreshSession = async () => {
+  const refreshSession = useCallback(async () => {
     try {
       console.log('🔄 Manually refreshing session...');
       const { data: refreshed, error } = await supabase.auth.refreshSession();
@@ -226,10 +226,10 @@ export function useSupabaseAuth() {
       console.error('❌ Error refreshing session:', error);
       return null;
     }
-  };
+  }, []);
 
   // Function to clear session and force fresh login
-  const clearSessionAndRedirect = async () => {
+  const clearSessionAndRedirect = useCallback(async () => {
     try {
       console.log('🧹 Clearing session and redirecting to login...');
       await supabase.auth.signOut();
@@ -241,7 +241,7 @@ export function useSupabaseAuth() {
     } catch (error) {
       console.error('Error clearing session:', error);
     }
-  };
+  }, []);
 
   return {
     user,

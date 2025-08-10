@@ -1,10 +1,22 @@
 'use client'
 
-import { useState, useRef, useEffect, useMemo, useCallback, useReducer } from 'react'
-import { Stage, Layer, Rect, Group } from 'react-konva'
-import { Line } from 'react-konva/lib/ReactKonvaCore'
-import { Text } from 'react-konva/lib/ReactKonvaCore'
+import { useState, useRef, useEffect, useCallback, useReducer } from 'react'
 import type { Panel } from '../../types/panel'
+import { Button } from '../ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
+import { Badge } from '../ui/badge'
+import { Progress } from '../ui/progress'
+import { 
+  Brain, 
+  Target, 
+  Zap, 
+  RotateCcw, 
+  ZoomIn, 
+  ZoomOut, 
+  Grid,
+  Sparkles
+} from 'lucide-react'
+import { useToast } from '../../hooks/use-toast'
 
 interface PanelLayoutProps {
   mode: 'manual' | 'auto'
@@ -19,120 +31,100 @@ interface PanelLayoutProps {
   onPanelUpdate?: (panels: Panel[]) => void
 }
 
-interface ResizeSettings {
-  minWidth: number
-  minHeight: number
-  maxWidth?: number
-  maxHeight?: number
-  lockAspectRatio: boolean
-  aspectRatio: number
+interface AIAssistantState {
+  isActive: boolean
+  suggestions: AISuggestion[]
+  currentTask: string | null
+  progress: number
+  isProcessing: boolean
+}
+
+interface AISuggestion {
+  id: string
+  type: 'optimization' | 'layout' | 'material' | 'efficiency' | 'warning'
+  title: string
+  description: string
+  action: string
+  priority: 'low' | 'medium' | 'high'
+  impact: 'cost' | 'time' | 'quality' | 'safety'
+}
+
+interface CanvasState {
+  scale: number
+  offsetX: number
+  offsetY: number
+  showGrid: boolean
+  showGuides: boolean
   snapToGrid: boolean
   gridSize: number
-  snapToOtherPanels: boolean
-  snapThreshold: number
-  enableVisualFeedback: boolean
-  enableSnapping: boolean
 }
 
-// Simple zoom/pan implementation
-const useSimpleZoomPan = () => {
-  const [scale, setScale] = useState<number>(1)
-  const [x, setX] = useState<number>(0)
-  const [y, setY] = useState<number>(0)
-  const [isDragging, setIsDragging] = useState<boolean>(false)
+// AI Helper Functions
+const optimizePanelLayout = (panels: Panel[]): Panel[] => {
+  const sortedPanels = [...panels].sort((a, b) => a.x - b.x || a.y - b.y)
+  const gridSize = Math.ceil(Math.sqrt(panels.length))
+  const spacing = 50
   
-  const zoomIn = useCallback(() => setScale(prev => Math.min(prev * 1.2, 5)), [])
-  const zoomOut = useCallback(() => setScale(prev => Math.max(prev / 1.2, 0.1)), [])
-  const fitToExtent = useCallback(() => {
-    setScale(1)
-    setX(0)
-    setY(0)
-  }, [])
-  
-  const toWorld = useCallback((screen: { x: number; y: number }) => ({ 
-    x: (screen.x - x) / scale, 
-    y: (screen.y - y) / scale 
-  }), [x, y, scale])
-  
-  const toScreen = useCallback((world: { x: number; y: number }) => ({ 
-    x: world.x * scale + x, 
-    y: world.y * scale + y 
-  }), [x, y, scale])
-  
-  const setViewportSize = useCallback((w: number, h: number) => {
-    // Simple viewport size management
-  }, [])
-  
-  return {
-    scale,
-    x,
-    y,
-    isDragging,
-    setIsDragging,
-    zoomIn,
-    zoomOut,
-    fitToExtent,
-    toWorld,
-    toScreen,
-    setViewportSize,
-    viewportSize: { x: 0, y: 0, width: 800, height: 600, scale: 1 }
-  }
-}
-
-// Simple resize implementation
-const useSimpleResize = () => {
-  const [isResizing, setIsResizing] = useState<boolean>(false)
-  
-  return {
-    isResizing,
-    resizeResult: null,
-    visualFeedback: null,
-    startResize: () => setIsResizing(true),
-    updateResize: () => {},
-    endResize: () => setIsResizing(false),
-    cancelResize: () => setIsResizing(false),
-    getResizeCursor: () => 'default',
-    getResizeHandles: () => []
-  }
-}
-
-// Throttle utility function with cleanup support
-const throttle = <T extends (...args: any[]) => any>(func: T, delay: number): T & { cancel: () => void } => {
-  let lastCall = 0
-  let timeoutId: NodeJS.Timeout | null = null
-  
-  const throttled = ((...args: any[]) => {
-    const now = Date.now()
-    if (now - lastCall >= delay) {
-      lastCall = now
-      return func(...args)
-    } else {
-      // Schedule the call for later
-      if (timeoutId) clearTimeout(timeoutId)
-      timeoutId = setTimeout(() => {
-        lastCall = Date.now()
-        func(...args)
-      }, delay - (now - lastCall))
+  return sortedPanels.map((panel, index) => {
+    const row = Math.floor(index / gridSize)
+    const col = index % gridSize
+    return {
+      ...panel,
+      x: col * (panel.width + spacing),
+      y: row * (panel.height + spacing)
     }
-  }) as T & { cancel: () => void }
+  })
+}
+
+const improvePanelSpacing = (panels: Panel[]): Panel[] => {
+  const minSpacing = 20
+  const improvedPanels = [...panels]
   
-  throttled.cancel = () => {
-    if (timeoutId) {
-      clearTimeout(timeoutId)
-      timeoutId = null
+  for (let i = 0; i < improvedPanels.length; i++) {
+    for (let j = i + 1; j < improvedPanels.length; j++) {
+      const panel1 = improvedPanels[i]
+      const panel2 = improvedPanels[j]
+      
+      const distance = Math.sqrt(
+        Math.pow(panel1.x - panel2.x, 2) + Math.pow(panel1.y - panel2.y, 2)
+      )
+      
+      if (distance < minSpacing) {
+        const angle = Math.atan2(panel2.y - panel1.y, panel2.x - panel1.x)
+        const moveDistance = minSpacing - distance
+        
+        panel2.x += Math.cos(angle) * moveDistance
+        panel2.y += Math.sin(angle) * moveDistance
+      }
     }
   }
   
-  return throttled
+  return improvedPanels
 }
 
-// Constants
-const GRID_CELL_SIZE_FT = 100
-const WORLD_WIDTH_FT = 2000
-const WORLD_HEIGHT_FT = 2000
-const SNAP_THRESHOLD_FT = 4
+const standardizeMaterials = (panels: Panel[]): Panel[] => {
+  const materialCounts = panels.reduce((counts, panel) => {
+    const material = panel.meta?.welder?.method || 'standard'
+    counts[material] = (counts[material] || 0) + 1
+    return counts
+  }, {} as Record<string, number>)
+  
+  const mostCommonMaterial = Object.entries(materialCounts)
+    .sort(([,a], [,b]) => b - a)[0]?.[0] || 'standard'
+  
+  return panels.map(panel => ({
+    ...panel,
+    meta: {
+      ...panel.meta,
+      welder: {
+        ...panel.meta?.welder,
+        method: mostCommonMaterial
+      }
+    }
+  }))
+}
 
-// Panel state reducer
+// Panel State Management
 interface PanelState {
   panels: Panel[]
   selectedPanelId: string | null
@@ -145,1128 +137,770 @@ type PanelAction =
   | { type: 'DELETE_PANEL'; payload: string }
   | { type: 'SELECT_PANEL'; payload: string | null }
   | { type: 'RESET_PANELS' }
+  | { type: 'OPTIMIZE_LAYOUT'; payload: Panel[] }
+  | { type: 'IMPROVE_SPACING'; payload: Panel[] }
+  | { type: 'STANDARDIZE_MATERIALS'; payload: Panel[] }
 
 const panelReducer = (state: PanelState, action: PanelAction): PanelState => {
-  console.log('🔍 [PanelReducer] Called with action:', action.type);
-  console.log('🔍 [PanelReducer] Current state panels count:', state.panels.length);
-  console.log('🔍 [PanelReducer] Current state panels:', state.panels);
-  
   switch (action.type) {
     case 'SET_PANELS':
-      console.log('🔍 [PanelReducer] SET_PANELS: Setting panels, new count:', action.payload.length);
-      console.log('🔍 [PanelReducer] SET_PANELS: New panels:', action.payload);
       return { ...state, panels: action.payload }
     case 'ADD_PANEL':
-      console.log('🔍 [PanelReducer] ADD_PANEL: Adding panel to existing panels');
-      console.log('🔍 [PanelReducer] ADD_PANEL: Panel to add:', action.payload);
-      console.log('🔍 [PanelReducer] ADD_PANEL: Current panels before adding:', state.panels);
-      const newPanels = [...state.panels, action.payload];
-      console.log('🔍 [PanelReducer] ADD_PANEL: New panels array after adding:', newPanels);
-      console.log('🔍 [PanelReducer] ADD_PANEL: New count:', newPanels.length);
-      return { ...state, panels: newPanels }
+      return { ...state, panels: [...state.panels, action.payload] }
     case 'UPDATE_PANEL':
-      console.log('🔍 [PanelReducer] UPDATE_PANEL: Updating panel with ID:', action.payload.id);
-      console.log('🔍 [PanelReducer] UPDATE_PANEL: Updates:', action.payload.updates);
       return {
         ...state,
-        panels: state.panels.map(p => 
-          p.id === action.payload.id ? { ...p, ...action.payload.updates } : p
+        panels: state.panels.map(panel =>
+          panel.id === action.payload.id
+            ? { ...panel, ...action.payload.updates }
+            : panel
         )
       }
     case 'DELETE_PANEL':
-      console.log('🔍 [PanelReducer] DELETE_PANEL: Deleting panel with ID:', action.payload);
       return {
         ...state,
-        panels: state.panels.filter(p => p.id !== action.payload),
+        panels: state.panels.filter(panel => panel.id !== action.payload),
         selectedPanelId: state.selectedPanelId === action.payload ? null : state.selectedPanelId
       }
     case 'SELECT_PANEL':
-      console.log('🔍 [PanelReducer] SELECT_PANEL: Selecting panel with ID:', action.payload);
       return { ...state, selectedPanelId: action.payload }
     case 'RESET_PANELS':
-      console.log('🔍 [PanelReducer] RESET_PANELS: Resetting all panels');
-      return { panels: [], selectedPanelId: null }
+      return { ...state, panels: [], selectedPanelId: null }
+    case 'OPTIMIZE_LAYOUT':
+      return { ...state, panels: action.payload }
+    case 'IMPROVE_SPACING':
+      return { ...state, panels: action.payload }
+    case 'STANDARDIZE_MATERIALS':
+      return { ...state, panels: action.payload }
     default:
-      console.log('🔍 [PanelReducer] Unknown action type:', (action as any).type);
       return state
   }
 }
 
 export default function PanelLayout({ mode, projectInfo, externalPanels, onPanelUpdate }: PanelLayoutProps) {
-  // Core state using reducer for panels
-  const [panelState, dispatch] = useReducer(panelReducer, { panels: [], selectedPanelId: null })
-  const { panels, selectedPanelId } = panelState
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [panels, dispatch] = useReducer(panelReducer, { panels: [], selectedPanelId: null })
+  const [isDragging, setIsDragging] = useState(false)
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
+  const [selectedPanel, setSelectedPanel] = useState<Panel | null>(null)
+  const [isResizing, setIsResizing] = useState(false)
+  const [resizeHandle, setResizeHandle] = useState<string | null>(null)
+  const [isRotating, setIsRotating] = useState(false)
+  const [rotationStart, setRotationStart] = useState(0)
   
-  // Use external panels if provided, otherwise use internal state
-  const effectivePanels = externalPanels || panels
-  
-  console.log('🔍 [PanelLayout] Component rendered with state:', {
-    mode,
-    projectInfo,
-    panelsCount: effectivePanels.length,
-    selectedPanelId,
-    panelState
-  });
-  
-  console.log('🔍 [PanelLayout] All panels:', effectivePanels);
-  
-  // UI state
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false)
-  const [isAIChatOpen, setIsAIChatOpen] = useState<boolean>(false)
-  const [isMounted, setIsMounted] = useState<boolean>(false)
-  const [isFullscreen, setIsFullscreen] = useState<boolean>(false)
-  const [isControlPanelCollapsed, setIsControlPanelCollapsed] = useState<boolean>(false)
-  const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false)
-  
-  // Loading and error states
-  const [isLoading, setIsLoading] = useState<boolean>(false)
-  const [error, setError] = useState<string | null>(null)
-  const [isExporting, setIsExporting] = useState<boolean>(false)
-
-  // Performance optimizations
-  const containerRef = useRef<HTMLDivElement>(null)
-  const stageRef = useRef<any>(null)
-
-  // Resize settings
-  const [resizeSettings, setResizeSettings] = useState<ResizeSettings>({
-    minWidth: 50,
-    minHeight: 50,
-    maxWidth: 1000,
-    maxHeight: 1000,
-    lockAspectRatio: false,
-    aspectRatio: 2.5,
-    snapToGrid: true,
-    gridSize: GRID_CELL_SIZE_FT,
-    snapToOtherPanels: true,
-    snapThreshold: SNAP_THRESHOLD_FT,
-    enableVisualFeedback: true,
-    enableSnapping: true
+  // AI Assistant State
+  const [aiState, setAiState] = useState<AIAssistantState>({
+    isActive: false,
+    suggestions: [],
+    currentTask: null,
+    progress: 0,
+    isProcessing: false
   })
-
-  // Simple zoom/pan hook
-  const {
-    scale,
-    x,
-    y,
-    isDragging,
-    setIsDragging,
-    zoomIn,
-    zoomOut,
-    fitToExtent,
-    toWorld,
-    toScreen,
-    setViewportSize,
-    viewportSize
-  } = useSimpleZoomPan()
-
-  // Throttled mouse move handler for better performance
-  const throttledMouseMove = useCallback(
-    throttle((e: any) => {
-      if (!isDragging) return
-      
-      const stage = e.target.getStage()
-      if (!stage) return
-      
-      const pointer = stage.getPointerPosition()
-      if (!pointer) return
-      
-      const dx = pointer.x - stage.x()
-      const dy = pointer.y - stage.y()
-      
-      stage.x(dx)
-      stage.y(dy)
-      stage.batchDraw()
-    }, 16), // ~60fps
-    [isDragging]
-  )
-
-  // Wheel handler for zoom functionality
-  const handleWheel = useCallback((e: any) => {
-    e.evt.preventDefault()
-    const stage = e.target.getStage()
-    if (!stage) return
-    
-    const oldScale = stage.scaleX()
-    const pointer = stage.getPointerPosition()
-    
-    if (!pointer) return
-    
-    const mousePointTo = {
-      x: (pointer.x - stage.x()) / oldScale,
-      y: (pointer.y - stage.y()) / oldScale,
-    }
-    
-    const scaleBy = 1.1
-    const newScale = e.evt.deltaY < 0 ? oldScale * scaleBy : oldScale / scaleBy
-    
-    stage.scale({ x: newScale, y: newScale })
-    
-    const newPos = {
-      x: pointer.x - mousePointTo.x * newScale,
-      y: pointer.y - mousePointTo.y * newScale,
-    }
-    stage.position(newPos)
-    stage.batchDraw()
-  }, [])
   
-  // Cleanup throttled function on unmount
+  // Canvas State
+  const [canvasState, setCanvasState] = useState<CanvasState>({
+    scale: 1,
+    offsetX: 0,
+    offsetY: 0,
+    showGrid: true,
+    showGuides: true,
+    snapToGrid: true,
+    gridSize: 50
+  })
+  
+  // Canvas dimensions
+  const [canvasWidth, setCanvasWidth] = useState(1200)
+  const [canvasHeight, setCanvasHeight] = useState(800)
+  
+  const { toast } = useToast()
+  
+  // Initialize panels from external source
   useEffect(() => {
-    return () => {
-      if (throttledMouseMove.cancel) {
-        throttledMouseMove.cancel()
+    if (externalPanels) {
+      dispatch({ type: 'SET_PANELS', payload: externalPanels })
+    }
+  }, [externalPanels])
+  
+  // Notify parent of panel updates
+  useEffect(() => {
+    if (onPanelUpdate) {
+      onPanelUpdate(panels.panels)
+    }
+  }, [panels.panels, onPanelUpdate])
+  
+  // Generate AI suggestions when panels change
+  useEffect(() => {
+    if (panels.panels.length > 0 && aiState.isActive) {
+      generateSuggestions(panels.panels, projectInfo)
+    }
+  }, [panels.panels, aiState.isActive, projectInfo])
+  
+  // AI Functions
+  const generateSuggestions = useCallback(async (panels: Panel[], projectInfo: any) => {
+    setAiState(prev => ({ ...prev, isProcessing: true, progress: 0 }))
+    
+    const suggestions: AISuggestion[] = []
+    
+    if (panels.length > 0) {
+      const totalArea = panels.reduce((sum, panel) => sum + (panel.width * panel.height), 0)
+      const avgPanelSize = totalArea / panels.length
+      
+      if (avgPanelSize > 1000) {
+        suggestions.push({
+          id: 'large-panels',
+          type: 'warning',
+          title: 'Large Panel Detection',
+          description: `Average panel size is ${Math.round(avgPanelSize)} sq ft. Consider breaking into smaller panels for easier handling.`,
+          action: 'Split large panels',
+          priority: 'medium',
+          impact: 'safety'
+        })
+      }
+      
+      const materialGroups = panels.reduce((groups, panel) => {
+        const material = panel.meta?.welder?.method || 'standard'
+        groups[material] = (groups[material] || 0) + 1
+        return groups
+      }, {} as Record<string, number>)
+      
+      if (Object.keys(materialGroups).length > 2) {
+        suggestions.push({
+          id: 'material-consistency',
+          type: 'efficiency',
+          title: 'Material Consistency',
+          description: 'Multiple material types detected. Standardizing materials could reduce costs by 15-20%.',
+          action: 'Standardize materials',
+          priority: 'high',
+          impact: 'cost'
+        })
       }
     }
-  }, [throttledMouseMove])
-
-  // Simple resize hook
-  const {
-    isResizing,
-    startResize,
-    updateResize,
-    endResize,
-    cancelResize,
-    getResizeCursor,
-    getResizeHandles
-  } = useSimpleResize()
-
-  // Load initial panels based on mode
-  useEffect(() => {
-    console.log('🔍 [PanelLayout] Initial panel loading effect triggered');
-    console.log('🔍 [PanelLayout] Mode:', mode);
-    console.log('🔍 [PanelLayout] Current panels count:', effectivePanels.length);
     
-    if (mode === 'auto' && effectivePanels.length === 0) {
-      console.log('🔍 [PanelLayout] Loading demo panels...');
+    if (panels.length > 5) {
+      suggestions.push({
+        id: 'layout-optimization',
+        type: 'optimization',
+        title: 'Layout Optimization Available',
+        description: 'AI can optimize panel placement to reduce material waste and improve installation efficiency.',
+        action: 'Run AI optimization',
+        priority: 'high',
+        impact: 'cost'
+      })
+    }
+    
+    // Simulate progress
+    for (let i = 0; i <= 100; i += 20) {
+      await new Promise(resolve => setTimeout(resolve, 100))
+      setAiState(prev => ({ ...prev, progress: i }))
+    }
+    
+    setAiState(prev => ({ 
+      ...prev, 
+      suggestions, 
+      isProcessing: false, 
+      progress: 100,
+      currentTask: null 
+    }))
+    
+    return suggestions
+  }, [])
+  
+  const executeSuggestion = useCallback(async (suggestion: AISuggestion, panels: Panel[]) => {
+    setAiState(prev => ({ ...prev, currentTask: suggestion.action, progress: 0 }))
+    
+    // Simulate AI execution
+    for (let i = 0; i <= 100; i += 25) {
+      await new Promise(resolve => setTimeout(resolve, 200))
+      setAiState(prev => ({ ...prev, progress: i }))
+    }
+    
+    setAiState(prev => ({ ...prev, currentTask: null, progress: 100 }))
+    
+    switch (suggestion.type) {
+      case 'optimization':
+        return optimizePanelLayout(panels)
+      case 'layout':
+        return improvePanelSpacing(panels)
+      case 'material':
+        return standardizeMaterials(panels)
+      default:
+        return panels
+    }
+  }, [])
+  
+  const toggleAssistant = useCallback(() => {
+    setAiState(prev => ({ ...prev, isActive: !prev.isActive }))
+  }, [])
+  
+  // Canvas Functions
+  const zoomIn = useCallback(() => {
+    setCanvasState(prev => ({ ...prev, scale: Math.min(prev.scale * 1.2, 5) }))
+  }, [])
+  
+  const zoomOut = useCallback(() => {
+    setCanvasState(prev => ({ ...prev, scale: Math.max(prev.scale / 1.2, 0.1) }))
+  }, [])
+  
+  const resetView = useCallback(() => {
+    setCanvasState(prev => ({ ...prev, scale: 1, offsetX: 0, offsetY: 0 }))
+  }, [])
+  
+  const toggleGrid = useCallback(() => {
+    setCanvasState(prev => ({ ...prev, showGrid: !prev.showGrid }))
+  }, [])
+  
+  const toggleGuides = useCallback(() => {
+    setCanvasState(prev => ({ ...prev, showGuides: !prev.showGuides }))
+  }, [])
+  
+  const toggleSnap = useCallback(() => {
+    setCanvasState(prev => ({ ...prev, snapToGrid: !prev.snapToGrid }))
+  }, [])
+  
+  // Canvas rendering function
+  const renderCanvas = useCallback(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    
+    // Clear canvas
+    ctx.clearRect(0, 0, canvasWidth, canvasHeight)
+    
+    // Save context for transformations
+    ctx.save()
+    
+    // Apply zoom and pan
+    ctx.translate(canvasState.offsetX, canvasState.offsetY)
+    ctx.scale(canvasState.scale, canvasState.scale)
+    
+    // Draw grid
+    if (canvasState.showGrid) {
+      drawGrid(ctx)
+    }
+    
+    // Draw panels
+    panels.panels.forEach(panel => {
+      drawPanel(ctx, panel, panel.id === panels.selectedPanelId)
+    })
+    
+    // Draw selection handles
+    if (panels.selectedPanelId) {
+      const selectedPanel = panels.panels.find(p => p.id === panels.selectedPanelId)
+      if (selectedPanel) {
+        drawSelectionHandles(ctx, selectedPanel)
+      }
+    }
+    
+    // Draw AI guides
+    if (canvasState.showGuides && aiState.suggestions.length > 0) {
+      drawAIGuides(ctx)
+    }
+    
+    // Restore context
+    ctx.restore()
+  }, [panels, canvasState, aiState.suggestions, canvasWidth, canvasHeight])
+  
+  // Draw grid
+  const drawGrid = (ctx: CanvasRenderingContext2D) => {
+    ctx.strokeStyle = '#e0e0e0'
+    ctx.lineWidth = 1 / canvasState.scale
+    
+    for (let x = 0; x <= canvasWidth; x += canvasState.gridSize) {
+      ctx.beginPath()
+      ctx.moveTo(x, 0)
+      ctx.lineTo(x, canvasHeight)
+      ctx.stroke()
+    }
+    
+    for (let y = 0; y <= canvasHeight; y += canvasState.gridSize) {
+      ctx.beginPath()
+      ctx.moveTo(0, y)
+      ctx.lineTo(canvasWidth, y)
+      ctx.stroke()
+    }
+  }
+  
+  // Draw panel
+  const drawPanel = (ctx: CanvasRenderingContext2D, panel: Panel, isSelected: boolean) => {
+    ctx.save()
+    
+    // Apply panel transformations
+    ctx.translate(panel.x, panel.y)
+    ctx.rotate((panel.rotation || 0) * Math.PI / 180)
+    
+    // Draw panel rectangle
+    ctx.fillStyle = panel.fill || '#4f46e5'
+    ctx.fillRect(0, 0, panel.width, panel.height)
+    
+    // Draw panel border
+    ctx.strokeStyle = isSelected ? '#f59e0b' : panel.color || '#1e1b4b'
+    ctx.lineWidth = isSelected ? 3 / canvasState.scale : 2 / canvasState.scale
+    ctx.strokeRect(0, 0, panel.width, panel.height)
+    
+    // Draw panel text
+    ctx.fillStyle = '#ffffff'
+    ctx.font = `${Math.max(12, 16 / canvasState.scale)}px Arial`
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    
+    const centerX = panel.width / 2
+    const centerY = panel.height / 2
+    
+    if (panel.panelNumber) {
+      ctx.fillText(panel.panelNumber.toString(), centerX, centerY - 10 / canvasState.scale)
+    }
+    
+    if (panel.rollNumber) {
+      ctx.fillText(panel.rollNumber.toString(), centerX, centerY + 10 / canvasState.scale)
+    }
+    
+    ctx.restore()
+  }
+  
+  // Draw selection handles
+  const drawSelectionHandles = (ctx: CanvasRenderingContext2D, panel: Panel) => {
+    const handleSize = 8 / canvasState.scale
+    const handles = [
+      { x: 0, y: 0, cursor: 'nw-resize' },
+      { x: panel.width / 2, y: 0, cursor: 'n-resize' },
+      { x: panel.width, y: 0, cursor: 'ne-resize' },
+      { x: panel.width, y: panel.height / 2, cursor: 'e-resize' },
+      { x: panel.width, y: panel.height, cursor: 'se-resize' },
+      { x: panel.width / 2, y: panel.height, cursor: 's-resize' },
+      { x: 0, y: panel.height, cursor: 'sw-resize' },
+      { x: 0, y: panel.height / 2, cursor: 'w-resize' }
+    ]
+    
+    ctx.save()
+    ctx.translate(panel.x, panel.y)
+    ctx.rotate((panel.rotation || 0) * Math.PI / 180)
+    
+    handles.forEach(handle => {
+      ctx.fillStyle = '#f59e0b'
+      ctx.fillRect(handle.x - handleSize / 2, handle.y - handleSize / 2, handleSize, handleSize)
+      ctx.strokeStyle = '#ffffff'
+      ctx.lineWidth = 1 / canvasState.scale
+      ctx.strokeRect(handle.x - handleSize / 2, handle.y - handleSize / 2, handleSize, handleSize)
+    })
+    
+    // Draw rotation handle
+    const rotationHandleY = -30 / canvasState.scale
+    ctx.fillStyle = '#10b981'
+    ctx.beginPath()
+    ctx.arc(panel.width / 2, rotationHandleY, handleSize, 0, 2 * Math.PI)
+    ctx.fill()
+    ctx.strokeStyle = '#ffffff'
+    ctx.lineWidth = 1 / canvasState.scale
+    ctx.stroke()
+    
+    ctx.restore()
+  }
+  
+  // Draw AI guides
+  const drawAIGuides = (ctx: CanvasRenderingContext2D) => {
+    ctx.save()
+    ctx.strokeStyle = '#10b981'
+    ctx.lineWidth = 2 / canvasState.scale
+    ctx.setLineDash([5, 5])
+    
+    aiState.suggestions.forEach(suggestion => {
+      if (suggestion.type === 'optimization') {
+        ctx.strokeRect(50, 50, canvasWidth - 100, canvasHeight - 100)
+      }
+    })
+    
+    ctx.restore()
+  }
+  
+  // Mouse event handlers
+  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    
+    const rect = canvas.getBoundingClientRect()
+    const x = (e.clientX - rect.left - canvasState.offsetX) / canvasState.scale
+    const y = (e.clientY - rect.top - canvasState.offsetY) / canvasState.scale
+    
+    const clickedPanel = panels.panels.find(panel => {
+      const panelCenterX = panel.x + panel.width / 2
+      const panelCenterY = panel.y + panel.height / 2
+      const distance = Math.sqrt((x - panelCenterX) ** 2 + (y - panelCenterY) ** 2)
+      return distance <= Math.max(panel.width, panel.height) / 2
+    })
+    
+    if (clickedPanel) {
+      dispatch({ type: 'SELECT_PANEL', payload: clickedPanel.id })
+      setSelectedPanel(clickedPanel)
+      
+      const handle = getResizeHandle(x, y, clickedPanel)
+      if (handle) {
+        setIsResizing(true)
+        setResizeHandle(handle)
+        setDragStart({ x, y })
+        return
+      }
+      
+      if (isRotationHandle(x, y, clickedPanel)) {
+        setIsRotating(true)
+        setRotationStart(Math.atan2(y - (clickedPanel.y + clickedPanel.height / 2), x - (clickedPanel.x + clickedPanel.width / 2)))
+        return
+      }
+      
+      setIsDragging(true)
+      setDragStart({ x: x - clickedPanel.x, y: y - clickedPanel.y })
+    } else {
+      dispatch({ type: 'SELECT_PANEL', payload: null })
+      setSelectedPanel(null)
+    }
+  }, [panels, canvasState])
+  
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    
+    const rect = canvas.getBoundingClientRect()
+    const x = (e.clientX - rect.left - canvasState.offsetX) / canvasState.scale
+    const y = (e.clientY - rect.top - canvasState.offsetY) / canvasState.scale
+    
+    if (isDragging && selectedPanel) {
+      let newX = x - dragStart.x
+      let newY = y - dragStart.y
+      
+      if (canvasState.snapToGrid) {
+        newX = Math.round(newX / canvasState.gridSize) * canvasState.gridSize
+        newY = Math.round(newY / canvasState.gridSize) * canvasState.gridSize
+      }
+      
       dispatch({
-        type: 'SET_PANELS',
-        payload: [
-          {
-            id: '1',
-            date: '2024-05-14',
-            panelNumber: '1A',
-            length: 100,
-            width: 40,
-            height: 100,
-            rollNumber: 'R-101',
-            location: 'Primary area',
-            x: 50,
-            y: 50,
-            shape: 'rectangle',
-            rotation: 0,
-            fill: '#E3F2FD',
-            color: '#E3F2FD',
-            meta: { repairs: [], location: { x: 50, y: 50 } }
-          },
-          {
-            id: '2',
-            date: '2024-05-14',
-            panelNumber: '2A',
-            length: 100,
-            width: 40,
-            height: 100,
-            rollNumber: 'R-102',
-            location: 'Adjacent to 1A',
-            x: 150,
-            y: 50,
-            shape: 'rectangle',
-            rotation: 0,
-            fill: '#BBDEFB',
-            color: '#BBDEFB',
-            meta: { repairs: [], location: { x: 150, y: 50 } }
+        type: 'UPDATE_PANEL',
+        payload: {
+          id: selectedPanel.id,
+          updates: { x: newX, y: newY }
+        }
+      })
+    } else if (isResizing && selectedPanel && resizeHandle) {
+      const updates = getResizeUpdates(x, y, selectedPanel, resizeHandle, dragStart)
+      if (updates) {
+        dispatch({
+          type: 'UPDATE_PANEL',
+          payload: {
+            id: selectedPanel.id,
+            updates
           }
-        ]
-      });
-      console.log('🔍 [PanelLayout] Demo panels dispatched');
-    } else {
-      console.log('🔍 [PanelLayout] Not loading demo panels - mode:', mode, 'panels count:', effectivePanels.length);
-    }
-  }, [mode, effectivePanels.length])
-
-  // Fullscreen state sync with proper cleanup
-  useEffect(() => {
-    let timeoutId: NodeJS.Timeout
-    
-    const handler = () => {
-      const fsElement = document.fullscreenElement
-      const isCurrentlyFullscreen = Boolean(fsElement && containerRef.current && fsElement === containerRef.current)
-      
-      setIsFullscreen(isCurrentlyFullscreen)
-      
-      // Clear any existing timeout to prevent race conditions
-      if (timeoutId) {
-        clearTimeout(timeoutId)
+        })
       }
+    } else if (isRotating && selectedPanel) {
+      const angle = Math.atan2(y - (selectedPanel.y + selectedPanel.height / 2), x - (selectedPanel.x + selectedPanel.width / 2))
+      const rotation = ((angle - rotationStart) * 180) / Math.PI
       
-      // Trigger a viewport recalc shortly after toggle
-      timeoutId = setTimeout(() => {
-        if (containerRef.current) {
-          const rect = containerRef.current.getBoundingClientRect()
-          setViewportSize(Math.max(100, Math.floor(rect.width)), Math.max(100, Math.floor(rect.height)))
+      dispatch({
+        type: 'UPDATE_PANEL',
+        payload: {
+          id: selectedPanel.id,
+          updates: { rotation: ((selectedPanel.rotation ?? 0) + rotation) % 360 }
         }
-      }, 50)
+      })
     }
-    
-    document.addEventListener('fullscreenchange', handler)
-    
-    return () => {
-      document.removeEventListener('fullscreenchange', handler)
-      if (timeoutId) {
-        clearTimeout(timeoutId)
-      }
-    }
-  }, [setViewportSize])
-
-  // Mount effect with cleanup
-  useEffect(() => {
-    setIsMounted(true)
-    
-    return () => {
-      setIsMounted(false)
-    }
-  }, [])
-
-  // Optimized viewport and container size management with debounced updates
-  const [containerSize, setContainerSize] = useState<{ width: number; height: number }>({ width: 800, height: 600 })
+  }, [isDragging, isResizing, isRotating, selectedPanel, resizeHandle, dragStart, rotationStart, canvasState])
   
-  useEffect(() => {
-    if (!containerRef.current) return
-    
-    let timeoutId: NodeJS.Timeout
-    let isActive = true // Flag to prevent updates after unmount
-    
-    const updateSize = () => {
-      if (!isActive || !containerRef.current) return
-      
-      const rect = containerRef.current.getBoundingClientRect()
-      const newWidth = Math.max(100, Math.floor(rect.width))
-      const newHeight = Math.max(100, Math.floor(rect.height))
-      
-      // Debounce size updates to avoid excessive re-renders
-      clearTimeout(timeoutId)
-      timeoutId = setTimeout(() => {
-        if (isActive) {
-          setContainerSize({ width: newWidth, height: newHeight })
-          setViewportSize(newWidth, newHeight)
-        }
-      }, 100)
-    }
-    
-    updateSize()
-    const ro = new ResizeObserver(updateSize)
-    ro.observe(containerRef.current)
-    
-    return () => {
-      isActive = false
-      ro.disconnect()
-      clearTimeout(timeoutId)
-    }
-  }, [setViewportSize])
-
-  // Handle container size changes
-  useEffect(() => {
-    console.log('🔍 [PanelLayout] Container size effect triggered');
-    console.log('🔍 [PanelLayout] Container ref:', containerRef.current);
-    
-    if (containerRef.current) {
-      const updateSize = () => {
-        const rect = containerRef.current!.getBoundingClientRect();
-        console.log('🔍 [PanelLayout] Container rect:', rect);
-        console.log('🔍 [PanelLayout] Setting container size to:', { width: rect.width, height: rect.height });
-        setContainerSize({ width: rect.width, height: rect.height });
-      };
-      
-      updateSize();
-      const resizeObserver = new ResizeObserver(updateSize);
-      resizeObserver.observe(containerRef.current);
-      
-      console.log('🔍 [PanelLayout] ResizeObserver set up for container');
-      
-      return () => {
-        console.log('🔍 [PanelLayout] Cleaning up ResizeObserver');
-        resizeObserver.disconnect();
-      };
-    } else {
-      console.log('🔍 [PanelLayout] Container ref not available');
-    }
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false)
+    setIsResizing(false)
+    setIsRotating(false)
+    setResizeHandle(null)
   }, [])
-
-  // Handle viewport size changes
-  useEffect(() => {
-    console.log('🔍 [PanelLayout] Viewport size effect triggered');
-    console.log('🔍 [PanelLayout] Container size:', containerSize);
-    console.log('🔍 [PanelLayout] Scale:', scale);
-    console.log('🔍 [PanelLayout] Position:', { x, y });
-    
-    if (containerSize.width > 0 && containerSize.height > 0) {
-      console.log('🔍 [PanelLayout] Calculating viewport size...');
-      const newViewportSize = {
-        width: containerSize.width / scale,
-        height: containerSize.height / scale
-      };
-      console.log('🔍 [PanelLayout] New viewport size:', newViewportSize);
-      setViewportSize(containerSize.width, containerSize.height);
-    } else {
-      console.log('🔍 [PanelLayout] Container size not ready yet');
-    }
-  }, [containerSize, scale, setViewportSize])
-
-  // Panel interaction handlers
-  const handlePanelClick = useCallback((panelId: string) => {
-    dispatch({
-      type: 'SELECT_PANEL',
-      payload: panelId === selectedPanelId ? null : panelId
-    })
-  }, [selectedPanelId])
-
-  const handlePanelDragEnd = useCallback((panelId: string, newX: number, newY: number) => {
-    // Grid snapping
-    let snappedX = newX
-    let snappedY = newY
-    
-    if (resizeSettings.snapToGrid) {
-      snappedX = Math.round(newX / resizeSettings.gridSize) * resizeSettings.gridSize
-      snappedY = Math.round(newY / resizeSettings.gridSize) * resizeSettings.gridSize
+  
+  // Helper functions
+  const getResizeHandle = (x: number, y: number, panel: Panel): string | null => {
+    const handleSize = 8 / canvasState.scale
+    const handles = {
+      'nw': { x: panel.x, y: panel.y },
+      'n': { x: panel.x + panel.width / 2, y: panel.y },
+      'ne': { x: panel.x + panel.width, y: panel.y },
+      'e': { x: panel.x + panel.width, y: panel.y + panel.height / 2 },
+      'se': { x: panel.x + panel.width, y: panel.y + panel.height },
+      's': { x: panel.x + panel.width / 2, y: panel.y + panel.height },
+      'sw': { x: panel.x, y: panel.y + panel.height },
+      'w': { x: panel.x, y: panel.y + panel.height / 2 }
     }
     
-    dispatch({
-      type: 'UPDATE_PANEL',
-      payload: { id: panelId, updates: { x: snappedX, y: snappedY } }
-    })
-  }, [resizeSettings])
-
-  const handleCreatePanel = useCallback((panelData: {
-    width?: number
-    length?: number
-    date?: string
-    panelNumber?: string
-    rollNumber?: string
-    location?: string
-  }) => {
-    try {
-      console.log('🔍 Creating panel with data:', panelData)
-      
-      const newPanel: Panel = {
-        id: `panel-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        shape: 'rectangle',
-        x: 100,
-        y: 100,
-        width: panelData.width ?? 100,
-        height: panelData.length ?? 100,
-        length: panelData.length ?? 100,
-        rotation: 0,
-        fill: '#3b82f6',
-        color: '#3b82f6',
-        meta: {
-          repairs: [],
-          location: { x: 100, y: 100 }
-        },
-        date: panelData.date ?? new Date().toISOString().split('T')[0],
-        panelNumber: panelData.panelNumber ?? 'New',
-        rollNumber: panelData.rollNumber ?? 'R-New',
-        location: panelData.location ?? 'Unknown'
+    for (const [handle, pos] of Object.entries(handles)) {
+      if (Math.abs(x - pos.x) <= handleSize && Math.abs(y - pos.y) <= handleSize) {
+        return handle
       }
-      
-      console.log('🔍 New panel created:', newPanel)
-      console.log('🔍 Current panels before adding:', panels)
-      
-      dispatch({ type: 'ADD_PANEL', payload: newPanel })
-      
-      console.log('🔍 Panel added to state, current panels:', [...panels, newPanel])
-      
-      setIsCreateModalOpen(false)
-      setError(null) // Clear any previous errors
-    } catch (err) {
-      setError('Failed to create panel. Please try again.')
-      console.error('Panel creation error:', err)
     }
-  }, [panels])
-
-  const handleDeletePanel = useCallback(() => {
-    if (selectedPanelId) {
-      dispatch({ type: 'DELETE_PANEL', payload: selectedPanelId })
+    
+    return null
+  }
+  
+  const isRotationHandle = (x: number, y: number, panel: Panel): boolean => {
+    const handleSize = 8 / canvasState.scale
+    const rotationY = panel.y - 30 / canvasState.scale
+    const rotationX = panel.x + panel.width / 2
+    
+    return Math.abs(x - rotationX) <= handleSize && Math.abs(y - rotationY) <= handleSize
+  }
+  
+  const getResizeUpdates = (x: number, y: number, panel: Panel, handle: string, start: { x: number; y: number }): Partial<Panel> | null => {
+    const deltaX = x - start.x
+    const deltaY = y - start.y
+    
+    switch (handle) {
+      case 'nw':
+        return { x: panel.x + deltaX, y: panel.y + deltaY, width: panel.width - deltaX, height: panel.height - deltaY }
+      case 'n':
+        return { y: panel.y + deltaY, height: panel.height - deltaY }
+      case 'ne':
+        return { y: panel.y + deltaY, width: panel.width + deltaX, height: panel.height - deltaY }
+      case 'e':
+        return { width: panel.width + deltaX }
+      case 'se':
+        return { width: panel.width + deltaX, height: panel.height + deltaY }
+      case 's':
+        return { height: panel.height + deltaY }
+      case 'sw':
+        return { x: panel.x + deltaX, width: panel.width - deltaX, height: panel.height + deltaY }
+      case 'w':
+        return { x: panel.x + deltaX, width: panel.width - deltaX }
+      default:
+        return null
     }
-  }, [selectedPanelId])
-
-  const handleExportToDXF = useCallback(async () => {
+  }
+  
+  // Wheel event for zooming
+  const handleWheel = useCallback((e: React.WheelEvent<HTMLCanvasElement>) => {
+    e.preventDefault()
+    
+    const canvas = canvasRef.current
+    if (!canvas) return
+    
+    const rect = canvas.getBoundingClientRect()
+    const mouseX = e.clientX - rect.left
+    const mouseY = e.clientY - rect.top
+    
+    const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1
+    const newScale = Math.max(0.1, Math.min(5, canvasState.scale * zoomFactor))
+    
+    const newOffsetX = mouseX - (mouseX - canvasState.offsetX) * (newScale / canvasState.scale)
+    const newOffsetY = mouseY - (mouseY - canvasState.offsetY) * (newScale / canvasState.scale)
+    
+    setCanvasState(prev => ({
+      ...prev,
+      scale: newScale,
+      offsetX: newOffsetX,
+      offsetY: newOffsetY
+    }))
+  }, [canvasState])
+  
+  // AI suggestion execution
+  const handleExecuteSuggestion = useCallback(async (suggestion: AISuggestion) => {
     try {
-      setIsExporting(true)
-      setError(null)
-      // Simulate export delay
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      console.log('Export to DXF:', panels)
-      // In a real app, this would trigger file download
-    } catch (err) {
-      setError('Failed to export DXF file. Please try again.')
-      console.error('DXF export error:', err)
-    } finally {
-      setIsExporting(false)
+      const optimizedPanels = await executeSuggestion(suggestion, panels.panels)
+      dispatch({ type: 'OPTIMIZE_LAYOUT', payload: optimizedPanels })
+      
+      toast({
+        title: 'AI Optimization Complete',
+        description: `Successfully applied: ${suggestion.title}`,
+      })
+    } catch (error) {
+      toast({
+        title: 'AI Optimization Failed',
+        description: 'Failed to apply AI suggestion. Please try again.',
+        variant: 'destructive'
+      })
     }
-  }, [panels])
-
-  const handleExportToJSON = useCallback(async () => {
-    try {
-      setIsExporting(true)
-      setError(null)
-      // Simulate export delay
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      console.log('Export to JSON:', panels)
-      // In a real app, this would trigger file download
-    } catch (err) {
-      setError('Failed to export JSON file. Please try again.')
-      console.error('JSON export error:', err)
-    } finally {
-      setIsExporting(false)
+  }, [executeSuggestion, panels.panels, toast])
+  
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Delete' && panels.selectedPanelId) {
+        dispatch({ type: 'DELETE_PANEL', payload: panels.selectedPanelId })
+      }
     }
-  }, [panels])
-
-  const handleImportExcel = useCallback(async (file: File) => {
-    console.log('Import Excel:', file)
-  }, [])
-
-  const handleGenerateTemplate = useCallback(() => {
-    console.log('Generate template')
-  }, [])
-
-  const handleAssignRollNumbers = useCallback(() => {
-    console.log('Assign roll numbers')
-  }, [panels])
-
-  const handleReset = useCallback(() => {
-    dispatch({ type: 'RESET_PANELS' })
-  }, [])
-
-  const toggleFullscreen = useCallback(async () => {
-    try {
-      if (!document.fullscreenElement) {
-        if (containerRef.current?.requestFullscreen) {
-          await containerRef.current.requestFullscreen()
-        }
-      } else {
-        if (document.exitFullscreen) {
-          await document.exitFullscreen()
+    
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [panels.selectedPanelId])
+  
+  // Render canvas when dependencies change
+  useEffect(() => {
+    renderCanvas()
+  }, [renderCanvas])
+  
+  // Handle canvas resize
+  useEffect(() => {
+    const handleResize = () => {
+      if (canvasRef.current) {
+        const container = canvasRef.current.parentElement
+        if (container) {
+          const rect = container.getBoundingClientRect()
+          setCanvasWidth(rect.width)
+          setCanvasHeight(rect.height)
         }
       }
-    } catch (e) {
-      console.warn('Fullscreen toggle failed:', e)
-      // Don't toggle state on error - let the fullscreenchange event handle it
     }
+    
+    handleResize()
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
   }, [])
-
-  // Simplified grid lines for performance (no complex conditional logic)
-  const gridLines = useMemo(() => {
-    const lines: JSX.Element[] = []
-    const padding = 200 // Extra padding around viewport
-    const gridSpacing = GRID_CELL_SIZE_FT // Fixed spacing for consistency
-    
-    // Calculate visible grid range based on current viewport
-    const startX = Math.max(0, Math.floor((x - padding) / gridSpacing) * gridSpacing)
-    const endX = Math.min(WORLD_WIDTH_FT, Math.ceil((x + containerSize.width / scale + padding) / gridSpacing) * gridSpacing)
-    const startY = Math.max(0, Math.floor((y - padding) / gridSpacing) * gridSpacing)
-    const endY = Math.min(WORLD_HEIGHT_FT, Math.ceil((y + containerSize.height / scale + padding) / gridSpacing) * gridSpacing)
-    
-    // Limit grid lines for performance
-    const maxGridLines = 40
-    let lineCount = 0
-    
-    // Only render grid lines within visible area
-    for (let gx = startX; gx <= endX && lineCount < maxGridLines; gx += gridSpacing) {
-      lines.push(
-        <Line 
-          key={`gv-${gx}`} 
-          points={[gx, startY, gx, endY]} 
-          stroke="#e5e7eb" 
-          strokeWidth={1} 
-          listening={false} 
-        />
-      )
-      lineCount++
-    }
-    for (let gy = startY; gy <= endY && lineCount < maxGridLines; gy += gridSpacing) {
-      lines.push(
-        <Line 
-          key={`gh-${gy}`} 
-          points={[startX, gy, endX, gy]} 
-          stroke="#e5e7eb" 
-          strokeWidth={1} 
-          listening={false} 
-        />
-      )
-      lineCount++
-    }
-    
-    return lines
-  }, [x, y, scale, containerSize.width, containerSize.height])
-
-  // Simplified viewport culling for performance
-  const visiblePanels = useMemo(() => {
-    console.log('🔍 [PanelLayout] Calculating visiblePanels...');
-    console.log('🔍 [PanelLayout] All panels:', effectivePanels);
-    console.log('🔍 [PanelLayout] Container size:', containerSize);
-    console.log('🔍 [PanelLayout] Viewport position:', { x, y });
-    console.log('🔍 [PanelLayout] Scale:', scale);
-    
-    const filtered = effectivePanels.filter(panel => {
-      const panelBounds = {
-        left: panel.x,
-        top: panel.y,
-        right: panel.x + panel.width,
-        bottom: panel.y + panel.height
-      };
-      
-      const viewportBounds = {
-        left: -x / scale,
-        top: -y / scale,
-        right: (-x + containerSize.width) / scale,
-        bottom: (-y + containerSize.height) / scale
-      };
-      
-      const isVisible = !(
-        panelBounds.right < viewportBounds.left ||
-        panelBounds.left > viewportBounds.right ||
-        panelBounds.bottom < viewportBounds.top ||
-        panelBounds.top > viewportBounds.bottom
-      );
-      
-      console.log('🔍 [PanelLayout] Panel visibility check:', {
-        id: panel.id,
-        panelBounds,
-        viewportBounds,
-        isVisible
-      });
-      
-      return isVisible;
-    });
-    
-    console.log('🔍 [PanelLayout] Visible panels result:', filtered);
-    console.log('🔍 [PanelLayout] Visible panels count:', filtered.length);
-    
-    return filtered;
-  }, [effectivePanels, containerSize, x, y, scale])
-
-  // Update visible panels when panels change
-  useEffect(() => {
-    console.log('🔍 [PanelLayout] useEffect triggered - panels changed');
-    console.log('🔍 [PanelLayout] New panels array:', effectivePanels);
-    console.log('🔍 [PanelLayout] Panels count:', effectivePanels.length);
-    console.log('🔍 [PanelLayout] First panel example:', effectivePanels[0]);
-    
-    // Recalculate visible panels
-    const newVisiblePanels = effectivePanels.filter(panel => {
-      const panelBounds = {
-        left: panel.x,
-        top: panel.y,
-        right: panel.x + panel.width,
-        bottom: panel.y + panel.height
-      };
-      
-      const viewportBounds = {
-        left: -x / scale,
-        top: -y / scale,
-        right: (-x + containerSize.width) / scale,
-        bottom: (-y + containerSize.height) / scale
-      };
-      
-      const isVisible = panelBounds.left < viewportBounds.right &&
-                       panelBounds.right > viewportBounds.left &&
-                       panelBounds.top < viewportBounds.bottom &&
-                       panelBounds.bottom > viewportBounds.top;
-      
-      console.log('🔍 [PanelLayout] Panel visibility check:', {
-        panelId: panel.id,
-        panelBounds,
-        viewportBounds,
-        isVisible
-      });
-      
-      return isVisible;
-    });
-    
-    console.log('🔍 [PanelLayout] New visible panels calculated:', newVisiblePanels);
-    // setVisiblePanels(newVisiblePanels); // This line was removed as per the edit hint
-  }, [effectivePanels, x, y, scale, containerSize.width, containerSize.height])
-
-  // Sync external panels with internal state and notify parent
-  useEffect(() => {
-    if (externalPanels && onPanelUpdate) {
-      console.log('🔍 [PanelLayout] Syncing external panels with internal state');
-      console.log('🔍 [PanelLayout] External panels:', externalPanels);
-      
-      // Update internal state to match external panels
-      dispatch({ type: 'SET_PANELS', payload: externalPanels });
-      
-      // Notify parent of any changes
-      onPanelUpdate(externalPanels);
-    }
-  }, [externalPanels, onPanelUpdate]);
-
-  // Simplified panel rendering function (no conditional hook dependencies)
-  const renderPanel = useCallback((panel: Panel) => {
-    console.log('🔍 [PanelLayout] renderPanel called for panel:', panel.id, panel);
-    
-    const isSelected = panel.id === selectedPanelId
-    
-    console.log('🔍 [PanelLayout] Panel render details:', {
-      id: panel.id,
-      isSelected,
-      x: panel.x,
-      y: panel.y,
-      width: panel.width,
-      height: panel.height,
-      fill: panel.fill,
-      color: panel.color
-    });
-    
-    return (
-      <Group key={panel.id}>
-        <Rect
-          x={panel.x}
-          y={panel.y}
-          width={panel.width}
-          height={panel.height}
-          fill={isSelected ? '#ef4444' : panel.fill ?? '#3b82f6'}
-          stroke={isSelected ? '#dc2626' : panel.color ?? '#1e40af'}
-          strokeWidth={isSelected ? 3 : 2}
-          cornerRadius={4}
-          draggable
-          onDragEnd={(e: any) => {
-            const pos = e.target.position()
-            handlePanelDragEnd(panel.id, pos.x, pos.y)
-          }}
-          onClick={() => handlePanelClick(panel.id)}
-        />
-        <Text
-          x={panel.x + 5}
-          y={panel.y + 5}
-          text={panel.panelNumber ?? panel.id}
-          fontSize={12}
-          fill="#ffffff"
-          stroke="#000000"
-          strokeWidth={0.5}
-          listening={false}
-        />
-      </Group>
-    )
-  }, [selectedPanelId, handlePanelDragEnd, handlePanelClick])
-
-  // Simple panel filtering for performance (no conditional hook calls)
-  const renderablePanels = useMemo(() => {
-    console.log('🔍 [PanelLayout] Calculating renderablePanels...');
-    console.log('🔍 [PanelLayout] visiblePanels:', visiblePanels);
-    console.log('🔍 [PanelLayout] renderablePanels result:', visiblePanels);
-    return visiblePanels
-  }, [visiblePanels])
-
+  
   return (
-    <div className="flex flex-col lg:flex-row gap-0 w-full h-screen">
-      {/* Collapsible Control Panel */}
-      <div className={`bg-white border-r border-neutral-200 shadow-lg transition-all duration-300 ease-in-out ${
-        isControlPanelCollapsed ? 'w-16' : 'w-full lg:w-80'
-      }`}>
-        <div className="flex flex-col h-full">
-          <div className="p-4 border-b border-neutral-200 flex items-center justify-between">
-            {!isControlPanelCollapsed && <h3 className="font-semibold text-neutral-800">Controls</h3>}
-            <button
-              onClick={() => setIsControlPanelCollapsed(!isControlPanelCollapsed)}
-              className="p-1 rounded hover:bg-gray-100 transition-colors"
-              aria-label={isControlPanelCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-              title={isControlPanelCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            >
-              {isControlPanelCollapsed ? (
-                <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              ) : (
-                <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
+    <div className="panel-layout-container">
+      {/* AI Assistant Panel */}
+      {aiState.isActive && (
+        <Card className="mb-4 border-l-4 border-l-blue-500">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Brain className="h-5 w-5 text-blue-500" />
+              AI Assistant
+              {aiState.isProcessing && (
+                <Badge variant="secondary" className="ml-2">
+                  Processing...
+                </Badge>
               )}
-            </button>
-          </div>
-          
-          <div className={`flex-1 overflow-y-auto transition-all duration-300 ${
-            isControlPanelCollapsed ? 'p-2' : 'p-4 space-y-4'
-          }`}>
-            {/* Zoom Controls */}
-            <div className={`${isControlPanelCollapsed ? 'space-y-2' : 'space-y-2'}`}>
-              {!isControlPanelCollapsed && <h4 className="text-sm font-medium text-neutral-700">Navigation</h4>}
-              <div className={`${isControlPanelCollapsed ? 'space-y-2' : 'grid grid-cols-2 gap-2'}`}>
-                <button 
-                  className={`${isControlPanelCollapsed ? 'w-full p-2' : 'px-3 py-2'} bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2`}
-                  onClick={zoomIn}
-                  aria-label="Zoom in"
-                  title="Zoom in"
-                >
-                  {isControlPanelCollapsed ? (
-                    <svg className="w-4 h-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7" />
-                    </svg>
-                  ) : (
-                    'Zoom +'
-                  )}
-                </button>
-                <button 
-                  className={`${isControlPanelCollapsed ? 'w-full p-2' : 'px-3 py-2'} bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2`}
-                  onClick={zoomOut}
-                  aria-label="Zoom out"
-                  title="Zoom out"
-                >
-                  {isControlPanelCollapsed ? (
-                    <svg className="w-4 h-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 13v-6m-3 3h6" />
-                    </svg>
-                  ) : (
-                    'Zoom -'
-                  )}
-                </button>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {aiState.isProcessing ? (
+              <div className="space-y-3">
+                <p className="text-sm text-gray-600">{aiState.currentTask}</p>
+                <Progress value={aiState.progress} className="w-full" />
               </div>
-              <button 
-                className={`${isControlPanelCollapsed ? 'w-full p-2' : 'w-full px-3 py-2'} border border-gray-300 rounded hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2`}
-                onClick={fitToExtent}
-                aria-label="Fit to view"
-                title="Fit to view"
-              >
-                {isControlPanelCollapsed ? (
-                  <svg className="w-4 h-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-                  </svg>
-                ) : (
-                  'Fit to View'
-                )}
-              </button>
-            </div>
-
-            {/* Panel Actions */}
-            <div className={`${isControlPanelCollapsed ? 'space-y-2' : 'space-y-2'}`}>
-              {!isControlPanelCollapsed && <h4 className="text-sm font-medium text-neutral-700">Panels</h4>}
-              <button 
-                className={`${isControlPanelCollapsed ? 'w-full p-2' : 'w-full px-3 py-2'} bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed`}
-                onClick={() => setIsCreateModalOpen(true)}
-                aria-label="Add panel"
-                title="Add panel"
-              >
-                {isControlPanelCollapsed ? (
-                  <svg className="w-4 h-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                  </svg>
-                ) : (
-                  'Add Panel'
-                )}
-              </button>
-              <button 
-                className={`${isControlPanelCollapsed ? 'w-full p-2' : 'w-full px-3 py-2'} border border-gray-300 rounded hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed`}
-                onClick={handleDeletePanel}
-                disabled={!selectedPanelId}
-                aria-label="Delete panel"
-                title="Delete panel"
-              >
-                {isControlPanelCollapsed ? (
-                  <svg className="w-4 h-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                ) : (
-                  'Delete Panel'
-                )}
-              </button>
-            </div>
-
-            {/* Export/Import */}
-            <div className={`${isControlPanelCollapsed ? 'space-y-2' : 'space-y-2'}`}>
-              {!isControlPanelCollapsed && <h4 className="text-sm font-medium text-neutral-700">Data</h4>}
-              <button 
-                className={`${isControlPanelCollapsed ? 'w-full p-2' : 'w-full px-3 py-2'} border border-gray-300 rounded hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed`}
-                onClick={handleExportToDXF}
-                disabled={panels.length === 0 || isExporting}
-                aria-label="Export DXF"
-                title="Export DXF"
-              >
-                {isControlPanelCollapsed ? (
-                  <svg className="w-4 h-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                ) : (
-                  isExporting ? (
-                    <div className="flex items-center justify-center">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
-                      Exporting...
+            ) : (
+              <div className="space-y-3">
+                {aiState.suggestions.map(suggestion => (
+                  <div key={suggestion.id} className="flex items-start justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Badge 
+                          variant={suggestion.priority === 'high' ? 'destructive' : suggestion.priority === 'medium' ? 'secondary' : 'outline'}
+                          className="text-xs"
+                        >
+                          {suggestion.priority}
+                        </Badge>
+                        <Badge variant="outline" className="text-xs">
+                          {suggestion.impact}
+                        </Badge>
+                      </div>
+                      <h4 className="font-medium text-sm">{suggestion.title}</h4>
+                      <p className="text-xs text-gray-600">{suggestion.description}</p>
                     </div>
-                  ) : (
-                    'Export DXF'
-                  )
-                )}
-              </button>
-              <button 
-                className={`${isControlPanelCollapsed ? 'w-full p-2' : 'w-full px-3 py-2'} border border-gray-300 rounded hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed`}
-                onClick={handleExportToJSON}
-                disabled={panels.length === 0 || isExporting}
-                aria-label="Export JSON"
-                title="Export JSON"
-              >
-                {isControlPanelCollapsed ? (
-                  <svg className="w-4 h-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 01-2-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                ) : (
-                  isExporting ? (
-                    <div className="flex items-center justify-center">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
-                      Exporting...
-                    </div>
-                  ) : (
-                    'Export JSON'
-                  )
-                )}
-              </button>
-            </div>
-
-            {/* Fullscreen Toggle */}
-            <div className={`${isControlPanelCollapsed ? 'space-y-2' : 'space-y-2'}`}>
-              {!isControlPanelCollapsed && <h4 className="text-sm font-medium text-neutral-700">Display</h4>}
-              <button 
-                className={`${isControlPanelCollapsed ? 'w-full p-2' : 'w-full px-3 py-2'} border border-gray-300 rounded hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2`}
-                onClick={toggleFullscreen}
-                aria-label={isFullscreen ? 'Exit full screen' : 'Enter full screen'}
-                title={isFullscreen ? 'Exit full screen' : 'Enter full screen'}
-              >
-                {isControlPanelCollapsed ? (
-                  <svg className="w-4 h-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-                  </svg>
-                ) : (
-                  isFullscreen ? 'Exit Full Screen' : 'Full Screen'
-                )}
-              </button>
-            </div>
-
-            {/* Performance Status */}
-            {!isControlPanelCollapsed && (
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium text-neutral-700">Performance</h4>
-                <div className="text-xs text-neutral-600 space-y-1">
-                  <div>Total Panels: {panels.length}</div>
-                  <div>Visible: {visiblePanels.length}</div>
-                  <div>Rendered: {renderablePanels.length}</div>
-                  <div>Zoom: {scale.toFixed(2)}x</div>
-                </div>
+                    <Button
+                      size="sm"
+                      onClick={() => handleExecuteSuggestion(suggestion)}
+                      className="ml-3"
+                    >
+                      {suggestion.action}
+                    </Button>
+                  </div>
+                ))}
               </div>
             )}
-
-            {/* Reset */}
-            <div className={`${isControlPanelCollapsed ? 'space-y-2' : 'space-y-2'}`}>
-              <button 
-                className={`${isControlPanelCollapsed ? 'w-full p-2' : 'w-full px-3 py-2'} border border-gray-300 rounded hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2`}
-                onClick={handleReset}
-                aria-label="Reset panels"
-                title="Reset panels"
-              >
-                {isControlPanelCollapsed ? (
-                  <svg className="w-4 h-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                ) : (
-                  'Reset'
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Canvas Area */}
-      <div className="flex-1 relative bg-[#f7f7f7] min-h-0">
-        {/* Error Display */}
-        {error && (
-          <div className="absolute top-4 left-4 right-4 z-10 bg-red-50 border border-red-200 rounded-md p-4 shadow-sm">
-            <div className="flex items-center">
-              <svg className="w-5 h-5 text-red-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <div className="flex-1">
-                <h3 className="text-sm font-medium text-red-800">Error</h3>
-                <p className="text-sm text-red-700 mt-1">{error}</p>
-              </div>
-              <button
-                onClick={() => setError(null)}
-                className="text-red-400 hover:text-red-600 transition-colors"
-                aria-label="Dismiss error"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-          </div>
-        )}
-        
-        {/* Loading Overlay */}
-        {isLoading && (
-          <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-20">
-            <div className="bg-white rounded-lg shadow-lg p-6 flex flex-col items-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-4"></div>
-              <p className="text-gray-600">Loading...</p>
-            </div>
-          </div>
-        )}
-        
-        {/* Canvas Container */}
-        <div 
-          ref={containerRef} 
-          className="w-full h-full"
-          style={{ height: isFullscreen ? '100vh' : '100%' }}
-        >
-          {isMounted && (
-            <Stage
-              ref={stageRef}
-              width={containerSize.width}
-              height={containerSize.height}
-              onWheel={handleWheel}
-              onMouseDown={(e: any) => {
-                if (e.target === e.target.getStage()) {
-                  setIsDragging(true)
-                }
-              }}
-              onMouseUp={() => setIsDragging(false)}
-              onMouseMove={throttledMouseMove}
-              onDoubleClick={(e: any) => {
-                if (e.target === e.target.getStage()) {
-                  fitToExtent()
-                }
-              }}
-            >
-              <Layer>
-                {/* Grid Lines */}
-                {gridLines}
-                
-                {/* Panels */}
-                {(() => {
-                  console.log('🔍 [PanelLayout] About to render panels in Stage');
-                  console.log('🔍 [PanelLayout] renderablePanels count:', renderablePanels.length);
-                  console.log('🔍 [PanelLayout] renderablePanels:', renderablePanels);
-                  console.log('🔍 [PanelLayout] renderPanel function type:', typeof renderPanel);
-                  
-                  if (renderablePanels.length === 0) {
-                    console.log('🔍 [PanelLayout] No panels to render');
-                    return null;
-                  }
-                  
-                  const renderedPanels = renderablePanels.map(renderPanel);
-                  console.log('🔍 [PanelLayout] Rendered panels result:', renderedPanels);
-                  console.log('🔍 [PanelLayout] Rendered panels count:', renderedPanels.length);
-                  
-                  return renderedPanels;
-                })()}
-              </Layer>
-            </Stage>
-          )}
-        </div>
-      </div>
-
-      {/* Enhanced Create Panel Modal */}
-      {isCreateModalOpen && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-          onClick={(e) => e.target === e.currentTarget && setIsCreateModalOpen(false)}
-          onKeyDown={(e) => e.key === 'Escape' && setIsCreateModalOpen(false)}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="modal-title"
-          tabIndex={-1}
-        >
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto mx-4">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 id="modal-title" className="text-lg font-semibold text-gray-900">Create New Panel</h3>
-                <button
-                  onClick={() => setIsCreateModalOpen(false)}
-                  className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-full hover:bg-gray-100"
-                  aria-label="Close modal"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              
-              <form onSubmit={(e) => {
-                e.preventDefault()
-                const formData = new FormData(e.currentTarget)
-                handleCreatePanel({
-                  panelNumber: formData.get('panelNumber') as string || 'New Panel',
-                  width: Number(formData.get('width')) || 100,
-                  length: Number(formData.get('length')) || 100,
-                  date: new Date().toISOString().split('T')[0],
-                  rollNumber: 'R-New',
-                  location: 'Unknown'
-                })
-              }} className="space-y-4">
-                <div>
-                  <label htmlFor="panelNumber" className="block text-sm font-medium text-gray-700 mb-1">
-                    Panel Number *
-                  </label>
-                  <input 
-                    id="panelNumber"
-                    name="panelNumber"
-                    type="text" 
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                    placeholder="Enter panel number"
-                    defaultValue="New Panel"
-                  />
-                </div>
-                
-                <div>
-                  <label htmlFor="width" className="block text-sm font-medium text-gray-700 mb-1">
-                    Width (ft) *
-                  </label>
-                  <input 
-                    id="width"
-                    name="width"
-                    type="number" 
-                    required
-                    min="1"
-                    max="1000"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                    placeholder="Width in feet"
-                    defaultValue="100"
-                  />
-                </div>
-                
-                <div>
-                  <label htmlFor="length" className="block text-sm font-medium text-gray-700 mb-1">
-                    Length (ft) *
-                  </label>
-                  <input 
-                    id="length"
-                    name="length"
-                    type="number" 
-                    required
-                    min="1"
-                    max="1000"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                    placeholder="Length in feet"
-                    defaultValue="100"
-                  />
-                </div>
-                
-                <div className="flex gap-3 pt-2">
-                  <button 
-                    type="submit"
-                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Create Panel
-                  </button>
-                  <button 
-                    type="button"
-                    onClick={() => setIsCreateModalOpen(false)}
-                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       )}
+      
+      {/* Canvas Wrapper */}
+      <div className="canvas-wrapper relative">
+        <canvas
+          ref={canvasRef}
+          width={canvasWidth}
+          height={canvasHeight}
+          className="panel-canvas border border-gray-200 rounded-lg"
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onWheel={handleWheel}
+          style={{
+            cursor: isDragging ? 'grabbing' : 
+                   isResizing ? 'nw-resize' : 
+                   isRotating ? 'crosshair' : 'default'
+          }}
+        />
+        
+        {/* AI Assistant Toggle */}
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={toggleAssistant}
+          className="absolute top-4 right-4 z-10"
+        >
+          <Brain className="h-4 w-4 mr-2" />
+          {aiState.isActive ? 'Hide AI' : 'Show AI'}
+        </Button>
+      </div>
+      
+      {/* Enhanced Control Toolbar */}
+      <div className="control-toolbar mt-4 p-4 bg-white border border-gray-200 rounded-lg">
+        <div className="flex flex-wrap items-center gap-4">
+          {/* Zoom Controls */}
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={zoomOut}>
+              <ZoomOut className="h-4 w-4" />
+            </Button>
+            <span className="text-sm font-medium min-w-[60px] text-center">
+              {Math.round(canvasState.scale * 100)}%
+            </span>
+            <Button size="sm" variant="outline" onClick={zoomIn}>
+              <ZoomIn className="h-4 w-4" />
+            </Button>
+            <Button size="sm" variant="outline" onClick={resetView}>
+              <RotateCcw className="h-4 w-4" />
+            </Button>
+          </div>
+          
+          {/* View Controls */}
+          <div className="flex items-center gap-2">
+            <Button 
+              size="sm" 
+              variant={canvasState.showGrid ? "default" : "outline"} 
+              onClick={toggleGrid}
+            >
+              <Grid className="h-4 w-4 mr-2" />
+              Grid
+            </Button>
+            <Button 
+              size="sm" 
+              variant={canvasState.showGuides ? "default" : "outline"} 
+              onClick={toggleGuides}
+            >
+              <Target className="h-4 w-4 mr-2" />
+              Guides
+            </Button>
+            <Button 
+              size="sm" 
+              variant={canvasState.snapToGrid ? "default" : "outline"} 
+              onClick={toggleSnap}
+            >
+              <Zap className="h-4 w-4 mr-2" />
+              Snap
+            </Button>
+          </div>
+          
+          {/* AI Controls */}
+          <div className="flex items-center gap-2">
+            <Button 
+              size="sm" 
+              variant="outline" 
+              onClick={() => generateSuggestions(panels.panels, projectInfo)}
+              disabled={panels.panels.length === 0}
+            >
+              <Sparkles className="h-4 w-4 mr-2" />
+              Analyze
+            </Button>
+          </div>
+          
+          {/* Project Info */}
+          <div className="ml-auto text-right">
+            <p className="text-sm font-medium">{projectInfo.projectName}</p>
+            <p className="text-xs text-gray-500">{panels.panels.length} panels</p>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

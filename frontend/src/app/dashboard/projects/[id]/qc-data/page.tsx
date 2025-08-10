@@ -26,25 +26,40 @@ interface QCData {
   notes: string;
 }
 
-export default function QCDataPage({ params }: { params: { id: string } }) {
+export default function QCDataPage({ params }: { params: Promise<{ id: string }> }) {
   const [project, setProject] = useState<Project | null>(null);
   const [qcData, setQCData] = useState<QCData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [projectId, setProjectId] = useState<string>('');
   const { toast } = useToast();
   const router = useRouter();
-  const { id } = params;
 
   useEffect(() => {
+    const loadParams = async () => {
+      try {
+        const resolvedParams = await params;
+        setProjectId(resolvedParams.id);
+      } catch (error) {
+        console.error('Failed to resolve params:', error);
+      }
+    };
+    
+    loadParams();
+  }, [params]);
+
+  useEffect(() => {
+    if (!projectId) return;
+    
     const loadProjectAndQCData = async () => {
       try {
         setIsLoading(true);
         
         // Load project details
-        const projectData = await fetchProjectById(id);
+        const projectData = await fetchProjectById(projectId);
         setProject(projectData);
         
         // Load QC data
-        const qcDataResult = await fetchQCData(id);
+        const qcDataResult = await fetchQCData(projectId);
         setQCData(qcDataResult);
       } catch (error) {
         toast({
@@ -58,7 +73,7 @@ export default function QCDataPage({ params }: { params: { id: string } }) {
     };
 
     loadProjectAndQCData();
-  }, [id, toast]);
+  }, [projectId, toast]);
 
   const handleQCDataAdded = (newData: QCData | QCData[]) => {
     if (Array.isArray(newData)) {
@@ -105,7 +120,7 @@ export default function QCDataPage({ params }: { params: { id: string } }) {
           <h1 className="text-2xl font-bold">QC Data: {project.name}</h1>
           <p className="text-gray-500">Manage quality control data for this project</p>
         </div>
-        <Button variant="outline" onClick={() => router.push(`/dashboard/projects/${id}`)}>
+        <Button variant="outline" onClick={() => router.push(`/dashboard/projects/${projectId}`)}>
           Back to Project
         </Button>
       </div>
@@ -123,7 +138,7 @@ export default function QCDataPage({ params }: { params: { id: string } }) {
               <CardTitle>Manual QC Data Entry</CardTitle>
             </CardHeader>
             <CardContent>
-              <QCForm projectId={id} onSubmit={handleQCDataAdded} />
+              <QCForm projectId={projectId} onSubmit={handleQCDataAdded} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -134,7 +149,7 @@ export default function QCDataPage({ params }: { params: { id: string } }) {
               <CardTitle>Import QC Data from Excel</CardTitle>
             </CardHeader>
             <CardContent>
-              <ExcelImporter projectId={id} onImportComplete={handleQCDataAdded} />
+              <ExcelImporter projectId={projectId} onImportComplete={handleQCDataAdded} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -145,7 +160,7 @@ export default function QCDataPage({ params }: { params: { id: string } }) {
               <CardTitle>QC Data Visualization</CardTitle>
             </CardHeader>
             <CardContent>
-              <DataVisualizer projectId={id} qcData={qcData} />
+              <DataVisualizer projectId={projectId} qcData={qcData} />
             </CardContent>
           </Card>
         </TabsContent>

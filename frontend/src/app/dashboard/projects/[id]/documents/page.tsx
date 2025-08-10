@@ -25,25 +25,40 @@ interface Document {
   uploadedBy: string;
 }
 
-export default function DocumentsPage({ params }: { params: { id: string } }) {
+export default function DocumentsPage({ params }: { params: Promise<{ id: string }> }) {
   const [project, setProject] = useState<Project | null>(null);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [projectId, setProjectId] = useState<string>('');
   const { toast } = useToast();
   const router = useRouter();
-  const { id } = params;
 
   useEffect(() => {
+    const loadParams = async () => {
+      try {
+        const resolvedParams = await params;
+        setProjectId(resolvedParams.id);
+      } catch (error) {
+        console.error('Failed to resolve params:', error);
+      }
+    };
+    
+    loadParams();
+  }, [params]);
+
+  useEffect(() => {
+    if (!projectId) return;
+    
     const loadProjectAndDocuments = async () => {
       try {
         setIsLoading(true);
         
         // Load project details
-        const projectData = await fetchProjectById(id);
+        const projectData = await fetchProjectById(projectId);
         setProject(projectData);
         
         // Load documents
-        const documentsData = await fetchDocuments(id);
+        const documentsData = await fetchDocuments(projectId);
         setDocuments(documentsData);
       } catch (error) {
         toast({
@@ -57,7 +72,7 @@ export default function DocumentsPage({ params }: { params: { id: string } }) {
     };
 
     loadProjectAndDocuments();
-  }, [id, toast]);
+  }, [projectId, toast]);
 
   const handleDocumentUpload = (newDocuments: Document[]) => {
     setDocuments((prev) => [...newDocuments, ...prev]);
@@ -104,7 +119,7 @@ export default function DocumentsPage({ params }: { params: { id: string } }) {
           <h1 className="text-2xl font-bold">Documents: {project.name}</h1>
           <p className="text-gray-500">Upload, manage, and analyze project documents</p>
         </div>
-        <Button variant="outline" onClick={() => router.push(`/dashboard/projects/${id}`)}>
+        <Button variant="outline" onClick={() => router.push(`/dashboard/projects/${projectId}`)}>
           Back to Project
         </Button>
       </div>
@@ -123,7 +138,7 @@ export default function DocumentsPage({ params }: { params: { id: string } }) {
             </CardHeader>
             <CardContent>
               <DocumentUploader 
-                projectId={id} 
+                projectId={projectId} 
                 onUploadComplete={handleDocumentUpload}
               />
             </CardContent>
@@ -151,7 +166,7 @@ export default function DocumentsPage({ params }: { params: { id: string } }) {
             </CardHeader>
             <CardContent>
               <AIAnalysis 
-                projectId={id} 
+                projectId={projectId} 
                 documents={documents} 
               />
             </CardContent>

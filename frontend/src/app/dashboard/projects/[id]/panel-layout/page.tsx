@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
 import { useWebSocket } from '@/hooks/use-websocket';
@@ -511,7 +511,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
     setPosition({ x: 0, y: 0 });
   };
 
-  const handlePanelUpdate = async (updatedPanels: Panel[]) => {
+  const handlePanelUpdate = useCallback(async (updatedPanels: Panel[]) => {
     console.log('🔍 [PanelLayoutPage] handlePanelUpdate called with panels:', updatedPanels);
     console.log('🔍 [PanelLayoutPage] Updated panels count:', updatedPanels.length);
     console.log('🔍 [PanelLayoutPage] First panel example:', updatedPanels[0]);
@@ -584,9 +584,9 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
     }
     
     console.log('🔍 [PanelLayoutPage] handlePanelUpdate completed successfully');
-  };
+  }, [id, isConnected, sendMessage, user?.id]);
 
-  const handleAddPanel = (panel: Panel) => {
+  const handleAddPanel = useCallback((panel: Panel) => {
     console.log('🔍 [PanelLayoutPage] handleAddPanel called with panel:', panel);
     console.log('🔍 [PanelLayoutPage] Current layout:', layout);
     console.log('🔍 [PanelLayoutPage] Layout panels count:', layout?.panels?.length);
@@ -607,8 +607,8 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
     
     console.log('🔍 [PanelLayoutPage] Calling handlePanelUpdate with new panels');
     handlePanelUpdate(newPanels);
-    console.log('🔍 [PanelLayoutPage] handlePanelUpdate called successfully');
-  };
+    console.log('🔍 [PanelLayoutPage] handleAddPanel called successfully');
+  }, [layout, handlePanelUpdate]);
 
   // Add a test function to create sample panels
   const createTestPanels = () => {

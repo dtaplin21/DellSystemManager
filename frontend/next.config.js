@@ -1,9 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Temporarily disable API routes that require environment variables during build
-  experimental: {
-    appDir: true,
-  },
+  // Remove deprecated experimental.appDir option
   async rewrites() {
     return [
       {

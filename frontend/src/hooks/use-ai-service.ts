@@ -110,10 +110,15 @@ export const usePanelOptimization = () => {
     }
   }, [toast]);
 
+  const clearHistory = useCallback(() => {
+    setOptimizationHistory([]);
+  }, []);
+
   return {
     optimizePanels,
     isOptimizing,
-    optimizationHistory
+    optimizationHistory,
+    clearHistory
   };
 };
 
@@ -137,7 +142,7 @@ export const useDocumentAnalysis = () => {
 
       if (result.success) {
         const analysis = {
-          document_text: documentText,
+          documentText: documentText.substring(0, 100) + '...',
           question,
           result: result.result,
           timestamp: new Date()
@@ -171,10 +176,15 @@ export const useDocumentAnalysis = () => {
     }
   }, [toast]);
 
+  const clearHistory = useCallback(() => {
+    setAnalysisHistory([]);
+  }, []);
+
   return {
     analyzeDocument,
     isAnalyzing,
-    analysisHistory
+    analysisHistory,
+    clearHistory
   };
 };
 
@@ -198,8 +208,8 @@ export const useDataExtraction = () => {
 
       if (result.success) {
         const extraction = {
-          document_text: documentText,
-          extraction_type: extractionType,
+          documentText: documentText.substring(0, 100) + '...',
+          extractionType,
           result: result.result,
           timestamp: new Date()
         };
@@ -232,33 +242,40 @@ export const useDataExtraction = () => {
     }
   }, [toast]);
 
+  const clearHistory = useCallback(() => {
+    setExtractionHistory([]);
+  }, []);
+
   return {
     extractData,
     isExtracting,
-    extractionHistory
+    extractionHistory,
+    clearHistory
   };
 };
 
-// Hook for QC Analysis
+// Hook for QC Data Analysis
 export const useQCAnalysis = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisHistory, setAnalysisHistory] = useState<any[]>([]);
   const { toast } = useToast();
 
   const analyzeQCData = useCallback(async (
-    qcData: any[]
+    qcData: any[],
+    analysisType: string = 'comprehensive'
   ): Promise<AIResponse> => {
     setIsAnalyzing(true);
     
     try {
       const result = await callAIService(
         AI_SERVICE_CONFIG.endpoints.analyzeQC,
-        { qc_data: qcData }
+        { qc_data: qcData, analysis_type: analysisType }
       );
 
       if (result.success) {
         const analysis = {
-          qc_data: qcData,
+          qcDataCount: qcData.length,
+          analysisType,
           result: result.result,
           timestamp: new Date()
         };
@@ -291,38 +308,45 @@ export const useQCAnalysis = () => {
     }
   }, [toast]);
 
+  const clearHistory = useCallback(() => {
+    setAnalysisHistory([]);
+  }, []);
+
   return {
     analyzeQCData,
     isAnalyzing,
-    analysisHistory
+    analysisHistory,
+    clearHistory
   };
 };
 
 // Hook for Project Recommendations
 export const useProjectRecommendations = () => {
   const [isGenerating, setIsGenerating] = useState(false);
-  const [recommendationsHistory, setRecommendationsHistory] = useState<any[]>([]);
+  const [recommendationHistory, setRecommendationHistory] = useState<any[]>([]);
   const { toast } = useToast();
 
   const generateRecommendations = useCallback(async (
-    projectData: any
+    projectData: any,
+    recommendationType: string = 'general'
   ): Promise<AIResponse> => {
     setIsGenerating(true);
     
     try {
       const result = await callAIService(
         AI_SERVICE_CONFIG.endpoints.recommendations,
-        { project_data: projectData }
+        { project_data: projectData, recommendation_type: recommendationType }
       );
 
       if (result.success) {
-        const recommendations = {
-          project_data: projectData,
+        const recommendation = {
+          projectData: projectData,
+          recommendationType,
           result: result.result,
           timestamp: new Date()
         };
 
-        setRecommendationsHistory(prev => [...prev, recommendations]);
+        setRecommendationHistory(prev => [...prev, recommendation]);
 
         toast({
           title: "Recommendations Generated",
@@ -350,20 +374,25 @@ export const useProjectRecommendations = () => {
     }
   }, [toast]);
 
+  const clearHistory = useCallback(() => {
+    setRecommendationHistory([]);
+  }, []);
+
   return {
     generateRecommendations,
     isGenerating,
-    recommendationsHistory
+    recommendationHistory,
+    clearHistory
   };
 };
 
 // Hook for AI Service Health Check
 export const useAIServiceHealth = () => {
-  const [isChecking, setIsChecking] = useState(false);
   const [healthStatus, setHealthStatus] = useState<any>(null);
+  const [isChecking, setIsChecking] = useState(false);
   const { toast } = useToast();
 
-  const checkHealth = useCallback(async (): Promise<AIResponse> => {
+  const checkHealth = useCallback(async (): Promise<boolean> => {
     setIsChecking(true);
     
     try {
@@ -376,29 +405,63 @@ export const useAIServiceHealth = () => {
       const result = await response.json();
       setHealthStatus(result);
 
-      toast({
-        title: "AI Service Status",
-        description: result.ai_service === 'healthy' ? 'AI service is operational' : 'AI service has issues',
-        variant: result.ai_service === 'healthy' ? 'default' : 'destructive',
-      });
-
-      return { success: true, result };
+      if (result.status === 'healthy') {
+        toast({
+          title: "AI Service Healthy",
+          description: "All AI services are operational",
+        });
+        return true;
+      } else {
+        toast({
+          title: "AI Service Issues",
+          description: "Some AI services may have issues",
+          variant: "destructive",
+        });
+        return false;
+      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       toast({
-        title: "Health Check Failed",
+        title: "AI Service Unavailable",
         description: errorMessage,
         variant: "destructive",
       });
-      return { success: false, error: errorMessage };
+      return false;
     } finally {
       setIsChecking(false);
     }
   }, [toast]);
 
+  const getAvailableModels = useCallback(async (): Promise<any[]> => {
+    try {
+      const response = await fetch(`${AI_SERVICE_CONFIG.baseUrl}${AI_SERVICE_CONFIG.endpoints.models}`);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to get models: ${response.status}`);
+      }
+
+      const result = await response.json();
+      return result.models ? Object.values(result.models) : [];
+    } catch (error) {
+      console.error('Failed to get available models:', error);
+      return [];
+    }
+  }, []);
+
   return {
     checkHealth,
-    isChecking,
-    healthStatus
+    getAvailableModels,
+    healthStatus,
+    isChecking
   };
+};
+
+// Export all hooks for easy access
+export {
+  usePanelOptimization,
+  useDocumentAnalysis,
+  useDataExtraction,
+  useQCAnalysis,
+  useProjectRecommendations,
+  useAIServiceHealth
 }; 

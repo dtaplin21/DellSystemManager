@@ -98,40 +98,56 @@ async def extract_document_data():
         extraction_prompt = extraction_prompts.get(extraction_type, extraction_prompts['qc_data'])
         
         # Use OpenAI for extraction
-        prompt = f"{extraction_prompt}\n\nDocument: {document_text}"
+        prompt = f"{extraction_prompt}\n\nDocument: {document_text}\n\nPlease provide the extracted data in JSON format."
         response = openai.ChatCompletion.create(
             model="gpt-4o",
             messages=[{"role": "user", "content": prompt}],
-            max_tokens=1000
+            max_tokens=1500
         )
         result = response.choices[0].message.content
         
-        return jsonify({"result": result, "success": True})
+        # Try to parse JSON from response
+        try:
+            parsed_result = json.loads(result)
+            return jsonify({"result": parsed_result, "success": True})
+        except json.JSONDecodeError:
+            return jsonify({"result": result, "success": True, "note": "Result is not in JSON format"})
+            
     except Exception as e:
         logger.error(f"Document extraction failed: {e}")
         return jsonify({"error": str(e), "success": False}), 500
 
-# === ENHANCED QC ANALYSIS ROUTES ===
 @ai_enhanced_bp.route('/api/ai/qc/analyze', methods=['POST'])
 @cross_origin()
 async def analyze_qc_data():
-    """Analyze QC data using OpenAI"""
+    """Analyze QC data using OpenAI for pattern recognition and anomaly detection"""
     try:
         data = request.get_json()
         qc_data = data.get('qc_data', [])
+        analysis_type = data.get('analysis_type', 'comprehensive')
         
         if not qc_data:
             return jsonify({"error": "No QC data provided", "success": False}), 400
         
-        # Convert QC data to JSON string for analysis
-        qc_data_json = json.dumps(qc_data)
+        # Define analysis prompts based on type
+        analysis_prompts = {
+            'comprehensive': "Analyze this QC data comprehensively. Look for patterns, trends, anomalies, and provide insights about data quality, consistency, and potential issues.",
+            'anomalies': "Identify anomalies and outliers in this QC data. Highlight any values that seem unusual or outside expected ranges.",
+            'trends': "Analyze trends in this QC data over time. Identify any patterns, seasonal variations, or systematic changes.",
+            'quality': "Assess the overall quality of this QC data. Identify any data integrity issues, missing values, or inconsistencies."
+        }
+        
+        analysis_prompt = analysis_prompts.get(analysis_type, analysis_prompts['comprehensive'])
+        
+        # Convert QC data to readable format
+        qc_data_text = json.dumps(qc_data, indent=2)
         
         # Use OpenAI for analysis
-        prompt = f"Analyze this QC data and provide insights: {qc_data_json}"
+        prompt = f"{analysis_prompt}\n\nQC Data:\n{qc_data_text}\n\nPlease provide a detailed analysis with specific findings and recommendations."
         response = openai.ChatCompletion.create(
             model="gpt-4o",
             messages=[{"role": "user", "content": prompt}],
-            max_tokens=1000
+            max_tokens=2000
         )
         result = response.choices[0].message.content
         
@@ -140,100 +156,147 @@ async def analyze_qc_data():
         logger.error(f"QC analysis failed: {e}")
         return jsonify({"error": str(e), "success": False}), 500
 
-# === ENHANCED PROJECT RECOMMENDATIONS ===
 @ai_enhanced_bp.route('/api/ai/projects/recommendations', methods=['POST'])
 @cross_origin()
 async def generate_recommendations():
-    """Generate project recommendations using OpenAI"""
+    """Generate project recommendations using OpenAI based on project data and requirements"""
     try:
         data = request.get_json()
         project_data = data.get('project_data', {})
+        recommendation_type = data.get('recommendation_type', 'general')
         
         if not project_data:
             return jsonify({"error": "No project data provided", "success": False}), 400
         
+        # Define recommendation prompts based on type
+        recommendation_prompts = {
+            'general': "Based on this project data, provide general recommendations for project planning, risk mitigation, and best practices.",
+            'materials': "Analyze the project requirements and provide specific material recommendations, including alternatives and cost optimization strategies.",
+            'timeline': "Based on the project scope and constraints, provide timeline recommendations and critical path analysis.",
+            'quality': "Provide quality assurance and quality control recommendations based on the project specifications and requirements.",
+            'safety': "Analyze the project for potential safety considerations and provide safety recommendations and best practices."
+        }
+        
+        recommendation_prompt = recommendation_prompts.get(recommendation_type, recommendation_prompts['general'])
+        
+        # Convert project data to readable format
+        project_data_text = json.dumps(project_data, indent=2)
+        
         # Use OpenAI for recommendations
-        prompt = f"Generate project recommendations based on this data: {json.dumps(project_data)}"
+        prompt = f"{recommendation_prompt}\n\nProject Data:\n{project_data_text}\n\nPlease provide specific, actionable recommendations with rationale."
         response = openai.ChatCompletion.create(
             model="gpt-4o",
             messages=[{"role": "user", "content": prompt}],
-            max_tokens=1000
+            max_tokens=2000
         )
         result = response.choices[0].message.content
         
         return jsonify({"result": result, "success": True})
     except Exception as e:
-        logger.error(f"Recommendations generation failed: {e}")
+        logger.error(f"Recommendation generation failed: {e}")
         return jsonify({"error": str(e), "success": False}), 500
 
-# === UTILITY ROUTES ===
 @ai_enhanced_bp.route('/api/ai/models', methods=['GET'])
 @cross_origin()
 async def get_available_models():
-    """Get available AI models and their configurations"""
+    """Get available AI models and their capabilities"""
     try:
-        models_info = {
-            "gpt-4o": {
-                "name": "gpt-4o",
-                "tier": "cloud_premium",
-                "cost_per_1k_tokens": 0.005,
-                "max_context": 128000,
-                "specialized_for": ["document_analysis", "panel_optimization", "qc_analysis", "recommendations"]
+        models = {
+            "openai": {
+                "gpt-4o": {
+                    "name": "GPT-4 Omni",
+                    "capabilities": ["text_analysis", "reasoning", "document_processing", "code_generation"],
+                    "max_tokens": 128000,
+                    "cost_per_1k_tokens": 0.005
+                },
+                "gpt-4-turbo": {
+                    "name": "GPT-4 Turbo",
+                    "capabilities": ["text_analysis", "reasoning", "document_processing"],
+                    "max_tokens": 128000,
+                    "cost_per_1k_tokens": 0.03
+                },
+                "gpt-3.5-turbo": {
+                    "name": "GPT-3.5 Turbo",
+                    "capabilities": ["text_analysis", "basic_reasoning", "document_processing"],
+                    "max_tokens": 16384,
+                    "cost_per_1k_tokens": 0.002
+                }
+            },
+            "local": {
+                "llama3:8b": {
+                    "name": "Llama 3 8B",
+                    "capabilities": ["text_analysis", "basic_reasoning"],
+                    "max_tokens": 8192,
+                    "cost_per_1k_tokens": 0.0
+                }
             }
         }
         
-        return jsonify(models_info)
+        return jsonify({"models": models, "success": True})
     except Exception as e:
-        logger.error(f"Model info failed: {e}")
+        logger.error(f"Failed to get models: {e}")
         return jsonify({"error": str(e), "success": False}), 500
 
 @ai_enhanced_bp.route('/api/ai/health', methods=['GET'])
 @cross_origin()
 async def health_check():
-    """Health check for AI services"""
+    """Health check for AI service"""
     try:
+        # Test OpenAI connection
+        try:
+            response = openai.ChatCompletion.create(
+                model="gpt-3.5-turbo",
+                messages=[{"role": "user", "content": "Hello"}],
+                max_tokens=5
+            )
+            openai_status = "connected"
+        except Exception as e:
+            openai_status = f"error: {str(e)}"
+        
         health_status = {
-            "ai_service": "healthy",
-            "provider": "OpenAI",
-            "model": "gpt-4o",
-            "available_features": [
-                "document_analysis",
-                "panel_optimization", 
-                "qc_analysis",
-                "data_extraction",
-                "recommendations"
-            ]
+            "status": "healthy",
+            "timestamp": str(datetime.datetime.now()),
+            "services": {
+                "openai": openai_status,
+                "document_processing": "available",
+                "qc_analysis": "available"
+            }
         }
+        
         return jsonify(health_status)
     except Exception as e:
         logger.error(f"Health check failed: {e}")
-        return jsonify({"error": str(e), "success": False}), 500
+        return jsonify({"status": "unhealthy", "error": str(e)}), 500
 
 # === ERROR HANDLERS ===
 @ai_enhanced_bp.errorhandler(404)
 def not_found(error):
-    return jsonify({"error": "AI route not found", "success": False}), 404
+    return jsonify({"error": "Endpoint not found", "success": False}), 404
 
 @ai_enhanced_bp.errorhandler(500)
 def internal_error(error):
-    return jsonify({"error": "Internal AI service error", "success": False}), 500
+    return jsonify({"error": "Internal server error", "success": False}), 500
 
 # === REGISTRATION FUNCTION ===
 def register_ai_enhanced_routes(app):
-    """Register AI enhanced routes with Flask app"""
+    """Register all AI enhanced routes with the Flask app"""
     app.register_blueprint(ai_enhanced_bp)
-    logger.info("AI enhanced routes registered successfully")
-
-# === USAGE EXAMPLE ===
-if __name__ == "__main__":
-    from flask import Flask
     
-    app = Flask(__name__)
-    register_ai_enhanced_routes(app)
-    
-    # Test routes
+    # Add a test route to verify integration
     @app.route('/test/ai')
     def test_ai():
-        return "AI enhanced routes are working!"
-    
-    app.run(debug=True, port=5001) 
+        return jsonify({
+            "message": "AI Enhanced Routes are working!",
+            "endpoints": [
+                "/api/ai/panels/optimize",
+                "/api/ai/documents/analyze",
+                "/api/ai/documents/extract",
+                "/api/ai/qc/analyze",
+                "/api/ai/projects/recommendations",
+                "/api/ai/models",
+                "/api/ai/health"
+            ]
+        })
+
+# Import datetime for health check
+import datetime 
