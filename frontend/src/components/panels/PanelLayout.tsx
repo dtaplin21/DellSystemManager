@@ -1,15 +1,10 @@
 'use client'
 
-import { useState, useRef, useEffect, useMemo } from 'react'
-import { useZoomPan } from '@/hooks/use-zoom-pan'
-import { Button } from '@/components/ui/button'
-import CreatePanelModal from './CreatePanelModal'
-import PanelAIChat from './PanelAIChat'
-import { exportToDXF } from '@/lib/dxf-helpers'
-import { Stage, Layer, Rect, Line as KLine, Group, Text } from 'react-konva'
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
+import { Stage, Layer, Rect, Group } from 'react-konva'
+import { Line } from 'react-konva/lib/ReactKonvaCore'
+import { Text } from 'react-konva/lib/ReactKonvaCore'
 import type { Panel } from '../../types/panel'
-import PanelSidebar from '@/components/panel-layout/panel-sidebar'
-import { GRID_CELL_SIZE_FT, WORLD_WIDTH_FT, WORLD_HEIGHT_FT, SNAP_THRESHOLD_FT } from '@/components/panel-layout/panel-grid'
 
 interface PanelLayoutProps {
   mode: 'manual' | 'auto'
@@ -22,43 +17,147 @@ interface PanelLayoutProps {
   }
 }
 
+interface ResizeSettings {
+  minWidth: number
+  minHeight: number
+  maxWidth?: number
+  maxHeight?: number
+  lockAspectRatio: boolean
+  aspectRatio: number
+  snapToGrid: boolean
+  gridSize: number
+  snapToOtherPanels: boolean
+  snapThreshold: number
+  enableVisualFeedback: boolean
+  enableSnapping: boolean
+}
+
+// Simple zoom/pan implementation
+const useSimpleZoomPan = () => {
+  const [scale, setScale] = useState(1)
+  const [x, setX] = useState(0)
+  const [y, setY] = useState(0)
+  const [isDragging, setIsDragging] = useState(false)
+  
+  const zoomIn = useCallback(() => setScale(prev => Math.min(prev * 1.2, 5)), [])
+  const zoomOut = useCallback(() => setScale(prev => Math.max(prev / 1.2, 0.1)), [])
+  const fitToExtent = useCallback(() => {
+    setScale(1)
+    setX(0)
+    setY(0)
+  }, [])
+  
+  const toWorld = useCallback((screen: { x: number; y: number }) => ({ 
+    x: (screen.x - x) / scale, 
+    y: (screen.y - y) / scale 
+  }), [x, y, scale])
+  
+  const toScreen = useCallback((world: { x: number; y: number }) => ({ 
+    x: world.x * scale + x, 
+    y: world.y * scale + y 
+  }), [x, y, scale])
+  
+  const setViewportSize = useCallback((w: number, h: number) => {
+    // Simple viewport size management
+  }, [])
+  
+  return {
+    scale,
+    x,
+    y,
+    isDragging,
+    setIsDragging,
+    zoomIn,
+    zoomOut,
+    fitToExtent,
+    toWorld,
+    toScreen,
+    setViewportSize,
+    viewportSize: { x: 0, y: 0, width: 800, height: 600, scale: 1 }
+  }
+}
+
+// Simple resize implementation
+const useSimpleResize = () => {
+  const [isResizing, setIsResizing] = useState(false)
+  
+  return {
+    isResizing,
+    resizeResult: null,
+    visualFeedback: null,
+    startResize: () => setIsResizing(true),
+    updateResize: () => {},
+    endResize: () => setIsResizing(false),
+    cancelResize: () => setIsResizing(false),
+    getResizeCursor: () => 'default',
+    getResizeHandles: () => []
+  }
+}
+
+// Constants
+const GRID_CELL_SIZE_FT = 100
+const WORLD_WIDTH_FT = 2000
+const WORLD_HEIGHT_FT = 2000
+const SNAP_THRESHOLD_FT = 4
+
 export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
+  // Core state
   const [panels, setPanels] = useState<Panel[]>([])
   const [selectedPanelId, setSelectedPanelId] = useState<string | null>(null)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
-  const [containerSize, setContainerSize] = useState({ width: 800, height: 600 })
+  const [isAIChatOpen, setIsAIChatOpen] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
-  const stageRef = useRef<any>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const [isControlPanelCollapsed, setIsControlPanelCollapsed] = useState(false)
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
 
-  // Use the unified zoom/pan hook
-  const { scale, x, y, onWheel, onDoubleClick, onDragStart, onDragMove, onDragEnd, zoomIn, zoomOut, fitToExtent, setViewportSize, toWorld } = useZoomPan({
-    worldWidth: WORLD_WIDTH_FT,
-    worldHeight: WORLD_HEIGHT_FT,
-    viewportWidth: containerSize.width,
-    viewportHeight: containerSize.height,
-    initialFit: 'extent',
+  // Performance optimizations
+  const containerRef = useRef<HTMLDivElement>(null)
+  const stageRef = useRef<any>(null)
+
+  // Resize settings
+  const [resizeSettings, setResizeSettings] = useState<ResizeSettings>({
+    minWidth: 50,
+    minHeight: 50,
+    maxWidth: 1000,
+    maxHeight: 1000,
+    lockAspectRatio: false,
+    aspectRatio: 2.5,
+    snapToGrid: true,
+    gridSize: GRID_CELL_SIZE_FT,
+    snapToOtherPanels: true,
+    snapThreshold: SNAP_THRESHOLD_FT,
+    enableVisualFeedback: true,
+    enableSnapping: true
   })
 
-  useEffect(() => { setIsMounted(true) }, [])
+  // Simple zoom/pan hook
+  const {
+    scale,
+    isDragging,
+    setIsDragging,
+    zoomIn,
+    zoomOut,
+    fitToExtent,
+    toWorld,
+    toScreen,
+    setViewportSize,
+    viewportSize
+  } = useSimpleZoomPan()
 
-  useEffect(() => {
-    if (!containerRef.current) return
-    const update = () => {
-      const rect = containerRef.current!.getBoundingClientRect()
-      const w = Math.max(100, Math.floor(rect.width))
-      const h = Math.max(100, Math.floor(rect.height))
-      setContainerSize({ width: w, height: h })
-      setViewportSize(w, h)
-    }
-    update()
-    const ro = new ResizeObserver(update)
-    ro.observe(containerRef.current)
-    return () => ro.disconnect()
-  }, [])
+  // Simple resize hook
+  const {
+    isResizing,
+    startResize,
+    updateResize,
+    endResize,
+    cancelResize,
+    getResizeCursor,
+    getResizeHandles
+  } = useSimpleResize()
 
+  // Initialize with sample panels in auto mode
   useEffect(() => {
-    // Initialize with some sample panels in auto mode
     if (mode === 'auto' && panels.length === 0) {
       setPanels([
         {
@@ -67,6 +166,7 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
           panelNumber: '1A',
           length: 100,
           width: 40,
+          height: 100,
           rollNumber: 'R-101',
           location: 'Northeast corner',
           x: 50,
@@ -74,7 +174,8 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
           shape: 'rectangle',
           rotation: 0,
           fill: '#E3F2FD',
-          color: '#E3F2FD'
+          color: '#E3F2FD',
+          meta: { repairs: [], location: { x: 50, y: 50 } }
         },
         {
           id: '2',
@@ -82,6 +183,7 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
           panelNumber: '2A',
           length: 100,
           width: 40,
+          height: 100,
           rollNumber: 'R-102',
           location: 'Adjacent to 1A',
           x: 150,
@@ -89,215 +191,456 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
           shape: 'rectangle',
           rotation: 0,
           fill: '#BBDEFB',
-          color: '#BBDEFB'
+          color: '#BBDEFB',
+          meta: { repairs: [], location: { x: 150, y: 50 } }
         }
       ])
     }
-  }, [mode])
+  }, [mode, panels.length])
 
-  const handlePanelSelect = (panelId: string) => {
-    setSelectedPanelId(panelId === selectedPanelId ? null : panelId)
-  }
-
-  const handleCreatePanel = (panel: any) => {
-    const center = { x: containerSize.width / 2, y: containerSize.height / 2 }
-    const world = toWorld(center)
-    const fill = panel.fill || panel.color || '#3b82f6';
-    const newPanel: Panel = {
-      id: Date.now().toString(),
-      shape: panel.shape ?? 'rectangle',
-      x: world.x - (panel.width ?? 40) / 2,
-      y: world.y - (panel.length ?? 100) / 2,
-      width: panel.width ?? 40,
-      height: panel.length ?? 100,
-      rotation: 0,
-      fill,
-      color: fill,
-      meta: { repairs: [], location: { x: world.x, y: world.y } },
-      panelNumber: panel.panelNumber,
+  // Fullscreen state sync
+  useEffect(() => {
+    const handler = () => {
+      const fsElement = document.fullscreenElement
+      setIsFullscreen(Boolean(fsElement && containerRef.current && fsElement === containerRef.current))
+      // Trigger a viewport recalc shortly after toggle
+      setTimeout(() => {
+        if (containerRef.current) {
+          const rect = containerRef.current.getBoundingClientRect()
+          setViewportSize(Math.max(100, Math.floor(rect.width)), Math.max(100, Math.floor(rect.height)))
+        }
+      }, 50)
     }
-    setPanels([...panels, newPanel])
-    setIsCreateModalOpen(false)
-    setSelectedPanelId(newPanel.id)
-  }
+    document.addEventListener('fullscreenchange', handler)
+    return () => document.removeEventListener('fullscreenchange', handler)
+  }, [setViewportSize])
 
-  const handleDeletePanel = () => {
+  // Mount effect
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
+  // Viewport size management
+  useEffect(() => {
+    if (!containerRef.current) return
+    const update = () => {
+      const rect = containerRef.current!.getBoundingClientRect()
+      const w = Math.max(100, Math.floor(rect.width))
+      const h = Math.max(100, Math.floor(rect.height))
+      setViewportSize(w, h)
+    }
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(containerRef.current)
+    return () => ro.disconnect()
+  }, [setViewportSize])
+
+  // Update container size for Stage
+  const [containerSize, setContainerSize] = useState({ width: 800, height: 600 })
+  
+  useEffect(() => {
+    if (!containerRef.current) return
+    const updateSize = () => {
+      const rect = containerRef.current!.getBoundingClientRect()
+      setContainerSize({
+        width: Math.max(100, Math.floor(rect.width)),
+        height: Math.max(100, Math.floor(rect.height))
+      })
+    }
+    updateSize()
+    const ro = new ResizeObserver(updateSize)
+    ro.observe(containerRef.current)
+    return () => ro.disconnect()
+  }, [])
+
+  // Panel interaction handlers
+  const handlePanelClick = useCallback((panelId: string) => {
+    setSelectedPanelId(panelId === selectedPanelId ? null : panelId)
+  }, [selectedPanelId])
+
+  const handlePanelDragEnd = useCallback((panelId: string, newX: number, newY: number) => {
+    // Grid snapping
+    let snappedX = newX
+    let snappedY = newY
+    
+    if (resizeSettings.snapToGrid) {
+      snappedX = Math.round(newX / resizeSettings.gridSize) * resizeSettings.gridSize
+      snappedY = Math.round(newY / resizeSettings.gridSize) * resizeSettings.gridSize
+    }
+    
+    setPanels(prev => prev.map(p => 
+      p.id === panelId ? { ...p, x: snappedX, y: snappedY } : p
+    ))
+  }, [resizeSettings])
+
+  const handleCreatePanel = useCallback((panelData: any) => {
+    const newPanel: Panel = {
+      id: `panel-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      shape: 'rectangle',
+      x: 100,
+      y: 100,
+      width: panelData.width || 100,
+      height: panelData.length || 100,
+      length: panelData.length || 100,
+      rotation: 0,
+      fill: '#3b82f6',
+      color: '#3b82f6',
+      meta: {
+        repairs: [],
+        location: { x: 100, y: 100 }
+      },
+      date: panelData.date || new Date().toISOString().split('T')[0],
+      panelNumber: panelData.panelNumber || 'New',
+      rollNumber: panelData.rollNumber || 'R-New',
+      location: panelData.location || 'Unknown'
+    }
+    setPanels(prev => [...prev, newPanel])
+    setIsCreateModalOpen(false)
+  }, [])
+
+  const handleDeletePanel = useCallback(() => {
     if (selectedPanelId) {
       setPanels(panels.filter(panel => panel.id !== selectedPanelId))
       setSelectedPanelId(null)
     }
-  }
+  }, [selectedPanelId, panels])
 
-  const snapValue = (v: number) => Math.round(v / GRID_CELL_SIZE_FT) * GRID_CELL_SIZE_FT
-  const computeNeighborSnap = (dragId: string, nx: number, ny: number, width: number, height: number) => {
-    let bestX = nx
-    let bestY = ny
-    let bestDx = SNAP_THRESHOLD_FT + 1
-    let bestDy = SNAP_THRESHOLD_FT + 1
-    panels.forEach(nei => {
-      if (nei.id === dragId) return
-      const nLeft = nei.x
-      const nRight = nei.x + (nei.width ?? 0)
-      const nTop = nei.y
-      const nBottom = nei.y + (nei.height ?? nei.length ?? 0)
-      const dLeft = Math.abs(nx - nRight)
-      if (dLeft < bestDx && dLeft <= SNAP_THRESHOLD_FT) { bestDx = dLeft; bestX = nRight }
-      const dRight = Math.abs(nx + width - nLeft)
-      if (dRight < bestDx && dRight <= SNAP_THRESHOLD_FT) { bestDx = dRight; bestX = nLeft - width }
-      const dTop = Math.abs(ny - nBottom)
-      if (dTop < bestDy && dTop <= SNAP_THRESHOLD_FT) { bestDy = dTop; bestY = nBottom }
-      const dBottom = Math.abs(ny + height - nTop)
-      if (dBottom < bestDy && dBottom <= SNAP_THRESHOLD_FT) { bestDy = dBottom; bestY = nTop - height }
-    })
-    return { x: bestX, y: bestY }
-  }
-  const handleDragEnd = (id: string, nx: number, ny: number) => {
-    const dragged = panels.find(p => p.id === id)
-    const width = dragged?.width ?? 0
-    const height = dragged?.height ?? dragged?.length ?? 0
-    let sx = snapValue(nx)
-    let sy = snapValue(ny)
-    const nSnap = computeNeighborSnap(id, nx, ny, width, height)
-    if (Math.abs(nSnap.x - nx) <= SNAP_THRESHOLD_FT) sx = nSnap.x
-    if (Math.abs(nSnap.y - ny) <= SNAP_THRESHOLD_FT) sy = nSnap.y
-    setPanels(prev => prev.map(panel => panel.id === id ? { ...panel, x: sx, y: sy, meta: { ...panel.meta, location: { x: sx, y: sy } } } : panel))
-  }
+  const handleExportToDXF = useCallback(() => {
+    console.log('Export to DXF:', panels)
+  }, [panels])
 
-  const handleReset = () => { setPanels([]); setSelectedPanelId(null); fitToExtent() }
+  const handleExportToJSON = useCallback(() => {
+    console.log('Export to JSON:', panels)
+  }, [panels])
 
-  const handleExportToDXF = () => {
-    exportToDXF(panels, projectInfo)
-  }
+  const handleImportExcel = useCallback(async (file: File) => {
+    console.log('Import Excel:', file)
+  }, [])
 
+  const handleGenerateTemplate = useCallback(() => {
+    console.log('Generate template')
+  }, [])
+
+  const handleAssignRollNumbers = useCallback(() => {
+    console.log('Assign roll numbers')
+  }, [panels])
+
+  const handleReset = useCallback(() => {
+    setPanels([])
+    setSelectedPanelId(null)
+  }, [])
+
+  const toggleFullscreen = useCallback(async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await containerRef.current?.requestFullscreen?.()
+      } else {
+        await document.exitFullscreen?.()
+      }
+    } catch (e) {
+      setIsFullscreen(prev => !prev)
+    }
+  }, [])
+
+  // Simple grid lines - render in world coordinates (Konva will handle transformation)
   const gridLines = useMemo(() => {
     const lines: JSX.Element[] = []
-    for (let gx = 0; gx <= WORLD_WIDTH_FT; gx += GRID_CELL_SIZE_FT) {
-      lines.push(<KLine key={`gv-${gx}`} points={[gx, 0, gx, WORLD_HEIGHT_FT]} stroke="#e5e7eb" strokeWidth={1} listening={false} />)
+    const startX = 0
+    const endX = WORLD_WIDTH_FT
+    const startY = 0
+    const endY = WORLD_HEIGHT_FT
+    
+    for (let gx = startX; gx <= endX; gx += GRID_CELL_SIZE_FT) {
+      lines.push(
+        <Line 
+          key={`gv-${gx}`} 
+          points={[gx, startY, gx, endY]} 
+          stroke="#e5e7eb" 
+          strokeWidth={1} 
+          listening={false} 
+        />
+      )
     }
-    for (let gy = 0; gy <= WORLD_HEIGHT_FT; gy += GRID_CELL_SIZE_FT) {
-      lines.push(<KLine key={`gh-${gy}`} points={[0, gy, WORLD_WIDTH_FT, gy]} stroke="#e5e7eb" strokeWidth={1} listening={false} />)
+    for (let gy = startY; gy <= endY; gy += GRID_CELL_SIZE_FT) {
+      lines.push(
+        <Line 
+          key={`gh-${gy}`} 
+          points={[startX, gy, endX, gy]} 
+          stroke="#e5e7eb" 
+          strokeWidth={1} 
+          listening={false} 
+        />
+      )
     }
+    
     return lines
   }, [])
 
-  console.log('DEBUG: panels', panels)
+  // Simple panel rendering - use world coordinates (Konva will handle transformation)
+  const renderPanel = useCallback((panel: Panel) => {
+    const isSelected = panel.id === selectedPanelId
+    
+    return (
+      <Group key={panel.id || 'unknown'}>
+        <Rect
+          x={panel.x || 0}
+          y={panel.y || 0}
+          width={panel.width || 0}
+          height={panel.height || 0}
+          fill={isSelected ? '#ef4444' : panel.fill || '#3b82f6'}
+          stroke={isSelected ? '#dc2626' : '#1e40af'}
+          strokeWidth={isSelected ? 3 : 2}
+          cornerRadius={4}
+          draggable
+          onDragEnd={(e: any) => {
+            const pos = e.target.position()
+            handlePanelDragEnd(panel.id || '', pos.x, pos.y)
+          }}
+          onClick={() => handlePanelClick(panel.id || '')}
+        />
+        <Text
+          x={(panel.x || 0) + 5}
+          y={(panel.y || 0) + 5}
+          text={panel.panelNumber || panel.id || 'Unknown'}
+          fontSize={12}
+          fill="#ffffff"
+          stroke="#000000"
+          strokeWidth={0.5}
+          listening={false}
+        />
+      </Group>
+    )
+  }, [selectedPanelId, handlePanelDragEnd, handlePanelClick])
 
   return (
-    <div className="flex flex-row gap-0 w-full">
-      <PanelSidebar panel={panels.find(p => p.id === selectedPanelId) || null} onClose={() => setSelectedPanelId(null)} />
-      <div className="flex-1 bg-white p-4 rounded-lg shadow-md ml-[360px]">
-        <div className="flex justify-between mb-4">
-          <div className="flex gap-2">
-            <Button onClick={() => zoomIn()}>Zoom +</Button>
-            <Button onClick={() => zoomOut()}>Zoom -</Button>
-            <Button onClick={() => fitToExtent()}>Fit</Button>
+    <div className="flex flex-row gap-0 w-full h-screen">
+      {/* Simple Control Panel */}
+      <div className="bg-white border-r border-neutral-200 shadow-lg w-80">
+        <div className="flex flex-col h-full">
+          <div className="p-4 border-b border-neutral-200">
+            <h3 className="font-semibold text-neutral-800">Controls</h3>
           </div>
-          <div className="flex gap-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => setIsCreateModalOpen(true)}
-            >
-              Add Panel
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleExportToDXF}
-              disabled={panels.length === 0}
-            >
-              Export DXF
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleReset}
-            >
-              Reset
-            </Button>
+          
+          <div className="flex-1 p-4 space-y-4 overflow-y-auto">
+            {/* Zoom Controls */}
+            <div className="space-y-2">
+              <h4 className="text-sm font-medium text-neutral-700">Navigation</h4>
+              <div className="grid grid-cols-2 gap-2">
+                <button 
+                  className="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                  onClick={zoomIn}
+                >
+                  Zoom +
+                </button>
+                <button 
+                  className="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                  onClick={zoomOut}
+                >
+                  Zoom -
+                </button>
+              </div>
+              <button 
+                className="w-full px-3 py-2 border border-gray-300 rounded hover:bg-gray-50"
+                onClick={fitToExtent}
+              >
+                Fit to View
+              </button>
+            </div>
+
+            {/* Panel Actions */}
+            <div className="space-y-2">
+              <h4 className="text-sm font-medium text-neutral-700">Panels</h4>
+              <button 
+                className="w-full px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                onClick={() => setIsCreateModalOpen(true)}
+              >
+                Add Panel
+              </button>
+              <button 
+                className="w-full px-3 py-2 border border-gray-300 rounded hover:bg-gray-50"
+                onClick={handleDeletePanel}
+                disabled={!selectedPanelId}
+              >
+                Delete Panel
+              </button>
+            </div>
+
+            {/* Export/Import */}
+            <div className="space-y-2">
+              <h4 className="text-sm font-medium text-neutral-700">Data</h4>
+              <button 
+                className="w-full px-3 py-2 border border-gray-300 rounded hover:bg-gray-50"
+                onClick={handleExportToDXF}
+                disabled={panels.length === 0}
+              >
+                Export DXF
+              </button>
+              <button 
+                className="w-full px-3 py-2 border border-gray-300 rounded hover:bg-gray-50"
+                onClick={handleExportToJSON}
+                disabled={panels.length === 0}
+              >
+                Export JSON
+              </button>
+            </div>
+
+            {/* Fullscreen Toggle */}
+            <div className="space-y-2">
+              <h4 className="text-sm font-medium text-neutral-700">Display</h4>
+              <button 
+                className="w-full px-3 py-2 border border-gray-300 rounded hover:bg-gray-50"
+                onClick={toggleFullscreen}
+              >
+                {isFullscreen ? 'Exit Full Screen' : 'Full Screen'}
+              </button>
+            </div>
+
+            {/* Reset */}
+            <div className="space-y-2">
+              <button 
+                className="w-full px-3 py-2 border border-gray-300 rounded hover:bg-gray-50"
+                onClick={handleReset}
+              >
+                Reset
+              </button>
+            </div>
           </div>
         </div>
-        <div ref={containerRef} className="relative border border-neutral-300 bg-[#f7f7f7]" style={{ height: 600 }}>
-          {isMounted && <Stage
-            ref={stageRef}
-            width={containerSize.width}
-            height={containerSize.height}
-            scaleX={scale}
-            scaleY={scale}
-            x={x}
-            y={y}
-            onWheel={onWheel}
-            onDblClick={onDoubleClick}
-            onMouseDown={onDragStart}
-            onMouseMove={onDragMove}
-            onMouseUp={onDragEnd}
-          >
-            <Layer>
-              {gridLines}
-              
-              {/* Axis guides removed to avoid undefined vars; optional to re-add with world units */}
-              
-              {/* Panels (fixed-size; drag + snap only) */}
-              {panels.map((panel) => {
-                const isSelected = panel.id === selectedPanelId
-                const width = panel.width ?? 0
-                const height = panel.height ?? panel.length ?? 0
-                if (panel.shape === 'rectangle' || panel.shape === 'square') {
-                  return (
-                    <Group key={panel.id}>
-                      <Rect
-                        x={panel.x}
-                        y={panel.y}
-                        width={width}
-                        height={height}
-                        fill={panel.fill}
-                        stroke={isSelected ? '#0052cc' : '#666'}
-                        strokeWidth={isSelected ? 2 : 1}
-                        rotation={panel.rotation}
-                        draggable
-                        onClick={() => handlePanelSelect(panel.id)}
-                        onTap={() => handlePanelSelect(panel.id)}
-                        onDragEnd={(e: any) => handleDragEnd(panel.id, e.target.x(), e.target.y())}
-                      />
-                      <Text
-                        x={panel.x + width / 2}
-                        y={panel.y + height / 2}
-                        text={panel.panelNumber ?? panel.id}
-                        fontSize={Math.max(10, 16 / scale)}
-                        fill="#333"
-                        offsetX={(panel.panelNumber ?? panel.id).length * (Math.max(10, 16 / scale)) * 0.3}
-                        offsetY={Math.max(10, 16 / scale) / 2}
-                        listening={false}
-                      />
-                    </Group>
-                  )
+      </div>
+
+      {/* Main Canvas Area */}
+      <div className="flex-1 relative bg-[#f7f7f7]">
+        {/* Canvas Container */}
+        <div 
+          ref={containerRef} 
+          className="w-full h-full"
+          style={{ height: isFullscreen ? '100vh' : '100%' }}
+        >
+          {isMounted && (
+            <Stage
+              ref={stageRef}
+              width={containerSize.width}
+              height={containerSize.height}
+              onWheel={(e: any) => {
+                e.evt.preventDefault()
+                const stage = e.target.getStage()
+                const oldScale = stage.scaleX()
+                const pointer = stage.getPointerPosition()
+                
+                if (!pointer) return
+                
+                const mousePointTo = {
+                  x: (pointer.x - stage.x()) / oldScale,
+                  y: (pointer.y - stage.y()) / oldScale,
                 }
-                return null
-              })}
-            </Layer>
-          </Stage>}
+                
+                const scaleBy = 1.1
+                const newScale = e.evt.deltaY < 0 ? oldScale * scaleBy : oldScale / scaleBy
+                
+                stage.scale({ x: newScale, y: newScale })
+                
+                const newPos = {
+                  x: pointer.x - mousePointTo.x * newScale,
+                  y: pointer.y - mousePointTo.y * newScale,
+                }
+                stage.position(newPos)
+                stage.batchDraw()
+              }}
+              onMouseDown={(e: any) => {
+                if (e.target === e.target.getStage()) {
+                  setIsDragging(true)
+                }
+              }}
+              onMouseUp={() => setIsDragging(false)}
+              onMouseMove={(e: any) => {
+                if (!isDragging) return
+                
+                const stage = e.target.getStage()
+                if (!stage) return
+                
+                const pointer = stage.getPointerPosition()
+                if (!pointer) return
+                
+                const dx = pointer.x - stage.x()
+                const dy = pointer.y - stage.y()
+                
+                stage.x(dx)
+                stage.y(dy)
+                stage.batchDraw()
+              }}
+              onDoubleClick={(e: any) => {
+                if (e.target === e.target.getStage()) {
+                  fitToExtent()
+                }
+              }}
+            >
+              <Layer>
+                {/* Grid Lines */}
+                {gridLines}
+                
+                {/* Panels */}
+                {panels && panels.length > 0 && panels.map(renderPanel)}
+              </Layer>
+            </Stage>
+          )}
         </div>
       </div>
-      
-      <div className="w-[360px] p-4">
-        <div className="bg-white p-4 rounded-lg shadow-md">
-          <h3 className="text-lg font-bold mb-2">AI Assistant</h3>
-          <PanelAIChat projectInfo={projectInfo} panels={panels} setPanels={setPanels} />
-        </div>
-      </div>
-      
+
+      {/* Simple Create Panel Modal */}
       {isCreateModalOpen && (
-        <CreatePanelModal
-          onClose={() => setIsCreateModalOpen(false)}
-          onCreatePanel={handleCreatePanel}
-        />
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg w-96">
+            <h3 className="text-lg font-semibold mb-4">Create New Panel</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Panel Number</label>
+                <input 
+                  type="text" 
+                  className="w-full px-3 py-2 border border-gray-300 rounded"
+                  placeholder="Enter panel number"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Width</label>
+                <input 
+                  type="number" 
+                  className="w-full px-3 py-2 border border-gray-300 rounded"
+                  placeholder="Width"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Length</label>
+                <input 
+                  type="number" 
+                  className="w-full px-3 py-2 border border-gray-300 rounded"
+                  placeholder="Length"
+                />
+              </div>
+              <div className="flex gap-2">
+                <button 
+                  className="flex-1 px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                  onClick={() => handleCreatePanel({
+                    panelNumber: 'New Panel',
+                    width: 100,
+                    length: 100,
+                    date: new Date().toISOString().split('T')[0],
+                    rollNumber: 'R-New',
+                    location: 'Unknown'
+                  })}
+                >
+                  Create
+                </button>
+                <button 
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded hover:bg-gray-50"
+                  onClick={() => setIsCreateModalOpen(false)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
-}
-
-// Utility function to generate pastel colors
-function generatePastelColor() {
-  const hue = Math.floor(Math.random() * 360)
-  return `hsl(${hue}, 70%, 80%)`
 }

@@ -74,6 +74,7 @@ function mapBackendPanelToFrontend(panel: any): CanonicalPanel | null {
     date: panel.date || '',
     panelNumber: panel.panel_number || panel.panelNumber || '',
     length: panel.length || panel.height || 0,
+    height: panel.height || panel.length || 0,
     width: panel.width || 0,
     rollNumber: panel.roll_number || panel.rollNumber || '',
     location: panel.location || '',
@@ -85,6 +86,10 @@ function mapBackendPanelToFrontend(panel: any): CanonicalPanel | null {
     rotation: panel.rotation || 0,
     fill: panel.fill || '#3b82f6',
     color: panel.color || panel.fill || '#3b82f6',
+    meta: {
+      repairs: [],
+      airTest: { result: 'pending' }
+    }
   };
 }
 

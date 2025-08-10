@@ -392,7 +392,7 @@ export default function PanelPlaygroundPage() {
       }
       
       // Panel body
-      ctx.fillStyle = panel.color;
+      ctx.fillStyle = panel.color || '#4f46e5';
       ctx.strokeStyle = isSelected ? '#f97316' : '#000000';
       ctx.lineWidth = isSelected ? 3 : 1;
       
@@ -477,7 +477,7 @@ export default function PanelPlaygroundPage() {
         textY = panel.y + panelHeight / 2;
       }
       
-      ctx.fillText(panel.panelNumber, textX, textY);
+      ctx.fillText(panel.panelNumber || 'N/A', textX, textY);
       ctx.fillText(`${panel.width}' × ${panel.length}'`, textX, textY + 15 / scale);
     });
 
@@ -494,6 +494,7 @@ export default function PanelPlaygroundPage() {
       rollNumber,
       panelNumber,
       width: dimensions.width,
+      height: dimensions.length, // height should match length for consistency
       length: dimensions.length,
       shape: selectedShape,
       x: 50 + (panels.length * 20),
@@ -502,7 +503,11 @@ export default function PanelPlaygroundPage() {
       fill: '#3b82f6',
       date: new Date().toISOString().slice(0, 10),
       location: '',
-      rotation: 0
+      rotation: 0,
+      meta: {
+        repairs: [],
+        airTest: { result: 'pending' }
+      }
     };
     setPanels([...panels, newPanel]);
     setRollNumber('');

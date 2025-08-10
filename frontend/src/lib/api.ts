@@ -77,9 +77,9 @@ const makeAuthenticatedRequest = async (url: string, options: RequestInit = {}, 
         console.error('❌ Network error during token refresh:', refreshError);
         
         // Check if it's a network connectivity issue
-        if (refreshError.message.includes('fetch') || 
+        if (refreshError instanceof Error && (refreshError.message.includes('fetch') || 
             refreshError.message.includes('network') ||
-            refreshError.message.includes('ERR_INTERNET_DISCONNECTED')) {
+            refreshError.message.includes('ERR_INTERNET_DISCONNECTED'))) {
           throw new Error('Network connection lost. Please check your internet connection and try again.');
         }
         
@@ -97,9 +97,9 @@ const makeAuthenticatedRequest = async (url: string, options: RequestInit = {}, 
     console.error('❌ makeAuthenticatedRequest error:', error);
     
     // Handle network connectivity errors
-    if (error.message.includes('fetch') || 
+    if (error instanceof Error && (error.message.includes('fetch') || 
         error.message.includes('network') ||
-        error.message.includes('ERR_INTERNET_DISCONNECTED')) {
+        error.message.includes('ERR_INTERNET_DISCONNECTED'))) {
       throw new Error('Network connection lost. Please check your internet connection and try again.');
     }
     
@@ -240,7 +240,7 @@ export async function analyzeDocuments(projectId: string, documentIds: string[],
     console.log('📄 Selected documents:', selectedDocs.length);
     
     // Log document details for debugging
-    selectedDocs.forEach((doc, index) => {
+    selectedDocs.forEach((doc: any, index: number) => {
       console.log(`📄 Document ${index + 1}:`, {
         id: doc.id,
         name: doc.name,

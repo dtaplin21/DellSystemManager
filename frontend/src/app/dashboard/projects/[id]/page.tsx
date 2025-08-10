@@ -230,7 +230,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
           isOpen={isEditOpen}
           onClose={() => setIsEditOpen(false)}
           project={project}
-          onSave={async (updated) => {
+          onSave={async (updated: any) => {
             try {
               const saved = await updateProject(project.id, {
                 name: updated.name,

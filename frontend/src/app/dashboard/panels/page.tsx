@@ -2,7 +2,7 @@
 export const dynamic = "force-dynamic";
 
 import { useState } from 'react'
-import SimplePanelLayout from '@/components/panels/SimplePanelLayout'
+import PanelLayout from '@/components/panels/PanelLayout'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { generateTemplateFile } from '@/lib/excel-import'
@@ -84,16 +84,16 @@ export default function PanelsPage() {
           <TabsTrigger value="auto">Auto Layout</TabsTrigger>
         </TabsList>
         <TabsContent value="manual">
-          <SimplePanelLayout 
-            mode="manual" 
-            projectInfo={projectInfo}
-          />
+                  <PanelLayout
+          mode="manual"
+          projectInfo={projectInfo}
+        />
         </TabsContent>
         <TabsContent value="auto">
-          <SimplePanelLayout 
-            mode="auto" 
-            projectInfo={projectInfo}
-          />
+                  <PanelLayout
+          mode="auto"
+          projectInfo={projectInfo}
+        />
         </TabsContent>
       </Tabs>
     </div>

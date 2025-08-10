@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
-import EnhancedPanelLayout from './enhanced-panel-layout';
+import PanelLayout from '@/components/panels/PanelLayout';
 
 export default function ResizeDemo() {
   const [activeDemo, setActiveDemo] = useState<string>('basic');
@@ -147,9 +147,15 @@ export default function ResizeDemo() {
 
       {/* Canvas */}
       <div className="flex-1">
-        <EnhancedPanelLayout 
-          mode="edit"
-          projectInfo={{ name: 'Resize Demo', id: 'demo-1' }}
+        <PanelLayout 
+          mode="manual"
+          projectInfo={{
+            projectName: 'Resize Demo',
+            location: 'Demo Location',
+            description: 'Demo Description',
+            manager: 'Demo Manager',
+            material: 'Demo Material'
+          }}
         />
       </div>
     </div>

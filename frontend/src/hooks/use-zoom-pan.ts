@@ -198,5 +198,10 @@ export function useZoomPan(opts?: UseZoomPanOptions): any {
     fitToContent: fitToContentLegacy,
     viewport: { x, y, width: vw / scale, height: vh / scale, scale },
     isInViewport: () => true,
+    // Missing properties that PanelLayout expects
+    containerSize: { width: vw, height: vh },
+    viewportSize: { x, y, width: vw / scale, height: vh / scale, scale },
+    isDragging: isDraggingRef.current,
+    setIsDragging: (value: boolean) => { isDraggingRef.current = value },
   };
 }
