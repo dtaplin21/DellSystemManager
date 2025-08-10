@@ -246,6 +246,35 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
     }, 16), // ~60fps
     [isDragging]
   )
+
+  // Wheel handler for zoom functionality
+  const handleWheel = useCallback((e: any) => {
+    e.evt.preventDefault()
+    const stage = e.target.getStage()
+    if (!stage) return
+    
+    const oldScale = stage.scaleX()
+    const pointer = stage.getPointerPosition()
+    
+    if (!pointer) return
+    
+    const mousePointTo = {
+      x: (pointer.x - stage.x()) / oldScale,
+      y: (pointer.y - stage.y()) / oldScale,
+    }
+    
+    const scaleBy = 1.1
+    const newScale = e.evt.deltaY < 0 ? oldScale * scaleBy : oldScale / scaleBy
+    
+    stage.scale({ x: newScale, y: newScale })
+    
+    const newPos = {
+      x: pointer.x - mousePointTo.x * newScale,
+      y: pointer.y - mousePointTo.y * newScale,
+    }
+    stage.position(newPos)
+    stage.batchDraw()
+  }, [])
   
   // Cleanup throttled function on unmount
   useEffect(() => {
@@ -903,33 +932,7 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
               ref={stageRef}
               width={containerSize.width}
               height={containerSize.height}
-              onWheel={useCallback((e: any) => {
-                e.evt.preventDefault()
-                const stage = e.target.getStage()
-                if (!stage) return
-                
-                const oldScale = stage.scaleX()
-                const pointer = stage.getPointerPosition()
-                
-                if (!pointer) return
-                
-                const mousePointTo = {
-                  x: (pointer.x - stage.x()) / oldScale,
-                  y: (pointer.y - stage.y()) / oldScale,
-                }
-                
-                const scaleBy = 1.1
-                const newScale = e.evt.deltaY < 0 ? oldScale * scaleBy : oldScale / scaleBy
-                
-                stage.scale({ x: newScale, y: newScale })
-                
-                const newPos = {
-                  x: pointer.x - mousePointTo.x * newScale,
-                  y: pointer.y - mousePointTo.y * newScale,
-                }
-                stage.position(newPos)
-                stage.batchDraw()
-              }, [])}
+              onWheel={handleWheel}
               onMouseDown={(e: any) => {
                 if (e.target === e.target.getStage()) {
                   setIsDragging(true)
