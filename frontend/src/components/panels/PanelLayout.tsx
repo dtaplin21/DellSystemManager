@@ -34,10 +34,10 @@ interface ResizeSettings {
 
 // Simple zoom/pan implementation
 const useSimpleZoomPan = () => {
-  const [scale, setScale] = useState(1)
-  const [x, setX] = useState(0)
-  const [y, setY] = useState(0)
-  const [isDragging, setIsDragging] = useState(false)
+  const [scale, setScale] = useState<number>(1)
+  const [x, setX] = useState<number>(0)
+  const [y, setY] = useState<number>(0)
+  const [isDragging, setIsDragging] = useState<boolean>(false)
   
   const zoomIn = useCallback(() => setScale(prev => Math.min(prev * 1.2, 5)), [])
   const zoomOut = useCallback(() => setScale(prev => Math.max(prev / 1.2, 0.1)), [])
@@ -79,7 +79,7 @@ const useSimpleZoomPan = () => {
 
 // Simple resize implementation
 const useSimpleResize = () => {
-  const [isResizing, setIsResizing] = useState(false)
+  const [isResizing, setIsResizing] = useState<boolean>(false)
   
   return {
     isResizing,
@@ -104,12 +104,12 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
   // Core state
   const [panels, setPanels] = useState<Panel[]>([])
   const [selectedPanelId, setSelectedPanelId] = useState<string | null>(null)
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
-  const [isAIChatOpen, setIsAIChatOpen] = useState(false)
-  const [isMounted, setIsMounted] = useState(false)
-  const [isFullscreen, setIsFullscreen] = useState(false)
-  const [isControlPanelCollapsed, setIsControlPanelCollapsed] = useState(false)
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false)
+  const [isAIChatOpen, setIsAIChatOpen] = useState<boolean>(false)
+  const [isMounted, setIsMounted] = useState<boolean>(false)
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false)
+  const [isControlPanelCollapsed, setIsControlPanelCollapsed] = useState<boolean>(false)
+  const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false)
 
   // Performance optimizations
   const containerRef = useRef<HTMLDivElement>(null)
@@ -236,7 +236,7 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
   }, [setViewportSize])
 
   // Update container size for Stage
-  const [containerSize, setContainerSize] = useState({ width: 800, height: 600 })
+  const [containerSize, setContainerSize] = useState<{ width: number; height: number }>({ width: 800, height: 600 })
   
   useEffect(() => {
     if (!containerRef.current) return
@@ -273,15 +273,22 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
     ))
   }, [resizeSettings])
 
-  const handleCreatePanel = useCallback((panelData: any) => {
+  const handleCreatePanel = useCallback((panelData: {
+    width?: number
+    length?: number
+    date?: string
+    panelNumber?: string
+    rollNumber?: string
+    location?: string
+  }) => {
     const newPanel: Panel = {
       id: `panel-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       shape: 'rectangle',
       x: 100,
       y: 100,
-      width: panelData.width || 100,
-      height: panelData.length || 100,
-      length: panelData.length || 100,
+      width: panelData.width ?? 100,
+      height: panelData.length ?? 100,
+      length: panelData.length ?? 100,
       rotation: 0,
       fill: '#3b82f6',
       color: '#3b82f6',
@@ -289,10 +296,10 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
         repairs: [],
         location: { x: 100, y: 100 }
       },
-      date: panelData.date || new Date().toISOString().split('T')[0],
-      panelNumber: panelData.panelNumber || 'New',
-      rollNumber: panelData.rollNumber || 'R-New',
-      location: panelData.location || 'Unknown'
+      date: panelData.date ?? new Date().toISOString().split('T')[0],
+      panelNumber: panelData.panelNumber ?? 'New',
+      rollNumber: panelData.rollNumber ?? 'R-New',
+      location: panelData.location ?? 'Unknown'
     }
     setPanels(prev => [...prev, newPanel])
     setIsCreateModalOpen(false)
@@ -300,10 +307,10 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
 
   const handleDeletePanel = useCallback(() => {
     if (selectedPanelId) {
-      setPanels(panels.filter(panel => panel.id !== selectedPanelId))
+      setPanels(prev => prev.filter(panel => panel.id !== selectedPanelId))
       setSelectedPanelId(null)
     }
-  }, [selectedPanelId, panels])
+  }, [selectedPanelId])
 
   const handleExportToDXF = useCallback(() => {
     console.log('Export to DXF:', panels)
@@ -333,9 +340,13 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
   const toggleFullscreen = useCallback(async () => {
     try {
       if (!document.fullscreenElement) {
-        await containerRef.current?.requestFullscreen?.()
+        if (containerRef.current?.requestFullscreen) {
+          await containerRef.current.requestFullscreen()
+        }
       } else {
-        await document.exitFullscreen?.()
+        if (document.exitFullscreen) {
+          await document.exitFullscreen()
+        }
       }
     } catch (e) {
       setIsFullscreen(prev => !prev)
@@ -381,27 +392,27 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
     const isSelected = panel.id === selectedPanelId
     
     return (
-      <Group key={panel.id || 'unknown'}>
+      <Group key={panel.id}>
         <Rect
-          x={panel.x || 0}
-          y={panel.y || 0}
-          width={panel.width || 0}
-          height={panel.height || 0}
-          fill={isSelected ? '#ef4444' : panel.fill || '#3b82f6'}
-          stroke={isSelected ? '#dc2626' : '#1e40af'}
+          x={panel.x}
+          y={panel.y}
+          width={panel.width}
+          height={panel.height}
+          fill={isSelected ? '#ef4444' : panel.fill ?? '#3b82f6'}
+          stroke={isSelected ? '#dc2626' : panel.color ?? '#1e40af'}
           strokeWidth={isSelected ? 3 : 2}
           cornerRadius={4}
           draggable
           onDragEnd={(e: any) => {
             const pos = e.target.position()
-            handlePanelDragEnd(panel.id || '', pos.x, pos.y)
+            handlePanelDragEnd(panel.id, pos.x, pos.y)
           }}
-          onClick={() => handlePanelClick(panel.id || '')}
+          onClick={() => handlePanelClick(panel.id)}
         />
         <Text
-          x={(panel.x || 0) + 5}
-          y={(panel.y || 0) + 5}
-          text={panel.panelNumber || panel.id || 'Unknown'}
+          x={panel.x + 5}
+          y={panel.y + 5}
+          text={panel.panelNumber ?? panel.id}
           fontSize={12}
           fill="#ffffff"
           stroke="#000000"
@@ -524,6 +535,8 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
               onWheel={(e: any) => {
                 e.evt.preventDefault()
                 const stage = e.target.getStage()
+                if (!stage) return
+                
                 const oldScale = stage.scaleX()
                 const pointer = stage.getPointerPosition()
                 
@@ -579,7 +592,7 @@ export default function PanelLayout({ mode, projectInfo }: PanelLayoutProps) {
                 {gridLines}
                 
                 {/* Panels */}
-                {panels && panels.length > 0 && panels.map(renderPanel)}
+                {panels.length > 0 && panels.map(renderPanel)}
               </Layer>
             </Stage>
           )}
