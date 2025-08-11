@@ -683,29 +683,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
           
           // Refresh the layout to show new panels
           if (layout) {
-            // Reload the project and layout data
-            const loadProjectAndLayout = async () => {
-              try {
-                const projectData = await fetchProjectById(id);
-                setProject(projectData);
-                
-                const layoutData = await fetchPanelLayout(id);
-                let processedPanels: any[] = [];
-                if (layoutData && Array.isArray(layoutData.panels)) {
-                  processedPanels = layoutData.panels.map((panel: any, idx: number) => mapPanelFields(panel, idx));
-                }
-                
-                setLayout({
-                  ...layoutData,
-                  width: layoutData?.width || DEFAULT_LAYOUT_WIDTH,
-                  height: layoutData?.height || DEFAULT_LAYOUT_HEIGHT,
-                  scale: layoutData?.scale || DEFAULT_SCALE,
-                  panels: processedPanels
-                });
-              } catch (error) {
-                console.error('Error reloading layout:', error);
-              }
-            };
+            // Reload the project and layout data using the main function
             loadProjectAndLayout();
           }
         },
