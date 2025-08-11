@@ -422,6 +422,112 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     setCanvasState(prev => ({ ...prev, snapToGrid: !prev.snapToGrid }))
   }, [])
   
+  // Utility function to validate panel data
+  const isValidPanel = (panel: any): panel is Panel => {
+    if (!panel || typeof panel !== 'object') {
+      return false;
+    }
+    
+    // Check required properties
+    if (typeof panel.id !== 'string' || !panel.id) {
+      return false;
+    }
+    
+    // Check coordinates
+    if (typeof panel.x !== 'number' || !isFinite(panel.x)) {
+      return false;
+    }
+    
+    if (typeof panel.y !== 'number' || !isFinite(panel.y)) {
+      return false;
+    }
+    
+    // Check dimensions
+    if (typeof panel.width !== 'number' || !isFinite(panel.width) || panel.width <= 0) {
+      return false;
+    }
+    
+    if (typeof panel.height !== 'number' || !isFinite(panel.height) || panel.height <= 0) {
+      return false;
+    }
+    
+    // Check reasonable limits
+    const MAX_DIMENSION = 10000;
+    const MIN_DIMENSION = 0.1;
+    const MAX_COORDINATE = 100000;
+    
+    if (panel.width > MAX_DIMENSION || panel.height > MAX_DIMENSION) {
+      return false;
+    }
+    
+    if (panel.width < MIN_DIMENSION || panel.height < MIN_DIMENSION) {
+      return false;
+    }
+    
+    if (Math.abs(panel.x) > MAX_COORDINATE || Math.abs(panel.y) > MAX_COORDINATE) {
+      return false;
+    }
+    
+    // Check rotation if present
+    if (panel.rotation !== undefined && panel.rotation !== null) {
+      if (typeof panel.rotation !== 'number' || !isFinite(panel.rotation)) {
+        return false;
+      }
+    }
+    
+    return true;
+  }
+  
+  // Utility function to get validation errors for a panel
+  const getPanelValidationErrors = (panel: any): string[] => {
+    const errors: string[] = [];
+    
+    if (!panel || typeof panel !== 'object') {
+      errors.push('Panel is not a valid object');
+      return errors;
+    }
+    
+    if (typeof panel.id !== 'string' || !panel.id) {
+      errors.push('Panel missing or invalid ID');
+    }
+    
+    if (typeof panel.x !== 'number' || !isFinite(panel.x)) {
+      errors.push('Panel has invalid X coordinate');
+    }
+    
+    if (typeof panel.y !== 'number' || !isFinite(panel.y)) {
+      errors.push('Panel has invalid Y coordinate');
+    }
+    
+    if (typeof panel.width !== 'number' || !isFinite(panel.width) || panel.width <= 0) {
+      errors.push('Panel has invalid width');
+    }
+    
+    if (typeof panel.height !== 'number' || !isFinite(panel.height) || panel.height <= 0) {
+      errors.push('Panel has invalid height');
+    }
+    
+    if (panel.width > 10000 || panel.height > 10000) {
+      errors.push('Panel dimensions too large (max 10,000 units)');
+    }
+    
+    if (panel.width < 0.1 || panel.height < 0.1) {
+      errors.push('Panel dimensions too small (min 0.1 units)');
+    }
+    
+    if (Math.abs(panel.x) > 100000 || Math.abs(panel.y) > 100000) {
+      errors.push('Panel coordinates out of bounds (max ±100,000 units)');
+    }
+    
+    if (panel.rotation !== undefined && panel.rotation !== null) {
+      if (typeof panel.rotation !== 'number' || !isFinite(panel.rotation)) {
+        errors.push('Panel has invalid rotation');
+      }
+    }
+    
+    return errors;
+  }
+  
   // Auto-fit viewport to show all panels
   const autoFitViewport = useCallback(() => {
     if (panels.panels.length === 0) return;
@@ -525,7 +631,19 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
       layoutScale
     });
     
-    panels.panels.forEach(panel => {
+    // Filter and validate panels before rendering
+    const validPanels = panels.panels.filter(panel => {
+      if (!isValidPanel(panel)) {
+        const errors = getPanelValidationErrors(panel);
+        console.warn('[PanelLayout] Skipping invalid panel:', { panel, errors });
+        return false;
+      }
+      return true;
+    });
+    
+    console.log('[PanelLayout] Valid panels for rendering:', validPanels.length, 'out of', panels.panels.length);
+    
+    validPanels.forEach(panel => {
       console.log('[PanelLayout] Drawing panel:', panel);
       
       // Check if panel coordinates are reasonable
@@ -549,7 +667,13 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     if (panels.selectedPanelId) {
       const selectedPanel = panels.panels.find(p => p.id === panels.selectedPanelId)
       if (selectedPanel) {
-        drawSelectionHandles(ctx, selectedPanel)
+        // Validate the selected panel before drawing handles
+        if (isValidPanel(selectedPanel)) {
+          drawSelectionHandles(ctx, selectedPanel)
+        } else {
+          const errors = getPanelValidationErrors(selectedPanel);
+          console.warn('[PanelLayout] Selected panel has validation errors, skipping handles:', { panel: selectedPanel, errors });
+        }
       }
     }
     
@@ -596,16 +720,50 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
       layoutScale
     });
     
-    ctx.save()
+    // Panel dimension validation using utility function
+    if (!isValidPanel(panel)) {
+      const errors = getPanelValidationErrors(panel);
+      console.warn('[PanelLayout] Cannot draw invalid panel:', { panel, errors });
+      return;
+    }
     
-    // Apply panel transformations
-    // Since layout scale is not applied globally, we need to scale the panel coordinates
-    // to make them visible on the canvas
+    // Additional validation for rendering-specific checks
+    // Check if panel would be visible on canvas (basic culling)
     const effectiveX = panel.x * normalizedLayoutScale;
     const effectiveY = panel.y * normalizedLayoutScale;
     const effectiveWidth = panel.width * normalizedLayoutScale;
     const effectiveHeight = panel.height * normalizedLayoutScale;
     
+    // Calculate panel bounds in screen coordinates
+    const panelLeft = effectiveX * canvasState.scale + canvasState.offsetX;
+    const panelTop = effectiveY * canvasState.scale + canvasState.offsetY;
+    const panelRight = (effectiveX + effectiveWidth) * canvasState.scale + canvasState.offsetX;
+    const panelBottom = (effectiveY + effectiveHeight) * canvasState.scale + canvasState.offsetY;
+    
+    // Check if panel is completely outside canvas bounds (with some margin)
+    const margin = 100; // pixels
+    if (panelRight < -margin || panelLeft > canvasWidth + margin || 
+        panelBottom < -margin || panelTop > canvasHeight + margin) {
+      console.log('[PanelLayout] Panel outside canvas bounds, skipping render:', { 
+        id: panel.id, 
+        bounds: { left: panelLeft, top: panelTop, right: panelRight, bottom: panelBottom },
+        canvasBounds: { width: canvasWidth, height: canvasHeight }
+      });
+      return;
+    }
+    
+    console.log('[PanelLayout] Panel validation passed, rendering:', {
+      id: panel.id,
+      effectiveCoords: { x: effectiveX, y: effectiveY },
+      effectiveDimensions: { width: effectiveWidth, height: effectiveHeight },
+      screenBounds: { left: panelLeft, top: panelTop, right: panelRight, bottom: panelBottom }
+    });
+    
+    ctx.save()
+    
+    // Apply panel transformations
+    // Since layout scale is not applied globally, we need to scale the panel coordinates
+    // to make them visible on the canvas
     ctx.translate(effectiveX, effectiveY)
     ctx.rotate((panel.rotation || 0) * Math.PI / 180)
     
@@ -641,6 +799,13 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   
   // Draw selection handles
   const drawSelectionHandles = (ctx: CanvasRenderingContext2D, panel: Panel) => {
+    // Validate panel before drawing handles using utility function
+    if (!isValidPanel(panel)) {
+      const errors = getPanelValidationErrors(panel);
+      console.warn('[PanelLayout] Cannot draw selection handles for invalid panel:', { panel, errors });
+      return;
+    }
+    
     // Use zoom scale for handle sizes
     const handleSize = 8 / canvasState.scale
     
@@ -815,6 +980,13 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   
   // Helper functions
   const getResizeHandle = (x: number, y: number, panel: Panel): string | null => {
+    // Validate panel before processing using utility function
+    if (!isValidPanel(panel)) {
+      const errors = getPanelValidationErrors(panel);
+      console.warn('[PanelLayout] Cannot get resize handle for invalid panel:', { panel, errors });
+      return null;
+    }
+    
     // Use zoom scale for handle sizes
     const handleSize = 8 / canvasState.scale
     
@@ -845,6 +1017,13 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   }
   
   const isRotationHandle = (x: number, y: number, panel: Panel): boolean => {
+    // Validate panel before processing using utility function
+    if (!isValidPanel(panel)) {
+      const errors = getPanelValidationErrors(panel);
+      console.warn('[PanelLayout] Cannot check rotation handle for invalid panel:', { panel, errors });
+      return false;
+    }
+    
     // Use zoom scale for handle sizes
     const handleSize = 8 / canvasState.scale
     
@@ -853,10 +1032,10 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     const effectiveY = panel.y * normalizedLayoutScale;
     const effectiveWidth = panel.width * normalizedLayoutScale;
     
-    const rotationY = effectiveY - 30 / canvasState.scale
-    const rotationX = effectiveX + effectiveWidth / 2
+    const rotationHandleY = effectiveY - 30 / canvasState.scale
+    const rotationHandleX = effectiveX + effectiveWidth / 2
     
-    return Math.abs(x - rotationX) <= handleSize && Math.abs(y - rotationY) <= handleSize
+    return Math.abs(x - rotationHandleX) <= handleSize && Math.abs(y - rotationHandleY) <= handleSize
   }
   
   const getResizeUpdates = (x: number, y: number, panel: Panel, handle: string, start: { x: number; y: number }): Partial<Panel> | null => {

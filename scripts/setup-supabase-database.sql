@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS public.projects (
   location TEXT,
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   status TEXT DEFAULT 'active',
-  scale DECIMAL DEFAULT 0.0025,
+  scale DECIMAL DEFAULT 1.0,
   layout_width INTEGER DEFAULT 10000,
   layout_height INTEGER DEFAULT 15000,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
