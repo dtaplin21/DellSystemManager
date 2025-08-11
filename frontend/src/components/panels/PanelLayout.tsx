@@ -406,6 +406,51 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     setCanvasState(prev => ({ ...prev, snapToGrid: !prev.snapToGrid }))
   }, [])
   
+  // Auto-fit viewport to show all panels
+  const autoFitViewport = useCallback(() => {
+    if (panels.panels.length === 0) return;
+    
+    // Find bounds of all panels
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    panels.panels.forEach(panel => {
+      minX = Math.min(minX, panel.x);
+      minY = Math.min(minY, panel.y);
+      maxX = Math.max(maxX, panel.x + panel.width);
+      maxY = Math.max(maxY, panel.y + panel.height);
+    });
+    
+    // Add padding
+    const padding = 100;
+    minX -= padding;
+    minY -= padding;
+    maxX += padding;
+    maxY += padding;
+    
+    // Calculate required scale to fit in canvas
+    const panelWidth = maxX - minX;
+    const panelHeight = maxY - minY;
+    const scaleX = (canvasWidth - 200) / panelWidth;
+    const scaleY = (canvasHeight - 200) / panelHeight;
+    const newScale = Math.min(scaleX, scaleY, 2.0); // Cap at 2x zoom
+    
+    // Set new viewport
+    setCanvasState(prev => ({
+      ...prev,
+      scale: newScale,
+      offsetX: -minX * newScale * layoutScale + 100,
+      offsetY: -minY * newScale * layoutScale + 100
+    }));
+    
+    console.log('[PanelLayout] Auto-fit viewport:', {
+      panelBounds: { minX, minY, maxX, maxY },
+      newScale,
+      newOffset: { 
+        x: -minX * newScale * layoutScale + 100, 
+        y: -minY * newScale * layoutScale + 100 
+      }
+    });
+  }, [panels.panels, canvasWidth, canvasHeight, layoutScale]);
+  
   // Canvas rendering function
   const renderCanvas = useCallback(() => {
     const canvas = canvasRef.current
@@ -427,18 +472,20 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     // Save context for transformations
     ctx.save()
     
-    // Apply zoom and pan
+    // Apply viewport transformations in the correct order:
+    // 1. Pan (offset)
+    // 2. Scale (zoom)
+    // 3. Layout scale (from backend)
     ctx.translate(canvasState.offsetX, canvasState.offsetY)
-    // Apply both the layout scale (from backend) and canvas zoom scale
-    const totalScale = layoutScale * canvasState.scale
-    ctx.scale(totalScale, totalScale)
+    ctx.scale(canvasState.scale, canvasState.scale)
+    ctx.scale(layoutScale, layoutScale)
     
     console.log('[PanelLayout] Canvas transformations applied:', {
       offsetX: canvasState.offsetX,
       offsetY: canvasState.offsetY,
+      zoomScale: canvasState.scale,
       layoutScale,
-      canvasScale: canvasState.scale,
-      totalScale
+      totalScale: canvasState.scale * layoutScale
     });
     
     // Draw grid
@@ -453,7 +500,8 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
       height: canvasHeight,
       offsetX: canvasState.offsetX,
       offsetY: canvasState.offsetY,
-      scale: canvasState.scale
+      zoomScale: canvasState.scale,
+      layoutScale
     });
     
     panels.panels.forEach(panel => {
@@ -462,8 +510,9 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
       // Check if panel coordinates are reasonable
       const worldX = panel.x;
       const worldY = panel.y;
-      const screenX = (worldX + canvasState.offsetX) * canvasState.scale;
-      const screenY = (worldY + canvasState.offsetY) * canvasState.scale;
+      // Calculate screen coordinates considering all transformations
+      const screenX = (worldX * layoutScale * canvasState.scale) + canvasState.offsetX;
+      const screenY = (worldY * layoutScale * canvasState.scale) + canvasState.offsetY;
       
       console.log('[PanelLayout] Panel coordinates:', {
         world: { x: worldX, y: worldY },
@@ -495,8 +544,8 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   // Draw grid
   const drawGrid = (ctx: CanvasRenderingContext2D) => {
     ctx.strokeStyle = '#e0e0e0'
-    const totalScale = layoutScale * canvasState.scale
-    ctx.lineWidth = 1 / totalScale
+    // Use zoom scale for line width since layout scale is applied globally
+    ctx.lineWidth = 1 / canvasState.scale
     
     for (let x = 0; x <= canvasWidth; x += canvasState.gridSize) {
       ctx.beginPath()
@@ -522,13 +571,15 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
       width: panel.width,
       height: panel.height,
       rotation: panel.rotation,
-      canvasScale: canvasState.scale,
-      canvasOffset: { x: canvasState.offsetX, y: canvasState.offsetY }
+      zoomScale: canvasState.scale,
+      layoutScale,
+      totalScale: canvasState.scale * layoutScale
     });
     
     ctx.save()
     
     // Apply panel transformations
+    // Since layout scale is applied globally, use panel coordinates as-is
     ctx.translate(panel.x, panel.y)
     ctx.rotate((panel.rotation || 0) * Math.PI / 180)
     
@@ -538,13 +589,13 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     
     // Draw panel border
     ctx.strokeStyle = isSelected ? '#f59e0b' : panel.color || '#1e1b4b'
-    const totalScale = layoutScale * canvasState.scale
-    ctx.lineWidth = isSelected ? 3 / totalScale : 2 / totalScale
+    // Use zoom scale for line width since layout scale is applied globally
+    ctx.lineWidth = isSelected ? 3 / canvasState.scale : 2 / canvasState.scale
     ctx.strokeRect(0, 0, panel.width, panel.height)
     
     // Draw panel text
     ctx.fillStyle = '#ffffff'
-    ctx.font = `${Math.max(12, 16 / totalScale)}px Arial`
+    ctx.font = `${Math.max(12, 16 / canvasState.scale)}px Arial`
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     
@@ -552,11 +603,11 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     const centerY = panel.height / 2
     
     if (panel.panelNumber) {
-      ctx.fillText(panel.panelNumber.toString(), centerX, centerY - 10 / totalScale)
+      ctx.fillText(panel.panelNumber.toString(), centerX, centerY - 10 / canvasState.scale)
     }
     
     if (panel.rollNumber) {
-      ctx.fillText(panel.rollNumber.toString(), centerX, centerY + 10 / totalScale)
+      ctx.fillText(panel.rollNumber.toString(), centerX, centerY + 10 / canvasState.scale)
     }
     
     ctx.restore()
@@ -564,8 +615,8 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   
   // Draw selection handles
   const drawSelectionHandles = (ctx: CanvasRenderingContext2D, panel: Panel) => {
-    const totalScale = layoutScale * canvasState.scale
-    const handleSize = 8 / totalScale
+    // Use zoom scale for handle sizes since layout scale is applied globally
+    const handleSize = 8 / canvasState.scale
     const handles = [
       { x: 0, y: 0, cursor: 'nw-resize' },
       { x: panel.width / 2, y: 0, cursor: 'n-resize' },
@@ -585,18 +636,18 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
       ctx.fillStyle = '#f59e0b'
       ctx.fillRect(handle.x - handleSize / 2, handle.y - handleSize / 2, handleSize, handleSize)
       ctx.strokeStyle = '#ffffff'
-      ctx.lineWidth = 1 / totalScale
+      ctx.lineWidth = 1 / canvasState.scale
       ctx.strokeRect(handle.x - handleSize / 2, handle.y - handleSize / 2, handleSize, handleSize)
     })
     
     // Draw rotation handle
-    const rotationHandleY = -30 / totalScale
+    const rotationHandleY = -30 / canvasState.scale
     ctx.fillStyle = '#10b981'
     ctx.beginPath()
     ctx.arc(panel.width / 2, rotationHandleY, handleSize, 0, 2 * Math.PI)
     ctx.fill()
     ctx.strokeStyle = '#ffffff'
-    ctx.lineWidth = 1 / totalScale
+    ctx.lineWidth = 1 / canvasState.scale
     ctx.stroke()
     
     ctx.restore()
@@ -606,8 +657,8 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   const drawAIGuides = (ctx: CanvasRenderingContext2D) => {
     ctx.save()
     ctx.strokeStyle = '#10b981'
-    const totalScale = layoutScale * canvasState.scale
-    ctx.lineWidth = 2 / totalScale
+    // Use zoom scale for line width since layout scale is applied globally
+    ctx.lineWidth = 2 / canvasState.scale
     ctx.setLineDash([5, 5])
     
     aiState.suggestions.forEach(suggestion => {
@@ -625,7 +676,8 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     if (!canvas) return
     
     const rect = canvas.getBoundingClientRect()
-    const totalScale = layoutScale * canvasState.scale
+    // Calculate world coordinates considering both zoom and layout scale
+    const totalScale = canvasState.scale * layoutScale
     const x = (e.clientX - rect.left - canvasState.offsetX) / totalScale
     const y = (e.clientY - rect.top - canvasState.offsetY) / totalScale
     
@@ -667,7 +719,8 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     if (!canvas) return
     
     const rect = canvas.getBoundingClientRect()
-    const totalScale = layoutScale * canvasState.scale
+    // Calculate world coordinates considering both zoom and layout scale
+    const totalScale = canvasState.scale * layoutScale
     const x = (e.clientX - rect.left - canvasState.offsetX) / totalScale
     const y = (e.clientY - rect.top - canvasState.offsetY) / totalScale
     
@@ -721,8 +774,8 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   
   // Helper functions
   const getResizeHandle = (x: number, y: number, panel: Panel): string | null => {
-    const totalScale = layoutScale * canvasState.scale
-    const handleSize = 8 / totalScale
+    // Use zoom scale for handle sizes since layout scale is applied globally
+    const handleSize = 8 / canvasState.scale
     const handles = {
       'nw': { x: panel.x, y: panel.y },
       'n': { x: panel.x + panel.width / 2, y: panel.y },
@@ -744,9 +797,9 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   }
   
   const isRotationHandle = (x: number, y: number, panel: Panel): boolean => {
-    const totalScale = layoutScale * canvasState.scale
-    const handleSize = 8 / totalScale
-    const rotationY = panel.y - 30 / totalScale
+    // Use zoom scale for handle sizes since layout scale is applied globally
+    const handleSize = 8 / canvasState.scale
+    const rotationY = panel.y - 30 / canvasState.scale
     const rotationX = panel.x + panel.width / 2
     
     return Math.abs(x - rotationX) <= handleSize && Math.abs(y - rotationY) <= handleSize
@@ -873,6 +926,17 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     return () => window.removeEventListener('resize', handleResize)
   }, [])
   
+  // Auto-fit viewport when panels are loaded
+  useEffect(() => {
+    if (panels.panels.length > 0 && canvasWidth > 0 && canvasHeight > 0) {
+      // Small delay to ensure canvas is ready
+      const timer = setTimeout(() => {
+        autoFitViewport();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [panels.panels.length, canvasWidth, canvasHeight, autoFitViewport]);
+  
   return (
     <div className="panel-layout-container">
       {/* AI Assistant Panel */}
@@ -941,6 +1005,9 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
           </Button>
           <Button onClick={() => console.log('Raw external panels:', externalPanels)} variant="outline" size="sm">
             Log External Panels
+          </Button>
+          <Button onClick={autoFitViewport} variant="outline" size="sm">
+            Auto-Fit Viewport
           </Button>
         </div>
         
