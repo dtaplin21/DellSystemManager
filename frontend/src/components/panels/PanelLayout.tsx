@@ -188,16 +188,6 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   const [isRotating, setIsRotating] = useState(false)
   const [rotationStart, setRotationStart] = useState(0)
   
-  // AI Assistant State
-  const [aiState, setAiState] = useState<AIAssistantState>({
-    isActive: false,
-    suggestions: [],
-    currentTask: null,
-    progress: 0,
-    isProcessing: false
-  })
-  
-  // Canvas State
   const [canvasState, setCanvasState] = useState<CanvasState>({
     scale: 1,
     offsetX: 0,
@@ -205,8 +195,20 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     showGrid: true,
     showGuides: true,
     snapToGrid: true,
-    gridSize: 50
+    gridSize: 20
   })
+  const [aiState, setAiState] = useState<AIAssistantState>({
+    isActive: true,
+    suggestions: [],
+    currentTask: null,
+    progress: 0,
+    isProcessing: false
+  })
+  
+  // Refs for preventing infinite loops
+  const lastPanelIds = useRef<string>('')
+  const lastProjectInfo = useRef<string>('')
+  const lastExternalPanels = useRef<string>('')
   
   // Canvas dimensions
   const [canvasWidth, setCanvasWidth] = useState(1200)
@@ -216,24 +218,23 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   
   // Initialize panels from external source
   useEffect(() => {
-    if (externalPanels) {
-      dispatch({ type: 'SET_PANELS', payload: externalPanels })
+    if (externalPanels && externalPanels.length > 0) {
+      // Only update if panels actually changed (deep comparison)
+      const newPanelIds = externalPanels.map(p => p.id).sort().join(',')
+      
+      if (newPanelIds !== lastExternalPanels.current) {
+        lastExternalPanels.current = newPanelIds
+        dispatch({ type: 'SET_PANELS', payload: externalPanels })
+      }
     }
-  }, [externalPanels])
+  }, [externalPanels]) // Remove panels.panels from dependencies
   
   // Notify parent of panel updates
   useEffect(() => {
     if (onPanelUpdate) {
       onPanelUpdate(panels.panels)
     }
-  }, [panels.panels, onPanelUpdate])
-  
-  // Generate AI suggestions when panels change
-  useEffect(() => {
-    if (panels.panels.length > 0 && aiState.isActive) {
-      generateSuggestions(panels.panels, projectInfo)
-    }
-  }, [panels.panels, aiState.isActive, projectInfo])
+  }, [panels.panels]) // Remove onPanelUpdate from dependencies
   
   // AI Functions
   const generateSuggestions = useCallback(async (panels: Panel[], projectInfo: any) => {
@@ -304,6 +305,19 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     
     return suggestions
   }, [])
+  
+  // Generate AI suggestions when panels change - with stable dependencies
+  useEffect(() => {
+    if (panels.panels.length > 0 && aiState.isActive) {
+      // Only run if panels actually changed (deep comparison)
+      const panelIds = panels.panels.map(p => p.id).sort().join(',')
+      
+      if (panelIds !== lastPanelIds.current) {
+        lastPanelIds.current = panelIds
+        generateSuggestions(panels.panels, projectInfo)
+      }
+    }
+  }, [panels.panels, aiState.isActive, generateSuggestions, projectInfo])
   
   const executeSuggestion = useCallback(async (suggestion: AISuggestion, panels: Panel[]) => {
     setAiState(prev => ({ ...prev, currentTask: suggestion.action, progress: 0 }))

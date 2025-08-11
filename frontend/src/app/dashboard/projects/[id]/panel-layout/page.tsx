@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
 import { useWebSocket } from '@/hooks/use-websocket';
@@ -768,6 +768,31 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
     console.log('[DIAG] project changed:', project);
   }, [project]);
 
+  // Memoize projectInfo to prevent infinite re-renders
+  const projectInfo = useMemo(() => {
+    if (!project) return {
+      projectName: '',
+      location: '',
+      description: '',
+      manager: '',
+      material: ''
+    };
+    
+    return {
+      projectName: project.name,
+      location: project.location || '',
+      description: project.description || '',
+      manager: '',
+      material: ''
+    };
+  }, [project?.name, project?.location, project?.description]);
+
+  // Memoize mapped panels to prevent infinite re-renders
+  const mappedPanels = useMemo(() => {
+    if (!layout?.panels) return [];
+    return layout.panels.map(mapPanelFields);
+  }, [layout?.panels]);
+
   if (isLoading) {
     return (
       <div className="flex justify-center py-8">
@@ -948,7 +973,6 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
                 console.log('[DEBUG] Raw panels from layout:', layout.panels);
                 console.log('[DEBUG] Layout scale:', layout.scale);
                 console.log('[DEBUG] Layout dimensions:', { width: layout.width, height: layout.height });
-                const mappedPanels = layout.panels.map(mapPanelFields);
                 console.log('[DEBUG] Mapped panels for PanelGrid:', mappedPanels);
                 console.log('[DEBUG] Panel dimensions sample:', mappedPanels.slice(0, 3).map(p => ({
                   id: p.id,
@@ -990,13 +1014,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
                   <div className="w-full h-[calc(100vh-300px)]">
                     <PanelLayout
                       mode="manual"
-                      projectInfo={{
-                        projectName: project.name,
-                        location: project.location || '',
-                        description: project.description || '',
-                        manager: '',
-                        material: ''
-                      }}
+                      projectInfo={projectInfo}
                       externalPanels={mappedPanels}
                       onPanelUpdate={handlePanelUpdate}
                     />
