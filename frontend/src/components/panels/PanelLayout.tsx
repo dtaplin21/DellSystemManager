@@ -216,21 +216,55 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   
   const { toast } = useToast()
   
+  // Debug function to create a test panel
+  const createTestPanel = useCallback(() => {
+    const testPanel: Panel = {
+      id: 'test-panel',
+      shape: 'rectangle',
+      x: 100,
+      y: 100,
+      width: 200,
+      height: 150,
+      length: 150,
+      rotation: 0,
+      fill: '#ff0000',
+      color: '#cc0000',
+      meta: {
+        repairs: [],
+        location: { x: 100, y: 100, gridCell: { row: 0, col: 0 } }
+      }
+    };
+    console.log('[PanelLayout] Creating test panel:', testPanel);
+    dispatch({ type: 'ADD_PANEL', payload: testPanel });
+  }, []);
+  
   // Initialize panels from external source
   useEffect(() => {
+    console.log('[PanelLayout] externalPanels received:', externalPanels);
+    console.log('[PanelLayout] current panels state:', panels.panels);
+    console.log('[PanelLayout] canvas state:', canvasState);
+    
     if (externalPanels && externalPanels.length > 0) {
       // Only update if panels actually changed (deep comparison)
       const newPanelIds = externalPanels.map(p => p.id).sort().join(',')
+      console.log('[PanelLayout] newPanelIds:', newPanelIds);
+      console.log('[PanelLayout] lastExternalPanels.current:', lastExternalPanels.current);
       
       if (newPanelIds !== lastExternalPanels.current) {
+        console.log('[PanelLayout] Updating panels from external source');
         lastExternalPanels.current = newPanelIds
         dispatch({ type: 'SET_PANELS', payload: externalPanels })
+      } else {
+        console.log('[PanelLayout] No panel changes detected');
       }
+    } else {
+      console.log('[PanelLayout] No external panels provided or empty array');
     }
   }, [externalPanels]) // Remove panels.panels from dependencies
   
   // Notify parent of panel updates
   useEffect(() => {
+    console.log('[PanelLayout] panels state changed:', panels.panels);
     if (onPanelUpdate) {
       onPanelUpdate(panels.panels)
     }
@@ -379,6 +413,13 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     const ctx = canvas.getContext('2d')
     if (!ctx) return
     
+    console.log('[PanelLayout] renderCanvas called with:', {
+      canvasWidth,
+      canvasHeight,
+      canvasState,
+      panelsCount: panels.panels.length
+    });
+    
     // Clear canvas
     ctx.clearRect(0, 0, canvasWidth, canvasHeight)
     
@@ -389,13 +430,43 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     ctx.translate(canvasState.offsetX, canvasState.offsetY)
     ctx.scale(canvasState.scale, canvasState.scale)
     
+    console.log('[PanelLayout] Canvas transformations applied:', {
+      offsetX: canvasState.offsetX,
+      offsetY: canvasState.offsetY,
+      scale: canvasState.scale
+    });
+    
     // Draw grid
     if (canvasState.showGrid) {
       drawGrid(ctx)
     }
     
     // Draw panels
+    console.log('[PanelLayout] Rendering canvas with panels:', panels.panels);
+    console.log('[PanelLayout] Canvas drawing area:', {
+      width: canvasWidth,
+      height: canvasHeight,
+      offsetX: canvasState.offsetX,
+      offsetY: canvasState.offsetY,
+      scale: canvasState.scale
+    });
+    
     panels.panels.forEach(panel => {
+      console.log('[PanelLayout] Drawing panel:', panel);
+      
+      // Check if panel coordinates are reasonable
+      const worldX = panel.x;
+      const worldY = panel.y;
+      const screenX = (worldX + canvasState.offsetX) * canvasState.scale;
+      const screenY = (worldY + canvasState.offsetY) * canvasState.scale;
+      
+      console.log('[PanelLayout] Panel coordinates:', {
+        world: { x: worldX, y: worldY },
+        screen: { x: screenX, y: screenY },
+        canvasBounds: { width: canvasWidth, height: canvasHeight },
+        isVisible: screenX >= 0 && screenX <= canvasWidth && screenY >= 0 && screenY <= canvasHeight
+      });
+      
       drawPanel(ctx, panel, panel.id === panels.selectedPanelId)
     })
     
@@ -438,6 +509,17 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   
   // Draw panel
   const drawPanel = (ctx: CanvasRenderingContext2D, panel: Panel, isSelected: boolean) => {
+    console.log('[PanelLayout] Drawing panel with properties:', {
+      id: panel.id,
+      x: panel.x,
+      y: panel.y,
+      width: panel.width,
+      height: panel.height,
+      rotation: panel.rotation,
+      canvasScale: canvasState.scale,
+      canvasOffset: { x: canvasState.offsetX, y: canvasState.offsetY }
+    });
+    
     ctx.save()
     
     // Apply panel transformations
@@ -684,7 +766,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   }
   
   // Wheel event for zooming
-  const handleWheel = useCallback((e: React.WheelEvent<HTMLCanvasElement>) => {
+  const handleWheel = useCallback((e: WheelEvent) => {
     e.preventDefault()
     
     const canvas = canvasRef.current
@@ -707,6 +789,21 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
       offsetY: newOffsetY
     }))
   }, [canvasState])
+
+  // Add wheel event listener manually to avoid passive event issues
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    
+    const wheelHandler = (e: WheelEvent) => handleWheel(e)
+    
+    // Add event listener with non-passive option
+    canvas.addEventListener('wheel', wheelHandler, { passive: false })
+    
+    return () => {
+      canvas.removeEventListener('wheel', wheelHandler)
+    }
+  }, [handleWheel])
   
   // AI suggestion execution
   const handleExecuteSuggestion = useCallback(async (suggestion: AISuggestion) => {
@@ -751,6 +848,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
         const container = canvasRef.current.parentElement
         if (container) {
           const rect = container.getBoundingClientRect()
+          console.log('[PanelLayout] Canvas resize - container dimensions:', rect);
           setCanvasWidth(rect.width)
           setCanvasHeight(rect.height)
         }
@@ -820,6 +918,19 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
       
       {/* Canvas Wrapper */}
       <div className="canvas-wrapper relative">
+        {/* Debug Controls */}
+        <div className="mb-4 flex gap-2">
+          <Button onClick={createTestPanel} variant="outline" size="sm">
+            Create Test Panel
+          </Button>
+          <Button onClick={() => console.log('Current panels state:', panels)} variant="outline" size="sm">
+            Log Panels State
+          </Button>
+          <Button onClick={() => console.log('Raw external panels:', externalPanels)} variant="outline" size="sm">
+            Log External Panels
+          </Button>
+        </div>
+        
         <canvas
           ref={canvasRef}
           width={canvasWidth}
@@ -828,7 +939,6 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
-          onWheel={handleWheel}
           style={{
             cursor: isDragging ? 'grabbing' : 
                    isResizing ? 'nw-resize' : 
