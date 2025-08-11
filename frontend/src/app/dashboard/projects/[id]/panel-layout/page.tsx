@@ -50,7 +50,7 @@ interface PanelLayout {
 const DEFAULT_LAYOUT_WIDTH = 15000;
 const DEFAULT_LAYOUT_HEIGHT = 15000;
 const PIXELS_PER_FOOT = 200; // 100 pixels = 0.5ft, so 200 pixels = 1ft
-const DEFAULT_SCALE = 0.1; // More reasonable default scale - 0.1 means 1 unit = 10 pixels
+const DEFAULT_SCALE = 1.0; // Reasonable default scale - 1.0 means 1 unit = 1 pixel (no scaling)
 
 const BACKEND_URL = 'http://localhost:8003';
 
@@ -151,29 +151,18 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
     const x = Number(panel.x || 0);
     const y = Number(panel.y || 0);
     
-    // Apply layout scale to coordinates and dimensions
-    // Use DEFAULT_SCALE if layout is not yet loaded to prevent errors
-    const layoutScale = layout?.scale || DEFAULT_SCALE;
-    
-    // Don't scale down panels too much - keep them visible
-    const effectiveScale = Math.max(layoutScale, 0.1); // Minimum scale of 0.1
-    
-    const scaledX = x * effectiveScale;
-    const scaledY = y * effectiveScale;
-    const scaledWidth = Math.max(width * effectiveScale, 10); // Minimum width of 10px
-    const scaledLength = Math.max(length * effectiveScale, 10); // Minimum height of 10px
-    
-    console.log(`[MAP DEBUG] Scale applied - Original: x=${x}, y=${y}, w=${width}, l=${length}, Scale: ${layoutScale}, Effective: ${effectiveScale}`);
-    console.log(`[MAP DEBUG] Scaled: x=${scaledX}, y=${scaledY}, w=${scaledWidth}, l=${scaledLength}`);
+    // Don't apply scaling here - let the canvas handle all transformations
+    // This prevents double scaling issues between mapPanelFields and canvas rendering
+    console.log(`[MAP DEBUG] No scaling applied - Original: x=${x}, y=${y}, w=${width}, l=${length}`);
     
     const mapped = {
       id: panel.id || `panel-${index}`,
       shape: panel.shape || 'rectangle',
-      x: scaledX,
-      y: scaledY,
-      width: scaledWidth,
-      height: scaledLength, // Map length to height for Panel type compatibility
-      length: scaledLength, // Keep length for backward compatibility
+      x: x, // Use original coordinates
+      y: y, // Use original coordinates
+      width: width, // Use original dimensions
+      height: length, // Map length to height for Panel type compatibility
+      length: length, // Keep length for backward compatibility
       rotation: Number(panel.rotation || 0),
       fill: panel.fill || '#3b82f6',
       color: panel.color || panel.fill || '#3b82f6',
@@ -183,7 +172,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
       location: panel.location || '',
       meta: {
         repairs: [],
-        location: { x: scaledX, y: scaledY, gridCell: { row: 0, col: 0 } }
+        location: { x: x, y: y, gridCell: { row: 0, col: 0 } }
       }
     };
     console.log(`[MAP DEBUG] Mapped panel ${index}:`, mapped);
@@ -924,6 +913,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
                       projectInfo={projectInfo}
                       externalPanels={mappedPanels}
                       onPanelUpdate={handlePanelUpdate}
+                      layoutScale={layout.scale || DEFAULT_SCALE}
                     />
                   </div>
                 );

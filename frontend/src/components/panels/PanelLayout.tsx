@@ -29,6 +29,7 @@ interface PanelLayoutProps {
   }
   externalPanels?: Panel[]
   onPanelUpdate?: (panels: Panel[]) => void
+  layoutScale?: number // Add layout scale from parent component
 }
 
 interface AIAssistantState {
@@ -177,7 +178,7 @@ const panelReducer = (state: PanelState, action: PanelAction): PanelState => {
   }
 }
 
-export default function PanelLayout({ mode, projectInfo, externalPanels, onPanelUpdate }: PanelLayoutProps) {
+export default function PanelLayout({ mode, projectInfo, externalPanels, onPanelUpdate, layoutScale = 1.0 }: PanelLayoutProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [panels, dispatch] = useReducer(panelReducer, { panels: [], selectedPanelId: null })
   const [isDragging, setIsDragging] = useState(false)
@@ -428,12 +429,16 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     
     // Apply zoom and pan
     ctx.translate(canvasState.offsetX, canvasState.offsetY)
-    ctx.scale(canvasState.scale, canvasState.scale)
+    // Apply both the layout scale (from backend) and canvas zoom scale
+    const totalScale = layoutScale * canvasState.scale
+    ctx.scale(totalScale, totalScale)
     
     console.log('[PanelLayout] Canvas transformations applied:', {
       offsetX: canvasState.offsetX,
       offsetY: canvasState.offsetY,
-      scale: canvasState.scale
+      layoutScale,
+      canvasScale: canvasState.scale,
+      totalScale
     });
     
     // Draw grid
@@ -485,12 +490,13 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     
     // Restore context
     ctx.restore()
-  }, [panels, canvasState, aiState.suggestions, canvasWidth, canvasHeight])
+  }, [panels, canvasState, aiState.suggestions, canvasWidth, canvasHeight, layoutScale])
   
   // Draw grid
   const drawGrid = (ctx: CanvasRenderingContext2D) => {
     ctx.strokeStyle = '#e0e0e0'
-    ctx.lineWidth = 1 / canvasState.scale
+    const totalScale = layoutScale * canvasState.scale
+    ctx.lineWidth = 1 / totalScale
     
     for (let x = 0; x <= canvasWidth; x += canvasState.gridSize) {
       ctx.beginPath()
@@ -532,12 +538,13 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     
     // Draw panel border
     ctx.strokeStyle = isSelected ? '#f59e0b' : panel.color || '#1e1b4b'
-    ctx.lineWidth = isSelected ? 3 / canvasState.scale : 2 / canvasState.scale
+    const totalScale = layoutScale * canvasState.scale
+    ctx.lineWidth = isSelected ? 3 / totalScale : 2 / totalScale
     ctx.strokeRect(0, 0, panel.width, panel.height)
     
     // Draw panel text
     ctx.fillStyle = '#ffffff'
-    ctx.font = `${Math.max(12, 16 / canvasState.scale)}px Arial`
+    ctx.font = `${Math.max(12, 16 / totalScale)}px Arial`
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     
@@ -545,11 +552,11 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     const centerY = panel.height / 2
     
     if (panel.panelNumber) {
-      ctx.fillText(panel.panelNumber.toString(), centerX, centerY - 10 / canvasState.scale)
+      ctx.fillText(panel.panelNumber.toString(), centerX, centerY - 10 / totalScale)
     }
     
     if (panel.rollNumber) {
-      ctx.fillText(panel.rollNumber.toString(), centerX, centerY + 10 / canvasState.scale)
+      ctx.fillText(panel.rollNumber.toString(), centerX, centerY + 10 / totalScale)
     }
     
     ctx.restore()
@@ -557,7 +564,8 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   
   // Draw selection handles
   const drawSelectionHandles = (ctx: CanvasRenderingContext2D, panel: Panel) => {
-    const handleSize = 8 / canvasState.scale
+    const totalScale = layoutScale * canvasState.scale
+    const handleSize = 8 / totalScale
     const handles = [
       { x: 0, y: 0, cursor: 'nw-resize' },
       { x: panel.width / 2, y: 0, cursor: 'n-resize' },
@@ -577,18 +585,18 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
       ctx.fillStyle = '#f59e0b'
       ctx.fillRect(handle.x - handleSize / 2, handle.y - handleSize / 2, handleSize, handleSize)
       ctx.strokeStyle = '#ffffff'
-      ctx.lineWidth = 1 / canvasState.scale
+      ctx.lineWidth = 1 / totalScale
       ctx.strokeRect(handle.x - handleSize / 2, handle.y - handleSize / 2, handleSize, handleSize)
     })
     
     // Draw rotation handle
-    const rotationHandleY = -30 / canvasState.scale
+    const rotationHandleY = -30 / totalScale
     ctx.fillStyle = '#10b981'
     ctx.beginPath()
     ctx.arc(panel.width / 2, rotationHandleY, handleSize, 0, 2 * Math.PI)
     ctx.fill()
     ctx.strokeStyle = '#ffffff'
-    ctx.lineWidth = 1 / canvasState.scale
+    ctx.lineWidth = 1 / totalScale
     ctx.stroke()
     
     ctx.restore()
@@ -598,7 +606,8 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   const drawAIGuides = (ctx: CanvasRenderingContext2D) => {
     ctx.save()
     ctx.strokeStyle = '#10b981'
-    ctx.lineWidth = 2 / canvasState.scale
+    const totalScale = layoutScale * canvasState.scale
+    ctx.lineWidth = 2 / totalScale
     ctx.setLineDash([5, 5])
     
     aiState.suggestions.forEach(suggestion => {
@@ -616,8 +625,9 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     if (!canvas) return
     
     const rect = canvas.getBoundingClientRect()
-    const x = (e.clientX - rect.left - canvasState.offsetX) / canvasState.scale
-    const y = (e.clientY - rect.top - canvasState.offsetY) / canvasState.scale
+    const totalScale = layoutScale * canvasState.scale
+    const x = (e.clientX - rect.left - canvasState.offsetX) / totalScale
+    const y = (e.clientY - rect.top - canvasState.offsetY) / totalScale
     
     const clickedPanel = panels.panels.find(panel => {
       const panelCenterX = panel.x + panel.width / 2
@@ -650,15 +660,16 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
       dispatch({ type: 'SELECT_PANEL', payload: null })
       setSelectedPanel(null)
     }
-  }, [panels, canvasState])
+  }, [panels, canvasState, layoutScale])
   
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current
     if (!canvas) return
     
     const rect = canvas.getBoundingClientRect()
-    const x = (e.clientX - rect.left - canvasState.offsetX) / canvasState.scale
-    const y = (e.clientY - rect.top - canvasState.offsetY) / canvasState.scale
+    const totalScale = layoutScale * canvasState.scale
+    const x = (e.clientX - rect.left - canvasState.offsetX) / totalScale
+    const y = (e.clientY - rect.top - canvasState.offsetY) / totalScale
     
     if (isDragging && selectedPanel) {
       let newX = x - dragStart.x
@@ -699,7 +710,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
         }
       })
     }
-  }, [isDragging, isResizing, isRotating, selectedPanel, resizeHandle, dragStart, rotationStart, canvasState])
+  }, [isDragging, isResizing, isRotating, selectedPanel, resizeHandle, dragStart, rotationStart, canvasState, layoutScale])
   
   const handleMouseUp = useCallback(() => {
     setIsDragging(false)
@@ -710,7 +721,8 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   
   // Helper functions
   const getResizeHandle = (x: number, y: number, panel: Panel): string | null => {
-    const handleSize = 8 / canvasState.scale
+    const totalScale = layoutScale * canvasState.scale
+    const handleSize = 8 / totalScale
     const handles = {
       'nw': { x: panel.x, y: panel.y },
       'n': { x: panel.x + panel.width / 2, y: panel.y },
@@ -732,8 +744,9 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   }
   
   const isRotationHandle = (x: number, y: number, panel: Panel): boolean => {
-    const handleSize = 8 / canvasState.scale
-    const rotationY = panel.y - 30 / canvasState.scale
+    const totalScale = layoutScale * canvasState.scale
+    const handleSize = 8 / totalScale
+    const rotationY = panel.y - 30 / totalScale
     const rotationX = panel.x + panel.width / 2
     
     return Math.abs(x - rotationX) <= handleSize && Math.abs(y - rotationY) <= handleSize

@@ -30,7 +30,7 @@ const projects = pgTable('projects', {
   endDate: timestamp('end_date'),         // ← new
   area: decimal('area'),               // ← new
   progress: integer('progress').default(0),           // ← new
-  scale: decimal('scale').default('0.0025'),
+  scale: decimal('scale').default('1.0'), // Consistent with panel layouts default
   layoutWidth: integer('layout_width').default(10000),
   layoutHeight: integer('layout_height').default(15000),
   createdAt: timestamp('created_at').defaultNow(),

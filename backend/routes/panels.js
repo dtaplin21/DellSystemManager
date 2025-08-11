@@ -13,7 +13,7 @@ const { z } = require('zod');
 
 const DEFAULT_LAYOUT_WIDTH = 15000;
 const DEFAULT_LAYOUT_HEIGHT = 15000;
-const DEFAULT_SCALE = 0.0025;
+const DEFAULT_SCALE = 1.0; // Reasonable default scale - 1.0 means no scaling
 
 const CanonicalPanelSchema = z.object({
   id: z.string(),
