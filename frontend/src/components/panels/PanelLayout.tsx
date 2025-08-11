@@ -270,14 +270,42 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
       if (newPanelIds !== lastExternalPanels.current) {
         console.log('[PanelLayout] Updating panels from external source');
         lastExternalPanels.current = newPanelIds
-        dispatch({ type: 'SET_PANELS', payload: externalPanels })
+        
+        // Validate external panels before setting them
+        const validExternalPanels = externalPanels.filter(panel => {
+          if (!isValidPanel(panel)) {
+            const errors = getPanelValidationErrors(panel);
+            console.warn('[PanelLayout] Skipping invalid external panel:', { panel, errors });
+            return false;
+          }
+          return true;
+        });
+        
+        if (validExternalPanels.length !== externalPanels.length) {
+          console.warn('[PanelLayout] Some external panels were invalid:', {
+            total: externalPanels.length,
+            valid: validExternalPanels.length,
+            skipped: externalPanels.length - validExternalPanels.length
+          });
+        }
+        
+        if (validExternalPanels.length > 0) {
+          dispatch({ type: 'SET_PANELS', payload: validExternalPanels })
+        } else {
+          console.warn('[PanelLayout] No valid external panels to set');
+        }
       } else {
         console.log('[PanelLayout] No panel changes detected');
       }
+    } else if (externalPanels && externalPanels.length === 0) {
+      // Handle case where external panels is explicitly set to empty array
+      console.log('[PanelLayout] External panels explicitly set to empty, clearing internal state');
+      lastExternalPanels.current = ''
+      dispatch({ type: 'SET_PANELS', payload: [] })
     } else {
       console.log('[PanelLayout] No external panels provided or empty array');
     }
-  }, [externalPanels]) // Remove panels.panels from dependencies
+  }, [externalPanels, panels.panels]) // Include panels.panels to detect internal state changes
   
   // Notify parent of panel updates
   useEffect(() => {
@@ -285,7 +313,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     if (onPanelUpdate) {
       onPanelUpdate(panels.panels)
     }
-  }, [panels.panels]) // Remove onPanelUpdate from dependencies
+  }, [panels.panels, onPanelUpdate]) // Include onPanelUpdate to avoid stale closures
   
   // AI Functions
   const generateSuggestions = useCallback(async (panels: Panel[], projectInfo: any) => {
