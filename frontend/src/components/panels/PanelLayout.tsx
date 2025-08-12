@@ -258,8 +258,6 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   // Initialize panels from external source
   useEffect(() => {
     console.log('[PanelLayout] externalPanels received:', externalPanels);
-    console.log('[PanelLayout] current panels state:', panels.panels);
-    console.log('[PanelLayout] canvas state:', canvasState);
     
     if (externalPanels && externalPanels.length > 0) {
       // Only update if panels actually changed (deep comparison)
@@ -305,7 +303,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     } else {
       console.log('[PanelLayout] No external panels provided or empty array');
     }
-  }, [externalPanels, panels.panels]) // Include panels.panels to detect internal state changes
+  }, [externalPanels]) // Only depend on externalPanels to avoid infinite loops
   
   // Notify parent of panel updates
   useEffect(() => {
@@ -712,7 +710,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     
     // Restore context
     ctx.restore()
-  }, [panels, canvasState, aiState.suggestions, canvasWidth, canvasHeight, normalizedLayoutScale])
+  }, [panels.panels, panels.selectedPanelId, canvasState, aiState.suggestions, canvasWidth, canvasHeight, normalizedLayoutScale])
   
   // Draw grid
   const drawGrid = (ctx: CanvasRenderingContext2D) => {
