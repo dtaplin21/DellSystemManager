@@ -238,7 +238,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
     } finally {
       setIsLoading(false);
     }
-  }, [id, toast]);
+  }, [id, toast]); // Only depend on id and toast, not on the function itself
 
   // Memoize projectInfo to prevent infinite re-renders
   const projectInfo = useMemo(() => {
@@ -251,15 +251,17 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
     };
     
     return {
-      projectName: project.name,
+      projectName: project.name || '',
       location: project.location || '',
       description: project.description || '',
       manager: '',
       material: ''
     };
-  }, [project?.name, project?.location, project?.description]);
+  }, [project?.name, project?.location, project?.description]) // These are primitive values, stable
 
   // Memoize mapped panels to prevent infinite re-renders
+  const lastMappedPanelsRef = useRef<string>('');
+  
   const mappedPanels = useMemo(() => {
     console.log('[DEBUG] mappedPanels useMemo triggered with:', { layout, hasPanels: !!layout?.panels, panelsCount: layout?.panels?.length });
     
@@ -273,135 +275,161 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
         console.log(`[DEBUG] Mapping panel ${idx}:`, panel);
         return mapPanelFields(panel, idx);
       });
-      console.log('[DEBUG] Successfully mapped panels:', mapped);
-      return mapped;
+      
+      // Create a stable reference for comparison
+      const mappedString = JSON.stringify(mapped);
+      
+      // Only return new array if there's a real change
+      if (lastMappedPanelsRef.current !== mappedString) {
+        console.log('[DEBUG] Mapped panels changed, updating reference');
+        lastMappedPanelsRef.current = mappedString;
+        console.log('[DEBUG] Successfully mapped panels:', mapped);
+        return mapped;
+      } else {
+        console.log('[DEBUG] Mapped panels unchanged, returning cached result');
+        // Return the cached result to prevent unnecessary re-renders
+        try {
+          return JSON.parse(lastMappedPanelsRef.current) as Panel[];
+        } catch {
+          return [];
+        }
+      }
     } catch (error) {
       console.error('[DEBUG] Error mapping panels:', error);
       return [];
     }
-  }, [layout?.panels]); // Removed layout.scale dependency to prevent unnecessary re-computations
+  }, [layout?.panels]) // Keep the original dependency but use ref-based caching
 
   // Panel update handler
   const handlePanelUpdate = useCallback((updatedPanels: Panel[]) => {
     console.log('[DEBUG] Panel update received:', updatedPanels);
-    if (layout) {
-      setLayout(prev => ({
-        ...prev!,
+    setLayout(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
         panels: updatedPanels
-      }));
-    }
-  }, [layout]);
+      };
+    });
+  }, []); // No dependencies needed since we use functional update
 
   // Add panel handler
   const handleAddPanel = useCallback(() => {
-    if (!layout) return;
-    
-    const newPanel: Panel = {
-      id: generateId(),
-      shape: 'rectangle',
-      x: 100,
-      y: 100,
-      width: 200,
-      height: 150,
-      length: 150,
-      rotation: 0,
-      fill: '#3b82f6',
-      color: '#1e1b4b',
-      meta: {
-        repairs: [],
-        location: { x: 100, y: 100, gridCell: { row: 0, col: 0 } }
-      }
-    };
-    
-    setLayout(prev => ({
-      ...prev!,
-      panels: [...prev!.panels, newPanel]
-    }));
-  }, [layout]);
+    setLayout(prev => {
+      if (!prev) return prev;
+      
+      const newPanel: Panel = {
+        id: generateId(),
+        shape: 'rectangle',
+        x: 100,
+        y: 100,
+        width: 200,
+        height: 150,
+        length: 150,
+        rotation: 0,
+        fill: '#3b82f6',
+        color: '#1e1b4b',
+        meta: {
+          repairs: [],
+          location: { x: 100, y: 100, gridCell: { row: 0, col: 0 } }
+        }
+      };
+      
+      return {
+        ...prev,
+        panels: [...prev.panels, newPanel]
+      };
+    });
+  }, []); // No dependencies needed since we use functional update
 
   // Add test panels function
   const createTestPanels = useCallback(() => {
-    if (!layout) return;
     console.log('Creating test panels...');
     
-    // First, reset scale to a reasonable value
-    const newScale = 1.0; // Full scale to make panels clearly visible
     setLayout(prev => {
-      if (!prev) return null;
-      return { ...prev, scale: newScale };
+      if (!prev) return prev;
+      
+      // First, reset scale to a reasonable value
+      const newScale = 1.0; // Full scale to make panels clearly visible
+      
+      const testPanels: Panel[] = [
+        {
+          id: 'test-panel-1',
+          shape: 'rectangle',
+          x: 50,
+          y: 50,
+          width: 100,
+          height: 80,
+          length: 80, // Keep length for backward compatibility
+          rotation: 0,
+          fill: '#ff0000', // Bright red to make it very visible
+          color: '#000000',
+          rollNumber: 'R001',
+          panelNumber: 'P001',
+          meta: {
+            repairs: [],
+            location: { x: 50, y: 50, gridCell: { row: 0, col: 0 } }
+          }
+        },
+        {
+          id: 'test-panel-2',
+          shape: 'rectangle',
+          x: 200,
+          y: 50,
+          width: 120,
+          height: 90,
+          length: 90, // Keep length for backward compatibility
+          rotation: 0,
+          fill: '#00ff00', // Bright green to make it very visible
+          color: '#000000',
+          rollNumber: 'R002',
+          panelNumber: 'P002',
+          meta: {
+            repairs: [],
+            location: { x: 200, y: 50, gridCell: { row: 0, col: 0 } }
+          }
+        }
+      ];
+      
+      console.log('Test panels to add:', testPanels);
+      
+      return {
+        ...prev,
+        scale: newScale,
+        panels: testPanels
+      };
     });
-    
-    const testPanels: Panel[] = [
-      {
-        id: 'test-panel-1',
-        shape: 'rectangle',
-        x: 50,
-        y: 50,
-        width: 100,
-        height: 80,
-        length: 80, // Keep length for backward compatibility
-        rotation: 0,
-        fill: '#ff0000', // Bright red to make it very visible
-        color: '#000000',
-        rollNumber: 'R001',
-        panelNumber: 'P001',
-        meta: {
-          repairs: [],
-          location: { x: 50, y: 50, gridCell: { row: 0, col: 0 } }
-        }
-      },
-      {
-        id: 'test-panel-2',
-        shape: 'rectangle',
-        x: 200,
-        y: 50,
-        width: 120,
-        height: 90,
-        length: 90, // Keep length for backward compatibility
-        rotation: 0,
-        fill: '#00ff00', // Bright green to make it very visible
-        color: '#000000',
-        rollNumber: 'R002',
-        panelNumber: 'P002',
-        meta: {
-          repairs: [],
-          location: { x: 200, y: 50, gridCell: { row: 0, col: 0 } }
-        }
-      }
-    ];
-    
-    console.log('Test panels to add:', testPanels);
-    handlePanelUpdate(testPanels);
-  }, [layout, handlePanelUpdate]);
+  }, []); // No dependencies needed since we use functional update
 
   // Zoom to fit function
   const handleZoomToFit = useCallback(() => {
-    if (!layout || !layout.panels.length) return;
-    
-    // Calculate bounds of all panels
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    layout.panels.forEach(panel => {
-      minX = Math.min(minX, panel.x);
-      minY = Math.min(minY, panel.y);
-      maxX = Math.max(maxX, panel.x + panel.width);
-      maxY = Math.max(maxY, panel.y + panel.height);
-    });
-    
-    // Calculate required scale to fit all panels
-    const panelWidth = maxX - minX;
-    const panelHeight = maxY - minY;
-    const containerWidth = windowDimensions.width - 100; // Account for padding
-    const containerHeight = windowDimensions.height - 300; // Account for header/toolbar
-    
-    const scaleX = containerWidth / panelWidth;
-    const scaleY = containerHeight / panelHeight;
-    const newScale = Math.min(scaleX, scaleY, 2.0); // Cap at 2x zoom
-    
     setLayout(prev => {
-      if (!prev) return null;
-      return { ...prev, scale: newScale };
+      if (!prev || !prev.panels.length) return prev;
+      
+      // Calculate bounds of all panels
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      prev.panels.forEach(panel => {
+        minX = Math.min(minX, panel.x);
+        minY = Math.min(minY, panel.y);
+        maxX = Math.max(maxX, panel.x + panel.width);
+        maxY = Math.max(maxY, panel.y + panel.height);
+      });
+      
+      // Calculate required scale to fit all panels
+      const panelWidth = maxX - minX;
+      const panelHeight = maxY - minY;
+      const containerWidth = windowDimensions.width - 100; // Account for padding
+      const containerHeight = windowDimensions.height - 300; // Account for header/toolbar
+      
+      const scaleX = containerWidth / panelWidth;
+      const scaleY = containerHeight / panelHeight;
+      const newScale = Math.min(scaleX, scaleY, 2.0); // Cap at 2x zoom
+      
+      return {
+        ...prev,
+        scale: newScale
+      };
     });
-  }, [layout, windowDimensions]);
+  }, [windowDimensions]); // Only depend on windowDimensions
 
   // Reset view function
   const handleResetView = useCallback(() => {
@@ -453,35 +481,41 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
 
   const handleSavePanel = useCallback((updatedPanel: any) => {
     console.log('[DEBUG] Save panel called for:', updatedPanel);
-    if (!layout) return;
     
-    const updatedPanels = layout.panels.map(panel => 
-      panel.id === updatedPanel.id ? updatedPanel : panel
-    );
-    
-    setLayout(prev => ({
-      ...prev!,
-      panels: updatedPanels
-    }));
+    setLayout(prev => {
+      if (!prev) return prev;
+      
+      const updatedPanels = prev.panels.map(panel => 
+        panel.id === updatedPanel.id ? updatedPanel : panel
+      );
+      
+      return {
+        ...prev,
+        panels: updatedPanels
+      };
+    });
     
     setEditDialogOpen(false);
     setSelectedPanel(null);
-  }, [layout]);
+  }, []); // No dependencies needed since we use functional update
 
   const handleDeletePanel = useCallback((panelId: string) => {
     console.log('[DEBUG] Delete panel called for:', panelId);
-    if (!layout) return;
     
-    const updatedPanels = layout.panels.filter(panel => panel.id !== panelId);
-    
-    setLayout(prev => ({
-      ...prev!,
-      panels: updatedPanels
-    }));
+    setLayout(prev => {
+      if (!prev) return prev;
+      
+      const updatedPanels = prev.panels.filter(panel => panel.id !== panelId);
+      
+      return {
+        ...prev,
+        panels: updatedPanels
+      };
+    });
     
     setEditDialogOpen(false);
     setSelectedPanel(null);
-  }, [layout]);
+  }, []); // No dependencies needed since we use functional update
 
   // Panel selection handler
   const handlePanelSelect = useCallback((panel: any) => {
@@ -528,14 +562,22 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
     }
   }, [layout, project, toast]);
 
+  // Store current id in ref to avoid stale closures in WebSocket
+  const currentIdRef = useRef(id);
+  
+  // Update ref when id changes
+  useEffect(() => {
+    currentIdRef.current = id;
+  }, [id]);
+
   const { isConnected, isAuthenticated, sendMessage } = useWebSocket({
     userId: user?.id || null,
     onMessage: (message: any) => {
       // Support both formats: message.data.projectId and message.projectId
       const projectId = message.data?.projectId ?? message.projectId;
-      if (message.type === 'PANEL_UPDATE' && projectId === id) {
+      if (message.type === 'PANEL_UPDATE' && projectId === currentIdRef.current) {
         setLayout((prev) => {
-          if (!prev) return null;
+          if (!prev) return prev;
           const panels = message.data?.panels ?? message.panels ?? prev.panels;
           const lastUpdated = message.data?.timestamp ?? message.timestamp ?? new Date().toISOString();
           return {
@@ -644,8 +686,69 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
       return;
     }
     console.log('[DEBUG] Load: Calling loadProjectAndLayout with id:', id);
-    loadProjectAndLayout();
-  }, [loadProjectAndLayout]); // Only depend on loadProjectAndLayout
+    // Call the function directly instead of depending on it to avoid circular dependency
+    const loadData = async () => {
+      try {
+        setIsLoading(true);
+        console.log('[DEBUG] Load: Loading project with ID:', id);
+        const projectData = await fetchProjectById(id);
+        console.log('[DEBUG] Load: Project data received:', projectData);
+        console.log('🔍 [DEBUG] Project name:', projectData?.name);
+        console.log('🔍 [DEBUG] Project object keys:', projectData ? Object.keys(projectData) : 'No project data');
+        
+        setProject(projectData);
+        
+        const layoutData = await fetchPanelLayout(id);
+        console.log('[DEBUG] Load: Layout data received from backend:', layoutData);
+        console.log('[DEBUG] Load: Raw panels from backend:', layoutData?.panels);
+        console.log('[DEBUG] Load: Layout data type:', typeof layoutData);
+        console.log('[DEBUG] Load: Panels array type:', Array.isArray(layoutData?.panels));
+        
+        // Process panels properly
+        let processedPanels: any[] = [];
+        if (layoutData && Array.isArray(layoutData.panels)) {
+          console.log('[DEBUG] Load: Processing', layoutData.panels.length, 'panels');
+          processedPanels = layoutData.panels.map((panel: any, idx: number) => {
+            console.log(`[DEBUG] Processing panel ${idx}:`, panel);
+            return mapPanelFields(panel, idx);
+          });
+        } else {
+          console.warn('[DEBUG] No panels array found in backend response:', layoutData);
+          console.warn('[DEBUG] Layout data keys:', layoutData ? Object.keys(layoutData) : 'No data');
+        }
+        
+        console.log('[DEBUG] Load: Processed panels:', processedPanels);
+        
+        if (!layoutData || layoutData.width < DEFAULT_LAYOUT_WIDTH || layoutData.height < DEFAULT_LAYOUT_HEIGHT) {
+          console.log('🔍 [DEBUG] Using default layout dimensions');
+          setLayout({
+            ...layoutData,
+            width: DEFAULT_LAYOUT_WIDTH,
+            height: DEFAULT_LAYOUT_HEIGHT,
+            scale: DEFAULT_SCALE,
+            panels: processedPanels
+          });
+        } else {
+          console.log('🔍 [DEBUG] Using existing layout data');
+          setLayout({
+            ...layoutData,
+            panels: processedPanels
+          });
+        }
+      } catch (error) {
+        console.error('🔍 [DEBUG] Error loading project and layout:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to load panel layout. Please try again.',
+          variant: 'destructive',
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadData();
+  }, [id, toast]); // Only depend on id and toast, not on the function itself
 
   // AI Layout Execution Functions
   const handleExecuteAILayout = async () => {
@@ -670,11 +773,9 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
             description: `Successfully executed ${successCount}/${totalCount} actions.`,
           });
           
-          // Refresh the layout to show new panels
-          if (layout) {
-            // Reload the project and layout data using the main function
-            loadProjectAndLayout();
-          }
+          // Refresh the layout to show new panels by reloading the page
+          // This ensures we get the latest data from the backend
+          window.location.reload();
         },
         onError: (error) => {
           toast({
@@ -721,11 +822,11 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
 
   // After loading layout, log the loaded layout and panels
   useEffect(() => {
-    if (layout) {
+    if (layout && layout.panels) {
       console.log('[DIAG] Layout loaded from backend:', layout);
       console.log('[DIAG] Panels loaded from backend:', layout.panels);
     }
-  }, [layout]);
+  }, [layout?.id, layout?.panels?.length]); // Only log when layout ID or panel count changes
 
   if (isLoading) {
     return (

@@ -223,9 +223,21 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   })
   
   // Refs for preventing infinite loops
+  const lastExternalPanels = useRef<string>('')
   const lastPanelIds = useRef<string>('')
   const lastProjectInfo = useRef<string>('')
-  const lastExternalPanels = useRef<string>('')
+  const lastInternalPanels = useRef<string>('')
+  
+  // Memoize panel data to prevent unnecessary re-renders
+  const panelData = useMemo(() => ({
+    panels: panels.panels,
+    selectedPanelId: panels.selectedPanelId
+  }), [panels.panels, panels.selectedPanelId]);
+  
+  // Update internal panels ref when panels change
+  useEffect(() => {
+    lastInternalPanels.current = JSON.stringify(panels.panels);
+  }, [panels.panels]);
   
   // Canvas dimensions
   const [canvasWidth, setCanvasWidth] = useState(1200)
@@ -259,18 +271,22 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   useEffect(() => {
     console.log('[PanelLayout] externalPanels received:', externalPanels);
     
-    if (externalPanels && externalPanels.length > 0) {
-      // Only update if panels actually changed (deep comparison)
-      const newPanelIds = externalPanels.map(p => p.id).sort().join(',')
-      console.log('[PanelLayout] newPanelIds:', newPanelIds);
-      console.log('[PanelLayout] lastExternalPanels.current:', lastExternalPanels.current);
+    // Create a stable reference for comparison
+    const externalPanelsRef = externalPanels || [];
+    const externalPanelsString = JSON.stringify(externalPanelsRef);
+    
+    // Only proceed if this is a genuine change
+    if (lastExternalPanels.current !== externalPanelsString) {
+      console.log('[PanelLayout] External panels changed, processing update');
+      lastExternalPanels.current = externalPanelsString;
       
-      if (newPanelIds !== lastExternalPanels.current) {
-        console.log('[PanelLayout] Updating panels from external source');
-        lastExternalPanels.current = newPanelIds
+      if (externalPanelsRef.length > 0) {
+        // Only update if panels actually changed (deep comparison)
+        const newPanelIds = externalPanelsRef.map(p => p.id).sort().join(',')
+        console.log('[PanelLayout] newPanelIds:', newPanelIds);
         
         // Validate external panels before setting them
-        const validExternalPanels = externalPanels.filter(panel => {
+        const validExternalPanels = externalPanelsRef.filter(panel => {
           if (!isValidPanel(panel)) {
             const errors = getPanelValidationErrors(panel);
             console.warn('[PanelLayout] Skipping invalid external panel:', { panel, errors });
@@ -279,11 +295,11 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
           return true;
         });
         
-        if (validExternalPanels.length !== externalPanels.length) {
+        if (validExternalPanels.length !== externalPanelsRef.length) {
           console.warn('[PanelLayout] Some external panels were invalid:', {
-            total: externalPanels.length,
+            total: externalPanelsRef.length,
             valid: validExternalPanels.length,
-            skipped: externalPanels.length - validExternalPanels.length
+            skipped: externalPanelsRef.length - validExternalPanels.length
           });
         }
         
@@ -293,25 +309,35 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
           console.warn('[PanelLayout] No valid external panels to set');
         }
       } else {
-        console.log('[PanelLayout] No panel changes detected');
+        // Handle case where external panels is explicitly set to empty array
+        // Only clear internal state if it's not already empty to prevent infinite loops
+        const internalPanelsString = lastInternalPanels.current;
+        if (internalPanelsString !== '[]') {
+          console.log('[PanelLayout] External panels explicitly set to empty, clearing internal state');
+          dispatch({ type: 'SET_PANELS', payload: [] })
+        } else {
+          console.log('[PanelLayout] External panels is empty, but internal state is already empty - no action needed');
+        }
       }
-    } else if (externalPanels && externalPanels.length === 0) {
-      // Handle case where external panels is explicitly set to empty array
-      console.log('[PanelLayout] External panels explicitly set to empty, clearing internal state');
-      lastExternalPanels.current = ''
-      dispatch({ type: 'SET_PANELS', payload: [] })
     } else {
-      console.log('[PanelLayout] No external panels provided or empty array');
+      console.log('[PanelLayout] No external panel changes detected');
     }
   }, [externalPanels]) // Only depend on externalPanels to avoid infinite loops
   
   // Notify parent of panel updates
+  const onPanelUpdateRef = useRef(onPanelUpdate);
+  
+  // Update ref when prop changes
   useEffect(() => {
-    console.log('[PanelLayout] panels state changed:', panels.panels);
-    if (onPanelUpdate) {
-      onPanelUpdate(panels.panels)
+    onPanelUpdateRef.current = onPanelUpdate;
+  }, [onPanelUpdate]);
+  
+  useEffect(() => {
+    console.log('[PanelLayout] panels state changed:', panelData.panels);
+    if (onPanelUpdateRef.current) {
+      onPanelUpdateRef.current(panelData.panels)
     }
-  }, [panels.panels, onPanelUpdate]) // Include onPanelUpdate to avoid stale closures
+  }, [panelData.panels]) // Only depend on panelData.panels, not onPanelUpdate
   
   // AI Functions
   const generateSuggestions = useCallback(async (panels: Panel[], projectInfo: any) => {
@@ -381,20 +407,20 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     }))
     
     return suggestions
-  }, [])
+  }, [setAiState])
   
   // Generate AI suggestions when panels change - with stable dependencies
   useEffect(() => {
-    if (panels.panels.length > 0 && aiState.isActive) {
+    if (panelData.panels.length > 0 && aiState.isActive) {
       // Only run if panels actually changed (deep comparison)
-      const panelIds = panels.panels.map(p => p.id).sort().join(',')
+      const panelIds = panelData.panels.map(p => p.id).sort().join(',')
       
       if (panelIds !== lastPanelIds.current) {
         lastPanelIds.current = panelIds
-        generateSuggestions(panels.panels, projectInfo)
+        generateSuggestions(panelData.panels, projectInfo)
       }
     }
-  }, [panels.panels, aiState.isActive, generateSuggestions, projectInfo])
+  }, [panelData.panels, aiState.isActive, generateSuggestions, projectInfo])
   
   const executeSuggestion = useCallback(async (suggestion: AISuggestion, panels: Panel[]) => {
     setAiState(prev => ({ ...prev, currentTask: suggestion.action, progress: 0 }))
@@ -554,55 +580,60 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     return errors;
   }
   
-  // Auto-fit viewport to show all panels
-  const autoFitViewport = useCallback(() => {
-    if (panels.panels.length === 0) return;
+  // Utility function to calculate panel bounds
+  const calculatePanelBounds = useCallback((panels: Panel[]) => {
+    if (!panels || panels.length === 0) return null;
     
-    // Find bounds of all panels in effective coordinates
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    panels.panels.forEach(panel => {
-      const effectiveX = panel.x * normalizedLayoutScale;
-      const effectiveY = panel.y * normalizedLayoutScale;
-      const effectiveWidth = panel.width * normalizedLayoutScale;
-      const effectiveHeight = panel.height * normalizedLayoutScale;
-      
-      minX = Math.min(minX, effectiveX);
-      minY = Math.min(minY, effectiveY);
-      maxX = Math.max(maxX, effectiveX + effectiveWidth);
-      maxY = Math.max(maxY, effectiveY + effectiveHeight);
-    });
     
-    // Add padding
-    const padding = 100;
-    minX -= padding;
-    minY -= padding;
-    maxX += padding;
-    maxY += padding;
-    
-    // Calculate required scale to fit in canvas
-    const panelWidth = maxX - minX;
-    const panelHeight = maxY - minY;
-    const scaleX = (canvasWidth - 200) / panelWidth;
-    const scaleY = (canvasHeight - 200) / panelHeight;
-    const newScale = Math.min(scaleX, scaleY, 2.0); // Cap at 2x zoom
-    
-    // Set new viewport
-    setCanvasState(prev => ({
-      ...prev,
-      scale: newScale,
-      offsetX: -minX * newScale + 100,
-      offsetY: -minY * newScale + 100
-    }));
-    
-    console.log('[PanelLayout] Auto-fit viewport:', {
-      panelBounds: { minX, minY, maxX, maxY },
-      newScale,
-      newOffset: { 
-        x: -minX * newScale + 100, 
-        y: -minY * newScale + 100 
+    panels.forEach(panel => {
+      if (isValidPanel(panel)) {
+        minX = Math.min(minX, panel.x);
+        minY = Math.min(minY, panel.y);
+        maxX = Math.max(maxX, panel.x + panel.width);
+        maxY = Math.max(maxY, panel.y + panel.height);
       }
     });
-  }, [panels.panels, canvasWidth, canvasHeight, normalizedLayoutScale])
+    
+    if (minX === Infinity || minY === Infinity || maxX === -Infinity || maxY === -Infinity) {
+      return null;
+    }
+    
+    return { minX, minY, maxX, maxY };
+  }, []);
+
+  // Auto-fit viewport when panels are loaded
+  useEffect(() => {
+    if (panelData.panels.length > 0 && canvasWidth > 0 && canvasHeight > 0) {
+      // Small delay to ensure canvas is ready
+      const timer = setTimeout(() => {
+        // Call autoFitViewport directly instead of depending on it
+        if (canvasRef.current) {
+          // Calculate bounds and fit viewport
+          const bounds = calculatePanelBounds(panelData.panels);
+          if (bounds) {
+            const { minX, minY, maxX, maxY } = bounds;
+            const panelWidth = maxX - minX;
+            const panelHeight = maxY - minY;
+            
+            // Calculate scale to fit all panels
+            const scaleX = (canvasWidth - 100) / panelWidth;
+            const scaleY = (canvasHeight - 100) / panelHeight;
+            const newScale = Math.min(scaleX, scaleY, 2.0);
+            
+            // Update canvas state
+            setCanvasState(prev => ({
+              ...prev,
+              scale: newScale,
+              offsetX: (canvasWidth - panelWidth * newScale) / 2 - minX * newScale,
+              offsetY: (canvasHeight - panelHeight * newScale) / 2 - minY * newScale
+            }));
+          }
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [panelData.panels.length, canvasWidth, canvasHeight]); // Remove autoFitViewport dependency
   
   // Canvas rendering function
   const renderCanvas = useCallback(() => {
@@ -616,7 +647,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
       canvasWidth,
       canvasHeight,
       canvasState,
-      panelsCount: panels.panels.length,
+      panelsCount: panelData.panels.length,
       layoutScale,
       normalizedLayoutScale
     });
@@ -647,7 +678,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     }
     
     // Draw panels
-    console.log('[PanelLayout] Rendering canvas with panels:', panels.panels);
+    console.log('[PanelLayout] Rendering canvas with panels:', panelData.panels);
     console.log('[PanelLayout] Canvas drawing area:', {
       width: canvasWidth,
       height: canvasHeight,
@@ -658,7 +689,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     });
     
     // Filter and validate panels before rendering
-    const validPanels = panels.panels.filter(panel => {
+    const validPanels = panelData.panels.filter(panel => {
       if (!isValidPanel(panel)) {
         const errors = getPanelValidationErrors(panel);
         console.warn('[PanelLayout] Skipping invalid panel:', { panel, errors });
@@ -667,7 +698,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
       return true;
     });
     
-    console.log('[PanelLayout] Valid panels for rendering:', validPanels.length, 'out of', panels.panels.length);
+    console.log('[PanelLayout] Valid panels for rendering:', validPanels.length, 'out of', panelData.panels.length);
     
     validPanels.forEach(panel => {
       console.log('[PanelLayout] Drawing panel:', panel);
@@ -686,12 +717,12 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
         isVisible: screenX >= 0 && screenX <= canvasWidth && screenY >= 0 && screenY <= canvasHeight
       });
       
-      drawPanel(ctx, panel, panel.id === panels.selectedPanelId)
+      drawPanel(ctx, panel, panel.id === panelData.selectedPanelId)
     })
     
     // Draw selection handles
-    if (panels.selectedPanelId) {
-      const selectedPanel = panels.panels.find(p => p.id === panels.selectedPanelId)
+    if (panelData.selectedPanelId) {
+      const selectedPanel = panelData.panels.find(p => p.id === panelData.selectedPanelId)
       if (selectedPanel) {
         // Validate the selected panel before drawing handles
         if (isValidPanel(selectedPanel)) {
@@ -710,7 +741,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     
     // Restore context
     ctx.restore()
-  }, [panels.panels, panels.selectedPanelId, canvasState, aiState.suggestions, canvasWidth, canvasHeight, normalizedLayoutScale])
+  }, [panelData, canvasState, aiState.suggestions, canvasWidth, canvasHeight, normalizedLayoutScale])
   
   // Draw grid
   const drawGrid = (ctx: CanvasRenderingContext2D) => {
@@ -904,7 +935,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     const x = (e.clientX - rect.left - canvasState.offsetX) / canvasState.scale
     const y = (e.clientY - rect.top - canvasState.offsetY) / canvasState.scale
     
-    const clickedPanel = panels.panels.find(panel => {
+    const clickedPanel = panelData.panels.find(panel => {
       // Convert panel coordinates to effective coordinates for hit testing
       const effectiveX = panel.x * normalizedLayoutScale;
       const effectiveY = panel.y * normalizedLayoutScale;
@@ -941,7 +972,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
       dispatch({ type: 'SELECT_PANEL', payload: null })
       setSelectedPanel(null)
     }
-  }, [panels, canvasState, normalizedLayoutScale])
+  }, [panelData, canvasState, normalizedLayoutScale])
   
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current
@@ -1133,7 +1164,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   // AI suggestion execution
   const handleExecuteSuggestion = useCallback(async (suggestion: AISuggestion) => {
     try {
-      const optimizedPanels = await executeSuggestion(suggestion, panels.panels)
+      const optimizedPanels = await executeSuggestion(suggestion, panelData.panels)
       dispatch({ type: 'OPTIMIZE_LAYOUT', payload: optimizedPanels })
       
       toast({
@@ -1147,24 +1178,27 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
         variant: 'destructive'
       })
     }
-  }, [executeSuggestion, panels.panels, toast])
+  }, [executeSuggestion, panelData.panels, toast])
   
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Delete' && panels.selectedPanelId) {
-        dispatch({ type: 'DELETE_PANEL', payload: panels.selectedPanelId })
+      if (e.key === 'Delete' && panelData.selectedPanelId) {
+        dispatch({ type: 'DELETE_PANEL', payload: panelData.selectedPanelId })
       }
     }
     
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [panels.selectedPanelId])
+  }, [panelData.selectedPanelId])
   
-  // Render canvas when dependencies change
+  // Render canvas when dependencies change - use a more stable approach
   useEffect(() => {
-    renderCanvas()
-  }, [renderCanvas])
+    // Only render if we have a canvas and panels
+    if (canvasRef.current && panelData.panels.length > 0) {
+      renderCanvas();
+    }
+  }, [panelData.panels.length, canvasState, canvasWidth, canvasHeight]) // Depend on stable values, not the function itself
   
   // Handle canvas resize
   useEffect(() => {
@@ -1184,17 +1218,6 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [])
-  
-  // Auto-fit viewport when panels are loaded
-  useEffect(() => {
-    if (panels.panels.length > 0 && canvasWidth > 0 && canvasHeight > 0) {
-      // Small delay to ensure canvas is ready
-      const timer = setTimeout(() => {
-        autoFitViewport();
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [panels.panels.length, canvasWidth, canvasHeight, autoFitViewport]);
   
   return (
     <div className="panel-layout-container">
@@ -1259,13 +1282,34 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
           <Button onClick={createTestPanel} variant="outline" size="sm">
             Create Test Panel
           </Button>
-          <Button onClick={() => console.log('Current panels state:', panels)} variant="outline" size="sm">
+          <Button onClick={() => console.log('Current panels state:', panelData.panels)} variant="outline" size="sm">
             Log Panels State
           </Button>
           <Button onClick={() => console.log('Raw external panels:', externalPanels)} variant="outline" size="sm">
             Log External Panels
           </Button>
-          <Button onClick={autoFitViewport} variant="outline" size="sm">
+          <Button onClick={() => {
+                  // Calculate bounds and fit viewport
+                  const bounds = calculatePanelBounds(panelData.panels);
+                  if (bounds) {
+                    const { minX, minY, maxX, maxY } = bounds;
+                    const panelWidth = maxX - minX;
+                    const panelHeight = maxY - minY;
+                    
+                    // Calculate scale to fit all panels
+                    const scaleX = (canvasWidth - 100) / panelWidth;
+                    const scaleY = (canvasHeight - 100) / panelHeight;
+                    const newScale = Math.min(scaleX, scaleY, 2.0);
+                    
+                    // Update canvas state
+                    setCanvasState(prev => ({
+                      ...prev,
+                      scale: newScale,
+                      offsetX: (canvasWidth - panelWidth * newScale) / 2 - minX * newScale,
+                      offsetY: (canvasHeight - panelHeight * newScale) / 2 - minY * newScale
+                    }));
+                  }
+                }} variant="outline" size="sm">
             Auto-Fit Viewport
           </Button>
         </div>
@@ -1349,8 +1393,8 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
             <Button 
               size="sm" 
               variant="outline" 
-              onClick={() => generateSuggestions(panels.panels, projectInfo)}
-              disabled={panels.panels.length === 0}
+              onClick={() => generateSuggestions(panelData.panels, projectInfo)}
+              disabled={panelData.panels.length === 0}
             >
               <Sparkles className="h-4 w-4 mr-2" />
               Analyze
@@ -1360,7 +1404,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
           {/* Project Info */}
           <div className="ml-auto text-right">
             <p className="text-sm font-medium">{projectInfo.projectName}</p>
-            <p className="text-xs text-gray-500">{panels.panels.length} panels</p>
+            <p className="text-xs text-gray-500">{panelData.panels.length} panels</p>
           </div>
         </div>
       </div>
