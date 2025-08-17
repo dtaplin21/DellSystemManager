@@ -58,6 +58,10 @@ interface CanvasState {
   showGuides: boolean
   snapToGrid: boolean
   gridSize: number
+  // Add new properties for large-scale grid
+  worldWidth: number  // Total world width in feet
+  worldHeight: number // Total world height in feet
+  worldScale: number  // Scale factor to convert feet to pixels
 }
 
 // AI Helper Functions
@@ -205,6 +209,42 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     return 1.0; // Use 1.0 for normal scales
   }, [layoutScale]);
   
+  // Calculate world dimensions for large-scale grid
+  // 150 panels at 22ft each = 3,300ft west to east
+  // 10 panels at 500ft each = 5,000ft north to south
+  const worldDimensions = useMemo(() => {
+    const worldWidth = 3300; // 150 * 22ft
+    const worldHeight = 5000; // 10 * 500ft
+    
+    // Calculate optimal scale to fit world in reasonable canvas size
+    // We want the world to fit in a canvas that's at least 1200x800 pixels
+    const minCanvasWidth = 1200;
+    const minCanvasHeight = 800;
+    
+    // Calculate scale factors for both dimensions
+    const scaleX = minCanvasWidth / worldWidth;
+    const scaleY = minCanvasHeight / worldHeight;
+    
+    // Use the smaller scale to ensure both dimensions fit
+    const worldScale = Math.min(scaleX, scaleY);
+    
+    console.log('[PanelLayout] World dimensions calculated:', {
+      worldWidth,
+      worldHeight,
+      scaleX,
+      scaleY,
+      worldScale,
+      resultingCanvasWidth: worldWidth * worldScale,
+      resultingCanvasHeight: worldHeight * worldScale
+    });
+    
+    return {
+      worldWidth,
+      worldHeight,
+      worldScale
+    };
+  }, []);
+  
   const [canvasState, setCanvasState] = useState<CanvasState>({
     scale: 1,
     offsetX: 0,
@@ -212,7 +252,10 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     showGrid: true,
     showGuides: true,
     snapToGrid: true,
-    gridSize: 20
+    gridSize: 20,
+    worldWidth: worldDimensions.worldWidth,
+    worldHeight: worldDimensions.worldHeight,
+    worldScale: worldDimensions.worldScale
   })
   const [aiState, setAiState] = useState<AIAssistantState>({
     isActive: true,
@@ -239,9 +282,9 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     lastInternalPanels.current = JSON.stringify(panels.panels);
   }, [panels.panels]);
   
-  // Canvas dimensions
-  const [canvasWidth, setCanvasWidth] = useState(1200)
-  const [canvasHeight, setCanvasHeight] = useState(800)
+  // Canvas dimensions - now based on world dimensions
+  const [canvasWidth, setCanvasWidth] = useState(Math.ceil(worldDimensions.worldWidth * worldDimensions.worldScale))
+  const [canvasHeight, setCanvasHeight] = useState(Math.ceil(worldDimensions.worldHeight * worldDimensions.worldScale))
   
   const { toast } = useToast()
   
@@ -266,6 +309,75 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     console.log('[PanelLayout] Creating test panel:', testPanel);
     dispatch({ type: 'ADD_PANEL', payload: testPanel });
   }, []);
+  
+  // Function to create sample panels for the large-scale grid
+  const createSampleGrid = useCallback(() => {
+    console.log('[PanelLayout] Creating sample grid with large-scale panels');
+    
+    const panels: Panel[] = [];
+    
+    // Create 150 panels at 22ft each (west to east)
+    for (let i = 0; i < 150; i++) {
+      const panel: Panel = {
+        id: `panel-22ft-${i}`,
+        shape: 'rectangle',
+        x: i * 22, // 22ft spacing west to east
+        y: 0,      // Start at north edge
+        width: 22, // 22ft width
+        height: 22, // 22ft height
+        length: 22,
+        rotation: 0,
+        fill: `hsl(${(i * 137.5) % 360}, 70%, 60%)`, // Varying colors
+        color: '#1e1b4b',
+        panelNumber: (i + 1).toString(),
+        rollNumber: `R${Math.floor(i / 10) + 1}`,
+        meta: {
+          repairs: [],
+          location: { x: i * 22, y: 0, gridCell: { row: 0, col: i } }
+        }
+      };
+      panels.push(panel);
+    }
+    
+    // Create 10 panels at 500ft each (north to south)
+    for (let i = 0; i < 10; i++) {
+      const panel: Panel = {
+        id: `panel-500ft-${i}`,
+        shape: 'rectangle',
+        x: 0,           // Start at west edge
+        y: i * 500,     // 500ft spacing north to south
+        width: 500,     // 500ft width
+        height: 500,    // 500ft height
+        length: 500,
+        rotation: 0,
+        fill: `hsl(${(i * 36) % 360}, 80%, 50%)`, // Varying colors
+        color: '#1e1b4b',
+        panelNumber: (i + 151).toString(), // Continue numbering from 22ft panels
+        rollNumber: `R${i + 16}`, // Different roll numbers
+        meta: {
+          repairs: [],
+          location: { x: 0, y: i * 500, gridCell: { row: i, col: 0 } }
+        }
+      };
+      panels.push(panel);
+    }
+    
+    console.log('[PanelLayout] Created sample grid with', panels.length, 'panels');
+    console.log('[PanelLayout] Grid dimensions:', {
+      width: 150 * 22, // 3,300ft west to east
+      height: 10 * 500 // 5,000ft north to south
+    });
+    
+    // Add all panels to the state
+    panels.forEach(panel => {
+      dispatch({ type: 'ADD_PANEL', payload: panel });
+    });
+    
+    toast({
+      title: "Sample Grid Created",
+      description: `Created ${panels.length} panels covering ${150 * 22}ft × ${10 * 500}ft area`
+    });
+  }, [dispatch, toast]);
   
   // Initialize panels from external source
   useEffect(() => {
@@ -613,27 +725,58 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
           const bounds = calculatePanelBounds(panelData.panels);
           if (bounds) {
             const { minX, minY, maxX, maxY } = bounds;
-            const panelWidth = maxX - minX;
-            const panelHeight = maxY - minY;
             
-            // Calculate scale to fit all panels
-            const scaleX = (canvasWidth - 100) / panelWidth;
-            const scaleY = (canvasHeight - 100) / panelHeight;
+            // Convert world coordinates to canvas coordinates
+            const worldScale = canvasState.worldScale;
+            const panelWidth = (maxX - minX) * worldScale;
+            const panelHeight = (maxY - minY) * worldScale;
+            
+            // Calculate scale to fit all panels with some padding
+            const padding = 100; // pixels
+            const scaleX = (canvasWidth - padding) / panelWidth;
+            const scaleY = (canvasHeight - padding) / panelHeight;
             const newScale = Math.min(scaleX, scaleY, 2.0);
+            
+            // Calculate offset to center panels
+            const offsetX = (canvasWidth - panelWidth * newScale) / 2 - minX * worldScale * newScale;
+            const offsetY = (canvasHeight - panelHeight * newScale) / 2 - minY * worldScale * newScale;
+            
+            console.log('[PanelLayout] Auto-fit viewport calculated:', {
+              worldBounds: { minX, minY, maxX, maxY },
+              canvasDimensions: { width: canvasWidth, height: canvasHeight },
+              panelDimensions: { width: panelWidth, height: panelHeight },
+              newScale,
+              offsetX,
+              offsetY
+            });
             
             // Update canvas state
             setCanvasState(prev => ({
               ...prev,
               scale: newScale,
-              offsetX: (canvasWidth - panelWidth * newScale) / 2 - minX * newScale,
-              offsetY: (canvasHeight - panelHeight * newScale) / 2 - minY * newScale
+              offsetX,
+              offsetY
             }));
           }
         }
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, [panelData.panels.length, canvasWidth, canvasHeight]); // Remove autoFitViewport dependency
+  }, [panelData.panels.length, canvasWidth, canvasHeight, canvasState.worldScale]); // Add worldScale dependency
+  
+  // Update canvas state when world dimensions change
+  useEffect(() => {
+    setCanvasState(prev => ({
+      ...prev,
+      worldWidth: worldDimensions.worldWidth,
+      worldHeight: worldDimensions.worldHeight,
+      worldScale: worldDimensions.worldScale
+    }));
+    
+    // Update canvas dimensions
+    setCanvasWidth(Math.ceil(worldDimensions.worldWidth * worldDimensions.worldScale));
+    setCanvasHeight(Math.ceil(worldDimensions.worldHeight * worldDimensions.worldScale));
+  }, [worldDimensions]);
   
   // Canvas rendering function
   const renderCanvas = useCallback(() => {
@@ -749,18 +892,77 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     // Use zoom scale for line width since layout scale is applied globally
     ctx.lineWidth = 1 / canvasState.scale
     
-    for (let x = 0; x <= canvasWidth; x += canvasState.gridSize) {
+    // Calculate grid spacing based on world scale
+    // We want grid lines that represent meaningful real-world distances
+    const worldScale = canvasState.worldScale;
+    
+    // Major grid lines every 500ft (for 500ft panels)
+    const majorGridSpacing = 500 * worldScale;
+    // Minor grid lines every 100ft (for better readability)
+    const minorGridSpacing = 100 * worldScale;
+    
+    // Draw minor grid lines (lighter)
+    ctx.strokeStyle = '#f0f0f0'
+    ctx.lineWidth = 0.5 / canvasState.scale
+    
+    // Vertical lines (west to east)
+    for (let x = 0; x <= canvasWidth; x += minorGridSpacing) {
       ctx.beginPath()
       ctx.moveTo(x, 0)
       ctx.lineTo(x, canvasHeight)
       ctx.stroke()
     }
     
-    for (let y = 0; y <= canvasHeight; y += canvasState.gridSize) {
+    // Horizontal lines (north to south)
+    for (let y = 0; y <= canvasHeight; y += minorGridSpacing) {
       ctx.beginPath()
       ctx.moveTo(0, y)
       ctx.lineTo(canvasWidth, y)
       ctx.stroke()
+    }
+    
+    // Draw major grid lines (darker)
+    ctx.strokeStyle = '#d0d0d0'
+    ctx.lineWidth = 1.5 / canvasState.scale
+    
+    // Vertical major lines every 500ft
+    for (let x = 0; x <= canvasWidth; x += majorGridSpacing) {
+      ctx.beginPath()
+      ctx.moveTo(x, 0)
+      ctx.lineTo(x, canvasHeight)
+      ctx.stroke()
+    }
+    
+    // Horizontal major lines every 500ft
+    for (let y = 0; y <= canvasHeight; y += majorGridSpacing) {
+      ctx.beginPath()
+      ctx.moveTo(0, y)
+      ctx.lineTo(canvasWidth, y)
+      ctx.stroke()
+    }
+    
+    // Draw grid labels for major lines
+    ctx.fillStyle = '#666666'
+    ctx.font = `${Math.max(10, 12 / canvasState.scale)}px Arial`
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    
+    // Label vertical lines (west to east distances)
+    for (let x = 0; x <= canvasWidth; x += majorGridSpacing) {
+      const worldX = x / worldScale;
+      const label = `${worldX.toFixed(0)}ft`;
+      ctx.fillText(label, x, 15 / canvasState.scale);
+    }
+    
+    // Label horizontal lines (north to south distances)
+    for (let y = 0; y <= canvasHeight; y += majorGridSpacing) {
+      const worldY = y / worldScale;
+      const label = `${worldY.toFixed(0)}ft`;
+      ctx.save();
+      ctx.translate(15 / canvasState.scale, y);
+      ctx.rotate(-Math.PI / 2);
+      ctx.fillText(label, 0, 0);
+      ctx.restore();
     }
   }
   
@@ -774,7 +976,8 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
       height: panel.height,
       rotation: panel.rotation,
       zoomScale: canvasState.scale,
-      layoutScale
+      layoutScale,
+      worldScale: canvasState.worldScale
     });
     
     // Panel dimension validation using utility function
@@ -784,12 +987,12 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
       return;
     }
     
-    // Additional validation for rendering-specific checks
-    // Check if panel would be visible on canvas (basic culling)
-    const effectiveX = panel.x * normalizedLayoutScale;
-    const effectiveY = panel.y * normalizedLayoutScale;
-    const effectiveWidth = panel.width * normalizedLayoutScale;
-    const effectiveHeight = panel.height * normalizedLayoutScale;
+    // Calculate effective coordinates and dimensions using world scale
+    // Convert world coordinates (feet) to canvas coordinates (pixels)
+    const effectiveX = panel.x * canvasState.worldScale;
+    const effectiveY = panel.y * canvasState.worldScale;
+    const effectiveWidth = panel.width * canvasState.worldScale;
+    const effectiveHeight = panel.height * canvasState.worldScale;
     
     // Calculate panel bounds in screen coordinates
     const panelLeft = effectiveX * canvasState.scale + canvasState.offsetX;
@@ -811,6 +1014,8 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     
     console.log('[PanelLayout] Panel validation passed, rendering:', {
       id: panel.id,
+      worldCoords: { x: panel.x, y: panel.y },
+      worldDimensions: { width: panel.width, height: panel.height },
       effectiveCoords: { x: effectiveX, y: effectiveY },
       effectiveDimensions: { width: effectiveWidth, height: effectiveHeight },
       screenBounds: { left: panelLeft, top: panelTop, right: panelRight, bottom: panelBottom }
@@ -819,8 +1024,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     ctx.save()
     
     // Apply panel transformations
-    // Since layout scale is not applied globally, we need to scale the panel coordinates
-    // to make them visible on the canvas
+    // Convert world coordinates to canvas coordinates
     ctx.translate(effectiveX, effectiveY)
     ctx.rotate((panel.rotation || 0) * Math.PI / 180)
     
@@ -851,6 +1055,12 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
       ctx.fillText(panel.rollNumber.toString(), centerX, centerY + 10 / canvasState.scale)
     }
     
+    // Draw panel dimensions label
+    const dimensionsText = `${panel.width.toFixed(0)}' × ${panel.height.toFixed(0)}'`;
+    ctx.fillStyle = '#ffffff'
+    ctx.font = `${Math.max(10, 14 / canvasState.scale)}px Arial`
+    ctx.fillText(dimensionsText, centerX, centerY + 25 / canvasState.scale)
+    
     ctx.restore()
   }
   
@@ -866,11 +1076,11 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     // Use zoom scale for handle sizes
     const handleSize = 8 / canvasState.scale
     
-    // Calculate effective coordinates and dimensions
-    const effectiveX = panel.x * normalizedLayoutScale;
-    const effectiveY = panel.y * normalizedLayoutScale;
-    const effectiveWidth = panel.width * normalizedLayoutScale;
-    const effectiveHeight = panel.height * normalizedLayoutScale;
+    // Calculate effective coordinates and dimensions using world scale
+    const effectiveX = panel.x * canvasState.worldScale;
+    const effectiveY = panel.y * canvasState.worldScale;
+    const effectiveWidth = panel.width * canvasState.worldScale;
+    const effectiveHeight = panel.height * canvasState.worldScale;
     
     const handles = [
       { x: 0, y: 0, cursor: 'nw-resize' },
@@ -898,12 +1108,9 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     // Draw rotation handle
     const rotationHandleY = -30 / canvasState.scale
     ctx.fillStyle = '#10b981'
-    ctx.beginPath()
-    ctx.arc(effectiveWidth / 2, rotationHandleY, handleSize, 0, 2 * Math.PI)
-    ctx.fill()
+    ctx.fillRect(effectiveWidth / 2 - handleSize / 2, rotationHandleY - handleSize / 2, handleSize, handleSize)
     ctx.strokeStyle = '#ffffff'
-    ctx.lineWidth = 1 / canvasState.scale
-    ctx.stroke()
+    ctx.strokeRect(effectiveWidth / 2 - handleSize / 2, rotationHandleY - handleSize / 2, handleSize, handleSize)
     
     ctx.restore()
   }
@@ -975,25 +1182,25 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   }, [panelData, canvasState, normalizedLayoutScale])
   
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current
-    if (!canvas) return
+    if (!canvasRef.current) return
     
-    const rect = canvas.getBoundingClientRect()
-    // Calculate world coordinates considering zoom only (layout scale is applied per panel)
-    const x = (e.clientX - rect.left - canvasState.offsetX) / canvasState.scale
-    const y = (e.clientY - rect.top - canvasState.offsetY) / canvasState.scale
+    const rect = canvasRef.current.getBoundingClientRect()
+    const x = e.clientX - rect.left
+    const y = e.clientY - rect.top
     
     if (isDragging && selectedPanel) {
-      let newX = x - dragStart.x
-      let newY = y - dragStart.y
+      // Convert screen coordinates to world coordinates
+      const worldX = (x - canvasState.offsetX) / canvasState.scale / canvasState.worldScale;
+      const worldY = (y - canvasState.offsetY) / canvasState.scale / canvasState.worldScale;
       
-      // Convert back to original coordinate space
-      newX = newX / normalizedLayoutScale
-      newY = newY / normalizedLayoutScale
+      // Snap to grid if enabled
+      let newX = worldX;
+      let newY = worldY;
       
       if (canvasState.snapToGrid) {
-        newX = Math.round(newX / canvasState.gridSize) * canvasState.gridSize
-        newY = Math.round(newY / canvasState.gridSize) * canvasState.gridSize
+        const gridSize = 100; // 100ft grid for snapping
+        newX = Math.round(worldX / gridSize) * gridSize;
+        newY = Math.round(worldY / gridSize) * gridSize;
       }
       
       dispatch({
@@ -1015,8 +1222,15 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
         })
       }
     } else if (isRotating && selectedPanel) {
-      const angle = Math.atan2(y - (selectedPanel.y * normalizedLayoutScale + (selectedPanel.height * normalizedLayoutScale) / 2), x - (selectedPanel.x * normalizedLayoutScale + (selectedPanel.width * normalizedLayoutScale) / 2))
-      const rotation = ((angle - rotationStart) * 180) / Math.PI
+      // Convert screen coordinates to world coordinates for rotation calculation
+      const worldX = (x - canvasState.offsetX) / canvasState.scale / canvasState.worldScale;
+      const worldY = (y - canvasState.offsetY) / canvasState.scale / canvasState.worldScale;
+      
+      const panelCenterX = selectedPanel.x + (selectedPanel.width / 2);
+      const panelCenterY = selectedPanel.y + (selectedPanel.height / 2);
+      
+      const angle = Math.atan2(worldY - panelCenterY, worldX - panelCenterX);
+      const rotation = ((angle - rotationStart) * 180) / Math.PI;
       
       dispatch({
         type: 'UPDATE_PANEL',
@@ -1047,11 +1261,11 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     // Use zoom scale for handle sizes
     const handleSize = 8 / canvasState.scale
     
-    // Calculate effective coordinates and dimensions
-    const effectiveX = panel.x * normalizedLayoutScale;
-    const effectiveY = panel.y * normalizedLayoutScale;
-    const effectiveWidth = panel.width * normalizedLayoutScale;
-    const effectiveHeight = panel.height * normalizedLayoutScale;
+    // Calculate effective coordinates and dimensions using world scale
+    const effectiveX = panel.x * canvasState.worldScale;
+    const effectiveY = panel.y * canvasState.worldScale;
+    const effectiveWidth = panel.width * canvasState.worldScale;
+    const effectiveHeight = panel.height * canvasState.worldScale;
     
     const handles = {
       'nw': { x: effectiveX, y: effectiveY },
@@ -1084,10 +1298,10 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     // Use zoom scale for handle sizes
     const handleSize = 8 / canvasState.scale
     
-    // Calculate effective coordinates and dimensions
-    const effectiveX = panel.x * normalizedLayoutScale;
-    const effectiveY = panel.y * normalizedLayoutScale;
-    const effectiveWidth = panel.width * normalizedLayoutScale;
+    // Calculate effective coordinates and dimensions using world scale
+    const effectiveX = panel.x * canvasState.worldScale;
+    const effectiveY = panel.y * canvasState.worldScale;
+    const effectiveWidth = panel.width * canvasState.worldScale;
     
     const rotationHandleY = effectiveY - 30 / canvasState.scale
     const rotationHandleX = effectiveX + effectiveWidth / 2
@@ -1169,7 +1383,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
       
       toast({
         title: 'AI Optimization Complete',
-        description: `Successfully applied: ${suggestion.title}`,
+        description: `Successfully applied: ${suggestion.title}`
       })
     } catch (error) {
       toast({
@@ -1208,8 +1422,33 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
         if (container) {
           const rect = container.getBoundingClientRect()
           console.log('[PanelLayout] Canvas resize - container dimensions:', rect);
-          setCanvasWidth(rect.width)
-          setCanvasHeight(rect.height)
+          
+          // Calculate new canvas dimensions maintaining world scale
+          const newCanvasWidth = Math.ceil(worldDimensions.worldWidth * worldDimensions.worldScale);
+          const newCanvasHeight = Math.ceil(worldDimensions.worldHeight * worldDimensions.worldScale);
+          
+          // If container is smaller than calculated canvas, scale down proportionally
+          let finalWidth = newCanvasWidth;
+          let finalHeight = newCanvasHeight;
+          
+          if (rect.width < newCanvasWidth || rect.height < newCanvasHeight) {
+            const scaleX = rect.width / newCanvasWidth;
+            const scaleY = rect.height / newCanvasHeight;
+            const scale = Math.min(scaleX, scaleY);
+            
+            finalWidth = Math.ceil(newCanvasWidth * scale);
+            finalHeight = Math.ceil(newCanvasHeight * scale);
+            
+            console.log('[PanelLayout] Canvas scaled down to fit container:', {
+              containerSize: { width: rect.width, height: rect.height },
+              calculatedSize: { width: newCanvasWidth, height: newCanvasHeight },
+              scale,
+              finalSize: { width: finalWidth, height: finalHeight }
+            });
+          }
+          
+          setCanvasWidth(finalWidth);
+          setCanvasHeight(finalHeight);
         }
       }
     }
@@ -1217,7 +1456,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     handleResize()
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
-  }, [])
+  }, [worldDimensions])
   
   return (
     <div className="panel-layout-container">
@@ -1276,11 +1515,18 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
       )}
       
       {/* Canvas Wrapper */}
-      <div className="canvas-wrapper relative">
+      <div className="canvas-wrapper relative overflow-auto border border-gray-200 rounded-lg" style={{
+        width: '100%',
+        height: 'calc(100vh - 400px)',
+        minHeight: '600px'
+      }}>
         {/* Debug Controls */}
-        <div className="mb-4 flex gap-2">
+        <div className="mb-4 flex gap-2 p-2 bg-gray-50 border-b">
           <Button onClick={createTestPanel} variant="outline" size="sm">
             Create Test Panel
+          </Button>
+          <Button onClick={createSampleGrid} variant="outline" size="sm">
+            Create Sample Grid
           </Button>
           <Button onClick={() => console.log('Current panels state:', panelData.panels)} variant="outline" size="sm">
             Log Panels State
@@ -1293,20 +1539,37 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
                   const bounds = calculatePanelBounds(panelData.panels);
                   if (bounds) {
                     const { minX, minY, maxX, maxY } = bounds;
-                    const panelWidth = maxX - minX;
-                    const panelHeight = maxY - minY;
                     
-                    // Calculate scale to fit all panels
-                    const scaleX = (canvasWidth - 100) / panelWidth;
-                    const scaleY = (canvasHeight - 100) / panelHeight;
+                    // Convert world coordinates to canvas coordinates
+                    const worldScale = canvasState.worldScale;
+                    const panelWidth = (maxX - minX) * worldScale;
+                    const panelHeight = (maxY - minY) * worldScale;
+                    
+                    // Calculate scale to fit all panels with some padding
+                    const padding = 100; // pixels
+                    const scaleX = (canvasWidth - padding) / panelWidth;
+                    const scaleY = (canvasHeight - padding) / panelHeight;
                     const newScale = Math.min(scaleX, scaleY, 2.0);
+                    
+                    // Calculate offset to center panels
+                    const offsetX = (canvasWidth - panelWidth * newScale) / 2 - minX * worldScale * newScale;
+                    const offsetY = (canvasHeight - panelHeight * newScale) / 2 - minY * worldScale * newScale;
+                    
+                    console.log('[PanelLayout] Manual auto-fit viewport:', {
+                      worldBounds: { minX, minY, maxX, maxY },
+                      canvasDimensions: { width: canvasWidth, height: canvasHeight },
+                      panelDimensions: { width: panelWidth, height: panelHeight },
+                      newScale,
+                      offsetX,
+                      offsetY
+                    });
                     
                     // Update canvas state
                     setCanvasState(prev => ({
                       ...prev,
                       scale: newScale,
-                      offsetX: (canvasWidth - panelWidth * newScale) / 2 - minX * newScale,
-                      offsetY: (canvasHeight - panelHeight * newScale) / 2 - minY * newScale
+                      offsetX,
+                      offsetY
                     }));
                   }
                 }} variant="outline" size="sm">
@@ -1318,14 +1581,15 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
           ref={canvasRef}
           width={canvasWidth}
           height={canvasHeight}
-          className="panel-canvas border border-gray-200 rounded-lg"
+          className="panel-canvas"
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           style={{
             cursor: isDragging ? 'grabbing' : 
                    isResizing ? 'nw-resize' : 
-                   isRotating ? 'crosshair' : 'default'
+                   isRotating ? 'crosshair' : 'default',
+            display: 'block'
           }}
         />
         
@@ -1405,6 +1669,12 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
           <div className="ml-auto text-right">
             <p className="text-sm font-medium">{projectInfo.projectName}</p>
             <p className="text-xs text-gray-500">{panelData.panels.length} panels</p>
+            <p className="text-xs text-gray-400">
+              Grid: {canvasState.worldWidth.toFixed(0)}ft × {canvasState.worldHeight.toFixed(0)}ft
+            </p>
+            <p className="text-xs text-gray-400">
+              Scale: 1:{Math.round(1 / canvasState.worldScale)} ({canvasState.worldScale.toFixed(4)})
+            </p>
           </div>
         </div>
       </div>
