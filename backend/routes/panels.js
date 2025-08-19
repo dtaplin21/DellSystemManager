@@ -107,6 +107,7 @@ router.get('/layout/:projectId', auth, async (req, res, next) => {
       .where(eq(panels.projectId, projectId));
     
     console.log('🔍 Panel layout found:', !!panelLayout);
+    console.log('🔍 Raw panel layout from DB:', panelLayout);
     
     // If layout doesn't exist, create a default one
     if (!panelLayout) {
@@ -127,13 +128,44 @@ router.get('/layout/:projectId', auth, async (req, res, next) => {
     }
     
     // Parse the panels JSON string to an actual array
+    let parsedPanels = [];
+    try {
+      if (panelLayout.panels && typeof panelLayout.panels === 'string') {
+        parsedPanels = JSON.parse(panelLayout.panels);
+        console.log('🔍 Parsed panels from JSON string:', parsedPanels);
+        console.log('🔍 Parsed panels length:', parsedPanels.length);
+        console.log('🔍 Parsed panels type:', typeof parsedPanels);
+        console.log('🔍 Is array?', Array.isArray(parsedPanels));
+      } else if (Array.isArray(panelLayout.panels)) {
+        parsedPanels = panelLayout.panels;
+        console.log('🔍 Panels already an array:', parsedPanels);
+      } else {
+        console.log('🔍 Panels is neither string nor array:', typeof panelLayout.panels, panelLayout.panels);
+        parsedPanels = [];
+      }
+    } catch (parseError) {
+      console.error('🔍 Error parsing panels JSON:', parseError);
+      parsedPanels = [];
+    }
+    
     const parsedLayout = {
       ...panelLayout,
+      panels: parsedPanels,
       width: typeof panelLayout.width === 'number' ? panelLayout.width : DEFAULT_LAYOUT_WIDTH,
       height: typeof panelLayout.height === 'number' ? panelLayout.height : DEFAULT_LAYOUT_HEIGHT,
       scale: typeof panelLayout.scale === 'number' ? panelLayout.scale : DEFAULT_SCALE,
-      panels: JSON.parse(panelLayout.panels || '[]').map(mapPanelToCanonical),
     };
+    
+    console.log('✅ Final parsed layout:', {
+      id: parsedLayout.id,
+      projectId: parsedLayout.projectId,
+      panelsCount: parsedLayout.panels.length,
+      panelsType: typeof parsedLayout.panels,
+      isArray: Array.isArray(parsedLayout.panels),
+      width: parsedLayout.width,
+      height: parsedLayout.height,
+      scale: parsedLayout.scale
+    });
     
     console.log('✅ Panels loaded from DB:', parsedLayout.panels);
     res.status(200).json(parsedLayout);

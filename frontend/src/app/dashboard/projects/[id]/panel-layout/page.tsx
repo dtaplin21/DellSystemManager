@@ -196,6 +196,8 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
       console.log('[DEBUG] Load: Raw panels from backend:', layoutData?.panels);
       console.log('[DEBUG] Load: Layout data type:', typeof layoutData);
       console.log('[DEBUG] Load: Panels array type:', Array.isArray(layoutData?.panels));
+      console.log('[DEBUG] Load: Layout data keys:', layoutData ? Object.keys(layoutData) : 'No data');
+      console.log('[DEBUG] Load: Layout data full object:', JSON.stringify(layoutData, null, 2));
       
       // Process panels properly
       let processedPanels: any[] = [];
@@ -703,6 +705,8 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
         console.log('[DEBUG] Load: Raw panels from backend:', layoutData?.panels);
         console.log('[DEBUG] Load: Layout data type:', typeof layoutData);
         console.log('[DEBUG] Load: Panels array type:', Array.isArray(layoutData?.panels));
+        console.log('[DEBUG] Load: Layout data keys:', layoutData ? Object.keys(layoutData) : 'No data');
+        console.log('[DEBUG] Load: Layout data full object:', JSON.stringify(layoutData, null, 2));
         
         // Process panels properly
         let processedPanels: any[] = [];
@@ -715,6 +719,9 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
         } else {
           console.warn('[DEBUG] No panels array found in backend response:', layoutData);
           console.warn('[DEBUG] Layout data keys:', layoutData ? Object.keys(layoutData) : 'No data');
+          console.warn('[DEBUG] Panels value:', layoutData?.panels);
+          console.warn('[DEBUG] Panels type:', typeof layoutData?.panels);
+          console.warn('[DEBUG] Is panels array?', Array.isArray(layoutData?.panels));
         }
         
         console.log('[DEBUG] Load: Processed panels:', processedPanels);

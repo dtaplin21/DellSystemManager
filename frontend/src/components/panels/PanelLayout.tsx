@@ -770,12 +770,6 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
           }}>
             {/* Debug Controls */}
             <div className="mb-4 flex gap-2 p-2 border-b bg-gray-50">
-              <Button onClick={createTestPanel} variant="outline" size="sm">
-                Create Test Panel
-              </Button>
-              <Button onClick={createSampleGrid} variant="outline" size="sm">
-                Create Sample Grid
-              </Button>
               <Button onClick={() => console.log('Current panels state:', panelData.panels)} variant="outline" size="sm">
                 Log Panels State
               </Button>
