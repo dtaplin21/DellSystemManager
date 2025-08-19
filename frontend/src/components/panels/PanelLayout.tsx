@@ -14,6 +14,9 @@ import {
   Minimize
 } from 'lucide-react'
 import { useToast } from '../../hooks/use-toast'
+import { usePanelValidation } from '../../hooks/use-panel-validation'
+import { useCanvasRenderer } from '../../hooks/use-canvas-renderer'
+import { useFullscreenCanvas } from '../../hooks/use-fullscreen-canvas'
 
 interface PanelLayoutProps {
   mode: 'manual' | 'auto'
@@ -198,6 +201,8 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   }, [canvasWidth, canvasHeight, fullscreenCanvasWidth]);
   
   const { toast } = useToast()
+
+
   
   // Debug function to create a test panel
   const createTestPanel = useCallback(() => {
@@ -290,194 +295,9 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     });
   }, [dispatch, toast]);
   
-  // Fullscreen toggle function
-  const toggleFullscreen = useCallback(() => {
-    console.log('🚀 [FULLSCREEN] toggleFullscreen function called');
-    console.log('🚀 [FULLSCREEN] Current state:', {
-      isFullscreen,
-      canvasWidth,
-      canvasHeight,
-      fullscreenCanvasWidth,
-      fullscreenCanvasHeight,
-      windowDimensions: {
-        innerWidth: window.innerWidth,
-        innerHeight: window.innerHeight
-      }
-    });
-    
-    if (!isFullscreen) {
-      console.log('🚀 [FULLSCREEN] Attempting to ENTER fullscreen mode');
-      
-      // Enter fullscreen mode
-      const currentCanvas = getCurrentCanvas();
-      const container = currentCanvas?.parentElement;
-      console.log('🚀 [FULLSCREEN] Container element:', container);
-      
-      if (container) {
-        console.log('🚀 [FULLSCREEN] Container found, proceeding with fullscreen');
-        
-        // Store current canvas dimensions
-        console.log('🚀 [FULLSCREEN] Storing current canvas dimensions:', {
-          width: canvasWidth,
-          height: canvasHeight
-        });
-        setFullscreenCanvasWidth(canvasWidth);
-        setFullscreenCanvasHeight(canvasHeight);
-        
-        // Set canvas to full screen dimensions
-        const screenWidth = window.innerWidth;
-        const screenHeight = window.innerHeight;
-        
-        console.log('🚀 [FULLSCREEN] Screen dimensions:', {
-          screenWidth,
-          screenHeight,
-          currentCanvas: { width: canvasWidth, height: canvasHeight }
-        });
-        
-        console.log('🚀 [FULLSCREEN] Setting canvas dimensions to screen size');
-        
-        // Update canvas dimensions first
-        setCanvasWidth(screenWidth);
-        setCanvasHeight(screenHeight);
-        
-        // Set fullscreen state immediately
-        setIsFullscreen(true);
-        
-        // Add fullscreen styles to body
-        console.log('🚀 [FULLSCREEN] Setting body overflow to hidden');
-        document.body.style.overflow = 'hidden';
-        
-        // Force immediate fullscreen canvas render
-        console.log('🚀 [FULLSCREEN] Forcing immediate fullscreen canvas render');
-        setTimeout(() => {
-          if (fullscreenCanvasRef.current) {
-            console.log('🚀 [FULLSCREEN] Fullscreen canvas ref found, forcing render');
-            // Force the fullscreen canvas to render
-            renderCanvas();
-          } else {
-            console.log('🚀 [FULLSCREEN] Fullscreen canvas ref not found');
-          }
-        }, 50);
-        
-        // Reset viewport to fit all panels
-        const bounds = calculatePanelBounds(panelData.panels);
-        console.log('🚀 [FULLSCREEN] Panel bounds calculated:', bounds);
-        
-        if (bounds) {
-          const { minX, minY, maxX, maxY } = bounds;
-          const worldScale = canvasState.worldScale;
-          const panelWidth = (maxX - minX) * worldScale;
-          const panelHeight = (maxY - minY) * worldScale;
-          
-          console.log('🚀 [FULLSCREEN] Panel dimensions:', {
-            minX, minY, maxX, maxY,
-            worldScale,
-            panelWidth,
-            panelHeight
-          });
-          
-          // Calculate scale to fit all panels with minimal padding
-          const padding = 50; // Smaller padding for fullscreen
-          const scaleX = (screenWidth - padding) / panelWidth;
-          const scaleY = (screenHeight - padding) / panelHeight;
-          const newScale = Math.min(scaleX, scaleY, 3.0); // Allow higher zoom in fullscreen
-          
-          console.log('🚀 [FULLSCREEN] Scale calculations:', {
-            padding,
-            scaleX,
-            scaleY,
-            newScale
-          });
-          
-          // Center panels
-          const offsetX = (screenWidth - panelWidth * newScale) / 2 - minX * worldScale * newScale;
-          const offsetY = (screenHeight - panelHeight * newScale) / 2 - minY * worldScale * newScale;
-          
-          console.log('🚀 [FULLSCREEN] Offset calculations:', {
-            offsetX,
-            offsetY
-          });
-          
-          console.log('🚀 [FULLSCREEN] Fullscreen viewport calculated:', {
-            panelWidth,
-            panelHeight,
-            newScale,
-            offsetX,
-            offsetY
-          });
-          
-          console.log('🚀 [FULLSCREEN] Updating canvas state with new scale and offset');
-          setCanvasState(prev => {
-            console.log('🚀 [FULLSCREEN] Previous canvas state:', prev);
-            const newState = {
-              ...prev,
-              scale: newScale,
-              offsetX,
-              offsetY
-            };
-            console.log('🚀 [FULLSCREEN] New canvas state:', newState);
-            return newState;
-          });
-        } else {
-          // No panels - set default viewport for fullscreen
-          console.log('🚀 [FULLSCREEN] No panels found - setting default fullscreen viewport');
-          const defaultScale = 1.0;
-          const defaultOffsetX = (screenWidth - (worldDimensions.worldWidth * worldDimensions.worldScale)) / 2;
-          const defaultOffsetY = (screenHeight - (worldDimensions.worldHeight * worldDimensions.worldScale)) / 2;
-          
-          console.log('🚀 [FULLSCREEN] Default viewport:', {
-            scale: defaultScale,
-            offsetX: defaultOffsetX,
-            offsetY: defaultOffsetY
-          });
-          
-          setCanvasState(prev => ({
-            ...prev,
-            scale: defaultScale,
-            offsetX: defaultOffsetX,
-            offsetY: defaultOffsetY
-          }));
-        }
-        
-        // Force a re-render of the canvas
-        console.log('🚀 [FULLSCREEN] Scheduling canvas re-render');
-        setTimeout(() => {
-          console.log('🚀 [FULLSCREEN] Executing delayed canvas re-render');
-          const currentCanvas = getCurrentCanvas();
-          if (currentCanvas) {
-            console.log('🚀 [FULLSCREEN] Canvas ref found, triggering re-render');
-            
-            // Force canvas to use new dimensions
-            const canvas = currentCanvas;
-            canvas.width = screenWidth;
-            canvas.height = screenHeight;
-            
-            // Trigger a re-render by updating canvas state
-            setCanvasState(prev => {
-              console.log('🚀 [FULLSCREEN] Forcing canvas state update for re-render');
-              return { ...prev };
-            });
-            
-            // Force immediate re-render
-            console.log('🚀 [FULLSCREEN] Forcing immediate canvas re-render');
-            if (renderCanvas) {
-              renderCanvas();
-            }
-          } else {
-            console.log('🚀 [FULLSCREEN] Canvas ref not found during re-render');
-          }
-        }, 100);
-        
-        console.log('🚀 [FULLSCREEN] Showing success toast');
-        toast({
-          title: "Entered Fullscreen Mode",
-          description: "Grid now takes up entire screen for better navigation"
-        });
-        
-        console.log('🚀 [FULLSCREEN] Fullscreen entry sequence completed');
-      } else {
-        console.log('🚀 [FULLSCREEN] ERROR: Container element not found');
-      }
+  // Fullscreen toggle function - now using hook
+  const toggleFullscreen = hookToggleFullscreen
+
     } else {
       console.log('🚀 [FULLSCREEN] Attempting to EXIT fullscreen mode');
       
@@ -574,7 +394,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
       
       console.log('🚀 [FULLSCREEN] Fullscreen exit sequence completed');
     }
-  }, [isFullscreen, canvasWidth, canvasHeight, fullscreenCanvasWidth, fullscreenCanvasHeight, panelData.panels, canvasState.worldScale, canvasState, toast]);
+
   
   // Initialize panels from external source
   useEffect(() => {
@@ -673,133 +493,8 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     setCanvasState(prev => ({ ...prev, snapToGrid: !prev.snapToGrid }))
   }, [])
   
-  // Utility function to validate panel data
-  const isValidPanel = (panel: any): panel is Panel => {
-    if (!panel || typeof panel !== 'object') {
-      return false;
-    }
-    
-    // Check required properties
-    if (typeof panel.id !== 'string' || !panel.id) {
-      return false;
-    }
-    
-    // Check coordinates
-    if (typeof panel.x !== 'number' || !isFinite(panel.x)) {
-      return false;
-    }
-    
-    if (typeof panel.y !== 'number' || !isFinite(panel.y)) {
-      return false;
-    }
-    
-    // Check dimensions
-    if (typeof panel.width !== 'number' || !isFinite(panel.width) || panel.width <= 0) {
-      return false;
-    }
-    
-    if (typeof panel.height !== 'number' || !isFinite(panel.height) || panel.height <= 0) {
-      return false;
-    }
-    
-    // Check reasonable limits
-    const MAX_DIMENSION = 10000;
-    const MIN_DIMENSION = 0.1;
-    const MAX_COORDINATE = 100000;
-    
-    if (panel.width > MAX_DIMENSION || panel.height > MAX_DIMENSION) {
-      return false;
-    }
-    
-    if (panel.width < MIN_DIMENSION || panel.height < MIN_DIMENSION) {
-      return false;
-    }
-    
-    if (Math.abs(panel.x) > MAX_COORDINATE || Math.abs(panel.y) > MAX_COORDINATE) {
-      return false;
-    }
-    
-    // Check rotation if present
-    if (panel.rotation !== undefined && panel.rotation !== null) {
-      if (typeof panel.rotation !== 'number' || !isFinite(panel.rotation)) {
-        return false;
-      }
-    }
-    
-    return true;
-  }
-  
-  // Utility function to get validation errors for a panel
-  const getPanelValidationErrors = (panel: any): string[] => {
-    const errors: string[] = [];
-    
-    if (!panel || typeof panel !== 'object') {
-      errors.push('Panel is not a valid object');
-      return errors;
-    }
-    
-    if (typeof panel.id !== 'string' || !panel.id) {
-      errors.push('Panel missing or invalid ID');
-    }
-    
-    if (typeof panel.x !== 'number' || !isFinite(panel.x)) {
-      errors.push('Panel has invalid X coordinate');
-    }
-    
-    if (typeof panel.y !== 'number' || !isFinite(panel.y)) {
-      errors.push('Panel has invalid Y coordinate');
-    }
-    
-    if (typeof panel.width !== 'number' || !isFinite(panel.width) || panel.width <= 0) {
-      errors.push('Panel has invalid width');
-    }
-    
-    if (typeof panel.height !== 'number' || !isFinite(panel.height) || panel.height <= 0) {
-      errors.push('Panel has invalid height');
-    }
-    
-    if (panel.width > 10000 || panel.height > 10000) {
-      errors.push('Panel dimensions too large (max 10,000 units)');
-    }
-    
-    if (panel.width < 0.1 || panel.height < 0.1) {
-      errors.push('Panel dimensions too small (min 0.1 units)');
-    }
-    
-    if (Math.abs(panel.x) > 100000 || Math.abs(panel.y) > 100000) {
-      errors.push('Panel coordinates out of bounds (max ±100,000 units)');
-    }
-    
-    if (panel.rotation !== undefined && panel.rotation !== null) {
-      if (typeof panel.rotation !== 'number' || !isFinite(panel.rotation)) {
-        errors.push('Panel has invalid rotation');
-      }
-    }
-    
-    return errors;
-  }
-  
-  // Utility function to calculate panel bounds
-  const calculatePanelBounds = useCallback((panels: Panel[]) => {
-    if (!panels || panels.length === 0) return null;
-    
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    
-    panels.forEach(panel => {
-      if (isValidPanel(panel)) {
-        minX = Math.min(minX, panel.x);
-        minY = Math.min(minY, panel.y);
-        maxX = Math.max(maxX, panel.x + panel.width);
-        maxY = Math.max(maxY, panel.y + panel.height);
-      }
-    });
-    
-    if (minX === Infinity || minY === Infinity || maxX === -Infinity || maxY === -Infinity) {
-      return null;
-    }
-    
-    return { minX, minY, maxX, maxY };
-  }, []);
+  // Use panel validation hook
+  const { isValidPanel, getPanelValidationErrors, calculatePanelBounds } = usePanelValidation()
 
   // Auto-fit viewport when panels are loaded
   useEffect(() => {
@@ -978,363 +673,13 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     }
   }, [canvasRef.current, canvasWidth, canvasHeight, isFullscreen]);
   
-  // Canvas rendering function
-  const renderCanvas = useCallback(() => {
-    const canvas = getCurrentCanvas()
-    if (!canvas) return
-    
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-    
-    // Get actual canvas dimensions (important for fullscreen mode)
-    const actualCanvasWidth = canvas.width;
-    const actualCanvasHeight = canvas.height;
-    
-    console.log('[PanelLayout] renderCanvas called with:', {
-      canvasWidth,
-      canvasHeight,
-      actualCanvasWidth,
-      actualCanvasHeight,
-      canvasState,
-      panelsCount: panelData.panels.length,
-      layoutScale,
-      normalizedLayoutScale,
-      isFullscreen
-    });
-    
-    // Clear canvas using actual dimensions
-    ctx.clearRect(0, 0, actualCanvasWidth, actualCanvasHeight)
-    
-    // Save context for transformations
-    ctx.save()
-    
-    // Apply viewport transformations in the correct order:
-    // 1. Pan (offset)
-    // 2. Scale (zoom)
-    // Note: We don't apply layoutScale globally anymore to avoid scaling issues
-    ctx.translate(canvasState.offsetX, canvasState.offsetY)
-    ctx.scale(canvasState.scale, canvasState.scale)
-    
-    console.log('[PanelLayout] Canvas transformations applied:', {
-      offsetX: canvasState.offsetX,
-      offsetY: canvasState.offsetY,
-      zoomScale: canvasState.scale,
-      layoutScale,
-      actualCanvasDimensions: { width: actualCanvasWidth, height: actualCanvasHeight }
-    });
-    
-    // Draw grid
-    if (canvasState.showGrid) {
-      drawGrid(ctx)
-    }
-    
-    // Draw panels
-    console.log('[PanelLayout] Rendering canvas with panels:', panelData.panels);
-    console.log('[PanelLayout] Canvas drawing area:', {
-      width: actualCanvasWidth,
-      height: actualCanvasHeight,
-      offsetX: canvasState.offsetX,
-      offsetY: canvasState.offsetY,
-      zoomScale: canvasState.scale,
-      layoutScale
-    });
-    
-    // Filter and validate panels before rendering
-    const validPanels = panelData.panels.filter(panel => {
-      if (!isValidPanel(panel)) {
-        const errors = getPanelValidationErrors(panel);
-        console.warn('[PanelLayout] Skipping invalid panel:', { panel, errors });
-        return false;
-      }
-      return true;
-    });
-    
-    console.log('[PanelLayout] Valid panels for rendering:', validPanels.length, 'out of', panelData.panels.length);
-    
-    validPanels.forEach(panel => {
-      console.log('[PanelLayout] Drawing panel:', panel);
-      
-      // Check if panel coordinates are reasonable
-      const worldX = panel.x;
-      const worldY = panel.y;
-      // Calculate screen coordinates considering zoom and offset only
-      const screenX = (worldX * normalizedLayoutScale * canvasState.scale) + canvasState.offsetX;
-      const screenY = (worldY * normalizedLayoutScale * canvasState.scale) + canvasState.offsetY;
-      
-      console.log('[PanelLayout] Panel coordinates:', {
-        world: { x: worldX, y: worldY },
-        screen: { x: screenX, y: screenY },
-        canvasBounds: { width: canvasWidth, height: canvasHeight },
-        isVisible: screenX >= 0 && screenX <= canvasWidth && screenY >= 0 && screenY <= canvasHeight
-      });
-      
-      drawPanel(ctx, panel, panel.id === panelData.selectedPanelId)
-    })
-    
-    // Draw selection handles
-    if (panelData.selectedPanelId) {
-      const selectedPanel = panelData.panels.find(p => p.id === panelData.selectedPanelId)
-      if (selectedPanel) {
-        // Validate the selected panel before drawing handles
-        if (isValidPanel(selectedPanel)) {
-          drawSelectionHandles(ctx, selectedPanel)
-        } else {
-          const errors = getPanelValidationErrors(selectedPanel);
-          console.warn('[PanelLayout] Selected panel has validation errors, skipping handles:', { panel: selectedPanel, errors });
-        }
-      }
-    }
-    
-    // Draw AI guides
-    if (canvasState.showGuides) {
-      // Removed AI guides as per edit hint
-    }
-    
-    // Restore context
-    ctx.restore()
-  }, [panelData, canvasState, canvasWidth, canvasHeight, normalizedLayoutScale])
+
   
-  // Draw grid
-  const drawGrid = (ctx: CanvasRenderingContext2D) => {
-    ctx.strokeStyle = '#e0e0e0'
-    // Use zoom scale for line width since layout scale is applied globally
-    ctx.lineWidth = 1 / canvasState.scale
-    
-    // Get actual canvas dimensions (important for fullscreen mode)
-    const currentCanvas = getCurrentCanvas();
-    const actualCanvasWidth = currentCanvas?.width || canvasWidth;
-    const actualCanvasHeight = currentCanvas?.height || canvasHeight;
-    
-    console.log('[PanelLayout] drawGrid called with canvas dimensions:', {
-      canvasWidth,
-      canvasHeight,
-      actualCanvasWidth,
-      actualCanvasHeight,
-      isFullscreen
-    });
-    
-    // Calculate grid spacing based on world scale
-    // We want grid lines that represent meaningful real-world distances
-    const worldScale = canvasState.worldScale;
-    
-    // Major grid lines every 500ft (for 500ft panels)
-    const majorGridSpacing = 500 * worldScale;
-    // Minor grid lines every 100ft (for better readability)
-    const minorGridSpacing = 100 * worldScale;
-    
-    // Draw minor grid lines (lighter)
-    ctx.strokeStyle = '#f0f0f0'
-    ctx.lineWidth = 0.5 / canvasState.scale
-    
-    // Vertical lines (west to east) - cover entire canvas width
-    for (let x = 0; x <= actualCanvasWidth; x += minorGridSpacing) {
-      ctx.beginPath()
-      ctx.moveTo(x, 0)
-      ctx.lineTo(x, actualCanvasHeight)
-      ctx.stroke()
-    }
-    
-    // Horizontal lines (north to south) - cover entire canvas height
-    for (let y = 0; y <= actualCanvasHeight; y += minorGridSpacing) {
-      ctx.beginPath()
-      ctx.moveTo(0, y)
-      ctx.lineTo(actualCanvasWidth, y)
-      ctx.stroke()
-    }
-    
-    // Draw major grid lines (darker)
-    ctx.strokeStyle = '#d0d0d0'
-    ctx.lineWidth = 1.5 / canvasState.scale
-    
-    // Vertical major lines every 500ft - cover entire canvas width
-    for (let x = 0; x <= actualCanvasWidth; x += majorGridSpacing) {
-      ctx.beginPath()
-      ctx.moveTo(x, 0)
-      ctx.lineTo(x, actualCanvasHeight)
-      ctx.stroke()
-    }
-    
-    // Horizontal major lines every 500ft - cover entire canvas height
-    for (let y = 0; y <= actualCanvasHeight; y += majorGridSpacing) {
-      ctx.beginPath()
-      ctx.moveTo(0, y)
-      ctx.lineTo(actualCanvasWidth, y)
-      ctx.stroke()
-    }
-    
-    // Draw grid labels for major lines
-    ctx.fillStyle = '#666666'
-    ctx.font = `${Math.max(10, 12 / canvasState.scale)}px Arial`
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    
-    // Label vertical lines (west to east distances)
-    for (let x = 0; x <= actualCanvasWidth; x += majorGridSpacing) {
-      const worldX = x / worldScale;
-      const label = `${worldX.toFixed(0)}ft`;
-      ctx.fillText(label, x, 15 / canvasState.scale);
-    }
-    
-    // Label horizontal lines (north to south distances)
-    for (let y = 0; y <= actualCanvasHeight; y += majorGridSpacing) {
-      const worldY = y / worldScale;
-      const label = `${worldY.toFixed(0)}ft`;
-      ctx.save();
-      ctx.translate(15 / canvasState.scale, y);
-      ctx.rotate(-Math.PI / 2);
-      ctx.fillText(label, 0, 0);
-      ctx.restore();
-    }
-  }
+
   
-  // Draw panel
-  const drawPanel = (ctx: CanvasRenderingContext2D, panel: Panel, isSelected: boolean) => {
-    console.log('[PanelLayout] Drawing panel with properties:', {
-      id: panel.id,
-      x: panel.x,
-      y: panel.y,
-      width: panel.width,
-      height: panel.height,
-      rotation: panel.rotation,
-      zoomScale: canvasState.scale,
-      layoutScale,
-      worldScale: canvasState.worldScale
-    });
-    
-    // Panel dimension validation using utility function
-    if (!isValidPanel(panel)) {
-      const errors = getPanelValidationErrors(panel);
-      console.warn('[PanelLayout] Cannot draw invalid panel:', { panel, errors });
-      return;
-    }
-    
-    // Calculate effective coordinates and dimensions using world scale
-    // Convert world coordinates (feet) to canvas coordinates (pixels)
-    const effectiveX = panel.x * canvasState.worldScale;
-    const effectiveY = panel.y * canvasState.worldScale;
-    const effectiveWidth = panel.width * canvasState.worldScale;
-    const effectiveHeight = panel.height * canvasState.worldScale;
-    
-    // Calculate panel bounds in screen coordinates
-    const panelLeft = effectiveX * canvasState.scale + canvasState.offsetX;
-    const panelTop = effectiveY * canvasState.scale + canvasState.offsetY;
-    const panelRight = (effectiveX + effectiveWidth) * canvasState.scale + canvasState.offsetX;
-    const panelBottom = (effectiveY + effectiveHeight) * canvasState.scale + canvasState.offsetY;
-    
-    // Check if panel is completely outside canvas bounds (with some margin)
-    const margin = 100; // pixels
-    if (panelRight < -margin || panelLeft > canvasWidth + margin || 
-        panelBottom < -margin || panelTop > canvasHeight + margin) {
-      console.log('[PanelLayout] Panel outside canvas bounds, skipping render:', { 
-        id: panel.id, 
-        bounds: { left: panelLeft, top: panelTop, right: panelRight, bottom: panelBottom },
-        canvasBounds: { width: canvasWidth, height: canvasHeight }
-      });
-      return;
-    }
-    
-    console.log('[PanelLayout] Panel validation passed, rendering:', {
-      id: panel.id,
-      worldCoords: { x: panel.x, y: panel.y },
-      worldDimensions: { width: panel.width, height: panel.height },
-      effectiveCoords: { x: effectiveX, y: effectiveY },
-      effectiveDimensions: { width: effectiveWidth, height: effectiveHeight },
-      screenBounds: { left: panelLeft, top: panelTop, right: panelRight, bottom: panelBottom }
-    });
-    
-    ctx.save()
-    
-    // Apply panel transformations
-    // Convert world coordinates to canvas coordinates
-    ctx.translate(effectiveX, effectiveY)
-    ctx.rotate((panel.rotation || 0) * Math.PI / 180)
-    
-    // Draw panel rectangle
-    ctx.fillStyle = panel.fill || '#4f46e5'
-    ctx.fillRect(0, 0, effectiveWidth, effectiveHeight)
-    
-    // Draw panel border
-    ctx.strokeStyle = isSelected ? '#f59e0b' : panel.color || '#1e1b4b'
-    // Use zoom scale for line width
-    ctx.lineWidth = isSelected ? 3 / canvasState.scale : 2 / canvasState.scale
-    ctx.strokeRect(0, 0, effectiveWidth, effectiveHeight)
-    
-    // Draw panel text
-    ctx.fillStyle = '#ffffff'
-    ctx.font = `${Math.max(12, 16 / canvasState.scale)}px Arial`
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    
-    const centerX = effectiveWidth / 2
-    const centerY = effectiveHeight / 2
-    
-    if (panel.panelNumber) {
-      ctx.fillText(panel.panelNumber.toString(), centerX, centerY - 10 / canvasState.scale)
-    }
-    
-    if (panel.rollNumber) {
-      ctx.fillText(panel.rollNumber.toString(), centerX, centerY + 10 / canvasState.scale)
-    }
-    
-    // Draw panel dimensions label
-    const dimensionsText = `${panel.width.toFixed(0)}' × ${panel.height.toFixed(0)}'`;
-    ctx.fillStyle = '#ffffff'
-    ctx.font = `${Math.max(10, 14 / canvasState.scale)}px Arial`
-    ctx.fillText(dimensionsText, centerX, centerY + 25 / canvasState.scale)
-    
-    ctx.restore()
-  }
+
   
-  // Draw selection handles
-  const drawSelectionHandles = (ctx: CanvasRenderingContext2D, panel: Panel) => {
-    // Validate panel before drawing handles using utility function
-    if (!isValidPanel(panel)) {
-      const errors = getPanelValidationErrors(panel);
-      console.warn('[PanelLayout] Cannot draw selection handles for invalid panel:', { panel, errors });
-      return;
-    }
-    
-    // Use zoom scale for handle sizes
-    const handleSize = 8 / canvasState.scale
-    
-    // Calculate effective coordinates and dimensions using world scale
-    const effectiveX = panel.x * canvasState.worldScale;
-    const effectiveY = panel.y * canvasState.worldScale;
-    const effectiveWidth = panel.width * canvasState.worldScale;
-    const effectiveHeight = panel.height * canvasState.worldScale;
-    
-    const handles = [
-      { x: 0, y: 0, cursor: 'nw-resize' },
-      { x: effectiveWidth / 2, y: 0, cursor: 'n-resize' },
-      { x: effectiveWidth, y: 0, cursor: 'ne-resize' },
-      { x: effectiveWidth, y: effectiveHeight / 2, cursor: 'e-resize' },
-      { x: effectiveWidth, y: effectiveHeight, cursor: 'se-resize' },
-      { x: effectiveWidth / 2, y: effectiveHeight, cursor: 's-resize' },
-      { x: 0, y: effectiveHeight, cursor: 'sw-resize' },
-      { x: 0, y: effectiveHeight / 2, cursor: 'w-resize' }
-    ]
-    
-    ctx.save()
-    ctx.translate(effectiveX, effectiveY)
-    ctx.rotate((panel.rotation || 0) * Math.PI / 180)
-    
-    handles.forEach(handle => {
-      ctx.fillStyle = '#f59e0b'
-      ctx.fillRect(handle.x - handleSize / 2, handle.y - handleSize / 2, handleSize, handleSize)
-      ctx.strokeStyle = '#ffffff'
-      ctx.lineWidth = 1 / canvasState.scale
-      ctx.strokeRect(handle.x - handleSize / 2, handle.y - handleSize / 2, handleSize, handleSize)
-    })
-    
-    // Draw rotation handle
-    const rotationHandleY = -30 / canvasState.scale
-    ctx.fillStyle = '#10b981'
-    ctx.fillRect(effectiveWidth / 2 - handleSize / 2, rotationHandleY - handleSize / 2, handleSize, handleSize)
-    ctx.strokeStyle = '#ffffff'
-    ctx.strokeRect(effectiveWidth / 2 - handleSize / 2, rotationHandleY - handleSize / 2, handleSize, handleSize)
-    
-    ctx.restore()
-  }
+
   
   // Draw AI guides
   const drawAIGuides = (ctx: CanvasRenderingContext2D) => {
@@ -1692,6 +1037,42 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   const getCurrentCanvas = () => {
     return getCurrentCanvasRef().current;
   };
+
+  // Use canvas renderer hook
+  const { renderCanvas, drawGrid, drawPanel, drawSelectionHandles } = useCanvasRenderer({
+    panels: panelData.panels,
+    canvasState,
+    canvasWidth,
+    canvasHeight,
+    normalizedLayoutScale,
+    selectedPanelId: panelData.selectedPanelId,
+    getCurrentCanvas,
+    isValidPanel,
+    getPanelValidationErrors
+  })
+
+  // Use fullscreen canvas hook
+  const { 
+    isFullscreen: hookIsFullscreen, 
+    fullscreenCanvasRef: hookFullscreenCanvasRef, 
+    toggleFullscreen: hookToggleFullscreen,
+    fullscreenCanvasWidth: hookFullscreenCanvasWidth,
+    fullscreenCanvasHeight: hookFullscreenCanvasHeight
+  } = useFullscreenCanvas({
+    panels: panelData.panels,
+    canvasState,
+    worldDimensions,
+    canvasWidth,
+    canvasHeight,
+    onCanvasStateChange: (updates) => setCanvasState(prev => ({ ...prev, ...updates })),
+    onCanvasDimensionsChange: (width, height) => {
+      setCanvasWidth(width);
+      setCanvasHeight(height);
+    },
+    calculatePanelBounds,
+    renderCanvas,
+    toast
+  })
   
   return (
     <>
