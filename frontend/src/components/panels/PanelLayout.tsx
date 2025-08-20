@@ -65,10 +65,8 @@ interface MouseState {
   y: number
   isPanning: boolean
   isDragging: boolean
-  isResizing: boolean
   dragStartX: number
   dragStartY: number
-  resizeHandle: string | null
 }
 
 const panelReducer = (state: PanelState, action: PanelAction): PanelState => {
@@ -113,8 +111,6 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   const [isDragging, setIsDragging] = useState(false)
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
   const [selectedPanel, setSelectedPanel] = useState<Panel | null>(null)
-  const [isResizing, setIsResizing] = useState(false)
-  const [resizeHandle, setResizeHandle] = useState<string | null>(null)
   const [isRotating, setIsRotating] = useState(false)
   const [rotationStart, setRotationStart] = useState(0)
   
@@ -124,10 +120,8 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     y: 0,
     isPanning: false,
     isDragging: false,
-    isResizing: false,
     dragStartX: 0,
     dragStartY: 0,
-    resizeHandle: null,
   })
 
   const [spacePressed, setSpacePressed] = useState(false)
@@ -322,11 +316,13 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     
     // Only process if external panels actually changed
     if (lastExternalPanels.current !== externalPanelsString) {
+      console.log('[PanelLayout] External panels changed, processing...');
       lastExternalPanels.current = externalPanelsString;
       
       // Check if internal panels are already the same
       const internalPanelsString = lastInternalPanels.current;
       if (externalPanelsString === internalPanelsString) {
+        console.log('[PanelLayout] Internal panels already match, skipping');
         return;
       }
       
@@ -341,16 +337,22 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
         });
         
         if (validExternalPanels.length > 0) {
+          console.log('[PanelLayout] Setting internal panels from external source');
+          // Set a flag to prevent the notification useEffect from running
+          lastInternalPanels.current = externalPanelsString;
           dispatch({ type: 'SET_PANELS', payload: validExternalPanels })
         }
       } else {
         // Only clear if internal panels are not already empty
         if (internalPanelsString !== '[]') {
+          console.log('[PanelLayout] Clearing internal panels from external source');
+          // Set a flag to prevent the notification useEffect from running
+          lastInternalPanels.current = '[]';
           dispatch({ type: 'SET_PANELS', payload: [] })
         }
       }
     }
-  }, [externalPanels]) // Removed isValidPanel and getPanelValidationErrors dependencies
+  }, [externalPanels]) // Only depend on externalPanels
   
   // Notify parent of panel updates
   const onPanelUpdateRef = useRef(onPanelUpdate);
@@ -363,7 +365,15 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   useEffect(() => {
     // Only notify parent if panels actually changed
     const currentPanelsString = JSON.stringify(panels.panels);
+    
+    // Skip if this change was triggered by external panels update
+    if (currentPanelsString === lastInternalPanels.current) {
+      console.log('[PanelLayout] Skipping notification - change was from external source');
+      return;
+    }
+    
     if (currentPanelsString !== lastNotifiedPanels.current && onPanelUpdateRef.current) {
+      console.log('[PanelLayout] Notifying parent of panel changes');
       // Additional check: only update if the change is meaningful
       const currentPanels = panels.panels;
       const lastNotifiedPanelsParsed = lastNotifiedPanels.current ? JSON.parse(lastNotifiedPanels.current) : [];
@@ -382,7 +392,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
         onPanelUpdateRef.current(currentPanels);
       }
     }
-  }, [panels.panels])
+  }, [panels.panels]) // Only depend on panels.panels
   
   // Canvas Functions
   const zoomIn = useCallback(() => {
@@ -538,14 +548,6 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
           dispatch({ type: 'SELECT_PANEL', payload: panel.id })
           setSelectedPanel(panel)
           
-          const handle = getResizeHandle(x, y, panel)
-      if (handle) {
-        setIsResizing(true)
-        setResizeHandle(handle)
-        setDragStart({ x, y })
-        return
-      }
-      
           if (isRotationHandle(x, y, panel)) {
             setIsRotating(true)
             // Convert screen coordinates to world coordinates for rotation calculation
@@ -618,17 +620,6 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
           updates: { x: newX, y: newY }
         }
       })
-    } else if (isResizing && selectedPanel && resizeHandle) {
-      const updates = getResizeUpdates(x, y, selectedPanel, resizeHandle, dragStart)
-      if (updates) {
-        dispatch({
-          type: 'UPDATE_PANEL',
-          payload: {
-            id: selectedPanel.id,
-            updates
-          }
-        })
-      }
     } else if (isRotating && selectedPanel) {
       const worldX = (x - canvasState.offsetX) / canvasState.scale / canvasState.worldScale;
       const worldY = (y - canvasState.offsetY) / canvasState.scale / canvasState.worldScale;
@@ -647,53 +638,19 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
         }
       })
     }
-  }, [isDragging, isResizing, isRotating, selectedPanel, resizeHandle, dragStart, rotationStart, canvasState, isFullscreen, mouseState, screenToWorld])
+  }, [isDragging, isRotating, selectedPanel, dragStart, rotationStart, canvasState, isFullscreen, mouseState, screenToWorld])
   
   const handleMouseUp = useCallback(() => {
     setIsDragging(false)
-    setIsResizing(false)
     setIsRotating(false)
-    setResizeHandle(null)
     setMouseState(prev => ({
       ...prev,
       isPanning: false,
       isDragging: false,
-      isResizing: false,
     }))
   }, [])
   
-  // Helper functions
-  const getResizeHandle = (x: number, y: number, panel: Panel): string | null => {
-    if (!isValidPanel(panel)) {
-      return null;
-    }
-    
-    // Convert world coordinates to screen coordinates for handle detection
-    const screenPos = worldToScreen(panel.x, panel.y);
-    const screenWidth = panel.width * canvasState.worldScale * canvasState.scale;
-    const screenHeight = panel.height * canvasState.worldScale * canvasState.scale;
-    
-    const handleSize = 8
-    
-    const handles = {
-      'nw': { x: screenPos.x, y: screenPos.y },
-      'n': { x: screenPos.x + screenWidth / 2, y: screenPos.y },
-      'ne': { x: screenPos.x + screenWidth, y: screenPos.y },
-      'e': { x: screenPos.x + screenWidth, y: screenPos.y + screenHeight / 2 },
-      'se': { x: screenPos.x + screenWidth, y: screenPos.y + screenHeight },
-      's': { x: screenPos.x + screenWidth / 2, y: screenPos.y + screenHeight },
-      'sw': { x: screenPos.x, y: screenPos.y + screenHeight },
-      'w': { x: screenPos.x, y: screenPos.y + screenHeight / 2 }
-    }
-    
-    for (const [handle, pos] of Object.entries(handles)) {
-      if (Math.abs(x - pos.x) <= handleSize && Math.abs(y - pos.y) <= handleSize) {
-        return handle
-      }
-    }
-    
-    return null
-  }
+
   
   const isRotationHandle = (x: number, y: number, panel: Panel): boolean => {
     if (!isValidPanel(panel)) {
@@ -711,38 +668,11 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     return Math.abs(x - rotationHandleX) <= handleSize && Math.abs(y - rotationHandleY) <= handleSize
   }
   
-  const getResizeUpdates = (x: number, y: number, panel: Panel, handle: string, start: { x: number; y: number }): Partial<Panel> | null => {
-    // Convert screen coordinates to world coordinates for panel updates
-    const startWorldPos = screenToWorld(start.x, start.y);
-    const currentWorldPos = screenToWorld(x, y);
-    
-    const deltaX = currentWorldPos.x - startWorldPos.x;
-    const deltaY = currentWorldPos.y - startWorldPos.y;
-    
-    switch (handle) {
-      case 'nw':
-        return { x: panel.x + deltaX, y: panel.y + deltaY, width: panel.width - deltaX, height: panel.height - deltaY }
-      case 'n':
-        return { y: panel.y + deltaY, height: panel.height - deltaY }
-      case 'ne':
-        return { y: panel.y + deltaY, width: panel.width + deltaX, height: panel.height - deltaY }
-      case 'e':
-        return { width: panel.width + deltaX }
-      case 'se':
-        return { width: panel.width + deltaX, height: panel.height + deltaY }
-      case 's':
-        return { height: panel.height + deltaY }
-      case 'sw':
-        return { x: panel.x + deltaX, width: panel.width - deltaX, height: panel.height + deltaY }
-      case 'w':
-        return { x: panel.x + deltaX, width: panel.width - deltaX }
-      default:
-        return null
-    }
-  }
+
   
   // Wheel event for zooming
   const handleWheel = useCallback((e: WheelEvent) => {
+    // Prevent default scrolling behavior
     e.preventDefault()
     
     const canvas = isFullscreen ? fullscreenCanvasRef.current : canvasRef.current
@@ -774,7 +704,13 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     const canvas = isFullscreen ? fullscreenCanvasRef.current : canvasRef.current
     if (!canvas) return
     
-    const wheelHandler = (e: WheelEvent) => handleWheel(e)
+    const wheelHandler = (e: WheelEvent) => {
+      try {
+        handleWheel(e)
+      } catch (error) {
+        console.warn('[PanelLayout] Error in wheel handler:', error)
+      }
+    }
     
     canvas.addEventListener('wheel', wheelHandler, { passive: false })
     
@@ -978,12 +914,10 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
               onMouseDown={handleMouseDown}
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
-              onWheel={(e) => handleWheel(e.nativeEvent)}
               style={{
                 cursor: mouseState.isPanning ? 'grabbing' : 
                        spacePressed ? 'grab' : 
                        isDragging ? 'grabbing' : 
-                       isResizing ? 'nw-resize' : 
                        isRotating ? 'crosshair' : 'crosshair',
                 display: 'block',
                 width: '100%',
@@ -992,20 +926,20 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
             />
           </div>
           
-          {/* Help Overlay */}
-          <div className="absolute bottom-4 right-4 bg-black bg-opacity-75 text-white px-3 py-2 rounded text-sm pointer-events-none z-20">
-            <div className="font-medium mb-1">Controls:</div>
-            <div className="text-xs text-gray-300 space-y-1">
-              <div>Wheel: Zoom</div>
-              <div>Space + Drag: Pan</div>
-              <div>Middle Click + Drag: Pan</div>
-              <div>Click: Select Panel</div>
-              <div>Drag: Move Panel</div>
-              <div>ESC: Exit Fullscreen</div>
-              <div>Ctrl+F: Toggle Fullscreen</div>
-              <div>Delete: Remove Selected Panel</div>
-            </div>
-          </div>
+                                             {/* Help Overlay */}
+             <div className="absolute bottom-4 right-4 bg-black bg-opacity-75 text-white px-3 py-2 rounded text-sm pointer-events-none z-20">
+               <div className="font-medium mb-1">Controls:</div>
+               <div className="text-xs text-gray-300 space-y-1">
+                 <div>Wheel: Zoom</div>
+                 <div>Space + Drag: Pan</div>
+                 <div>Middle Click + Drag: Pan</div>
+                 <div>Click: Select Panel</div>
+                 <div>Drag: Move Panel</div>
+                 <div>ESC: Exit Fullscreen</div>
+                 <div>Ctrl+F: Toggle Fullscreen</div>
+                 <div>Delete: Remove Selected Panel</div>
+               </div>
+             </div>
         </div>
         </>
       )}
@@ -1182,11 +1116,10 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
               onMouseUp={handleMouseUp}
                 onContextMenu={(e) => e.preventDefault()}
                 data-testid="canvas-main"
-              style={{
+                              style={{
                   cursor: mouseState.isPanning ? 'grabbing' : 
                          spacePressed ? 'grab' : 
                          isDragging ? 'grabbing' : 
-                       isResizing ? 'nw-resize' : 
                          isRotating ? 'crosshair' : 'crosshair',
                 display: 'block',
                 width: '100%',
