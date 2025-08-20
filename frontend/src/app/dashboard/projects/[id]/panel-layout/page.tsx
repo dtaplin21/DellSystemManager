@@ -265,16 +265,12 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
   const lastMappedPanelsRef = useRef<string>('');
   
   const mappedPanels = useMemo(() => {
-    console.log('[DEBUG] mappedPanels useMemo triggered with:', { layout, hasPanels: !!layout?.panels, panelsCount: layout?.panels?.length });
-    
     if (!layout?.panels || !Array.isArray(layout.panels)) {
-      console.log('[DEBUG] No panels to map, returning empty array');
       return [];
     }
     
     try {
       const mapped = layout.panels.map((panel: any, idx: number) => {
-        console.log(`[DEBUG] Mapping panel ${idx}:`, panel);
         return mapPanelFields(panel, idx);
       });
       
@@ -283,12 +279,9 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
       
       // Only return new array if there's a real change
       if (lastMappedPanelsRef.current !== mappedString) {
-        console.log('[DEBUG] Mapped panels changed, updating reference');
         lastMappedPanelsRef.current = mappedString;
-        console.log('[DEBUG] Successfully mapped panels:', mapped);
         return mapped;
       } else {
-        console.log('[DEBUG] Mapped panels unchanged, returning cached result');
         // Return the cached result to prevent unnecessary re-renders
         try {
           return JSON.parse(lastMappedPanelsRef.current) as Panel[];
@@ -304,9 +297,17 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
 
   // Panel update handler
   const handlePanelUpdate = useCallback((updatedPanels: Panel[]) => {
-    console.log('[DEBUG] Panel update received:', updatedPanels);
     setLayout(prev => {
       if (!prev) return prev;
+      
+      // Check if panels actually changed to prevent unnecessary updates
+      const currentPanelsString = JSON.stringify(prev.panels);
+      const updatedPanelsString = JSON.stringify(updatedPanels);
+      
+      if (currentPanelsString === updatedPanelsString) {
+        return prev; // No change, return same reference
+      }
+      
       return {
         ...prev,
         panels: updatedPanels
@@ -963,7 +964,6 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
               try {
                 // Add null checks for layout
                 if (!layout) {
-                  console.log('[DEBUG] Layout is null, showing loading state');
                   return (
                     <div className="flex items-center justify-center h-full">
                       <div className="text-center">
@@ -974,22 +974,8 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
                   );
                 }
                 
-                console.log('[DEBUG] Raw panels from layout:', layout.panels);
-                console.log('[DEBUG] Layout scale:', layout.scale);
-                console.log('[DEBUG] Layout dimensions:', { width: layout.width, height: layout.height });
-                console.log('[DEBUG] Mapped panels for PanelGrid:', mappedPanels);
-                console.log('[DEBUG] Panel dimensions sample:', mappedPanels.slice(0, 3).map(p => ({
-                  id: p.id,
-                  x: p.x,
-                  y: p.y,
-                  width: p.width,
-                  length: p.length,
-                  visible: p.width > 1 && p.length > 1
-                })));
-                
                 // Check if any panels are visible (larger than 1 unit)
                 const visiblePanels = mappedPanels.filter(p => p.width > 1 && p.length > 1);
-                console.log('[DEBUG] Visible panels count:', visiblePanels.length, 'out of', mappedPanels.length);
                 
                 if (visiblePanels.length === 0 && mappedPanels.length > 0) {
                   return (

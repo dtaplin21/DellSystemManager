@@ -57,13 +57,6 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
     const actualCanvasWidth = currentCanvas?.width || canvasWidth;
     const actualCanvasHeight = currentCanvas?.height || canvasHeight;
     
-    console.log('[useCanvasRenderer] drawGrid called with canvas dimensions:', {
-      canvasWidth,
-      canvasHeight,
-      actualCanvasWidth,
-      actualCanvasHeight
-    });
-    
     // Calculate grid spacing based on world scale
     // We want grid lines that represent meaningful real-world distances
     const worldScale = canvasState.worldScale;
@@ -140,17 +133,6 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
 
   // Draw panel
   const drawPanel = useCallback((ctx: CanvasRenderingContext2D, panel: Panel, isSelected: boolean) => {
-    console.log('[useCanvasRenderer] Drawing panel with properties:', {
-      id: panel.id,
-      x: panel.x,
-      y: panel.y,
-      width: panel.width,
-      height: panel.height,
-      rotation: panel.rotation,
-      zoomScale: canvasState.scale,
-      worldScale: canvasState.worldScale
-    });
-    
     // Panel dimension validation using utility function
     if (!isValidPanel(panel)) {
       const errors = getPanelValidationErrors(panel);
@@ -175,22 +157,8 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
     const margin = 100; // pixels
     if (panelRight < -margin || panelLeft > canvasWidth + margin || 
         panelBottom < -margin || panelTop > canvasHeight + margin) {
-      console.log('[useCanvasRenderer] Panel outside canvas bounds, skipping render:', { 
-        id: panel.id, 
-        bounds: { left: panelLeft, top: panelTop, right: panelRight, bottom: panelBottom },
-        canvasBounds: { width: canvasWidth, height: canvasHeight }
-      });
       return;
     }
-    
-    console.log('[useCanvasRenderer] Panel validation passed, rendering:', {
-      id: panel.id,
-      worldCoords: { x: panel.x, y: panel.y },
-      worldDimensions: { width: panel.width, height: panel.height },
-      effectiveCoords: { x: effectiveX, y: effectiveY },
-      effectiveDimensions: { width: effectiveWidth, height: effectiveHeight },
-      screenBounds: { left: panelLeft, top: panelTop, right: panelRight, bottom: panelBottom }
-    });
     
     ctx.save()
     
@@ -298,15 +266,6 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
     const actualCanvasWidth = canvas.width;
     const actualCanvasHeight = canvas.height;
     
-    console.log('[useCanvasRenderer] renderCanvas called with:', {
-      canvasWidth,
-      canvasHeight,
-      actualCanvasWidth,
-      actualCanvasHeight,
-      canvasState,
-      panelsCount: panels.length
-    });
-    
     // Clear canvas using actual dimensions
     ctx.clearRect(0, 0, actualCanvasWidth, actualCanvasHeight)
     
@@ -320,28 +279,12 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
     ctx.translate(canvasState.offsetX, canvasState.offsetY)
     ctx.scale(canvasState.scale, canvasState.scale)
     
-    console.log('[useCanvasRenderer] Canvas transformations applied:', {
-      offsetX: canvasState.offsetX,
-      offsetY: canvasState.offsetY,
-      zoomScale: canvasState.scale,
-      actualCanvasDimensions: { width: actualCanvasWidth, height: actualCanvasHeight }
-    });
-    
     // Draw grid
     if (canvasState.showGrid) {
       drawGrid(ctx)
     }
     
     // Draw panels
-    console.log('[useCanvasRenderer] Rendering canvas with panels:', panels);
-    console.log('[useCanvasRenderer] Canvas drawing area:', {
-      width: actualCanvasWidth,
-      height: actualCanvasHeight,
-      offsetX: canvasState.offsetX,
-      offsetY: canvasState.offsetY,
-      zoomScale: canvasState.scale
-    });
-    
     // Filter and validate panels before rendering
     const validPanels = panels.filter(panel => {
       if (!isValidPanel(panel)) {
@@ -352,25 +295,7 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
       return true;
     });
     
-    console.log('[useCanvasRenderer] Valid panels for rendering:', validPanels.length, 'out of', panels.length);
-    
     validPanels.forEach(panel => {
-      console.log('[useCanvasRenderer] Drawing panel:', panel);
-      
-      // Check if panel coordinates are reasonable
-      const worldX = panel.x;
-      const worldY = panel.y;
-      // Calculate screen coordinates considering zoom and offset only
-      const screenX = (worldX * normalizedLayoutScale * canvasState.scale) + canvasState.offsetX;
-      const screenY = (worldY * normalizedLayoutScale * canvasState.scale) + canvasState.offsetY;
-      
-      console.log('[useCanvasRenderer] Panel coordinates:', {
-        world: { x: worldX, y: worldY },
-        screen: { x: screenX, y: screenY },
-        canvasBounds: { width: canvasWidth, height: canvasHeight },
-        isVisible: screenX >= 0 && screenX <= canvasWidth && screenY >= 0 && screenY <= canvasHeight
-      });
-      
       drawPanel(ctx, panel, panel.id === selectedPanelId)
     })
     
@@ -390,7 +315,7 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
     
     // Restore context
     ctx.restore()
-  }, [panels, canvasState, canvasWidth, canvasHeight, normalizedLayoutScale, selectedPanelId, getCurrentCanvas, drawGrid, drawPanel, drawSelectionHandles, isValidPanel, getPanelValidationErrors])
+  }, [panels, canvasState, canvasWidth, canvasHeight, normalizedLayoutScale, selectedPanelId, drawGrid, drawPanel, drawSelectionHandles, isValidPanel, getPanelValidationErrors])
 
   return {
     renderCanvas,

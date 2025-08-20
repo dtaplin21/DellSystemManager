@@ -69,6 +69,7 @@ export default function PanelPlaygroundPage() {
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const drawCanvasRef = useRef<(() => void) | null>(null);
 
   // Use the unified zoom/pan hook
   const {
@@ -87,19 +88,15 @@ export default function PanelPlaygroundPage() {
   // Remove hover state and add tooltip
   const { showTooltip, hideTooltip, TooltipComponent } = useTooltip();
 
-  // Project selection guard
-  if (!selectedProjectId || !selectedProject) {
-    return <NoProjectSelected message="Select a project to access the panel playground." />;
-  }
-
-  useEffect(() => {
-    drawCanvas();
-  }, [panels, scale, settings, selectedPanel]);
-
   // Snap to grid utility function
   const snapToGrid = (value: number, gridSize: number): number => {
     return Math.round(value / gridSize) * gridSize;
   };
+
+  // Project selection guard
+  if (!selectedProjectId || !selectedProject) {
+    return <NoProjectSelected message="Select a project to access the panel playground." />;
+  }
 
   // Mouse event handlers for drag and drop
   const handleMouseDown = (e: React.MouseEvent, panelId: string, isResizeHandle = false, handle: string | null = null) => {
