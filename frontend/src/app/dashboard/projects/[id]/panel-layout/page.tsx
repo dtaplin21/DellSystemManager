@@ -240,7 +240,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
     } finally {
       setIsLoading(false);
     }
-  }, [id, toast]); // Only depend on id and toast, not on the function itself
+  }, [id]); // Only depend on id, not toast
 
   // Memoize projectInfo to prevent infinite re-renders
   const projectInfo = useMemo(() => {
@@ -456,7 +456,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
         variant: 'destructive',
       });
     }
-  }, [toast]);
+  }, []); // No dependencies needed since we use toastRef.current
 
   // Panel management functions
   const handleEditPanel = useCallback((panel: any) => {
@@ -834,10 +834,11 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
     );
   }
 
-  console.log('🔍 [DEBUG] Render state - project:', project);
-  console.log('🔍 [DEBUG] Render state - layout:', layout);
-  console.log('🔍 [DEBUG] Render state - project name:', project?.name);
-  console.log('🔍 [DEBUG] Render state - project type:', typeof project?.name);
+  // Debug logging only in development and only when values actually change
+  if (process.env.NODE_ENV === 'development') {
+    console.log('🔍 [DEBUG] Render state - project name:', project?.name);
+    console.log('🔍 [DEBUG] Render state - project type:', typeof project?.name);
+  }
 
   if (!project || !layout) {
     console.log('🔍 [DEBUG] Missing project or layout - project:', !!project, 'layout:', !!layout);
@@ -854,9 +855,11 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
     );
   }
 
-  console.log('[DEBUG] Render: project:', project);
-  console.log('[DEBUG] Render: layout:', layout);
-  console.log('[DEBUG] Render: layout.panels:', layout?.panels);
+  // Debug logging only in development
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[DEBUG] Render: project name:', project?.name);
+    console.log('[DEBUG] Render: layout panels count:', layout?.panels?.length || 0);
+  }
 
   return (
     <div className="space-y-4 p-4">

@@ -86,36 +86,54 @@ export const useFullscreenCanvas = (options: UseFullscreenCanvasOptions): UseFul
     });
   }, [canvasWidth, canvasHeight]); // Removed toast dependency
 
+    // Store toast function in ref to prevent infinite loops
+  const toastRef = useRef(toast);
+  
+  useEffect(() => {
+    toastRef.current = toast;
+  }, [toast]);
+
   // Handle toast messages after state changes to avoid render cycle issues
   useEffect(() => {
+    // Only show toast once per state change, not on every render
     if (isFullscreen) {
       // Show success message after entering fullscreen
-      if (toast) {
+      if (toastRef.current) {
         try {
-          toast({
-            title: "Entered Fullscreen Mode",
-            description: "Grid now takes up entire screen for better navigation",
-            variant: 'success'
-          });
+          // Use setTimeout to ensure this runs after the render cycle
+          setTimeout(() => {
+            if (toastRef.current) {
+              toastRef.current({
+                title: "Entered Fullscreen Mode",
+                description: "Grid now takes up entire screen for better navigation",
+                variant: 'success'
+              });
+            }
+          }, 0);
         } catch (error) {
           console.error('🚀 [useFullscreenCanvas] Toast error:', error);
         }
       }
     } else {
       // Show exit message after exiting fullscreen
-      if (toast) {
+      if (toastRef.current) {
         try {
-                  toast({
-          title: "Exited Fullscreen Mode",
-          description: "Grid returned to normal size",
-          variant: 'default'
-        });
+          // Use setTimeout to ensure this runs after the render cycle
+          setTimeout(() => {
+            if (toastRef.current) {
+              toastRef.current({
+                title: "Exited Fullscreen Mode",
+                description: "Grid returned to normal size",
+                variant: 'default'
+              });
+            }
+          }, 0);
         } catch (error) {
           console.error('🚀 [useFullscreenCanvas] Toast error:', error);
         }
       }
     }
-  }, [isFullscreen, toast]); // Show toast when isFullscreen changes
+  }, [isFullscreen]); // Only depend on isFullscreen, not toast
 
   // Cleanup fullscreen mode on unmount
   useEffect(() => {
