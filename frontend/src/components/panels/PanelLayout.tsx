@@ -11,12 +11,15 @@ import {
   ZoomOut, 
   Grid,
   Maximize,
-  Minimize
+  Minimize,
+  Move
 } from 'lucide-react'
 import { useToast } from '../../hooks/use-toast'
 import { usePanelValidation } from '../../hooks/use-panel-validation'
 import { useCanvasRenderer } from '../../hooks/use-canvas-renderer'
 import { useFullscreenCanvas } from '../../hooks/use-fullscreen-canvas'
+import { useInteractiveGrid, type GridConfig } from '../../hooks/use-interactive-grid'
+import { snapToGrid, clamp } from '../../lib/geometry'
 
 interface PanelLayoutProps {
   mode: 'manual' | 'auto'
@@ -58,6 +61,17 @@ type PanelAction =
   | { type: 'SELECT_PANEL'; payload: string | null }
   | { type: 'RESET_PANELS' }
 
+interface MouseState {
+  x: number
+  y: number
+  isPanning: boolean
+  isDragging: boolean
+  isResizing: boolean
+  dragStartX: number
+  dragStartY: number
+  resizeHandle: string | null
+}
+
 const panelReducer = (state: PanelState, action: PanelAction): PanelState => {
   switch (action.type) {
     case 'SET_PANELS':
@@ -88,8 +102,14 @@ const panelReducer = (state: PanelState, action: PanelAction): PanelState => {
   }
 }
 
+const WORLD_SIZE = 4000 // feet - using the new 4000x4000 world
+const GRID_MINOR = 50 // feet
+const GRID_MAJOR = 250 // feet
+const SNAP_SIZE = 25 // feet
+
 export default function PanelLayout({ mode, projectInfo, externalPanels, onPanelUpdate, layoutScale = 1.0 }: PanelLayoutProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
   const [panels, dispatch] = useReducer(panelReducer, { panels: [], selectedPanelId: null })
   const [isDragging, setIsDragging] = useState(false)
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
@@ -98,6 +118,20 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   const [resizeHandle, setResizeHandle] = useState<string | null>(null)
   const [isRotating, setIsRotating] = useState(false)
   const [rotationStart, setRotationStart] = useState(0)
+  
+  // New mouse state for enhanced interactivity
+  const [mouseState, setMouseState] = useState<MouseState>({
+    x: 0,
+    y: 0,
+    isPanning: false,
+    isDragging: false,
+    isResizing: false,
+    dragStartX: 0,
+    dragStartY: 0,
+    resizeHandle: null,
+  })
+
+  const [spacePressed, setSpacePressed] = useState(false)
   
   // Normalize layout scale
   const normalizedLayoutScale = useMemo(() => {
@@ -113,10 +147,10 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     return 1.0;
   }, [layoutScale]);
   
-  // Calculate world dimensions
+  // Calculate world dimensions - updated to 4000x4000
   const worldDimensions = useMemo(() => {
-    const worldWidth = 3300; // 150 * 22ft
-    const worldHeight = 5000; // 10 * 500ft
+    const worldWidth = WORLD_SIZE; // 4000ft
+    const worldHeight = WORLD_SIZE; // 4000ft
     
     const minCanvasWidth = 1200;
     const minCanvasHeight = 800;
@@ -148,6 +182,13 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     worldHeight: worldDimensions.worldHeight,
     worldScale: worldDimensions.worldScale
   })
+
+  // Grid configuration
+  const gridConfig: GridConfig = useMemo(() => ({
+    minorSpacing: GRID_MINOR,
+    majorSpacing: GRID_MAJOR,
+    snapSize: SNAP_SIZE
+  }), [])
   
   // Refs for preventing infinite loops
   const lastExternalPanels = useRef<string>('')
@@ -180,9 +221,23 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   useEffect(() => {
     panelsRef.current = panels.panels; // Use panels.panels directly instead of panelData.panels
   }, [panels.panels]);
+
+  // Use interactive grid hook
+  const { drawGrid, setupCanvas: setupGridCanvas, getWorldScale } = useInteractiveGrid({
+    worldSize: WORLD_SIZE,
+    gridConfig,
+    canvasState: {
+      worldScale: canvasState.worldScale,
+      scale: canvasState.scale,
+      offsetX: canvasState.offsetX,
+      offsetY: canvasState.offsetY,
+      showGrid: canvasState.showGrid,
+      snapEnabled: canvasState.snapToGrid
+    }
+  })
   
   // Use canvas renderer hook FIRST to get renderCanvas function
-  const { renderCanvas, drawGrid, drawPanel, drawSelectionHandles } = useCanvasRenderer({
+  const { renderCanvas, drawPanel, drawSelectionHandles, worldToScreen, screenToWorld } = useCanvasRenderer({
     panels: panelsRef.current, // Use ref to prevent hook recreation
     canvasState,
     canvasWidth,
@@ -191,7 +246,8 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     selectedPanelId: panels.selectedPanelId, // Use panels.selectedPanelId directly instead of panelData.selectedPanelId
     getCurrentCanvas: () => getCurrentCanvasRef.current(),
     isValidPanel,
-    getPanelValidationErrors
+    getPanelValidationErrors,
+    drawGrid
   })
   
   // Store the renderCanvas function in the ref
@@ -301,11 +357,11 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   
   // Canvas Functions
   const zoomIn = useCallback(() => {
-    setCanvasState(prev => ({ ...prev, scale: Math.min(prev.scale * 1.2, 5) }))
+    setCanvasState(prev => ({ ...prev, scale: clamp(prev.scale * 1.25, 0.1, 6) }))
   }, [])
   
   const zoomOut = useCallback(() => {
-    setCanvasState(prev => ({ ...prev, scale: Math.max(prev.scale / 1.2, 0.1) }))
+    setCanvasState(prev => ({ ...prev, scale: clamp(prev.scale * 0.8, 0.1, 6) }))
   }, [])
   
   const resetView = useCallback(() => {
@@ -323,6 +379,63 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   const toggleSnap = useCallback(() => {
     setCanvasState(prev => ({ ...prev, snapToGrid: !prev.snapToGrid }))
   }, [])
+
+  // New zoom functions
+  const zoomToFitSite = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const padding = 100;
+    const availableWidth = canvas.clientWidth - padding;
+    const availableHeight = canvas.clientHeight - padding;
+
+    const newWorldScale = Math.min(availableWidth / WORLD_SIZE, availableHeight / WORLD_SIZE);
+    const worldSizeScreen = WORLD_SIZE * newWorldScale;
+
+    setCanvasState(prev => ({
+      ...prev,
+      worldScale: newWorldScale,
+      scale: 1.0,
+      offsetX: (canvas.clientWidth - worldSizeScreen) / 2,
+      offsetY: (canvas.clientHeight - worldSizeScreen) / 2,
+    }));
+  }, []);
+
+  const zoomToFitPanels = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || panels.panels.length === 0) return;
+
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+
+    panels.panels.forEach(panel => {
+      minX = Math.min(minX, panel.x);
+      minY = Math.min(minY, panel.y);
+      maxX = Math.max(maxX, panel.x + panel.width);
+      maxY = Math.max(maxY, panel.y + panel.height);
+    });
+
+    const boundsWidth = maxX - minX;
+    const boundsHeight = maxY - minY;
+    const padding = 200; // feet
+
+    const availableWidth = canvas.clientWidth - 100; // screen padding
+    const availableHeight = canvas.clientHeight - 100;
+
+    const scaleX = availableWidth / (boundsWidth + padding);
+    const scaleY = availableHeight / (boundsHeight + padding);
+    const newWorldScale = Math.min(scaleX, scaleY);
+
+    const centerX = (minX + maxX) / 2;
+    const centerY = (minY + maxY) / 2;
+
+    setCanvasState(prev => ({
+      ...prev,
+      worldScale: newWorldScale,
+      scale: 1.0,
+      offsetX: canvas.clientWidth / 2 - centerX * newWorldScale,
+      offsetY: canvas.clientHeight / 2 - centerY * newWorldScale,
+    }));
+  }, [panels.panels]);
   
   // Auto-fit viewport when panels are loaded
   const autoFitViewport = useCallback(() => {
@@ -368,46 +481,57 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     if (!canvas) return
     
     const rect = canvas.getBoundingClientRect()
-    const x = (e.clientX - rect.left - canvasState.offsetX) / canvasState.scale
-    const y = (e.clientY - rect.top - canvasState.offsetY) / canvasState.scale
+    const x = e.clientX - rect.left
+    const y = e.clientY - rect.top
     
-    const clickedPanel = panels.panels.find(panel => {
-      const effectiveX = panel.x * normalizedLayoutScale;
-      const effectiveY = panel.y * normalizedLayoutScale;
-      const effectiveWidth = panel.width * normalizedLayoutScale;
-      const effectiveHeight = panel.height * normalizedLayoutScale;
+    if (e.button === 1 || (e.button === 0 && spacePressed)) {
+      // Middle click or space + left click for panning
+      setMouseState(prev => ({
+        ...prev,
+        isPanning: true,
+        dragStartX: x,
+        dragStartY: y,
+      }));
+      e.preventDefault();
+    } else if (e.button === 0) {
+      // Left click for selection/dragging
+      const worldPos = screenToWorld(x, y);
       
-      const panelCenterX = effectiveX + effectiveWidth / 2
-      const panelCenterY = effectiveY + effectiveHeight / 2
-      const distance = Math.sqrt((x - panelCenterX) ** 2 + (y - panelCenterY) ** 2)
-      return distance <= Math.max(effectiveWidth, effectiveHeight) / 2
-    })
-    
-    if (clickedPanel) {
-      dispatch({ type: 'SELECT_PANEL', payload: clickedPanel.id })
-      setSelectedPanel(clickedPanel)
-      
-      const handle = getResizeHandle(x, y, clickedPanel)
-      if (handle) {
-        setIsResizing(true)
-        setResizeHandle(handle)
-        setDragStart({ x, y })
-        return
+      // Check panels in reverse order (top to bottom)
+      for (let i = panels.panels.length - 1; i >= 0; i--) {
+        const panel = panels.panels[i];
+
+        // Simple AABB hit test (rotation not considered for simplicity)
+        if (worldPos.x >= panel.x && worldPos.x <= panel.x + panel.width &&
+            worldPos.y >= panel.y && worldPos.y <= panel.y + panel.height) {
+          dispatch({ type: 'SELECT_PANEL', payload: panel.id })
+          setSelectedPanel(panel)
+          
+          const handle = getResizeHandle(x, y, panel)
+          if (handle) {
+            setIsResizing(true)
+            setResizeHandle(handle)
+            setDragStart({ x, y })
+            return
+          }
+          
+          if (isRotationHandle(x, y, panel)) {
+            setIsRotating(true)
+            setRotationStart(Math.atan2(y - (panel.y * normalizedLayoutScale + (panel.height * normalizedLayoutScale) / 2), x - (panel.x * normalizedLayoutScale + (panel.width * normalizedLayoutScale) / 2)))
+            return
+          }
+          
+          setIsDragging(true)
+          setDragStart({ x: x - (panel.x * normalizedLayoutScale), y: y - (panel.y * normalizedLayoutScale) })
+          return
+        }
       }
       
-      if (isRotationHandle(x, y, clickedPanel)) {
-        setIsRotating(true)
-        setRotationStart(Math.atan2(y - (clickedPanel.y * normalizedLayoutScale + (clickedPanel.height * normalizedLayoutScale) / 2), x - (clickedPanel.x * normalizedLayoutScale + (clickedPanel.width * normalizedLayoutScale) / 2)))
-        return
-      }
-      
-      setIsDragging(true)
-      setDragStart({ x: x - (clickedPanel.x * normalizedLayoutScale), y: y - (clickedPanel.y * normalizedLayoutScale) })
-    } else {
+      // No panel hit - clear selection
       dispatch({ type: 'SELECT_PANEL', payload: null })
       setSelectedPanel(null)
     }
-  }, [panels, canvasState, normalizedLayoutScale, isFullscreen])
+  }, [panels, canvasState, normalizedLayoutScale, isFullscreen, spacePressed, screenToWorld])
   
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = isFullscreen ? fullscreenCanvasRef.current : canvasRef.current
@@ -417,19 +541,39 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     const x = e.clientX - rect.left
     const y = e.clientY - rect.top
     
-    if (isDragging && selectedPanel) {
-      const worldX = (x - canvasState.offsetX) / canvasState.scale / canvasState.worldScale;
-      const worldY = (y - canvasState.offsetY) / canvasState.scale / canvasState.worldScale;
-      
-      let newX = worldX;
-      let newY = worldY;
-      
+    setMouseState(prev => ({ ...prev, x, y }))
+    
+    if (mouseState.isPanning) {
+      const deltaX = x - mouseState.dragStartX;
+      const deltaY = y - mouseState.dragStartY;
+
+      setCanvasState(prev => ({
+        ...prev,
+        offsetX: prev.offsetX + deltaX,
+        offsetY: prev.offsetY + deltaY,
+      }));
+
+      setMouseState(prev => ({
+        ...prev,
+        dragStartX: x,
+        dragStartY: y,
+      }));
+    } else if (isDragging && selectedPanel) {
+      const worldPos = screenToWorld(x, y);
+      const dragStartWorldPos = screenToWorld(mouseState.dragStartX, mouseState.dragStartY);
+
+      const deltaX = worldPos.x - dragStartWorldPos.x;
+      const deltaY = worldPos.y - dragStartWorldPos.y;
+
+      let newX = selectedPanel.x + deltaX;
+      let newY = selectedPanel.y + deltaY;
+
+      // Apply snap if enabled
       if (canvasState.snapToGrid) {
-        const gridSize = 100;
-        newX = Math.round(worldX / gridSize) * gridSize;
-        newY = Math.round(worldY / gridSize) * gridSize;
+        newX = snapToGrid(newX, SNAP_SIZE);
+        newY = snapToGrid(newY, SNAP_SIZE);
       }
-      
+
       dispatch({
         type: 'UPDATE_PANEL',
         payload: {
@@ -466,13 +610,19 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
         }
       })
     }
-  }, [isDragging, isResizing, isRotating, selectedPanel, resizeHandle, dragStart, rotationStart, canvasState, normalizedLayoutScale, isFullscreen])
+  }, [isDragging, isResizing, isRotating, selectedPanel, resizeHandle, dragStart, rotationStart, canvasState, normalizedLayoutScale, isFullscreen, mouseState, screenToWorld])
   
   const handleMouseUp = useCallback(() => {
     setIsDragging(false)
     setIsResizing(false)
     setIsRotating(false)
     setResizeHandle(null)
+    setMouseState(prev => ({
+      ...prev,
+      isPanning: false,
+      isDragging: false,
+      isResizing: false,
+    }))
   }, [])
   
   // Helper functions
@@ -563,19 +713,22 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     const mouseY = e.clientY - rect.top
     
     const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1
-    const newScale = Math.max(0.1, Math.min(5, canvasState.scale * zoomFactor))
+    const newScale = Math.max(0.1, Math.min(6, canvasState.scale * zoomFactor))
     
-    const newOffsetX = mouseX - (mouseX - canvasState.offsetX) * (newScale / canvasState.scale)
-    const newOffsetY = mouseY - (mouseY - canvasState.offsetY) * (newScale / canvasState.scale)
+    // Keep mouse position invariant
+    const sOld = canvasState.worldScale * canvasState.scale;
+    const sNew = canvasState.worldScale * newScale;
+    const wx = (mouseX - canvasState.offsetX) / sOld;
+    const wy = (mouseY - canvasState.offsetY) / sOld;
     
     setCanvasState(prev => ({
       ...prev,
       scale: newScale,
-      offsetX: newOffsetX,
-      offsetY: newOffsetY
+      offsetX: mouseX - wx * sNew,
+      offsetY: mouseY - wy * sNew,
     }))
   }, [canvasState, isFullscreen])
-
+  
   // Add wheel event listener
   useEffect(() => {
     const canvas = isFullscreen ? fullscreenCanvasRef.current : canvasRef.current
@@ -590,9 +743,13 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     }
   }, [handleWheel, isFullscreen])
   
-  // Keyboard shortcuts
+  // Keyboard events
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        setSpacePressed(true);
+        e.preventDefault();
+      }
       if (e.key === 'Escape' && isFullscreen) {
         e.preventDefault();
         toggleFullscreen();
@@ -600,11 +757,23 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
       if (e.key === 'Delete' && panels.selectedPanelId) {
         dispatch({ type: 'DELETE_PANEL', payload: panels.selectedPanelId })
       }
-    }
+    };
 
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isFullscreen, toggleFullscreen, panels.selectedPanelId])
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        setSpacePressed(false);
+        e.preventDefault();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('keyup', handleKeyUp);
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [isFullscreen, toggleFullscreen, panels.selectedPanelId]);
   
   // Render canvas when dependencies change
   useEffect(() => {
@@ -636,7 +805,20 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
       }
     };
   }, [isFullscreen]);
-  
+
+  // Setup canvas with HiDPI support
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const container = containerRef.current;
+    if (canvas && container) {
+      setupGridCanvas(canvas, container);
+    }
+  }, [setupGridCanvas]);
+
+  // Calculate status values
+  const zoomPercentage = Math.round(canvasState.scale * 100);
+  const worldPos = screenToWorld ? screenToWorld(mouseState.x, mouseState.y) : { x: 0, y: 0 };
+
   return (
     <>
       {/* Fullscreen Canvas Portal */}
@@ -677,9 +859,11 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             style={{
-              cursor: isDragging ? 'grabbing' : 
+              cursor: mouseState.isPanning ? 'grabbing' : 
+                     spacePressed ? 'grab' : 
+                     isDragging ? 'grabbing' : 
                      isResizing ? 'nw-resize' : 
-                     isRotating ? 'crosshair' : 'default',
+                     isRotating ? 'crosshair' : 'crosshair',
               display: 'block',
               width: '100vw',
               height: '100vh',
@@ -693,125 +877,80 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
       )}
       
       {/* Normal Panel Layout Container */}
-      <div className="panel-layout-container">
-        <style jsx>{`
-          .fullscreen-overlay {
-            position: fixed !important;
-            top: 0 !important;
-            left: 0 !important;
-            right: 0 !important;
-            bottom: 0 !important;
-            width: 100vw !important;
-            height: 100vh !important;
-            z-index: 9999 !important;
-            overflow: hidden !important;
-            background-color: white !important;
-          }
-          
-          .fullscreen-canvas {
-            width: 100vw !important;
-            height: 100vh !important;
-            position: absolute !important;
-            top: 0 !important;
-            left: 0 !important;
-            z-index: 1 !important;
-          }
-        `}</style>
-        
-        {/* Canvas Wrapper - Only shown when NOT in fullscreen */}
-        {!isFullscreen && (
-          <div className="canvas-wrapper relative border border-gray-200 rounded-lg overflow-auto" style={{
-            width: '100%',
-            height: 'calc(100vh - 400px)',
-            minHeight: '600px'
-          }}>
-            {/* Debug Controls */}
-            <div className="mb-4 flex gap-2 p-2 border-b bg-gray-50">
-              <Button onClick={() => console.log('Current panels state:', panels.panels)} variant="outline" size="sm">
-                Log Panels State
-              </Button>
-              <Button onClick={() => console.log('Raw external panels:', externalPanels)} variant="outline" size="sm">
-                Log External Panels
-              </Button>
-              <Button onClick={autoFitViewport} variant="outline" size="sm">
-                Auto-Fit Viewport
-              </Button>
-            </div>
-            
-            {/* Normal Canvas */}
-            <canvas
-              ref={canvasRef}
-              width={canvasWidth}
-              height={canvasHeight}
-              className="panel-canvas"
-              onMouseDown={handleMouseDown}
-              onMouseMove={handleMouseMove}
-              onMouseUp={handleMouseUp}
-              style={{
-                cursor: isDragging ? 'grabbing' : 
-                       isResizing ? 'nw-resize' : 
-                       isRotating ? 'crosshair' : 'default',
-                display: 'block',
-                width: '100%',
-                height: '100%',
-                position: 'relative',
-                zIndex: 'auto'
-              }}
-            />
-          </div>
-        )}
-        
-        {/* Enhanced Control Toolbar */}
-        <div className="control-toolbar mt-4 p-4 bg-white border border-gray-200 rounded-lg">
-          <div className="flex flex-wrap items-center gap-4">
+      <div className="h-screen flex flex-col bg-gray-900 text-white">
+        {/* Enhanced Toolbar */}
+        <div className="bg-gray-800 border-b border-gray-700 px-4 py-3 flex items-center justify-between flex-shrink-0">
+          <div className="flex items-center space-x-4">
             {/* Zoom Controls */}
-            <div className="flex items-center gap-2">
-              <Button size="sm" variant="outline" onClick={zoomOut}>
-                <ZoomOut className="h-4 w-4" />
-              </Button>
-              <span className="text-sm font-medium min-w-[60px] text-center">
-                {Math.round(canvasState.scale * 100)}%
-              </span>
-              <Button size="sm" variant="outline" onClick={zoomIn}>
-                <ZoomIn className="h-4 w-4" />
-              </Button>
-              <Button size="sm" variant="outline" onClick={resetView}>
-                <RotateCcw className="h-4 w-4" />
-              </Button>
+            <div className="flex items-center space-x-2">
+              <button 
+                onClick={zoomOut}
+                className="bg-gray-700 hover:bg-gray-600 px-3 py-2 rounded text-sm font-medium transition-colors"
+                data-testid="button-zoom-out"
+              >
+                Zoom -
+              </button>
+              <button 
+                onClick={zoomIn}
+                className="bg-gray-700 hover:bg-gray-600 px-3 py-2 rounded text-sm font-medium transition-colors"
+                data-testid="button-zoom-in"
+              >
+                Zoom +
+              </button>
+              <div className="border-l border-gray-600 h-6 mx-2"></div>
+              <button 
+                onClick={zoomToFitSite}
+                className="bg-blue-600 hover:bg-blue-500 px-3 py-2 rounded text-sm font-medium transition-colors"
+                data-testid="button-fit-site"
+              >
+                Fit Site
+              </button>
+              <button 
+                onClick={zoomToFitPanels}
+                className="bg-blue-600 hover:bg-blue-500 px-3 py-2 rounded text-sm font-medium transition-colors"
+                data-testid="button-fit-panels"
+              >
+                Fit Panels
+              </button>
+              <button 
+                onClick={resetView}
+                className="bg-gray-700 hover:bg-gray-600 px-3 py-2 rounded text-sm font-medium transition-colors"
+              >
+                <RotateCcw className="h-4 w-4 mr-2" />
+                Reset
+              </button>
             </div>
-            
-            {/* View Controls */}
-            <div className="flex items-center gap-2">
-              <Button 
-                size="sm" 
-                variant={canvasState.showGrid ? "default" : "outline"} 
+
+            {/* Toggle Controls */}
+            <div className="flex items-center space-x-2">
+              <div className="border-l border-gray-600 h-6 mx-2"></div>
+              <button 
                 onClick={toggleGrid}
+                className={`${canvasState.showGrid ? 'bg-green-600 hover:bg-green-500' : 'bg-gray-600 hover:bg-gray-500'} px-3 py-2 rounded text-sm font-medium transition-colors`}
+                data-testid="button-toggle-grid"
               >
                 <Grid className="h-4 w-4 mr-2" />
-                Grid
-              </Button>
-              <Button 
-                size="sm" 
-                variant={canvasState.showGuides ? "default" : "outline"} 
-                onClick={toggleGuides}
-              >
-                <Target className="h-4 w-4 mr-2" />
-                Guides
-              </Button>
-              <Button 
-                size="sm" 
-                variant={canvasState.snapToGrid ? "default" : "outline"} 
+                Grid: {canvasState.showGrid ? 'ON' : 'OFF'}
+              </button>
+              <button 
                 onClick={toggleSnap}
+                className={`${canvasState.snapToGrid ? 'bg-yellow-600 hover:bg-yellow-500' : 'bg-gray-600 hover:bg-gray-500'} px-3 py-2 rounded text-sm font-medium transition-colors`}
+                data-testid="button-toggle-snap"
               >
                 <Zap className="h-4 w-4 mr-2" />
-                Snap
-              </Button>
-              <Button 
-                size="sm" 
-                variant={isFullscreen ? "default" : "outline"} 
-                onClick={toggleFullscreen}
-                className="ml-2"
+                Snap: {canvasState.snapToGrid ? 'ON' : 'OFF'}
+              </button>
+              <button 
+                onClick={toggleGuides}
+                className={`${canvasState.showGuides ? 'bg-blue-600 hover:bg-blue-500' : 'bg-gray-600 hover:bg-gray-500'} px-3 py-2 rounded text-sm font-medium transition-colors`}
               >
+                <Target className="h-4 w-4 mr-2" />
+                Guides: {canvasState.showGuides ? 'ON' : 'OFF'}
+              </button>
+                             <button 
+                 onClick={toggleFullscreen}
+                 className={`${isFullscreen ? 'bg-blue-600 hover:bg-blue-500' : 'bg-gray-600 hover:bg-gray-500'} px-3 py-2 rounded text-sm font-medium transition-colors ml-2`}
+               >
                 {isFullscreen ? (
                   <>
                     <Minimize className="h-4 w-4 mr-2" />
@@ -823,19 +962,76 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
                     Fullscreen
                   </>
                 )}
-              </Button>
+              </button>
             </div>
-            
-            {/* Project Info */}
-            <div className="ml-auto text-right">
-              <p className="text-sm font-medium">{projectInfo.projectName}</p>
-              <p className="text-xs text-gray-500">{panels.panels.length} panels</p>
-              <p className="text-xs text-gray-400">
-                Grid: {canvasState.worldWidth.toFixed(0)}ft × {canvasState.worldHeight.toFixed(0)}ft
-              </p>
-              <p className="text-xs text-gray-400">
-                Scale: 1:{Math.round(1 / canvasState.worldScale)} ({canvasState.worldScale.toFixed(4)})
-              </p>
+          </div>
+
+          {/* Status Readout */}
+          <div className="flex items-center space-x-6 text-sm font-mono">
+            <div className="text-gray-300">
+              Zoom: <span className="text-white font-medium" data-testid="text-zoom-percentage">{zoomPercentage}%</span>
+            </div>
+            <div className="text-gray-300">
+              Scale: <span className="text-white font-medium" data-testid="text-base-scale">{canvasState.worldScale.toFixed(3)}</span> px/ft
+            </div>
+            <div className="text-gray-300">
+              Panels: <span className="text-white font-medium" data-testid="text-panel-count">{panels.panels.length}</span>
+            </div>
+            <div className="text-gray-300">
+              Cursor: <span className="text-white font-medium" data-testid="text-cursor-coords">{Math.round(worldPos.x)}', {Math.round(worldPos.y)}'</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Canvas Container */}
+        <div className="flex-1 bg-gray-800 relative overflow-hidden">
+          <div 
+            ref={containerRef}
+            className={`w-full h-full relative ${mouseState.isPanning ? 'cursor-grabbing' : spacePressed ? 'cursor-grab' : 'cursor-crosshair'}`}
+          >
+            {/* Normal Canvas - Only shown when NOT in fullscreen */}
+            {!isFullscreen && (
+              <canvas
+                ref={canvasRef}
+                width={canvasWidth}
+                height={canvasHeight}
+                className="absolute inset-0 bg-gray-100"
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onContextMenu={(e) => e.preventDefault()}
+                data-testid="canvas-main"
+                style={{
+                  cursor: mouseState.isPanning ? 'grabbing' : 
+                         spacePressed ? 'grab' : 
+                         isDragging ? 'grabbing' : 
+                         isResizing ? 'nw-resize' : 
+                         isRotating ? 'crosshair' : 'crosshair',
+                  display: 'block',
+                  width: '100%',
+                  height: '100%',
+                  position: 'relative',
+                  zIndex: 'auto'
+                }}
+              />
+            )}
+
+            {/* Coordinate Display */}
+            <div className="absolute top-4 left-4 bg-black bg-opacity-75 text-white px-3 py-2 rounded text-sm font-mono pointer-events-none">
+              <div data-testid="text-world-coords">World: {Math.round(worldPos.x)}', {Math.round(worldPos.y)}'</div>
+              <div data-testid="text-screen-coords">Screen: {Math.round(mouseState.x)}, {Math.round(mouseState.y)}</div>
+            </div>
+
+            {/* Help Overlay */}
+            <div className="absolute bottom-4 right-4 bg-black bg-opacity-75 text-white px-3 py-2 rounded text-sm pointer-events-none">
+              <div className="font-medium mb-1">Controls:</div>
+              <div className="text-xs text-gray-300 space-y-1">
+                <div>Wheel: Zoom</div>
+                <div>Space + Drag: Pan</div>
+                <div>Middle Click + Drag: Pan</div>
+                <div>Click: Select Panel</div>
+                <div>Drag: Move Panel</div>
+              </div>
             </div>
           </div>
         </div>

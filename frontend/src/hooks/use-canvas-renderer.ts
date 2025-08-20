@@ -1,5 +1,6 @@
 import { useCallback } from 'react'
 import type { Panel } from '@/types/panel'
+import { worldToScreen, screenToWorld, snapToGrid } from '../lib/geometry'
 
 export interface CanvasState {
   scale: number
@@ -19,6 +20,8 @@ export interface UseCanvasRendererReturn {
   drawGrid: (ctx: CanvasRenderingContext2D) => void
   drawPanel: (ctx: CanvasRenderingContext2D, panel: Panel, isSelected: boolean) => void
   drawSelectionHandles: (ctx: CanvasRenderingContext2D, panel: Panel) => void
+  worldToScreen: (wx: number, wy: number) => { x: number; y: number }
+  screenToWorld: (sx: number, sy: number) => { x: number; y: number }
 }
 
 export interface UseCanvasRendererOptions {
@@ -31,6 +34,7 @@ export interface UseCanvasRendererOptions {
   getCurrentCanvas: () => HTMLCanvasElement | null
   isValidPanel: (panel: any) => panel is Panel
   getPanelValidationErrors: (panel: any) => string[]
+  drawGrid: (ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement) => void
 }
 
 export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasRendererReturn => {
@@ -43,93 +47,18 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
     selectedPanelId,
     getCurrentCanvas,
     isValidPanel,
-    getPanelValidationErrors
+    getPanelValidationErrors,
+    drawGrid
   } = options
 
-  // Draw grid
-  const drawGrid = useCallback((ctx: CanvasRenderingContext2D) => {
-    ctx.strokeStyle = '#e0e0e0'
-    // Use zoom scale for line width since layout scale is applied globally
-    ctx.lineWidth = 1 / canvasState.scale
-    
-    // Get actual canvas dimensions (important for fullscreen mode)
-    const currentCanvas = getCurrentCanvas();
-    const actualCanvasWidth = currentCanvas?.width || canvasWidth;
-    const actualCanvasHeight = currentCanvas?.height || canvasHeight;
-    
-    // Calculate grid spacing based on world scale
-    // We want grid lines that represent meaningful real-world distances
-    const worldScale = canvasState.worldScale;
-    
-    // Major grid lines every 500ft (for 500ft panels)
-    const majorGridSpacing = 500 * worldScale;
-    // Minor grid lines every 100ft (for better readability)
-    const minorGridSpacing = 100 * worldScale;
-    
-    // Draw minor grid lines (lighter)
-    ctx.strokeStyle = '#f0f0f0'
-    ctx.lineWidth = 0.5 / canvasState.scale
-    
-    // Vertical lines (west to east) - cover entire canvas width
-    for (let x = 0; x <= actualCanvasWidth; x += minorGridSpacing) {
-      ctx.beginPath()
-      ctx.moveTo(x, 0)
-      ctx.lineTo(x, actualCanvasHeight)
-      ctx.stroke()
-    }
-    
-    // Horizontal lines (north to south) - cover entire canvas height
-    for (let y = 0; y <= actualCanvasHeight; y += minorGridSpacing) {
-      ctx.beginPath()
-      ctx.moveTo(0, y)
-      ctx.lineTo(actualCanvasWidth, y)
-      ctx.stroke()
-    }
-    
-    // Draw major grid lines (darker)
-    ctx.strokeStyle = '#d0d0d0'
-    ctx.lineWidth = 1.5 / canvasState.scale
-    
-    // Vertical major lines every 500ft - cover entire canvas width
-    for (let x = 0; x <= actualCanvasWidth; x += majorGridSpacing) {
-      ctx.beginPath()
-      ctx.moveTo(x, 0)
-      ctx.lineTo(x, actualCanvasHeight)
-      ctx.stroke()
-    }
-    
-    // Horizontal major lines every 500ft - cover entire canvas height
-    for (let y = 0; y <= actualCanvasHeight; y += majorGridSpacing) {
-      ctx.beginPath()
-      ctx.moveTo(0, y)
-      ctx.lineTo(actualCanvasWidth, y)
-      ctx.stroke()
-    }
-    
-    // Draw grid labels for major lines
-    ctx.fillStyle = '#666666'
-    ctx.font = `${Math.max(10, 12 / canvasState.scale)}px Arial`
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    
-    // Label vertical lines (west to east distances)
-    for (let x = 0; x <= actualCanvasWidth; x += majorGridSpacing) {
-      const worldX = x / worldScale;
-      const label = `${worldX.toFixed(0)}ft`;
-      ctx.fillText(label, x, 15 / canvasState.scale);
-    }
-    
-    // Label horizontal lines (north to south distances)
-    for (let y = 0; y <= actualCanvasHeight; y += majorGridSpacing) {
-      const worldY = y / worldScale;
-      const label = `${worldY.toFixed(0)}ft`;
-      ctx.save();
-      ctx.translate(15 / canvasState.scale, y);
-      ctx.rotate(-Math.PI / 2);
-      ctx.fillText(label, 0, 0);
-      ctx.restore();
-    }
-  }, [canvasState, canvasWidth, canvasHeight, getCurrentCanvas])
+  // Coordinate transformation helpers
+  const worldToScreenCoord = useCallback((wx: number, wy: number) => {
+    return worldToScreen(wx, wy, canvasState.worldScale, canvasState.scale, canvasState.offsetX, canvasState.offsetY)
+  }, [canvasState])
+
+  const screenToWorldCoord = useCallback((sx: number, sy: number) => {
+    return screenToWorld(sx, sy, canvasState.worldScale, canvasState.scale, canvasState.offsetX, canvasState.offsetY)
+  }, [canvasState])
 
   // Draw panel
   const drawPanel = useCallback((ctx: CanvasRenderingContext2D, panel: Panel, isSelected: boolean) => {
@@ -279,9 +208,9 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
     ctx.translate(canvasState.offsetX, canvasState.offsetY)
     ctx.scale(canvasState.scale, canvasState.scale)
     
-    // Draw grid
+    // Draw grid using the new interactive grid system
     if (canvasState.showGrid) {
-      drawGrid(ctx)
+      drawGrid(ctx, canvas)
     }
     
     // Draw panels
@@ -319,8 +248,10 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
 
   return {
     renderCanvas,
-    drawGrid,
+    drawGrid: () => {}, // This is now handled by the interactive grid hook
     drawPanel,
-    drawSelectionHandles
+    drawSelectionHandles,
+    worldToScreen: worldToScreenCoord,
+    screenToWorld: screenToWorldCoord
   }
 }
