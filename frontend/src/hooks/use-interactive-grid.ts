@@ -53,7 +53,7 @@ export const useInteractiveGrid = (options: UseInteractiveGridOptions): UseInter
     ctx.scale(dpr, dpr)
   }, [])
 
-  // Draw grid with configurable spacing
+  // Draw grid with configurable spacing - CLEAN GRID ONLY
   const drawGrid = useCallback((ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement) => {
     if (!canvasState.showGrid) return
 
@@ -64,7 +64,7 @@ export const useInteractiveGrid = (options: UseInteractiveGridOptions): UseInter
     const topLeft = screenToWorld(0, 0, worldScale, scale, offsetX, offsetY)
     const bottomRight = screenToWorld(canvas.clientWidth, canvas.clientHeight, worldScale, scale, offsetX, offsetY)
 
-    // Minor grid lines (configurable spacing)
+    // Minor grid lines (every 50 feet) - CLEAN LINES ONLY
     ctx.strokeStyle = '#e5e7eb'
     ctx.lineWidth = 0.5
     ctx.beginPath()
@@ -83,7 +83,7 @@ export const useInteractiveGrid = (options: UseInteractiveGridOptions): UseInter
 
     ctx.stroke()
 
-    // Major grid lines (configurable spacing)
+    // Major grid lines (every 250 feet) - CLEAN LINES ONLY
     ctx.strokeStyle = '#374151'
     ctx.lineWidth = 1
     ctx.beginPath()
@@ -102,29 +102,8 @@ export const useInteractiveGrid = (options: UseInteractiveGridOptions): UseInter
 
     ctx.stroke()
 
-    // Draw grid labels for major lines
-    ctx.fillStyle = '#666666'
-    ctx.font = `${Math.max(10, 12 / scale)}px Arial`
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-
-    // Label vertical lines (west to east distances)
-    for (let x = Math.floor(topLeft.x / gridConfig.majorSpacing) * gridConfig.majorSpacing; x <= bottomRight.x; x += gridConfig.majorSpacing) {
-      const screenX = worldToScreen(x, 0, worldScale, scale, offsetX, offsetY).x
-      const label = `${x.toFixed(0)}ft`
-      ctx.fillText(label, screenX, 15 / scale)
-    }
-
-    // Label horizontal lines (north to south distances)
-    for (let y = Math.floor(topLeft.y / gridConfig.majorSpacing) * gridConfig.majorSpacing; y <= bottomRight.y; y += gridConfig.majorSpacing) {
-      const screenY = worldToScreen(0, y, worldScale, scale, offsetX, offsetY).y
-      const label = `${y.toFixed(0)}ft`
-      ctx.save()
-      ctx.translate(15 / scale, screenY)
-      ctx.rotate(-Math.PI / 2)
-      ctx.fillText(label, 0, 0)
-      ctx.restore()
-    }
+    // NO GRID LABELS - Clean grid for panel layout
+    // NO WORLD BOUNDARY - Clean canvas ready for panels
   }, [canvasState, gridConfig])
 
   const getWorldScale = useCallback(() => {
