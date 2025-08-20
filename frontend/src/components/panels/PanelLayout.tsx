@@ -974,7 +974,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
               ref={fullscreenCanvasRef}
               width={fullscreenCanvasWidth || window.innerWidth}
               height={fullscreenCanvasHeight || window.innerHeight}
-              className="w-full h-full"
+              className="w-full h-full bg-white"
               onMouseDown={handleMouseDown}
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
@@ -1176,7 +1176,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
               ref={canvasRef}
               width={canvasWidth}
               height={canvasHeight}
-                className="absolute inset-0 bg-gray-100"
+                className="absolute inset-0 bg-white"
               onMouseDown={handleMouseDown}
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
