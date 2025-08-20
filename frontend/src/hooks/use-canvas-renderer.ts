@@ -29,7 +29,6 @@ export interface UseCanvasRendererOptions {
   canvasState: CanvasState
   canvasWidth: number
   canvasHeight: number
-  normalizedLayoutScale: number
   selectedPanelId: string | null
   getCurrentCanvas: () => HTMLCanvasElement | null
   isValidPanel: (panel: any) => panel is Panel
@@ -43,7 +42,6 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
     canvasState,
     canvasWidth,
     canvasHeight,
-    normalizedLayoutScale,
     selectedPanelId,
     getCurrentCanvas,
     isValidPanel,
@@ -69,68 +67,69 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
       return;
     }
     
-    // Calculate effective coordinates and dimensions using world scale
-    // Convert world coordinates (feet) to canvas coordinates (pixels)
-    const effectiveX = panel.x * canvasState.worldScale;
-    const effectiveY = panel.y * canvasState.worldScale;
-    const effectiveWidth = panel.width * canvasState.worldScale;
-    const effectiveHeight = panel.height * canvasState.worldScale;
+    // Get the current canvas for proper coordinate calculations
+    const canvas = getCurrentCanvas();
+    if (!canvas) return;
     
-    // Calculate panel bounds in screen coordinates
-    const panelLeft = effectiveX * canvasState.scale + canvasState.offsetX;
-    const panelTop = effectiveY * canvasState.scale + canvasState.offsetY;
-    const panelRight = (effectiveX + effectiveWidth) * canvasState.scale + canvasState.offsetX;
-    const panelBottom = (effectiveY + effectiveHeight) * canvasState.scale + canvasState.offsetY;
+    // Convert world coordinates (feet) to screen coordinates (pixels)
+    // Use the geometry utility functions for proper transformation
+    const screenPos = worldToScreen(panel.x, panel.y, canvasState.worldScale, canvasState.scale, canvasState.offsetX, canvasState.offsetY);
+    const screenWidth = panel.width * canvasState.worldScale * canvasState.scale;
+    const screenHeight = panel.height * canvasState.worldScale * canvasState.scale;
     
     // Check if panel is completely outside canvas bounds (with some margin)
     const margin = 100; // pixels
-    if (panelRight < -margin || panelLeft > canvasWidth + margin || 
-        panelBottom < -margin || panelTop > canvasHeight + margin) {
+    if (screenPos.x + screenWidth < -margin || screenPos.x > canvas.clientWidth + margin || 
+        screenPos.y + screenHeight < -margin || screenPos.y > canvas.clientHeight + margin) {
       return;
     }
     
     ctx.save()
     
-    // Apply panel transformations
-    // Convert world coordinates to canvas coordinates
-    ctx.translate(effectiveX, effectiveY)
-    ctx.rotate((panel.rotation || 0) * Math.PI / 180)
+    // Apply panel transformations in screen coordinates
+    // No need to translate to world coordinates since we already converted to screen coordinates
+    if (panel.rotation && panel.rotation !== 0) {
+      const centerX = screenPos.x + screenWidth / 2;
+      const centerY = screenPos.y + screenHeight / 2;
+      ctx.translate(centerX, centerY);
+      ctx.rotate((panel.rotation * Math.PI) / 180);
+      ctx.translate(-centerX, -centerY);
+    }
     
-    // Draw panel rectangle
-    ctx.fillStyle = panel.fill || '#4f46e5'
-    ctx.fillRect(0, 0, effectiveWidth, effectiveHeight)
+    // Draw panel rectangle in screen coordinates
+    ctx.fillStyle = panel.fill || '#4f46e6'
+    ctx.fillRect(screenPos.x, screenPos.y, screenWidth, screenHeight)
     
     // Draw panel border
     ctx.strokeStyle = isSelected ? '#f59e0b' : panel.color || '#1e1b4b'
-    // Use zoom scale for line width
-    ctx.lineWidth = isSelected ? 3 / canvasState.scale : 2 / canvasState.scale
-    ctx.strokeRect(0, 0, effectiveWidth, effectiveHeight)
+    ctx.lineWidth = isSelected ? 3 : 2
+    ctx.strokeRect(screenPos.x, screenPos.y, screenWidth, screenHeight)
     
     // Draw panel text
     ctx.fillStyle = '#ffffff'
-    ctx.font = `${Math.max(12, 16 / canvasState.scale)}px Arial`
+    ctx.font = `${Math.max(12, 16)}px Arial`
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     
-    const centerX = effectiveWidth / 2
-    const centerY = effectiveHeight / 2
+    const centerX = screenPos.x + screenWidth / 2
+    const centerY = screenPos.y + screenHeight / 2
     
     if (panel.panelNumber) {
-      ctx.fillText(panel.panelNumber.toString(), centerX, centerY - 10 / canvasState.scale)
+      ctx.fillText(panel.panelNumber.toString(), centerX, centerY - 10)
     }
     
     if (panel.rollNumber) {
-      ctx.fillText(panel.rollNumber.toString(), centerX, centerY + 10 / canvasState.scale)
+      ctx.fillText(panel.rollNumber.toString(), centerX, centerY + 10)
     }
     
     // Draw panel dimensions label
     const dimensionsText = `${panel.width.toFixed(0)}' × ${panel.height.toFixed(0)}'`;
     ctx.fillStyle = '#ffffff'
-    ctx.font = `${Math.max(10, 14 / canvasState.scale)}px Arial`
-    ctx.fillText(dimensionsText, centerX, centerY + 25 / canvasState.scale)
+    ctx.font = `${Math.max(10, 14)}px Arial`
+    ctx.fillText(dimensionsText, centerX, centerY + 25)
     
     ctx.restore()
-  }, [canvasState, canvasWidth, canvasHeight, normalizedLayoutScale, isValidPanel, getPanelValidationErrors])
+  }, [canvasState, canvasWidth, canvasHeight, isValidPanel, getPanelValidationErrors, worldToScreen, getCurrentCanvas])
 
   // Draw selection handles
   const drawSelectionHandles = useCallback((ctx: CanvasRenderingContext2D, panel: Panel) => {
@@ -141,47 +140,53 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
       return;
     }
     
-    // Use zoom scale for handle sizes
-    const handleSize = 8 / canvasState.scale
+    // Convert world coordinates to screen coordinates
+    const screenPos = worldToScreen(panel.x, panel.y, canvasState.worldScale, canvasState.scale, canvasState.offsetX, canvasState.offsetY);
+    const screenWidth = panel.width * canvasState.worldScale * canvasState.scale;
+    const screenHeight = panel.height * canvasState.worldScale * canvasState.scale;
     
-    // Calculate effective coordinates and dimensions using world scale
-    const effectiveX = panel.x * canvasState.worldScale;
-    const effectiveY = panel.y * canvasState.worldScale;
-    const effectiveWidth = panel.width * canvasState.worldScale;
-    const effectiveHeight = panel.height * canvasState.worldScale;
+    const handleSize = 8
     
     const handles = [
-      { x: 0, y: 0, cursor: 'nw-resize' },
-      { x: effectiveWidth / 2, y: 0, cursor: 'n-resize' },
-      { x: effectiveWidth, y: 0, cursor: 'ne-resize' },
-      { x: effectiveWidth, y: effectiveHeight / 2, cursor: 'e-resize' },
-      { x: effectiveWidth, y: effectiveHeight, cursor: 'se-resize' },
-      { x: effectiveWidth / 2, y: effectiveHeight, cursor: 's-resize' },
-      { x: 0, y: effectiveHeight, cursor: 'sw-resize' },
-      { x: 0, y: effectiveHeight / 2, cursor: 'w-resize' }
+      { x: screenPos.x, y: screenPos.y, cursor: 'nw-resize' },
+      { x: screenPos.x + screenWidth / 2, y: screenPos.y, cursor: 'n-resize' },
+      { x: screenPos.x + screenWidth, y: screenPos.y, cursor: 'ne-resize' },
+      { x: screenPos.x + screenWidth, y: screenPos.y + screenHeight / 2, cursor: 'e-resize' },
+      { x: screenPos.x + screenWidth, y: screenPos.y + screenHeight, cursor: 'se-resize' },
+      { x: screenPos.x + screenWidth / 2, y: screenPos.y + screenHeight, cursor: 's-resize' },
+      { x: screenPos.x, y: screenPos.y + screenHeight, cursor: 'sw-resize' },
+      { x: screenPos.x, y: screenPos.y + screenHeight / 2, cursor: 'w-resize' }
     ]
     
     ctx.save()
-    ctx.translate(effectiveX, effectiveY)
-    ctx.rotate((panel.rotation || 0) * Math.PI / 180)
+    
+    // Apply rotation if needed
+    if (panel.rotation && panel.rotation !== 0) {
+      const centerX = screenPos.x + screenWidth / 2;
+      const centerY = screenPos.y + screenHeight / 2;
+      ctx.translate(centerX, centerY);
+      ctx.rotate((panel.rotation * Math.PI) / 180);
+      ctx.translate(-centerX, -centerY);
+    }
     
     handles.forEach(handle => {
       ctx.fillStyle = '#f59e0b'
       ctx.fillRect(handle.x - handleSize / 2, handle.y - handleSize / 2, handleSize, handleSize)
       ctx.strokeStyle = '#ffffff'
-      ctx.lineWidth = 1 / canvasState.scale
+      ctx.lineWidth = 1
       ctx.strokeRect(handle.x - handleSize / 2, handle.y - handleSize / 2, handleSize, handleSize)
     })
     
     // Draw rotation handle
-    const rotationHandleY = -30 / canvasState.scale
+    const rotationHandleY = screenPos.y - 30
     ctx.fillStyle = '#10b981'
-    ctx.fillRect(effectiveWidth / 2 - handleSize / 2, rotationHandleY - handleSize / 2, handleSize, handleSize)
+    ctx.fillRect(screenPos.x + screenWidth / 2 - handleSize / 2, rotationHandleY - handleSize / 2, handleSize, handleSize)
     ctx.strokeStyle = '#ffffff'
-    ctx.strokeRect(effectiveWidth / 2 - handleSize / 2, rotationHandleY - handleSize / 2, handleSize, handleSize)
+    ctx.lineWidth = 1
+    ctx.strokeRect(screenPos.x + screenWidth / 2 - handleSize / 2, rotationHandleY - handleSize / 2, handleSize, handleSize)
     
     ctx.restore()
-  }, [canvasState, isValidPanel, getPanelValidationErrors])
+  }, [canvasState, isValidPanel, getPanelValidationErrors, worldToScreen])
 
   // Canvas rendering function
   const renderCanvas = useCallback(() => {
@@ -197,16 +202,6 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
     
     // Clear canvas using actual dimensions
     ctx.clearRect(0, 0, actualCanvasWidth, actualCanvasHeight)
-    
-    // Save context for transformations
-    ctx.save()
-    
-    // Apply viewport transformations in the correct order:
-    // 1. Pan (offset)
-    // 2. Scale (zoom)
-    // Note: We don't apply layoutScale globally anymore to avoid scaling issues
-    ctx.translate(canvasState.offsetX, canvasState.offsetY)
-    ctx.scale(canvasState.scale, canvasState.scale)
     
     // Draw grid using the new interactive grid system
     if (canvasState.showGrid) {
@@ -241,10 +236,7 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
         }
       }
     }
-    
-    // Restore context
-    ctx.restore()
-  }, [panels, canvasState, canvasWidth, canvasHeight, normalizedLayoutScale, selectedPanelId, drawGrid, drawPanel, drawSelectionHandles, isValidPanel, getPanelValidationErrors])
+  }, [panels, canvasState, canvasWidth, canvasHeight, selectedPanelId, drawGrid, drawPanel, drawSelectionHandles, isValidPanel, getPanelValidationErrors])
 
   return {
     renderCanvas,

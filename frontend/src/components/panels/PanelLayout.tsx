@@ -32,7 +32,6 @@ interface PanelLayoutProps {
   }
   externalPanels?: Panel[]
   onPanelUpdate?: (panels: Panel[]) => void
-  layoutScale?: number
 }
 
 interface CanvasState {
@@ -107,7 +106,7 @@ const GRID_MINOR = 50 // feet
 const GRID_MAJOR = 250 // feet
 const SNAP_SIZE = 25 // feet
 
-export default function PanelLayout({ mode, projectInfo, externalPanels, onPanelUpdate, layoutScale = 1.0 }: PanelLayoutProps) {
+export default function PanelLayout({ mode, projectInfo, externalPanels, onPanelUpdate }: PanelLayoutProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [panels, dispatch] = useReducer(panelReducer, { panels: [], selectedPanelId: null })
@@ -132,20 +131,6 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   })
 
   const [spacePressed, setSpacePressed] = useState(false)
-  
-  // Normalize layout scale
-  const normalizedLayoutScale = useMemo(() => {
-    if (layoutScale < 0.01) {
-      const normalized = 0.01 / layoutScale;
-      console.log('[PanelLayout] Layout scale normalized:', { 
-        original: layoutScale, 
-        normalized, 
-        reason: 'Scale too small, normalizing for visibility' 
-      });
-      return normalized;
-    }
-    return 1.0;
-  }, [layoutScale]);
   
   // Calculate world dimensions - updated to 4000x4000
   const worldDimensions = useMemo(() => {
@@ -242,7 +227,6 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     canvasState,
     canvasWidth,
     canvasHeight,
-    normalizedLayoutScale,
     selectedPanelId: panels.selectedPanelId, // Use panels.selectedPanelId directly instead of panelData.selectedPanelId
     getCurrentCanvas: () => getCurrentCanvasRef.current(),
     isValidPanel,
@@ -257,14 +241,14 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   
   // Use fullscreen canvas hook SECOND with the actual renderCanvas function
   const { 
-    isFullscreen, 
+      isFullscreen,
     fullscreenCanvasRef, 
     toggleFullscreen,
     fullscreenCanvasWidth,
     fullscreenCanvasHeight
   } = useFullscreenCanvas({
-    canvasWidth,
-    canvasHeight,
+      canvasWidth,
+      canvasHeight,
     toast
   })
   
@@ -277,12 +261,12 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   useEffect(() => {
     // Force render when entering fullscreen mode
     if (isFullscreen && fullscreenCanvasRef.current) {
-      setTimeout(() => {
-        if (fullscreenCanvasRef.current) {
+        setTimeout(() => {
+          if (fullscreenCanvasRef.current) {
           // Use the ref to avoid dependency loop
           renderCanvasRef.current?.();
-        }
-      }, 100);
+          }
+        }, 100);
     }
   }, [isFullscreen, fullscreenCanvasWidth, fullscreenCanvasHeight]) // Removed renderCanvas dependency
   
@@ -379,7 +363,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   const toggleSnap = useCallback(() => {
     setCanvasState(prev => ({ ...prev, snapToGrid: !prev.snapToGrid }))
   }, [])
-
+  
   // New zoom functions
   const zoomToFitSite = useCallback(() => {
     const canvas = canvasRef.current;
@@ -404,14 +388,14 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   const zoomToFitPanels = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas || panels.panels.length === 0) return;
-
+    
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-
+    
     panels.panels.forEach(panel => {
-      minX = Math.min(minX, panel.x);
-      minY = Math.min(minY, panel.y);
-      maxX = Math.max(maxX, panel.x + panel.width);
-      maxY = Math.max(maxY, panel.y + panel.height);
+        minX = Math.min(minX, panel.x);
+        minY = Math.min(minY, panel.y);
+        maxX = Math.max(maxX, panel.x + panel.width);
+        maxY = Math.max(maxY, panel.y + panel.height);
     });
 
     const boundsWidth = maxX - minX;
@@ -436,34 +420,34 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
       offsetY: canvas.clientHeight / 2 - centerY * newWorldScale,
     }));
   }, [panels.panels]);
-  
+
   // Auto-fit viewport when panels are loaded
   const autoFitViewport = useCallback(() => {
     if (panels.panels.length > 0 && canvasWidth > 0 && canvasHeight > 0) {
       const bounds = calculatePanelBounds(panels.panels);
-      if (bounds) {
-        const { minX, minY, maxX, maxY } = bounds;
-        
-        const worldScale = canvasState.worldScale;
-        const panelWidth = (maxX - minX) * worldScale;
-        const panelHeight = (maxY - minY) * worldScale;
-        
+          if (bounds) {
+            const { minX, minY, maxX, maxY } = bounds;
+            
+            const worldScale = canvasState.worldScale;
+            const panelWidth = (maxX - minX) * worldScale;
+            const panelHeight = (maxY - minY) * worldScale;
+            
         const padding = 100;
-        const scaleX = (canvasWidth - padding) / panelWidth;
-        const scaleY = (canvasHeight - padding) / panelHeight;
-        const newScale = Math.min(scaleX, scaleY, 2.0);
-        
-        const offsetX = (canvasWidth - panelWidth * newScale) / 2 - minX * worldScale * newScale;
-        const offsetY = (canvasHeight - panelHeight * newScale) / 2 - minY * worldScale * newScale;
-        
-        setCanvasState(prev => ({
-          ...prev,
-          scale: newScale,
-          offsetX,
-          offsetY
-        }));
-      }
-    }
+            const scaleX = (canvasWidth - padding) / panelWidth;
+            const scaleY = (canvasHeight - padding) / panelHeight;
+            const newScale = Math.min(scaleX, scaleY, 2.0);
+            
+            const offsetX = (canvasWidth - panelWidth * newScale) / 2 - minX * worldScale * newScale;
+            const offsetY = (canvasHeight - panelHeight * newScale) / 2 - minY * worldScale * newScale;
+            
+            setCanvasState(prev => ({
+              ...prev,
+              scale: newScale,
+              offsetX,
+              offsetY
+            }));
+          }
+        }
   }, [panels.panels, canvasWidth, canvasHeight, canvasState.worldScale, calculatePanelBounds]);
   
   // Auto-fit viewport when panels are loaded (with stable dependencies)
@@ -495,12 +479,14 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
       e.preventDefault();
     } else if (e.button === 0) {
       // Left click for selection/dragging
-      const worldPos = screenToWorld(x, y);
       
       // Check panels in reverse order (top to bottom)
       for (let i = panels.panels.length - 1; i >= 0; i--) {
         const panel = panels.panels[i];
 
+        // Convert screen coordinates to world coordinates for hit testing
+        const worldPos = screenToWorld(x, y);
+        
         // Simple AABB hit test (rotation not considered for simplicity)
         if (worldPos.x >= panel.x && worldPos.x <= panel.x + panel.width &&
             worldPos.y >= panel.y && worldPos.y <= panel.y + panel.height) {
@@ -508,21 +494,27 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
           setSelectedPanel(panel)
           
           const handle = getResizeHandle(x, y, panel)
-          if (handle) {
-            setIsResizing(true)
-            setResizeHandle(handle)
-            setDragStart({ x, y })
-            return
-          }
-          
+      if (handle) {
+        setIsResizing(true)
+        setResizeHandle(handle)
+        setDragStart({ x, y })
+        return
+      }
+      
           if (isRotationHandle(x, y, panel)) {
             setIsRotating(true)
-            setRotationStart(Math.atan2(y - (panel.y * normalizedLayoutScale + (panel.height * normalizedLayoutScale) / 2), x - (panel.x * normalizedLayoutScale + (panel.width * normalizedLayoutScale) / 2)))
+            // Convert screen coordinates to world coordinates for rotation calculation
+            const worldPos = screenToWorld(x, y);
+            const panelCenterX = panel.x + panel.width / 2;
+            const panelCenterY = panel.y + panel.height / 2;
+            setRotationStart(Math.atan2(worldPos.y - panelCenterY, worldPos.x - panelCenterX));
             return
           }
           
           setIsDragging(true)
-          setDragStart({ x: x - (panel.x * normalizedLayoutScale), y: y - (panel.y * normalizedLayoutScale) })
+          // Convert screen coordinates to world coordinates for drag calculation
+          const worldPos = screenToWorld(x, y);
+          setDragStart({ x: worldPos.x - panel.x, y: worldPos.y - panel.y });
           return
         }
       }
@@ -531,7 +523,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
       dispatch({ type: 'SELECT_PANEL', payload: null })
       setSelectedPanel(null)
     }
-  }, [panels, canvasState, normalizedLayoutScale, isFullscreen, spacePressed, screenToWorld])
+  }, [panels, canvasState, isFullscreen, spacePressed, screenToWorld])
   
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = isFullscreen ? fullscreenCanvasRef.current : canvasRef.current
@@ -573,7 +565,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
         newX = snapToGrid(newX, SNAP_SIZE);
         newY = snapToGrid(newY, SNAP_SIZE);
       }
-
+      
       dispatch({
         type: 'UPDATE_PANEL',
         payload: {
@@ -610,7 +602,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
         }
       })
     }
-  }, [isDragging, isResizing, isRotating, selectedPanel, resizeHandle, dragStart, rotationStart, canvasState, normalizedLayoutScale, isFullscreen, mouseState, screenToWorld])
+  }, [isDragging, isResizing, isRotating, selectedPanel, resizeHandle, dragStart, rotationStart, canvasState, isFullscreen, mouseState, screenToWorld])
   
   const handleMouseUp = useCallback(() => {
     setIsDragging(false)
@@ -631,22 +623,22 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
       return null;
     }
     
-    const handleSize = 8 / canvasState.scale
+    // Convert world coordinates to screen coordinates for handle detection
+    const screenPos = worldToScreen(panel.x, panel.y);
+    const screenWidth = panel.width * canvasState.worldScale * canvasState.scale;
+    const screenHeight = panel.height * canvasState.worldScale * canvasState.scale;
     
-    const effectiveX = panel.x * canvasState.worldScale;
-    const effectiveY = panel.y * canvasState.worldScale;
-    const effectiveWidth = panel.width * canvasState.worldScale;
-    const effectiveHeight = panel.height * canvasState.worldScale;
+    const handleSize = 8
     
     const handles = {
-      'nw': { x: effectiveX, y: effectiveY },
-      'n': { x: effectiveX + effectiveWidth / 2, y: effectiveY },
-      'ne': { x: effectiveX + effectiveWidth, y: effectiveY },
-      'e': { x: effectiveX + effectiveWidth, y: effectiveY + effectiveHeight / 2 },
-      'se': { x: effectiveX + effectiveWidth, y: effectiveY + effectiveHeight },
-      's': { x: effectiveX + effectiveWidth / 2, y: effectiveY + effectiveHeight },
-      'sw': { x: effectiveX, y: effectiveY + effectiveHeight },
-      'w': { x: effectiveX, y: effectiveY + effectiveHeight / 2 }
+      'nw': { x: screenPos.x, y: screenPos.y },
+      'n': { x: screenPos.x + screenWidth / 2, y: screenPos.y },
+      'ne': { x: screenPos.x + screenWidth, y: screenPos.y },
+      'e': { x: screenPos.x + screenWidth, y: screenPos.y + screenHeight / 2 },
+      'se': { x: screenPos.x + screenWidth, y: screenPos.y + screenHeight },
+      's': { x: screenPos.x + screenWidth / 2, y: screenPos.y + screenHeight },
+      'sw': { x: screenPos.x, y: screenPos.y + screenHeight },
+      'w': { x: screenPos.x, y: screenPos.y + screenHeight / 2 }
     }
     
     for (const [handle, pos] of Object.entries(handles)) {
@@ -663,21 +655,24 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
       return false;
     }
     
-    const handleSize = 8 / canvasState.scale
+    // Convert world coordinates to screen coordinates for handle detection
+    const screenPos = worldToScreen(panel.x, panel.y);
+    const screenWidth = panel.width * canvasState.worldScale * canvasState.scale;
     
-    const effectiveX = panel.x * canvasState.worldScale;
-    const effectiveY = panel.y * canvasState.worldScale;
-    const effectiveWidth = panel.width * canvasState.worldScale;
-    
-    const rotationHandleY = effectiveY - 30 / canvasState.scale
-    const rotationHandleX = effectiveX + effectiveWidth / 2
+    const handleSize = 8
+    const rotationHandleY = screenPos.y - 30
+    const rotationHandleX = screenPos.x + screenWidth / 2
     
     return Math.abs(x - rotationHandleX) <= handleSize && Math.abs(y - rotationHandleY) <= handleSize
   }
   
   const getResizeUpdates = (x: number, y: number, panel: Panel, handle: string, start: { x: number; y: number }): Partial<Panel> | null => {
-    const deltaX = x - start.x
-    const deltaY = y - start.y
+    // Convert screen coordinates to world coordinates for panel updates
+    const startWorldPos = screenToWorld(start.x, start.y);
+    const currentWorldPos = screenToWorld(x, y);
+    
+    const deltaX = currentWorldPos.x - startWorldPos.x;
+    const deltaY = currentWorldPos.y - startWorldPos.y;
     
     switch (handle) {
       case 'nw':
@@ -728,7 +723,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
       offsetY: mouseY - wy * sNew,
     }))
   }, [canvasState, isFullscreen])
-  
+
   // Add wheel event listener
   useEffect(() => {
     const canvas = isFullscreen ? fullscreenCanvasRef.current : canvasRef.current
@@ -800,7 +795,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   // Cleanup fullscreen mode on unmount
   useEffect(() => {
     return () => {
-      if (isFullscreen) {
+          if (isFullscreen) {
         document.body.style.overflow = '';
       }
     };
@@ -818,7 +813,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   // Calculate status values
   const zoomPercentage = Math.round(canvasState.scale * 100);
   const worldPos = screenToWorld ? screenToWorld(mouseState.x, mouseState.y) : { x: 0, y: 0 };
-
+  
   return (
     <>
       {/* Fullscreen Canvas Portal */}
@@ -947,10 +942,52 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
                 <Target className="h-4 w-4 mr-2" />
                 Guides: {canvasState.showGuides ? 'ON' : 'OFF'}
               </button>
-                             <button 
-                 onClick={toggleFullscreen}
-                 className={`${isFullscreen ? 'bg-blue-600 hover:bg-blue-500' : 'bg-gray-600 hover:bg-gray-500'} px-3 py-2 rounded text-sm font-medium transition-colors ml-2`}
-               >
+              
+              {/* Temporary Clear All Panels Button */}
+              <button 
+                onClick={() => {
+                  dispatch({ type: 'SET_PANELS', payload: [] });
+                  dispatch({ type: 'SELECT_PANEL', payload: null });
+                  console.log('[PanelLayout] Cleared all panels');
+                }}
+                className="bg-red-600 hover:bg-red-500 px-3 py-2 rounded text-sm font-medium transition-colors"
+              >
+                🗑️ Clear All Panels
+              </button>
+              
+              {/* Temporary Add Test Panel Button */}
+              <button 
+                onClick={() => {
+                  const testPanel = {
+                    id: `test-panel-${Date.now()}`,
+                    x: 1000,        // 1000 feet from west edge
+                    y: 1000,        // 1000 feet from north edge
+                    width: 200,     // 200 feet wide
+                    height: 100,    // 100 feet tall
+                    length: 100,    // 100 feet long (same as height)
+                    rotation: 0,
+                    fill: '#3b82f6',
+                    color: '#1e1b4b',
+                    panelNumber: 'TEST-001',
+                    rollNumber: 'ROLL-001',
+                    shape: 'rectangle' as const,
+                    meta: {
+                      repairs: [],
+                      location: { x: 1000, y: 1000, gridCell: { row: 0, col: 0 } }
+                    }
+                  };
+                  dispatch({ type: 'ADD_PANEL', payload: testPanel });
+                  console.log('[PanelLayout] Added test panel:', testPanel);
+                }}
+                className="bg-green-600 hover:bg-green-500 px-3 py-2 rounded text-sm font-medium transition-colors"
+              >
+                ➕ Add Test Panel
+              </button>
+              
+              <button 
+                onClick={toggleFullscreen}
+                className={`${isFullscreen ? 'bg-blue-600 hover:bg-blue-500' : 'bg-gray-600 hover:bg-gray-500'} px-3 py-2 rounded text-sm font-medium transition-colors ml-2`}
+              >
                 {isFullscreen ? (
                   <>
                     <Minimize className="h-4 w-4 mr-2" />
@@ -981,8 +1018,8 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
               Cursor: <span className="text-white font-medium" data-testid="text-cursor-coords">{Math.round(worldPos.x)}', {Math.round(worldPos.y)}'</span>
             </div>
           </div>
-        </div>
-
+            </div>
+            
         {/* Canvas Container */}
         <div className="flex-1 bg-gray-800 relative overflow-hidden">
           <div 
@@ -991,29 +1028,29 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
           >
             {/* Normal Canvas - Only shown when NOT in fullscreen */}
             {!isFullscreen && (
-              <canvas
-                ref={canvasRef}
-                width={canvasWidth}
-                height={canvasHeight}
+            <canvas
+              ref={canvasRef}
+              width={canvasWidth}
+              height={canvasHeight}
                 className="absolute inset-0 bg-gray-100"
-                onMouseDown={handleMouseDown}
-                onMouseMove={handleMouseMove}
-                onMouseUp={handleMouseUp}
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
                 onContextMenu={(e) => e.preventDefault()}
                 data-testid="canvas-main"
-                style={{
+              style={{
                   cursor: mouseState.isPanning ? 'grabbing' : 
                          spacePressed ? 'grab' : 
                          isDragging ? 'grabbing' : 
-                         isResizing ? 'nw-resize' : 
+                       isResizing ? 'nw-resize' : 
                          isRotating ? 'crosshair' : 'crosshair',
-                  display: 'block',
-                  width: '100%',
-                  height: '100%',
-                  position: 'relative',
-                  zIndex: 'auto'
-                }}
-              />
+                display: 'block',
+                width: '100%',
+                height: '100%',
+                position: 'relative',
+                zIndex: 'auto'
+              }}
+            />
             )}
 
             {/* Coordinate Display */}
@@ -1021,7 +1058,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
               <div data-testid="text-world-coords">World: {Math.round(worldPos.x)}', {Math.round(worldPos.y)}'</div>
               <div data-testid="text-screen-coords">Screen: {Math.round(mouseState.x)}, {Math.round(mouseState.y)}</div>
             </div>
-
+            
             {/* Help Overlay */}
             <div className="absolute bottom-4 right-4 bg-black bg-opacity-75 text-white px-3 py-2 rounded text-sm pointer-events-none">
               <div className="font-medium mb-1">Controls:</div>
@@ -1031,7 +1068,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
                 <div>Middle Click + Drag: Pan</div>
                 <div>Click: Select Panel</div>
                 <div>Drag: Move Panel</div>
-              </div>
+            </div>
             </div>
           </div>
         </div>

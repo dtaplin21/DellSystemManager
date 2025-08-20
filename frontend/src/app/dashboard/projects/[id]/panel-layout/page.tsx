@@ -891,6 +891,34 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
               <Button size="sm" onClick={() => console.log('Current state:', { layout, mappedPanels, project })} variant="outline">
                 Log State
               </Button>
+              <Button 
+                size="sm" 
+                onClick={async () => {
+                  try {
+                    // Clear in backend
+                    await updatePanelLayout(id, { panels: [] });
+                    // Clear in frontend
+                    setLayout(prev => prev ? { ...prev, panels: [] } : null);
+                    console.log('[DEBUG] Cleared layout panels in backend and frontend');
+                    toast({
+                      title: 'Success',
+                      description: 'All panels cleared successfully',
+                      variant: 'default',
+                    });
+                  } catch (error) {
+                    console.error('[DEBUG] Error clearing panels:', error);
+                    toast({
+                      title: 'Error',
+                      description: 'Failed to clear panels in backend',
+                      variant: 'destructive',
+                    });
+                  }
+                }} 
+                variant="outline"
+                className="bg-red-100 text-red-700 border-red-300 hover:bg-red-200"
+              >
+                🗑️ Clear Layout
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -1007,7 +1035,6 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
                       projectInfo={projectInfo}
                       externalPanels={mappedPanels}
                       onPanelUpdate={handlePanelUpdate}
-                      layoutScale={layout.scale || DEFAULT_SCALE}
                     />
                   </div>
                 );
