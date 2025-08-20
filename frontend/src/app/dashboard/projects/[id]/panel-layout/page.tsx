@@ -126,18 +126,18 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
       // Use the updatePanelLayout function from the API helper
       const result = await updatePanelLayout(project.id, requestBody);
       console.log('[DIAG] Backend response from updatePanelLayout:', JSON.stringify(result, null, 2));
-      toast({
-        title: 'Project Saved',
-        description: 'Project data saved successfully.',
-      });
-    } catch (error) {
-      console.error('[DEBUG] Save: Error saving project:', error);
-      toast({
-        title: 'Error',
-        description: `Failed to save project data: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        variant: 'destructive',
-      });
-    }
+              toastRef.current({
+          title: 'Project Saved',
+          description: 'Project data saved successfully.',
+        });
+      } catch (error) {
+        console.error('[DEBUG] Save: Error saving project:', error);
+        toastRef.current({
+          title: 'Error',
+          description: `Failed to save project data: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          variant: 'destructive',
+        });
+      }
   };
 
 
@@ -232,7 +232,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
       }
     } catch (error) {
       console.error('🔍 [DEBUG] Error loading project and layout:', error);
-      toast({
+      toastRef.current({
         title: 'Error',
         description: 'Failed to load panel layout. Please try again.',
         variant: 'destructive',
@@ -450,7 +450,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
       });
     } catch (error) {
       console.error('[DEBUG] Error in handleProjectLoad:', error);
-      toast({
+      toastRef.current({
         title: 'Error',
         description: 'Failed to load project data.',
         variant: 'destructive',
@@ -534,19 +534,19 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
     try {
       console.log('[DEBUG] Manual save triggered');
       await saveProjectToSupabase(layout, project);
-      toast({
+      toastRef.current({
         title: 'Success',
         description: 'Panel layout saved successfully.',
       });
     } catch (error) {
       console.error('[DEBUG] Manual save failed:', error);
-      toast({
+      toastRef.current({
         title: 'Error',
         description: 'Failed to save panel layout.',
         variant: 'destructive',
       });
     }
-  }, [layout, project, toast]);
+  }, [layout, project]);
 
   // Store current id in ref to avoid stale closures in WebSocket
   const currentIdRef = useRef(id);
@@ -644,13 +644,13 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
             // Show AI execution overlay
             setShowAIExecutionOverlay(true);
             
-            toast({
+            toastRef.current({
               title: 'AI Layout Ready',
               description: `Found ${actions.length} AI-generated panel actions. Click "Execute AI Layout" to apply them.`,
             });
           } catch (error) {
             console.error('Error parsing AI actions:', error);
-            toast({
+            toastRef.current({
               title: 'Error',
               description: 'Failed to load AI layout actions.',
               variant: 'destructive',
@@ -664,6 +664,13 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
       console.error('Error checking for AI actions:', error);
     }
   }, [id]); // Only depend on id, not toast
+
+  // Store toast function in ref to prevent infinite loops
+  const toastRef = useRef(toast);
+  
+  useEffect(() => {
+    toastRef.current = toast;
+  }, [toast]);
 
   useEffect(() => {
     console.log('[DEBUG] Load: useEffect triggered, id:', id);
@@ -728,7 +735,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
         }
       } catch (error) {
         console.error('🔍 [DEBUG] Error loading project and layout:', error);
-        toast({
+        toastRef.current({
           title: 'Error',
           description: 'Failed to load panel layout. Please try again.',
           variant: 'destructive',
@@ -739,7 +746,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
     };
     
     loadData();
-  }, [id, toast]); // Only depend on id and toast, not on the function itself
+  }, [id]); // Only depend on id, not toast
 
   // AI Layout Execution Functions
   const handleExecuteAILayout = async () => {
@@ -759,7 +766,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
           const successCount = results.filter(r => r.success).length;
           const totalCount = results.length;
           
-          toast({
+          toastRef.current({
             title: 'AI Layout Complete',
             description: `Successfully executed ${successCount}/${totalCount} actions.`,
           });
@@ -769,7 +776,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
           window.location.reload();
         },
         onError: (error) => {
-          toast({
+          toastRef.current({
             title: 'AI Execution Error',
             description: error,
             variant: 'destructive',
@@ -782,7 +789,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
       
     } catch (error) {
       console.error('Error executing AI layout:', error);
-      toast({
+      toastRef.current({
         title: 'AI Execution Failed',
         description: error instanceof Error ? error.message : 'Unknown error',
         variant: 'destructive',
@@ -883,14 +890,14 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
                     // Clear in frontend
                     setLayout(prev => prev ? { ...prev, panels: [] } : null);
                     console.log('[DEBUG] Cleared layout panels in backend and frontend');
-                    toast({
+                    toastRef.current({
                       title: 'Success',
                       description: 'All panels cleared successfully',
                       variant: 'default',
                     });
                   } catch (error) {
                     console.error('[DEBUG] Error clearing panels:', error);
-                    toast({
+                    toastRef.current({
                       title: 'Error',
                       description: 'Failed to clear panels in backend',
                       variant: 'destructive',

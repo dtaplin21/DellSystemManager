@@ -11,7 +11,7 @@ export interface UseFullscreenCanvasReturn {
 export interface UseFullscreenCanvasOptions {
   canvasWidth: number
   canvasHeight: number
-  toast: (options: { title: string; description: string }) => void
+  toast: (options: { title?: string; description?: string; variant?: 'default' | 'destructive' | 'success' }) => void
 }
 
 export const useFullscreenCanvas = (options: UseFullscreenCanvasOptions): UseFullscreenCanvasReturn => {
@@ -30,68 +30,150 @@ export const useFullscreenCanvas = (options: UseFullscreenCanvasOptions): UseFul
 
   // Initialize fullscreen canvas dimensions when component mounts
   useEffect(() => {
-    if (canvasWidth > 0 && canvasHeight > 0 && fullscreenCanvasWidth === 0) {
-      console.log('[useFullscreenCanvas] Initializing fullscreen canvas dimensions:', { canvasWidth, canvasHeight });
-      setFullscreenCanvasWidth(canvasWidth);
-      setFullscreenCanvasHeight(canvasHeight);
+    if (canvasWidth > 0 && canvasHeight > 0) {
+      // Always keep fullscreen dimensions ready
+      setFullscreenCanvasWidth(window.innerWidth || canvasWidth);
+      setFullscreenCanvasHeight(window.innerHeight || canvasHeight);
     }
-  }, [canvasWidth, canvasHeight, fullscreenCanvasWidth]);
+  }, [canvasWidth, canvasHeight]);
 
-  // Simple fullscreen toggle function
+  // Simple fullscreen toggle function - SIMPLIFIED FOR TESTING
   const toggleFullscreen = useCallback(() => {
     console.log('🚀 [useFullscreenCanvas] toggleFullscreen function called');
     
-    if (!isFullscreen) {
-      console.log('🚀 [useFullscreenCanvas] Entering fullscreen mode');
+    // Use functional update to avoid circular dependency
+    setIsFullscreen(prevIsFullscreen => {
+      console.log('🚀 [useFullscreenCanvas] Current isFullscreen state:', prevIsFullscreen);
       
-      // Set fullscreen dimensions
-      const screenWidth = window.innerWidth;
-      const screenHeight = window.innerHeight;
-      
-      setFullscreenCanvasWidth(screenWidth);
-      setFullscreenCanvasHeight(screenHeight);
-      
-      // Set fullscreen state
-      setIsFullscreen(true);
-      
-      // Hide body overflow
-      document.body.style.overflow = 'hidden';
-      
-      // Show success message
-      toast({
-        title: "Entered Fullscreen Mode",
-        description: "Grid now takes up entire screen for better navigation"
-      });
-      
+      if (!prevIsFullscreen) {
+        console.log('🚀 [useFullscreenCanvas] ENTERING fullscreen mode');
+        
+        // Set fullscreen dimensions FIRST, before state change
+        const screenWidth = window.innerWidth;
+        const screenHeight = window.innerHeight;
+        
+        console.log('🚀 [useFullscreenCanvas] Screen dimensions:', { screenWidth, screenHeight });
+        
+        // Use React's batch update for better performance
+        Promise.resolve().then(() => {
+          setFullscreenCanvasWidth(screenWidth);
+          setFullscreenCanvasHeight(screenHeight);
+        });
+        
+        // Hide body overflow BEFORE state change
+        document.body.style.overflow = 'hidden';
+        document.documentElement.style.overflow = 'hidden';
+        
+        // Return new state (toast will be handled in useEffect)
+        return true;
+        
+      } else {
+        console.log('🚀 [useFullscreenCanvas] EXITING fullscreen mode');
+        
+        // Restore body overflow
+        document.body.style.overflow = '';
+        document.documentElement.style.overflow = '';
+        
+        // Restore normal dimensions LAST
+        Promise.resolve().then(() => {
+          setFullscreenCanvasWidth(canvasWidth);
+          setFullscreenCanvasHeight(canvasHeight);
+        });
+        
+        // Return new state (toast will be handled in useEffect)
+        return false;
+      }
+    });
+  }, [canvasWidth, canvasHeight]); // Removed toast dependency
+
+  // Handle toast messages after state changes to avoid render cycle issues
+  useEffect(() => {
+    if (isFullscreen) {
+      // Show success message after entering fullscreen
+      if (toast) {
+        try {
+          toast({
+            title: "Entered Fullscreen Mode",
+            description: "Grid now takes up entire screen for better navigation",
+            variant: 'success'
+          });
+        } catch (error) {
+          console.error('🚀 [useFullscreenCanvas] Toast error:', error);
+        }
+      }
     } else {
-      console.log('🚀 [useFullscreenCanvas] Exiting fullscreen mode');
-      
-      // Restore normal dimensions
-      setFullscreenCanvasWidth(canvasWidth);
-      setFullscreenCanvasHeight(canvasHeight);
-      
-      // Exit fullscreen state
-      setIsFullscreen(false);
-      
-      // Restore body overflow
-      document.body.style.overflow = '';
-      
-      // Show exit message
-      toast({
-        title: "Exited Fullscreen Mode",
-        description: "Grid returned to normal size"
-      });
+      // Show exit message after exiting fullscreen
+      if (toast) {
+        try {
+                  toast({
+          title: "Exited Fullscreen Mode",
+          description: "Grid returned to normal size",
+          variant: 'default'
+        });
+        } catch (error) {
+          console.error('🚀 [useFullscreenCanvas] Toast error:', error);
+        }
+      }
     }
-  }, [isFullscreen, canvasWidth, canvasHeight, toast]);
+  }, [isFullscreen, toast]); // Show toast when isFullscreen changes
 
   // Cleanup fullscreen mode on unmount
   useEffect(() => {
     return () => {
       if (isFullscreen) {
         document.body.style.overflow = '';
+        document.documentElement.style.overflow = '';
       }
     };
   }, [isFullscreen]);
+
+  // Handle window resize in fullscreen mode
+  useEffect(() => {
+    const handleResize = () => {
+      if (isFullscreen) {
+        console.log('🚀 [useFullscreenCanvas] Window resized in fullscreen mode');
+        const screenWidth = window.innerWidth;
+        const screenHeight = window.innerHeight;
+        setFullscreenCanvasWidth(screenWidth);
+        setFullscreenCanvasHeight(screenHeight);
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [isFullscreen]);
+
+  // Handle ESC key to exit fullscreen
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isFullscreen) {
+        console.log('🚀 [useFullscreenCanvas] ESC key pressed, exiting fullscreen');
+        e.preventDefault();
+        // Use functional update to avoid dependency issues
+        setIsFullscreen(false);
+        // Restore body overflow
+        document.body.style.overflow = '';
+        document.documentElement.style.overflow = '';
+        // Restore normal dimensions
+        setFullscreenCanvasWidth(canvasWidth);
+        setFullscreenCanvasHeight(canvasHeight);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isFullscreen, canvasWidth, canvasHeight]); // Depend on values, not functions
+
+  // Debug logging for state changes (only in development)
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🚀 [useFullscreenCanvas] State changed:', { 
+        isFullscreen, 
+        fullscreenCanvasWidth, 
+        fullscreenCanvasHeight 
+      });
+    }
+  }, [isFullscreen, fullscreenCanvasWidth, fullscreenCanvasHeight]);
 
   return {
     isFullscreen,

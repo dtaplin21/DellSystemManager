@@ -257,18 +257,63 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     getCurrentCanvasRef.current = () => isFullscreen ? fullscreenCanvasRef.current : canvasRef.current
   }, [isFullscreen])
   
-  // Debug fullscreen state
+  // Consolidated fullscreen state management
   useEffect(() => {
-    // Force render when entering fullscreen mode
+    console.log('🔍 [PanelLayout] Fullscreen state changed:', { 
+      isFullscreen, 
+      fullscreenCanvasWidth, 
+      fullscreenCanvasHeight,
+      fullscreenCanvasRef: fullscreenCanvasRef.current ? 'exists' : 'null'
+    });
+    
     if (isFullscreen && fullscreenCanvasRef.current) {
-        setTimeout(() => {
-          if (fullscreenCanvasRef.current) {
-          // Use the ref to avoid dependency loop
-          renderCanvasRef.current?.();
-          }
-        }, 100);
+      console.log('🔍 [PanelLayout] Setting up fullscreen canvas...');
+      
+      // Setup canvas immediately
+      const canvas = fullscreenCanvasRef.current;
+      const screenWidth = window.innerWidth;
+      const screenHeight = window.innerHeight;
+      
+      try {
+        // Set display size
+        canvas.style.width = screenWidth + 'px';
+        canvas.style.height = screenHeight + 'px';
+        
+        // Set actual size in memory (scaled for HiDPI)
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = screenWidth * dpr;
+        canvas.height = screenHeight * dpr;
+        
+        // Get the context and scale for HiDPI
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.scale(dpr, dpr);
+        } else {
+          throw new Error('Failed to get canvas context');
+        }
+      } catch (error) {
+        console.error('🔍 [PanelLayout] Fullscreen canvas setup failed:', error);
+        // Log error but continue - let the hook handle state reset
+        return;
+      }
+      
+              console.log('🔍 [PanelLayout] Fullscreen canvas setup complete:', { 
+          screenWidth, 
+          screenHeight, 
+          dpr: window.devicePixelRatio || 1,
+          canvasWidth: canvas.width,
+          canvasHeight: canvas.height
+        });
+      
+      // Force render after setup with a longer delay to ensure state is stable
+      setTimeout(() => {
+        if (renderCanvasRef.current && isFullscreen) {
+          console.log('🔍 [PanelLayout] Calling renderCanvas in fullscreen mode');
+          renderCanvasRef.current();
+        }
+      }, 200);
     }
-  }, [isFullscreen, fullscreenCanvasWidth, fullscreenCanvasHeight]) // Removed renderCanvas dependency
+  }, [isFullscreen]); // Only depend on isFullscreen
   
   // Initialize panels from external source
   useEffect(() => {
@@ -744,13 +789,15 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
       if (e.code === 'Space') {
         setSpacePressed(true);
         e.preventDefault();
-      }
-      if (e.key === 'Escape' && isFullscreen) {
-        e.preventDefault();
-        toggleFullscreen();
-      }
-      if (e.key === 'Delete' && panels.selectedPanelId) {
-        dispatch({ type: 'DELETE_PANEL', payload: panels.selectedPanelId })
+      } else if (e.key === 'f' || e.key === 'F') {
+        // Toggle fullscreen with F key
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          toggleFullscreen();
+        }
+      } else if (e.key === 'Delete' && panels.selectedPanelId) {
+        dispatch({ type: 'DELETE_PANEL', payload: panels.selectedPanelId });
+        dispatch({ type: 'SELECT_PANEL', payload: null });
       }
     };
 
@@ -788,6 +835,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
       worldScale: worldDimensions.worldScale
     }));
     
+    // Set canvas dimensions based on world dimensions (for normal mode)
     setCanvasWidth(Math.ceil(worldDimensions.worldWidth * worldDimensions.worldScale));
     setCanvasHeight(Math.ceil(worldDimensions.worldHeight * worldDimensions.worldScale));
   }, [worldDimensions]);
@@ -801,6 +849,8 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     };
   }, [isFullscreen]);
 
+  // Fullscreen canvas setup is now handled in the consolidated effect above
+  
   // Setup canvas with HiDPI support
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -816,10 +866,18 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   
   return (
     <>
-      {/* Fullscreen Canvas Portal */}
+      {/* Debug Fullscreen State - TEMPORARY */}
+      <div className="fixed top-0 right-0 bg-blue-500 text-white p-2 z-[10000] text-xs">
+        Fullscreen: {isFullscreen ? 'TRUE' : 'FALSE'} | 
+        Width: {fullscreenCanvasWidth} | 
+        Height: {fullscreenCanvasHeight}
+      </div>
+      
+            {/* Fullscreen Canvas Portal */}
       {isFullscreen && (
+        <>
         <div
-          className="fullscreen-overlay"
+          className="fixed inset-0 w-screen h-screen bg-gray-900 z-50 overflow-hidden"
           style={{
             position: 'fixed',
             top: 0,
@@ -828,47 +886,128 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
             bottom: 0,
             width: '100vw',
             height: '100vh',
-            backgroundColor: 'white',
-            zIndex: 9999,
-            overflow: 'hidden'
+            zIndex: 9999
           }}
         >
-          <div 
-            className="absolute top-4 left-4 z-70 bg-blue-500 text-white px-3 py-1 rounded-md text-sm font-medium shadow-lg"
-            style={{
-              position: 'absolute',
-              top: '16px',
-              left: '16px',
-              zIndex: '70'
-            }}
-          >
-            Fullscreen Mode - Press ESC to exit
+          {/* Fullscreen Toolbar */}
+          <div className="absolute top-0 left-0 right-0 bg-gray-800 border-b border-gray-700 px-4 py-3 flex items-center justify-between z-10">
+            <div className="flex items-center space-x-4">
+              {/* Zoom Controls */}
+              <div className="flex items-center space-x-2">
+                <button 
+                  onClick={zoomOut}
+                  className="bg-gray-700 hover:bg-gray-600 px-3 py-2 rounded text-sm font-medium transition-colors text-white"
+                >
+                  Zoom -
+                </button>
+                <button 
+                  onClick={zoomIn}
+                  className="bg-gray-700 hover:bg-gray-600 px-3 py-2 rounded text-sm font-medium transition-colors text-white"
+                >
+                  Zoom +
+                </button>
+                <div className="border-l border-gray-600 h-6 mx-2"></div>
+                <button 
+                  onClick={zoomToFitSite}
+                  className="bg-blue-600 hover:bg-blue-500 px-3 py-2 rounded text-sm font-medium transition-colors text-white"
+                >
+                  Fit Site
+                </button>
+                <button 
+                  onClick={zoomToFitPanels}
+                  className="bg-blue-600 hover:bg-blue-500 px-3 py-2 rounded text-sm font-medium transition-colors text-white"
+                >
+                  Fit Panels
+                </button>
+              </div>
+              
+              {/* Grid Controls */}
+              <div className="flex items-center space-x-2">
+                <div className="border-l border-gray-600 h-6 mx-2"></div>
+                <button 
+                  onClick={() => setCanvasState(prev => ({ ...prev, showGrid: !prev.showGrid }))}
+                  className={`${canvasState.showGrid ? 'bg-green-600 hover:bg-green-500' : 'bg-gray-600 hover:bg-gray-500'} px-3 py-2 rounded text-sm font-medium transition-colors text-white`}
+                >
+                  Grid: {canvasState.showGrid ? 'ON' : 'OFF'}
+                </button>
+                <button 
+                  onClick={() => setCanvasState(prev => ({ ...prev, snapToGrid: !prev.snapToGrid }))}
+                  className={`${canvasState.snapToGrid ? 'bg-yellow-600 hover:bg-yellow-500' : 'bg-gray-600 hover:bg-gray-500'} px-3 py-2 rounded text-sm font-medium transition-colors text-white`}
+                >
+                  Snap: {canvasState.snapToGrid ? 'ON' : 'OFF'}
+                </button>
+              </div>
+            </div>
+            
+            {/* Status and Exit */}
+            <div className="flex items-center space-x-6">
+              <div className="flex items-center space-x-6 text-sm font-mono text-white">
+                <div className="text-gray-300">
+                  Zoom: <span className="text-white font-medium">{zoomPercentage}%</span>
+                </div>
+                <div className="text-gray-300">
+                  Scale: <span className="text-white font-medium">{canvasState.worldScale.toFixed(3)}</span> px/ft
+                </div>
+                <div className="text-gray-300">
+                  Panels: <span className="text-white font-medium">{panels.panels.length}</span>
+                </div>
+                <div className="text-gray-300">
+                  Cursor: <span className="text-white font-medium">{Math.round(worldPos.x)}', {Math.round(worldPos.y)}'</span>
+                </div>
+              </div>
+              
+              <div className="border-l border-gray-600 h-6 mx-2"></div>
+              
+              <button 
+                onClick={() => toggleFullscreen()}
+                className="bg-red-600 hover:bg-red-500 px-4 py-2 rounded text-sm font-medium transition-colors text-white flex items-center space-x-2"
+              >
+                <span>Exit Fullscreen</span>
+                <span className="text-xs">(ESC)</span>
+              </button>
+            </div>
           </div>
           
-          <canvas
-            ref={fullscreenCanvasRef}
-            width={fullscreenCanvasWidth || window.innerWidth}
-            height={fullscreenCanvasHeight || window.innerHeight}
-            className="fullscreen-canvas"
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            style={{
-              cursor: mouseState.isPanning ? 'grabbing' : 
-                     spacePressed ? 'grab' : 
-                     isDragging ? 'grabbing' : 
-                     isResizing ? 'nw-resize' : 
-                     isRotating ? 'crosshair' : 'crosshair',
-              display: 'block',
-              width: '100vw',
-              height: '100vh',
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              zIndex: 1
-            }}
-          />
+          {/* Fullscreen Canvas */}
+          <div className="w-full h-full pt-16"> {/* pt-16 accounts for toolbar height */}
+            <canvas
+              ref={fullscreenCanvasRef}
+              width={fullscreenCanvasWidth || window.innerWidth}
+              height={fullscreenCanvasHeight || window.innerHeight}
+              className="w-full h-full"
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+              onWheel={(e) => handleWheel(e.nativeEvent)}
+              style={{
+                cursor: mouseState.isPanning ? 'grabbing' : 
+                       spacePressed ? 'grab' : 
+                       isDragging ? 'grabbing' : 
+                       isResizing ? 'nw-resize' : 
+                       isRotating ? 'crosshair' : 'crosshair',
+                display: 'block',
+                width: '100%',
+                height: '100%'
+              }}
+            />
+          </div>
+          
+          {/* Help Overlay */}
+          <div className="absolute bottom-4 right-4 bg-black bg-opacity-75 text-white px-3 py-2 rounded text-sm pointer-events-none z-20">
+            <div className="font-medium mb-1">Controls:</div>
+            <div className="text-xs text-gray-300 space-y-1">
+              <div>Wheel: Zoom</div>
+              <div>Space + Drag: Pan</div>
+              <div>Middle Click + Drag: Pan</div>
+              <div>Click: Select Panel</div>
+              <div>Drag: Move Panel</div>
+              <div>ESC: Exit Fullscreen</div>
+              <div>Ctrl+F: Toggle Fullscreen</div>
+              <div>Delete: Remove Selected Panel</div>
+            </div>
+          </div>
         </div>
+        </>
       )}
       
       {/* Normal Panel Layout Container */}
@@ -985,8 +1124,13 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
               </button>
               
               <button 
-                onClick={toggleFullscreen}
+                onClick={() => {
+                  console.log('�� [PanelLayout] Fullscreen button clicked, current state:', isFullscreen);
+                  toggleFullscreen();
+                  console.log('🔍 [PanelLayout] toggleFullscreen called');
+                }}
                 className={`${isFullscreen ? 'bg-blue-600 hover:bg-blue-500' : 'bg-gray-600 hover:bg-gray-500'} px-3 py-2 rounded text-sm font-medium transition-colors ml-2`}
+                title={isFullscreen ? "Exit Fullscreen (ESC)" : "Enter Fullscreen (Ctrl+F)"}
               >
                 {isFullscreen ? (
                   <>
@@ -1068,7 +1212,9 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
                 <div>Middle Click + Drag: Pan</div>
                 <div>Click: Select Panel</div>
                 <div>Drag: Move Panel</div>
-            </div>
+                <div>Ctrl+F: Fullscreen</div>
+                <div>Delete: Remove Panel</div>
+              </div>
             </div>
           </div>
         </div>
