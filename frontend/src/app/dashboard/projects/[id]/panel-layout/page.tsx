@@ -316,26 +316,9 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
   }, []); // No dependencies needed since we use functional update
 
   // Add panel handler
-  const handleAddPanel = useCallback(() => {
+  const handleAddPanel = useCallback((newPanel: Panel) => {
     setLayout(prev => {
       if (!prev) return prev;
-      
-      const newPanel: Panel = {
-        id: generateId(),
-        shape: 'rectangle',
-        x: 100,
-        y: 100,
-        width: 200,
-        height: 150,
-        length: 150,
-        rotation: 0,
-        fill: '#3b82f6',
-        color: '#1e1b4b',
-        meta: {
-          repairs: [],
-          location: { x: 100, y: 100, gridCell: { row: 0, col: 0 } }
-        }
-      };
       
       return {
         ...prev,
