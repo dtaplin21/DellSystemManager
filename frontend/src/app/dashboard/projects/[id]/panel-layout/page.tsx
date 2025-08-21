@@ -90,7 +90,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
   }, [layout]);
 
   // Handle adding new panels
-  const handleAddPanel = useCallback((newPanel: any) => {
+  const handleAddPanel = useCallback(async (newPanel: any) => {
     console.log('[DEBUG] handleAddPanel called with:', newPanel);
     
     try {
@@ -128,7 +128,17 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
         
         // Save to backend immediately
         console.log('[DEBUG] Panel added to layout, saving to backend...');
-        saveProjectToSupabase(updatedLayout, project!);
+        try {
+          await saveProjectToSupabase(updatedLayout, project!);
+          console.log('[DEBUG] Panel saved to backend successfully');
+        } catch (saveError) {
+          console.error('[DEBUG] Failed to save panel to backend:', saveError);
+          toastRef.current({
+            title: 'Warning',
+            description: 'Panel added locally but failed to save to backend. Please save manually.',
+            variant: 'destructive',
+          });
+        }
       }
       
       console.log('[DEBUG] Panel added successfully');
@@ -175,38 +185,43 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
       // Convert panels back to Supabase format, DO NOT divide by PIXELS_PER_FOOT
       const supabasePanels = currentLayout.panels.map(panel => ({
         project_id: project.id,
-        type: panel.type,
+        type: panel.shape || 'rectangle', // Use shape instead of type
         x: panel.x, // already in feet
         y: panel.y, // already in feet
-        width_feet: panel.widthFeet || panel.width, // already in feet
-        height_feet: panel.heightFeet || panel.height, // already in feet
-        roll_number: panel.rollNumber,
-        panel_number: panel.panelNumber,
-        fill: panel.fill,
-        stroke: panel.stroke,
-        stroke_width: panel.strokeWidth,
+        width_feet: panel.width, // Use width directly
+        height_feet: panel.height, // Use height directly
+        roll_number: panel.rollNumber || '',
+        panel_number: panel.panelNumber || '',
+        fill: panel.fill || '#3b82f6',
+        stroke: panel.color || '#000000', // Use color as stroke
+        stroke_width: 1, // Default stroke width
         rotation: panel.rotation || 0
       }));
+      
       const width = typeof currentLayout.width === 'number' ? currentLayout.width : DEFAULT_LAYOUT_WIDTH;
       const height = typeof currentLayout.height === 'number' ? currentLayout.height : DEFAULT_LAYOUT_HEIGHT;
       const scale = typeof currentLayout.scale === 'number' ? currentLayout.scale : DEFAULT_SCALE;
       const requestBody = { panels: supabasePanels, width, height, scale };
+      
       console.log('[DIAG] Request body to backend:', JSON.stringify(requestBody, null, 2));
+      
       // Use the updatePanelLayout function from the API helper
       const result = await updatePanelLayout(project.id, requestBody);
       console.log('[DIAG] Backend response from updatePanelLayout:', JSON.stringify(result, null, 2));
-              toastRef.current({
-          title: 'Project Saved',
-          description: 'Project data saved successfully.',
-        });
-      } catch (error) {
-        console.error('[DEBUG] Save: Error saving project:', error);
-        toastRef.current({
-          title: 'Error',
-          description: `Failed to save project data: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          variant: 'destructive',
-        });
-      }
+      
+      toastRef.current({
+        title: 'Project Saved',
+        description: 'Project data saved successfully.',
+      });
+      
+    } catch (error) {
+      console.error('[DEBUG] Save: Error saving project:', error);
+      toastRef.current({
+        title: 'Error',
+        description: `Failed to save project data: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        variant: 'destructive',
+      });
+    }
   };
 
 
@@ -248,7 +263,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
     return mapped;
   }
 
-  // Load project and layout data
+  // Load project and layout data - Consolidated function
   const loadProjectAndLayout = useCallback(async () => {
     try {
       setIsLoading(true);
@@ -291,6 +306,9 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
       } else {
         console.warn('[DEBUG] No panels array found in backend response:', layoutData);
         console.warn('[DEBUG] Layout data keys:', layoutData ? Object.keys(layoutData) : 'No data');
+        console.warn('[DEBUG] Panels value:', layoutData?.panels);
+        console.warn('[DEBUG] Panels type:', typeof layoutData?.panels);
+        console.warn('[DEBUG] Is panels array?', Array.isArray(layoutData?.panels));
       }
       
       console.log('[DEBUG] Load: Processed panels:', processedPanels);
@@ -351,6 +369,14 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
   
   const mappedPanels = useMemo(() => {
     console.log('[DEBUG] mappedPanels recalculating with layout.panels:', layout?.panels);
+    console.log('[DEBUG] Layout state:', {
+      hasLayout: !!layout,
+      layoutType: typeof layout,
+      hasPanels: !!layout?.panels,
+      panelsType: typeof layout?.panels,
+      isArray: Array.isArray(layout?.panels),
+      panelCount: layout?.panels?.length || 0
+    });
     
     if (!layout?.panels || !Array.isArray(layout.panels)) {
       console.log('[DEBUG] No layout panels, returning empty array');
@@ -359,7 +385,10 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
     
     try {
       const mapped = layout.panels.map((panel: any, idx: number) => {
-        return mapPanelFields(panel, idx);
+        console.log(`[DEBUG] Mapping panel ${idx}:`, panel);
+        const mappedPanel = mapPanelFields(panel, idx);
+        console.log(`[DEBUG] Mapped panel ${idx} result:`, mappedPanel);
+        return mappedPanel;
       });
       
       console.log('[DEBUG] Mapped panels result:', mapped);
@@ -390,6 +419,12 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
   // Panel update handler - Enhanced with auto-save
   const handlePanelUpdate = useCallback(async (updatedPanels: Panel[]) => {
     console.log('[DEBUG] handlePanelUpdate called with panels:', updatedPanels);
+    console.log('[DEBUG] Current layout state:', {
+      hasLayout: !!layout,
+      hasProject: !!project,
+      currentPanelCount: layout?.panels?.length || 0,
+      newPanelCount: updatedPanels.length
+    });
     
     if (!layout || !project) {
       console.warn('[DEBUG] Cannot update panels - missing layout or project');
@@ -403,6 +438,18 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
         panels: updatedPanels,
         lastUpdated: new Date().toISOString()
       };
+      
+      console.log('[DEBUG] Updating layout state with:', {
+        oldPanelCount: layout.panels?.length || 0,
+        newPanelCount: updatedPanels.length,
+        firstNewPanel: updatedPanels[0] ? {
+          id: updatedPanels[0].id,
+          x: updatedPanels[0].x,
+          y: updatedPanels[0].y,
+          shape: updatedPanels[0].shape
+        } : null
+      });
+      
       setLayout(updatedLayout);
       
       // Save to backend with debouncing
@@ -435,7 +482,14 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
     }
   }, [layout, project]);
 
-
+  // Cleanup debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (saveDebounceRef.current) {
+        clearTimeout(saveDebounceRef.current);
+      }
+    };
+  }, []);
 
   // Add test panels function
   const createTestPanels = useCallback(() => {
@@ -789,74 +843,8 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
       return;
     }
     console.log('[DEBUG] Load: Calling loadProjectAndLayout with id:', id);
-    // Call the function directly instead of depending on it to avoid circular dependency
-    const loadData = async () => {
-      try {
-        setIsLoading(true);
-        console.log('[DEBUG] Load: Loading project with ID:', id);
-        const projectData = await fetchProjectById(id);
-        console.log('[DEBUG] Load: Project data received:', projectData);
-        console.log('🔍 [DEBUG] Project name:', projectData?.name);
-        console.log('🔍 [DEBUG] Project object keys:', projectData ? Object.keys(projectData) : 'No project data');
-        
-        setProject(projectData);
-        
-        const layoutData = await fetchPanelLayout(id);
-        console.log('[DEBUG] Load: Layout data received from backend:', layoutData);
-        console.log('[DEBUG] Load: Raw panels from backend:', layoutData?.panels);
-        console.log('[DEBUG] Load: Layout data type:', typeof layoutData);
-        console.log('[DEBUG] Load: Panels array type:', Array.isArray(layoutData?.panels));
-        console.log('[DEBUG] Load: Layout data keys:', layoutData ? Object.keys(layoutData) : 'No data');
-        console.log('[DEBUG] Load: Layout data full object:', JSON.stringify(layoutData, null, 2));
-        
-        // Process panels properly
-        let processedPanels: any[] = [];
-        if (layoutData && Array.isArray(layoutData.panels)) {
-          console.log('[DEBUG] Load: Processing', layoutData.panels.length, 'panels');
-          processedPanels = layoutData.panels.map((panel: any, idx: number) => {
-            console.log(`[DEBUG] Processing panel ${idx}:`, panel);
-            return mapPanelFields(panel, idx);
-          });
-        } else {
-          console.warn('[DEBUG] No panels array found in backend response:', layoutData);
-          console.warn('[DEBUG] Layout data keys:', layoutData ? Object.keys(layoutData) : 'No data');
-          console.warn('[DEBUG] Panels value:', layoutData?.panels);
-          console.warn('[DEBUG] Panels type:', typeof layoutData?.panels);
-          console.warn('[DEBUG] Is panels array?', Array.isArray(layoutData?.panels));
-        }
-        
-        console.log('[DEBUG] Load: Processed panels:', processedPanels);
-        
-        if (!layoutData || layoutData.width < DEFAULT_LAYOUT_WIDTH || layoutData.height < DEFAULT_LAYOUT_HEIGHT) {
-          console.log('🔍 [DEBUG] Using default layout dimensions');
-          setLayout({
-            ...layoutData,
-            width: DEFAULT_LAYOUT_WIDTH,
-            height: DEFAULT_LAYOUT_HEIGHT,
-            scale: DEFAULT_SCALE,
-            panels: processedPanels
-          });
-        } else {
-          console.log('🔍 [DEBUG] Using existing layout data');
-          setLayout({
-            ...layoutData,
-            panels: processedPanels
-          });
-        }
-      } catch (error) {
-        console.error('🔍 [DEBUG] Error loading project and layout:', error);
-        toastRef.current({
-          title: 'Error',
-          description: 'Failed to load panel layout. Please try again.',
-          variant: 'destructive',
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    loadData();
-  }, [id]); // Only depend on id, not toast
+    loadProjectAndLayout();
+  }, [id, loadProjectAndLayout]); // Now properly depend on the function
 
   // AI Layout Execution Functions
   const handleExecuteAILayout = async () => {

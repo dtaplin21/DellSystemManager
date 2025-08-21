@@ -602,12 +602,9 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
         // More detailed debugging
         console.log('[DEBUG] Testing panel:', {
           id: panel.id,
+          shape: panel.shape,
           bounds: { x: panel.x, y: panel.y, width: panel.width, height: panel.height },
-          worldClick: worldPos,
-          hitTestResults: {
-            x: worldPos.x >= panel.x && worldPos.x <= panel.x + panel.width,
-            y: worldPos.y >= panel.y && worldPos.y <= panel.y + panel.height
-          }
+          worldClick: worldPos
         });
         
         // Enhanced hit test based on panel shape
@@ -621,6 +618,11 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
             const leftX = panel.x;
             const rightX = panel.x + panel.width;
             const bottomY = panel.y + panel.height;
+            
+            console.log('[DEBUG] Triangle hit test:', {
+              panelBounds: { centerX, topY, leftX, rightX, bottomY },
+              worldPos
+            });
             
             // Check if point is inside triangle using barycentric coordinates
             const v0x = rightX - leftX;
@@ -640,31 +642,70 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
             const u = (dot11 * dot02 - dot01 * dot12) * invDenom;
             const v = (dot00 * dot12 - dot01 * dot02) * invDenom;
             
+            console.log('[DEBUG] Triangle barycentric calculation:', { u, v, uPlusV: u + v });
+            
             isHit = (u >= 0) && (v >= 0) && (u + v <= 1);
             break;
             
           case 'right-triangle':
             // Point-in-right-triangle test
+            // Right triangle has right angle at top-right, hypotenuse from top-left to bottom-right
             const rightTopX = panel.x + panel.width;
             const rightTopY = panel.y;
+            const leftTopX = panel.x;
+            const leftTopY = panel.y;
             const rightBottomX = panel.x + panel.width;
             const rightBottomY = panel.y + panel.height;
             
-            // Check if point is to the left of the hypotenuse
-            const hypotenuseSlope = (rightBottomY - rightTopY) / (rightBottomX - rightTopX);
-            const expectedY = rightTopY + hypotenuseSlope * (worldPos.x - rightTopX);
-            isHit = worldPos.x >= panel.x && worldPos.x <= rightTopX && 
-                    worldPos.y >= panel.y && worldPos.y <= rightBottomY &&
-                    worldPos.y <= expectedY;
+            console.log('[DEBUG] Right triangle hit test:', {
+              panelBounds: { leftTopX, leftTopY, rightTopX, rightTopY, rightBottomX, rightBottomY },
+              worldPos,
+              boundingBoxCheck: {
+                xInBounds: worldPos.x >= leftTopX && worldPos.x <= rightTopX,
+                yInBounds: worldPos.y >= leftTopY && worldPos.y <= rightBottomY
+              }
+            });
+            
+            // Check if point is inside the bounding box
+            if (worldPos.x >= leftTopX && worldPos.x <= rightTopX && 
+                worldPos.y >= leftTopY && worldPos.y <= rightBottomY) {
+              
+              // Calculate the hypotenuse line: from top-left to bottom-right
+              // For a point to be inside the triangle, it must be below the hypotenuse
+              const hypotenuseSlope = (rightBottomY - leftTopY) / (rightBottomX - leftTopX);
+              const hypotenuseY = leftTopY + hypotenuseSlope * (worldPos.x - leftTopX);
+              
+              console.log('[DEBUG] Right triangle hypotenuse calculation:', {
+                hypotenuseSlope,
+                hypotenuseY,
+                pointY: worldPos.y,
+                isBelowHypotenuse: worldPos.y >= hypotenuseY
+              });
+              
+              // Point is inside if it's below the hypotenuse
+              isHit = worldPos.y >= hypotenuseY;
+            } else {
+              isHit = false;
+            }
             break;
             
           case 'rectangle':
           default:
             // Simple AABB hit test for rectangles
+            console.log('[DEBUG] Rectangle hit test:', {
+              panelBounds: { x: panel.x, y: panel.y, width: panel.width, height: panel.height },
+              worldPos,
+              hitTestResults: {
+                xInBounds: worldPos.x >= panel.x && worldPos.x <= panel.x + panel.width,
+                yInBounds: worldPos.y >= panel.y && worldPos.y <= panel.y + panel.height
+              }
+            });
             isHit = worldPos.x >= panel.x && worldPos.x <= panel.x + panel.width &&
                     worldPos.y >= panel.y && worldPos.y <= panel.y + panel.height;
             break;
         }
+        
+        console.log('[DEBUG] Final hit test result for', panel.shape, ':', isHit);
         
         if (isHit) {
           console.log('[DEBUG] Panel hit! Panel ID:', panel.id);
