@@ -196,6 +196,8 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
     const ctx = canvas.getContext('2d')
     if (!ctx) return
     
+    console.log('[DEBUG] renderCanvas called with panels:', panels.map(p => ({ id: p.id, x: p.x, y: p.y })));
+    
     // Get actual canvas dimensions (important for fullscreen mode)
     const actualCanvasWidth = canvas.width;
     const actualCanvasHeight = canvas.height;
@@ -219,7 +221,9 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
       return true;
     });
     
+    console.log('[DEBUG] Drawing valid panels:', validPanels.length);
     validPanels.forEach(panel => {
+      console.log('[DEBUG] Drawing panel:', { id: panel.id, x: panel.x, y: panel.y, width: panel.width, height: panel.height });
       drawPanel(ctx, panel, panel.id === selectedPanelId)
     })
     

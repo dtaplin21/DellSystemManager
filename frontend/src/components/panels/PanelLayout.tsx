@@ -115,6 +115,15 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   // Get the selected panel from the reducer state
   const selectedPanel = panels.selectedPanelId ? panels.panels.find(p => p.id === panels.selectedPanelId) : null
   
+  // Debug selected panel changes
+  useEffect(() => {
+    console.log('[DEBUG] Selected panel changed:', {
+      selectedPanelId: panels.selectedPanelId,
+      selectedPanel: selectedPanel,
+      totalPanels: panels.panels.length
+    });
+  }, [panels.selectedPanelId, selectedPanel, panels.panels.length]);
+  
   // New mouse state for enhanced interactivity
   const [mouseState, setMouseState] = useState<MouseState>({
     x: 0,
@@ -125,7 +134,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     dragStartY: 0,
   })
   
-  // Use ref for immediate access to drag state
+  // Use ref for immediate access to drag state (simplified - only use ref)
   const isDraggingRef = useRef(false)
 
   const [spacePressed, setSpacePressed] = useState(false)
@@ -179,6 +188,10 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   
   // Update internal panels ref when panels change
   useEffect(() => {
+    console.log('[DEBUG] Internal panels updated:', {
+      count: panels.panels.length,
+      panels: panels.panels.map(p => ({ id: p.id, x: p.x, y: p.y, width: p.width, height: p.height }))
+    });
     lastInternalPanels.current = JSON.stringify(panels.panels);
   }, [panels.panels]);
   
@@ -197,13 +210,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   // Create a ref to store the renderCanvas function to avoid dependency loops
   const renderCanvasRef = useRef<(() => void) | null>(null)
   
-  // Create a ref to store panels to prevent hook recreation
-  const panelsRef = useRef<Panel[]>([])
-  
-  // Update panels ref when panels change
-  useEffect(() => {
-    panelsRef.current = panels.panels; // Use panels.panels directly instead of panelData.panels
-  }, [panels.panels]);
+  // Removed panelsRef - no longer needed since we pass panels directly to useCanvasRenderer
 
   // Use interactive grid hook
   const { drawGrid, setupCanvas: setupGridCanvas, getWorldScale } = useInteractiveGrid({
@@ -221,7 +228,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   
   // Use canvas renderer hook FIRST to get renderCanvas function
   const { renderCanvas, drawPanel, drawSelectionHandles, worldToScreen, screenToWorld } = useCanvasRenderer({
-    panels: panelsRef.current, // Use ref to prevent hook recreation
+    panels: panels.panels, // Pass panels directly instead of using ref
     canvasState,
     canvasWidth,
     canvasHeight,
@@ -232,8 +239,17 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     drawGrid
   })
   
+  // Debug when useCanvasRenderer is recreated
+  useEffect(() => {
+    console.log('[DEBUG] useCanvasRenderer recreated with new panels:', {
+      panelCount: panels.panels.length,
+      panelPositions: panels.panels.map(p => ({ id: p.id, x: p.x, y: p.y }))
+    });
+  }, [panels.panels]);
+  
   // Store the renderCanvas function in the ref
   useEffect(() => {
+    console.log('[DEBUG] Updating renderCanvasRef with new renderCanvas function');
     renderCanvasRef.current = renderCanvas
   }, [renderCanvas])
   
@@ -573,43 +589,34 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     } else if (e.button === 0) {
       // Left click for selection/dragging
       
+      console.log('[DEBUG] Starting hit test with panels:', panels.panels.length);
+      console.log('[DEBUG] Canvas state for hit test:', canvasState);
+      
       // Check panels in reverse order (top to bottom)
       for (let i = panels.panels.length - 1; i >= 0; i--) {
         const panel = panels.panels[i];
-        console.log('[DEBUG] Checking panel:', panel);
-
+        
         // Convert screen coordinates to world coordinates for hit testing
         const worldPos = localScreenToWorld(x, y);
-        console.log('[DEBUG] Click world coordinates:', worldPos);
-        console.log('[DEBUG] Panel bounds:', { 
-          x: panel.x, 
-          y: panel.y, 
-          width: panel.width, 
-          height: panel.height,
-          right: panel.x + panel.width,
-          bottom: panel.y + panel.height
-        });
         
-        // Debug hit test calculation
-        const hitTestX = worldPos.x >= panel.x && worldPos.x <= panel.x + panel.width;
-        const hitTestY = worldPos.y >= panel.y && worldPos.y <= panel.y + panel.height;
-        
-        // Calculate what the panel dimensions would be in screen space for comparison
-        const screenWidth = panel.width * canvasState.worldScale * canvasState.scale;
-        const screenHeight = panel.height * canvasState.worldScale * canvasState.scale;
-        
-        console.log('[DEBUG] Hit test results:', { 
-          hitTestX, 
-          hitTestY, 
-          worldPosX: worldPos.x, 
-          worldPosY: worldPos.y,
-          panelScreenDimensions: { width: screenWidth, height: screenHeight },
-          panelWorldDimensions: { width: panel.width, height: panel.height }
+        // More detailed debugging
+        console.log('[DEBUG] Testing panel:', {
+          id: panel.id,
+          bounds: { x: panel.x, y: panel.y, width: panel.width, height: panel.height },
+          worldClick: worldPos,
+          hitTestResults: {
+            x: worldPos.x >= panel.x && worldPos.x <= panel.x + panel.width,
+            y: worldPos.y >= panel.y && worldPos.y <= panel.y + panel.height
+          }
         });
         
         // Simple AABB hit test (rotation not considered for simplicity)
+        const hitTestX = worldPos.x >= panel.x && worldPos.x <= panel.x + panel.width;
+        const hitTestY = worldPos.y >= panel.y && worldPos.y <= panel.y + panel.height;
+        
         if (hitTestX && hitTestY) {
           console.log('[DEBUG] Panel hit! Panel ID:', panel.id);
+          console.log('[DEBUG] Dispatching SELECT_PANEL for:', panel.id);
           dispatch({ type: 'SELECT_PANEL', payload: panel.id })
           
           if (isRotationHandle(x, y, panel)) {
@@ -624,8 +631,8 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
           }
           
           console.log('[DEBUG] Starting drag for panel:', panel.id);
-          setMouseState(prev => ({ ...prev, isDragging: true }));
-          isDraggingRef.current = true; // Set ref immediately
+          // Only set the ref - simplified state management
+          isDraggingRef.current = true;
           // Convert screen coordinates to world coordinates for drag calculation
           const worldPos = localScreenToWorld(x, y);
           setDragStart({ x: worldPos.x - panel.x, y: worldPos.y - panel.y });
@@ -651,7 +658,6 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     setMouseState(prev => ({ ...prev, x, y }))
     
     console.log('[DEBUG] Mouse move - current state:', { 
-      isDragging: mouseState.isDragging, 
       isDraggingRef: isDraggingRef.current,
       selectedPanel: selectedPanel?.id,
       mousePos: { x, y }
@@ -674,11 +680,20 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
       }));
     } else if (isDraggingRef.current && selectedPanel) {
       console.log('[DEBUG] Drag in progress - updating panel position');
+      console.log('[DEBUG] Drag details:', {
+        isDraggingRef: isDraggingRef.current,
+        selectedPanelId: selectedPanel.id,
+        dragStart,
+        currentMousePos: { x, y }
+      });
+      
       const worldPos = localScreenToWorld(x, y);
+      console.log('[DEBUG] World position:', worldPos);
       
       // Use the dragStart state that was set when the panel was clicked
       const newX = worldPos.x - dragStart.x;
       const newY = worldPos.y - dragStart.y;
+      console.log('[DEBUG] Calculated new position:', { newX, newY });
 
       // Apply snap if enabled
       let finalX = newX;
@@ -686,7 +701,13 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
       if (canvasState.snapToGrid) {
         finalX = snapToGrid(newX, SNAP_SIZE);
         finalY = snapToGrid(newY, SNAP_SIZE);
+        console.log('[DEBUG] After snapping:', { finalX, finalY });
       }
+      
+      console.log('[DEBUG] Dispatching UPDATE_PANEL with:', {
+        id: selectedPanel.id,
+        updates: { x: finalX, y: finalY }
+      });
       
       dispatch({
         type: 'UPDATE_PANEL',
@@ -713,16 +734,22 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
         }
       })
     }
-  }, [mouseState.isDragging, isRotating, selectedPanel, dragStart, rotationStart, canvasState, isFullscreen, mouseState, localScreenToWorld])
+  }, [isRotating, selectedPanel, dragStart, rotationStart, canvasState, isFullscreen, mouseState, localScreenToWorld])
   
   const handleMouseUp = useCallback(() => {
+    console.log('[DEBUG] Mouse up - resetting states');
+    console.log('[DEBUG] Previous drag state:', isDraggingRef.current);
+    
     setIsRotating(false)
     isDraggingRef.current = false; // Reset ref immediately
+    
     setMouseState(prev => ({
       ...prev,
       isPanning: false,
-      isDragging: false,
+      // Remove isDragging since we're only using the ref now
     }))
+    
+    console.log('[DEBUG] States reset - isDraggingRef:', isDraggingRef.current);
   }, [])
   
 
@@ -795,6 +822,24 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     }
   }, [handleWheel, isFullscreen])
   
+  // Quick test click handler for debugging coordinate transformation
+  const testClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = isFullscreen ? fullscreenCanvasRef.current : canvasRef.current
+    if (!canvas) return
+    
+    const rect = canvas.getBoundingClientRect()
+    const x = e.clientX - rect.left
+    const y = e.clientY - rect.top
+    
+    const worldPos = localScreenToWorld(x, y)
+    console.log('[DEBUG] Test click coordinates:', { 
+      screen: {x, y}, 
+      world: worldPos, 
+      panels: panels.panels,
+      canvasState 
+    })
+  }, [isFullscreen, localScreenToWorld, panels.panels, canvasState])
+  
   // Keyboard events
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -837,15 +882,16 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
       panelCount: panels.panels.length,
       isFullscreen,
       canvasWidth,
-      canvasHeight
+      canvasHeight,
+      panelPositions: panels.panels.map(p => ({ id: p.id, x: p.x, y: p.y }))
     });
     
-    if (currentCanvas && panels.panels.length > 0) {
+    if (currentCanvas) {
       console.log('[DEBUG] Calling renderCanvas...');
       // Use the ref to avoid dependency loop
       renderCanvasRef.current?.();
     }
-  }, [panels.panels.length, canvasState, canvasWidth, canvasHeight, isFullscreen]) // Removed renderCanvas dependency
+  }, [panels.panels, canvasState, canvasWidth, canvasHeight, isFullscreen]) // Changed from panels.panels.length to panels.panels
   
   // Update canvas state when world dimensions change
   useEffect(() => {
@@ -1002,7 +1048,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
               style={{
                 cursor: mouseState.isPanning ? 'grabbing' : 
                        spacePressed ? 'grab' : 
-                       mouseState.isDragging ? 'grabbing' : 
+                       isDraggingRef.current ? 'grabbing' : 
                        isRotating ? 'crosshair' : 'crosshair',
                 display: 'block',
                 width: '100%',
@@ -1167,7 +1213,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
                               style={{
                   cursor: mouseState.isPanning ? 'grabbing' : 
                          spacePressed ? 'grab' : 
-                         mouseState.isDragging ? 'grabbing' : 
+                         isDraggingRef.current ? 'grabbing' : 
                          isRotating ? 'crosshair' : 'crosshair',
                 display: 'block',
                 width: '100%',
@@ -1197,6 +1243,19 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
                 <div>Delete: Remove Panel</div>
               </div>
             </div>
+            
+            {/* Temporary Test Button for Debugging */}
+            <button
+              onClick={() => {
+                console.log('[DEBUG] Test button clicked');
+                console.log('[DEBUG] Current panels:', panels.panels);
+                console.log('[DEBUG] Canvas state:', canvasState);
+                console.log('[DEBUG] Drag ref state:', isDraggingRef.current);
+              }}
+              className="absolute top-4 right-4 bg-red-600 hover:bg-red-500 px-3 py-2 rounded text-sm font-medium transition-colors z-10"
+            >
+              Debug Info
+            </button>
           </div>
         </div>
       </div>
