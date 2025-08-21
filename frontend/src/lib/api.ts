@@ -158,16 +158,18 @@ const makeAuthenticatedRequest = async (url: string, options: RequestInit = {}, 
     const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
     
     try {
-      const response = await fetch(url, {
-        ...options,
-        headers: {
-          ...headers,
-          ...options.headers,
-        },
-        credentials: 'include',
-        cache: options.cache || 'default',
-        signal: controller.signal,
-      });
+          const response = await fetch(url, {
+      ...options,
+      headers: {
+        ...headers,
+        ...options.headers,
+        // Add development mode header in development environment
+        ...(IS_DEVELOPMENT && { 'X-Development-Mode': 'true' }),
+      },
+      credentials: 'include',
+      cache: options.cache || 'default',
+      signal: controller.signal,
+    });
       
       clearTimeout(timeoutId);
       

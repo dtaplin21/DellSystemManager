@@ -20,16 +20,40 @@ const validateProject = (projectData) => {
 };
 
 // Get all projects for the current user
-router.get('/', auth, async (req, res, next) => {
+router.get('/', async (req, res, next) => {
+  // Development mode bypass
+  if (process.env.NODE_ENV === 'development' && req.headers['x-development-mode'] === 'true') {
+    console.log('🔧 [DEV] Development mode bypass for projects');
+    req.user = { id: '00000000-0000-0000-0000-0000-000000000000', email: 'dev@example.com', isAdmin: true };
+  } else {
+    // Apply auth middleware for production
+    try {
+      await auth(req, res, () => {});
+    } catch (error) {
+      return res.status(401).json({ 
+        message: 'Access denied. No token provided.',
+        code: 'NO_TOKEN'
+      });
+    }
+  }
   try {
     console.log('Projects route: Fetching projects for user:', req.user.id);
     
     // Use Supabase to fetch projects
-    const { data: projects, error } = await supabase
+    let projectsQuery = supabase
       .from('projects')
       .select('id, name, description, location, status, created_at, updated_at')
-      .eq('user_id', req.user.id)
       .order('updated_at', { ascending: false });
+    
+    // In development mode, if no projects found for dev user, try to find any projects
+    if (process.env.NODE_ENV === 'development' && req.headers['x-development-mode'] === 'true') {
+      console.log('🔧 [DEV] Fetching all projects in development mode');
+      // Don't filter by user_id in development mode
+    } else {
+      projectsQuery = projectsQuery.eq('user_id', req.user.id);
+    }
+    
+    const { data: projects, error } = await projectsQuery;
     
     if (error) {
       console.error('Error fetching projects from Supabase:', error);

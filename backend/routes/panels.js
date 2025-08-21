@@ -44,26 +44,41 @@ function validatePanel(panel) {
 
 function mapPanelToCanonical(panel) {
   return {
-    id: panel.id || panel.panel_id,
+    id: panel.id || panel.panel_id || uuidv4(), // Generate UUID if no ID exists
     date: panel.date || '',
     panelNumber: panel.panel_number || panel.panelNumber || '',
-    length: panel.length || panel.height || 0,
-    width: panel.width || 0,
+    length: panel.length || panel.height || panel.height_feet || 0, // Handle height_feet from frontend
+    width: panel.width || panel.width_feet || 0, // Handle width_feet from frontend
     rollNumber: panel.roll_number || panel.rollNumber || '',
     location: panel.location || '',
     x: panel.x || 0,
     y: panel.y || 0,
-    shape: panel.shape || panel.type || 'rectangle',
+    shape: panel.shape || panel.type || 'rectangle', // Handle type from frontend
     points: panel.points,
     radius: panel.radius,
     rotation: panel.rotation || 0,
     fill: panel.fill || '#3b82f6',
-    color: panel.color || panel.fill || '#3b82f6',
+    color: panel.color || panel.fill || panel.stroke || '#3b82f6', // Handle stroke from frontend
   };
 }
 
 // Get panel layout for a project
-router.get('/layout/:projectId', auth, async (req, res, next) => {
+router.get('/layout/:projectId', async (req, res, next) => {
+  // Development mode bypass
+  if (process.env.NODE_ENV === 'development' && req.headers['x-development-mode'] === 'true') {
+    console.log('🔧 [DEV] Development mode bypass for panel layout');
+    req.user = { id: '00000000-0000-0000-0000-000000000000', email: 'dev@example.com', isAdmin: true };
+  } else {
+    // Apply auth middleware for production
+    try {
+      await auth(req, res, () => {});
+    } catch (error) {
+      return res.status(401).json({ 
+        message: 'Access denied. No token provided.',
+        code: 'NO_TOKEN'
+      });
+    }
+  }
   try {
     console.log('🔍 GET /layout/:projectId called');
     console.log('🔍 Project ID:', req.params.projectId);
@@ -82,15 +97,31 @@ router.get('/layout/:projectId', auth, async (req, res, next) => {
       return res.status(400).json({ message: 'Invalid project ID' });
     }
     
-    // Verify project access
+    // Verify project access - GET ROUTE
     console.log('🔍 Checking project access...');
-    const [project] = await db
+    console.log('🔍 User ID:', req.user.id);
+    console.log('🔍 Project ID:', projectId);
+    
+    let [project] = await db
       .select()
       .from(projects)
       .where(and(
         eq(projects.id, projectId),
         eq(projects.userId, req.user.id)
       ));
+    
+    // In development mode, if no project found, try to find any project with this ID
+    if (!project && process.env.NODE_ENV === 'development' && req.headers['x-development-mode'] === 'true') {
+      console.log('🔧 [DEV] No project found for dev user, trying to find project by ID only...');
+      [project] = await db
+        .select()
+        .from(projects)
+        .where(eq(projects.id, projectId));
+      
+      if (project) {
+        console.log('🔧 [DEV] Found project in development mode:', project.id);
+      }
+    }
     
     console.log('🔍 Project found:', !!project);
     
@@ -176,7 +207,22 @@ router.get('/layout/:projectId', auth, async (req, res, next) => {
 });
 
 // Update panel layout
-router.patch('/layout/:projectId', auth, async (req, res, next) => {
+router.patch('/layout/:projectId', async (req, res, next) => {
+  // Development mode bypass
+  if (process.env.NODE_ENV === 'development' && req.headers['x-development-mode'] === 'true') {
+    console.log('🔧 [DEV] Development mode bypass for panel layout update');
+    req.user = { id: '00000000-0000-0000-0000-000000000000', email: 'dev@example.com', isAdmin: true };
+  } else {
+    // Apply auth middleware for production
+    try {
+      await auth(req, res, () => {});
+    } catch (error) {
+      return res.status(401).json({ 
+        message: 'Access denied. No token provided.',
+        code: 'NO_TOKEN'
+      });
+    }
+  }
   try {
     res.setHeader('Cache-Control', 'no-store');
     console.log('🔍 PATCH /layout/:projectId called');
@@ -193,15 +239,31 @@ router.patch('/layout/:projectId', auth, async (req, res, next) => {
       return res.status(400).json({ message: 'Invalid project ID' });
     }
     
-    // Verify project access
+    // Verify project access - PATCH ROUTE
     console.log('🔍 Checking project access...');
-    const [project] = await db
+    console.log('🔍 User ID:', req.user.id);
+    console.log('🔍 Project ID:', projectId);
+    
+    let [project] = await db
       .select()
       .from(projects)
       .where(and(
         eq(projects.id, projectId),
         eq(projects.userId, req.user.id)
       ));
+    
+    // In development mode, if no project found, try to find any project with this ID
+    if (!project && process.env.NODE_ENV === 'development' && req.headers['x-development-mode'] === 'true') {
+      console.log('🔧 [DEV] No project found for dev user, trying to find project by ID only...');
+      [project] = await db
+        .select()
+        .from(projects)
+        .where(eq(projects.id, projectId));
+      
+      if (project) {
+        console.log('🔧 [DEV] Found project in development mode:', project.id);
+      }
+    }
     
     console.log('🔍 Project found:', !!project);
     
@@ -229,12 +291,43 @@ router.patch('/layout/:projectId', auth, async (req, res, next) => {
     
     // Handle panels array - we store it as a JSON string in the database
     if (updateData.panels) {
+      console.log('🔍 Raw panels from frontend:', updateData.panels);
+      console.log('🔍 Frontend panel structure analysis:', {
+        firstPanel: updateData.panels[0] ? {
+          hasId: !!updateData.panels[0].id,
+          hasType: !!updateData.panels[0].type,
+          hasShape: !!updateData.panels[0].shape,
+          hasWidthFeet: !!updateData.panels[0].width_feet,
+          hasHeightFeet: !!updateData.panels[0].height_feet,
+          hasWidth: !!updateData.panels[0].width,
+          hasHeight: !!updateData.panels[0].height,
+          hasX: !!updateData.panels[0].x,
+          hasY: !!updateData.panels[0].y
+        } : 'No panels'
+      });
+      
       // Ensure every panel is mapped to canonical format
-      updateData.panels = updateData.panels.map(mapPanelToCanonical);
+      const mappedPanels = updateData.panels.map((panel, index) => {
+        console.log(`🔍 Mapping panel ${index}:`, panel);
+        const mapped = mapPanelToCanonical(panel);
+        console.log(`🔍 Mapped panel ${index}:`, mapped);
+        return mapped;
+      });
+      
       // Validate all panels
-      updateData.panels = updateData.panels.filter(validatePanel);
-      updateValues.panels = JSON.stringify(updateData.panels);
-      console.log('\ud83d\udd0d Panels being saved to DB:', updateData.panels);
+      const validPanels = mappedPanels.filter((panel, index) => {
+        const isValid = validatePanel(panel);
+        if (!isValid) {
+          console.log(`❌ Panel ${index} validation failed:`, panel);
+        }
+        return isValid;
+      });
+      
+      console.log('🔍 Valid panels after validation:', validPanels);
+      
+      updateData.panels = validPanels;
+      updateValues.panels = JSON.stringify(validPanels);
+      console.log('🔍 Panels being saved to DB:', validPanels);
     }
     
     // Handle other properties

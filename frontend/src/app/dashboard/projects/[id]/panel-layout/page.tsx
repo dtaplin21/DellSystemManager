@@ -204,6 +204,15 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
       const requestBody = { panels: supabasePanels, width, height, scale };
       
       console.log('[DIAG] Request body to backend:', JSON.stringify(requestBody, null, 2));
+      console.log('[DIAG] Request body analysis:', {
+        hasPanels: !!requestBody.panels,
+        panelsLength: requestBody.panels?.length || 0,
+        panelsType: typeof requestBody.panels,
+        isArray: Array.isArray(requestBody.panels),
+        width: requestBody.width,
+        height: requestBody.height,
+        scale: requestBody.scale
+      });
       
       // Use the updatePanelLayout function from the API helper
       const result = await updatePanelLayout(project.id, requestBody);
@@ -282,6 +291,20 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
       console.log('[DEBUG] Load: Panels array type:', Array.isArray(layoutData?.panels));
       console.log('[DEBUG] Load: Layout data keys:', layoutData ? Object.keys(layoutData) : 'No data');
       console.log('[DEBUG] Load: Layout data full object:', JSON.stringify(layoutData, null, 2));
+      
+      // Check if we're getting the expected data structure
+      if (layoutData) {
+        console.log('[DEBUG] Load: Data structure analysis:', {
+          hasId: !!layoutData.id,
+          hasProjectId: !!layoutData.projectId,
+          hasPanels: !!layoutData.panels,
+          panelsIsArray: Array.isArray(layoutData.panels),
+          panelsLength: layoutData.panels?.length || 0,
+          hasWidth: typeof layoutData.width === 'number',
+          hasHeight: typeof layoutData.height === 'number',
+          hasScale: typeof layoutData.scale === 'number'
+        });
+      }
       
       // Check if we're getting mock data vs real data
       if (layoutData?.panels?.length > 0) {
@@ -1112,6 +1135,28 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
                           </Button>
                           <Button onClick={createTestPanels} variant="outline">
                             Add Test Panels
+                          </Button>
+                          <Button onClick={() => {
+                            console.log('[DEBUG] Current layout state:', layout);
+                            console.log('[DEBUG] Current mapped panels:', mappedPanels);
+                            console.log('[DEBUG] Current project:', project);
+                          }} variant="outline">
+                            Debug State
+                          </Button>
+                          <Button onClick={async () => {
+                            if (layout && project) {
+                              console.log('[DEBUG] Manually testing save function...');
+                              try {
+                                await saveProjectToSupabase(layout, project);
+                                console.log('[DEBUG] Manual save successful!');
+                              } catch (error) {
+                                console.error('[DEBUG] Manual save failed:', error);
+                              }
+                            } else {
+                              console.warn('[DEBUG] Cannot test save - missing layout or project');
+                            }
+                          }} variant="outline">
+                            Test Save
                           </Button>
                         </div>
                       </div>
