@@ -126,8 +126,9 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
         };
         setLayout(updatedLayout);
         
-        // Save to backend - use a simple approach for now
-        console.log('[DEBUG] Panel added to layout, will save on next auto-save');
+        // Save to backend immediately
+        console.log('[DEBUG] Panel added to layout, saving to backend...');
+        saveProjectToSupabase(updatedLayout, project!);
       }
       
       console.log('[DEBUG] Panel added successfully');
@@ -145,6 +146,22 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
   useEffect(() => {
     console.log('[DEBUG] id state changed to:', id);
   }, [id]);
+  
+  // Monitor layout state changes
+  useEffect(() => {
+    console.log('[DEBUG] Layout state changed:', {
+      hasLayout: !!layout,
+      panelCount: layout?.panels?.length || 0,
+      layoutDimensions: layout ? { width: layout.width, height: layout.height } : null,
+      firstPanel: layout?.panels?.[0] ? {
+        id: layout.panels[0].id,
+        x: layout.panels[0].x,
+        y: layout.panels[0].y,
+        width: layout.panels[0].width,
+        height: layout.panels[0].height
+      } : null
+    });
+  }, [layout]);
 
   // Save function now takes layout and project as arguments
   const saveProjectToSupabase = async (currentLayout: PanelLayout, project: Project) => {
@@ -251,6 +268,18 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
       console.log('[DEBUG] Load: Layout data keys:', layoutData ? Object.keys(layoutData) : 'No data');
       console.log('[DEBUG] Load: Layout data full object:', JSON.stringify(layoutData, null, 2));
       
+      // Check if we're getting mock data vs real data
+      if (layoutData?.panels?.length > 0) {
+        console.log('[DEBUG] Load: First panel sample:', layoutData.panels[0]);
+        console.log('[DEBUG] Load: Panel has expected fields:', {
+          hasId: !!layoutData.panels[0].id,
+          hasX: typeof layoutData.panels[0].x === 'number',
+          hasY: typeof layoutData.panels[0].y === 'number',
+          hasWidth: typeof layoutData.panels[0].width === 'number',
+          hasHeight: typeof layoutData.panels[0].height === 'number'
+        });
+      }
+      
       // Process panels properly
       let processedPanels: any[] = [];
       if (layoutData && Array.isArray(layoutData.panels)) {
@@ -268,19 +297,23 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
       
       if (!layoutData || layoutData.width < DEFAULT_LAYOUT_WIDTH || layoutData.height < DEFAULT_LAYOUT_HEIGHT) {
         console.log('🔍 [DEBUG] Using default layout dimensions');
-        setLayout({
+        const newLayout = {
           ...layoutData,
           width: DEFAULT_LAYOUT_WIDTH,
           height: DEFAULT_LAYOUT_HEIGHT,
           scale: DEFAULT_SCALE,
           panels: processedPanels
-        });
+        };
+        console.log('[DEBUG] Setting layout with default dimensions:', newLayout);
+        setLayout(newLayout);
       } else {
         console.log('🔍 [DEBUG] Using existing layout data');
-        setLayout({
+        const newLayout = {
           ...layoutData,
           panels: processedPanels
-        });
+        };
+        console.log('[DEBUG] Setting layout with existing data:', newLayout);
+        setLayout(newLayout);
       }
     } catch (error) {
       console.error('🔍 [DEBUG] Error loading project and layout:', error);
@@ -317,7 +350,10 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
   const lastMappedPanelsRef = useRef<string>('');
   
   const mappedPanels = useMemo(() => {
+    console.log('[DEBUG] mappedPanels recalculating with layout.panels:', layout?.panels);
+    
     if (!layout?.panels || !Array.isArray(layout.panels)) {
+      console.log('[DEBUG] No layout panels, returning empty array');
       return [];
     }
     
@@ -326,14 +362,18 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
         return mapPanelFields(panel, idx);
       });
       
+      console.log('[DEBUG] Mapped panels result:', mapped);
+      
       // Create a stable reference for comparison
       const mappedString = JSON.stringify(mapped);
       
       // Only return new array if there's a real change
       if (lastMappedPanelsRef.current !== mappedString) {
+        console.log('[DEBUG] Panels changed, updating cache');
         lastMappedPanelsRef.current = mappedString;
         return mapped;
       } else {
+        console.log('[DEBUG] Using cached panels (no change detected)');
         // Return the cached result to prevent unnecessary re-renders
         try {
           return JSON.parse(lastMappedPanelsRef.current) as Panel[];
@@ -347,25 +387,53 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
     }
   }, [layout?.panels]) // Keep the original dependency but use ref-based caching
 
-  // Panel update handler
-  const handlePanelUpdate = useCallback((updatedPanels: Panel[]) => {
-    setLayout(prev => {
-      if (!prev) return prev;
+  // Panel update handler - Enhanced with auto-save
+  const handlePanelUpdate = useCallback(async (updatedPanels: Panel[]) => {
+    console.log('[DEBUG] handlePanelUpdate called with panels:', updatedPanels);
+    
+    if (!layout || !project) {
+      console.warn('[DEBUG] Cannot update panels - missing layout or project');
+      return;
+    }
+    
+    try {
+      // Update local layout state
+      const updatedLayout = {
+        ...layout,
+        panels: updatedPanels,
+        lastUpdated: new Date().toISOString()
+      };
+      setLayout(updatedLayout);
       
-      // Check if panels actually changed to prevent unnecessary updates
-      const currentPanelsString = JSON.stringify(prev.panels);
-      const updatedPanelsString = JSON.stringify(updatedPanels);
-      
-      if (currentPanelsString === updatedPanelsString) {
-        return prev; // No change, return same reference
+      // Save to backend with debouncing
+      if (saveDebounceRef.current) {
+        clearTimeout(saveDebounceRef.current);
       }
       
-      return {
-        ...prev,
-        panels: updatedPanels
-      };
-    });
-  }, []); // No dependencies needed since we use functional update
+      saveDebounceRef.current = setTimeout(async () => {
+        console.log('[DEBUG] Auto-saving panel layout to backend...');
+        try {
+          await saveProjectToSupabase(updatedLayout, project);
+          console.log('[DEBUG] Panel layout auto-saved successfully');
+        } catch (error) {
+          console.error('[DEBUG] Auto-save failed:', error);
+          toastRef.current({
+            title: 'Auto-save Failed',
+            description: 'Failed to save panel changes. Please save manually.',
+            variant: 'destructive',
+          });
+        }
+      }, 1000); // 1 second debounce
+      
+    } catch (error) {
+      console.error('[DEBUG] Error updating panels:', error);
+      toastRef.current({
+        title: 'Error',
+        description: 'Failed to update panels. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  }, [layout, project]);
 
 
 
