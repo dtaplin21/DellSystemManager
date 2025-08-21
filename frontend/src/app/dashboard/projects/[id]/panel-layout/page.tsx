@@ -89,6 +89,58 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
     layoutRef.current = layout;
   }, [layout]);
 
+  // Handle adding new panels
+  const handleAddPanel = useCallback((newPanel: any) => {
+    console.log('[DEBUG] handleAddPanel called with:', newPanel);
+    
+    try {
+      // Transform the panel data to match the Panel interface
+      const transformedPanel = {
+        id: newPanel.id,
+        shape: newPanel.shape,
+        x: newPanel.x,
+        y: newPanel.y,
+        width: newPanel.width,
+        height: newPanel.height,
+        length: newPanel.length,
+        rotation: newPanel.rotation || 0,
+        fill: newPanel.fill,
+        color: newPanel.color,
+        rollNumber: newPanel.rollNumber,
+        panelNumber: newPanel.panelNumber,
+        date: newPanel.date,
+        location: newPanel.location,
+        meta: {
+          repairs: [],
+          location: { x: newPanel.x, y: newPanel.y, gridCell: { row: 0, col: 0 } }
+        }
+      };
+      
+      console.log('[DEBUG] Transformed panel:', transformedPanel);
+      
+      // Add to layout state
+      if (layout) {
+        const updatedLayout = {
+          ...layout,
+          panels: [...(layout.panels || []), transformedPanel]
+        };
+        setLayout(updatedLayout);
+        
+        // Save to backend - use a simple approach for now
+        console.log('[DEBUG] Panel added to layout, will save on next auto-save');
+      }
+      
+      console.log('[DEBUG] Panel added successfully');
+    } catch (error) {
+      console.error('[DEBUG] Error adding panel:', error);
+      toastRef.current({
+        title: 'Error',
+        description: 'Failed to add panel. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  }, [layout, project]);
+
   // Monitor id changes
   useEffect(() => {
     console.log('[DEBUG] id state changed to:', id);
@@ -315,17 +367,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
     });
   }, []); // No dependencies needed since we use functional update
 
-  // Add panel handler
-  const handleAddPanel = useCallback((newPanel: Panel) => {
-    setLayout(prev => {
-      if (!prev) return prev;
-      
-      return {
-        ...prev,
-        panels: [...prev.panels, newPanel]
-      };
-    });
-  }, []); // No dependencies needed since we use functional update
+
 
   // Add test panels function
   const createTestPanels = useCallback(() => {

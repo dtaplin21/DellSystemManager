@@ -108,11 +108,12 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [panels, dispatch] = useReducer(panelReducer, { panels: [], selectedPanelId: null })
-  const [isDragging, setIsDragging] = useState(false)
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
-  const [selectedPanel, setSelectedPanel] = useState<Panel | null>(null)
   const [isRotating, setIsRotating] = useState(false)
   const [rotationStart, setRotationStart] = useState(0)
+  
+  // Get the selected panel from the reducer state
+  const selectedPanel = panels.selectedPanelId ? panels.panels.find(p => p.id === panels.selectedPanelId) : null
   
   // New mouse state for enhanced interactivity
   const [mouseState, setMouseState] = useState<MouseState>({
@@ -123,6 +124,9 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     dragStartX: 0,
     dragStartY: 0,
   })
+  
+  // Use ref for immediate access to drag state
+  const isDraggingRef = useRef(false)
 
   const [spacePressed, setSpacePressed] = useState(false)
   
@@ -314,6 +318,8 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     const externalPanelsRef = externalPanels || [];
     const externalPanelsString = JSON.stringify(externalPanelsRef);
     
+    console.log('[DEBUG] External panels received:', externalPanelsRef);
+    
     // Only process if external panels actually changed
     if (lastExternalPanels.current !== externalPanelsString) {
       console.log('[PanelLayout] External panels changed, processing...');
@@ -335,6 +341,9 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
           }
           return true;
         });
+        
+        console.log('[DEBUG] Valid external panels:', validExternalPanels);
+        console.log('[DEBUG] Invalid external panels:', externalPanelsRef.filter(p => !isValidPanel(p)));
         
         if (validExternalPanels.length > 0) {
           console.log('[PanelLayout] Setting internal panels from external source');
@@ -514,6 +523,31 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   //   }
   // }, [panelData.panels.length, canvasWidth, canvasHeight, autoFitViewport])
   
+  // Local coordinate transformation functions with access to current canvas state
+  // Use the EXACT same logic as the canvas renderer for consistency
+  const localScreenToWorld = useCallback((sx: number, sy: number) => {
+    // Match the exact transformation used in use-canvas-renderer.ts
+    const worldX = (sx - canvasState.offsetX) / (canvasState.worldScale * canvasState.scale);
+    const worldY = (sy - canvasState.offsetY) / (canvasState.worldScale * canvasState.scale);
+    
+    const result = { x: worldX, y: worldY };
+    console.log('[DEBUG] localScreenToWorld:', { 
+      input: { sx, sy }, 
+      canvasState: { offsetX: canvasState.offsetX, offsetY: canvasState.offsetY, worldScale: canvasState.worldScale, scale: canvasState.scale },
+      totalScale: canvasState.worldScale * canvasState.scale,
+      result 
+    });
+    return result;
+  }, [canvasState]);
+
+  const localWorldToScreen = useCallback((wx: number, wy: number) => {
+    const totalScale = canvasState.worldScale * canvasState.scale;
+    return {
+      x: wx * totalScale + canvasState.offsetX,
+      y: wy * totalScale + canvasState.offsetY
+    };
+  }, [canvasState]);
+
   // Mouse event handlers
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = isFullscreen ? fullscreenCanvasRef.current : canvasRef.current
@@ -522,6 +556,10 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     const rect = canvas.getBoundingClientRect()
     const x = e.clientX - rect.left
     const y = e.clientY - rect.top
+    
+    console.log('[DEBUG] Mouse click detected:', { x, y, button: e.button, spacePressed });
+    console.log('[DEBUG] Current panels:', panels.panels);
+    console.log('[DEBUG] Canvas state:', canvasState);
     
     if (e.button === 1 || (e.button === 0 && spacePressed)) {
       // Middle click or space + left click for panning
@@ -538,39 +576,69 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
       // Check panels in reverse order (top to bottom)
       for (let i = panels.panels.length - 1; i >= 0; i--) {
         const panel = panels.panels[i];
+        console.log('[DEBUG] Checking panel:', panel);
 
         // Convert screen coordinates to world coordinates for hit testing
-        const worldPos = screenToWorld(x, y);
+        const worldPos = localScreenToWorld(x, y);
+        console.log('[DEBUG] Click world coordinates:', worldPos);
+        console.log('[DEBUG] Panel bounds:', { 
+          x: panel.x, 
+          y: panel.y, 
+          width: panel.width, 
+          height: panel.height,
+          right: panel.x + panel.width,
+          bottom: panel.y + panel.height
+        });
+        
+        // Debug hit test calculation
+        const hitTestX = worldPos.x >= panel.x && worldPos.x <= panel.x + panel.width;
+        const hitTestY = worldPos.y >= panel.y && worldPos.y <= panel.y + panel.height;
+        
+        // Calculate what the panel dimensions would be in screen space for comparison
+        const screenWidth = panel.width * canvasState.worldScale * canvasState.scale;
+        const screenHeight = panel.height * canvasState.worldScale * canvasState.scale;
+        
+        console.log('[DEBUG] Hit test results:', { 
+          hitTestX, 
+          hitTestY, 
+          worldPosX: worldPos.x, 
+          worldPosY: worldPos.y,
+          panelScreenDimensions: { width: screenWidth, height: screenHeight },
+          panelWorldDimensions: { width: panel.width, height: panel.height }
+        });
         
         // Simple AABB hit test (rotation not considered for simplicity)
-        if (worldPos.x >= panel.x && worldPos.x <= panel.x + panel.width &&
-            worldPos.y >= panel.y && worldPos.y <= panel.y + panel.height) {
+        if (hitTestX && hitTestY) {
+          console.log('[DEBUG] Panel hit! Panel ID:', panel.id);
           dispatch({ type: 'SELECT_PANEL', payload: panel.id })
-          setSelectedPanel(panel)
           
           if (isRotationHandle(x, y, panel)) {
+            console.log('[DEBUG] Rotation handle detected, starting rotation');
             setIsRotating(true)
             // Convert screen coordinates to world coordinates for rotation calculation
-            const worldPos = screenToWorld(x, y);
+            const worldPos = localScreenToWorld(x, y);
             const panelCenterX = panel.x + panel.width / 2;
             const panelCenterY = panel.y + panel.height / 2;
             setRotationStart(Math.atan2(worldPos.y - panelCenterY, worldPos.x - panelCenterX));
             return
           }
           
-          setIsDragging(true)
+          console.log('[DEBUG] Starting drag for panel:', panel.id);
+          setMouseState(prev => ({ ...prev, isDragging: true }));
+          isDraggingRef.current = true; // Set ref immediately
           // Convert screen coordinates to world coordinates for drag calculation
-          const worldPos = screenToWorld(x, y);
+          const worldPos = localScreenToWorld(x, y);
           setDragStart({ x: worldPos.x - panel.x, y: worldPos.y - panel.y });
+          console.log('[DEBUG] Drag start position set:', { x: worldPos.x - panel.x, y: worldPos.y - panel.y });
           return
         }
       }
       
+      console.log('[DEBUG] No panel hit');
       // No panel hit - clear selection
       dispatch({ type: 'SELECT_PANEL', payload: null })
-      setSelectedPanel(null)
     }
-  }, [panels, canvasState, isFullscreen, spacePressed, screenToWorld])
+  }, [panels, canvasState, isFullscreen, spacePressed, localScreenToWorld])
   
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = isFullscreen ? fullscreenCanvasRef.current : canvasRef.current
@@ -581,6 +649,13 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     const y = e.clientY - rect.top
     
     setMouseState(prev => ({ ...prev, x, y }))
+    
+    console.log('[DEBUG] Mouse move - current state:', { 
+      isDragging: mouseState.isDragging, 
+      isDraggingRef: isDraggingRef.current,
+      selectedPanel: selectedPanel?.id,
+      mousePos: { x, y }
+    });
     
     if (mouseState.isPanning) {
       const deltaX = x - mouseState.dragStartX;
@@ -597,27 +672,27 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
         dragStartX: x,
         dragStartY: y,
       }));
-    } else if (isDragging && selectedPanel) {
-      const worldPos = screenToWorld(x, y);
-      const dragStartWorldPos = screenToWorld(mouseState.dragStartX, mouseState.dragStartY);
-
-      const deltaX = worldPos.x - dragStartWorldPos.x;
-      const deltaY = worldPos.y - dragStartWorldPos.y;
-
-      let newX = selectedPanel.x + deltaX;
-      let newY = selectedPanel.y + deltaY;
+    } else if (isDraggingRef.current && selectedPanel) {
+      console.log('[DEBUG] Drag in progress - updating panel position');
+      const worldPos = localScreenToWorld(x, y);
+      
+      // Use the dragStart state that was set when the panel was clicked
+      const newX = worldPos.x - dragStart.x;
+      const newY = worldPos.y - dragStart.y;
 
       // Apply snap if enabled
+      let finalX = newX;
+      let finalY = newY;
       if (canvasState.snapToGrid) {
-        newX = snapToGrid(newX, SNAP_SIZE);
-        newY = snapToGrid(newY, SNAP_SIZE);
+        finalX = snapToGrid(newX, SNAP_SIZE);
+        finalY = snapToGrid(newY, SNAP_SIZE);
       }
       
       dispatch({
         type: 'UPDATE_PANEL',
         payload: {
           id: selectedPanel.id,
-          updates: { x: newX, y: newY }
+          updates: { x: finalX, y: finalY }
         }
       })
     } else if (isRotating && selectedPanel) {
@@ -638,11 +713,11 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
         }
       })
     }
-  }, [isDragging, isRotating, selectedPanel, dragStart, rotationStart, canvasState, isFullscreen, mouseState, screenToWorld])
+  }, [mouseState.isDragging, isRotating, selectedPanel, dragStart, rotationStart, canvasState, isFullscreen, mouseState, localScreenToWorld])
   
   const handleMouseUp = useCallback(() => {
-    setIsDragging(false)
     setIsRotating(false)
+    isDraggingRef.current = false; // Reset ref immediately
     setMouseState(prev => ({
       ...prev,
       isPanning: false,
@@ -658,13 +733,14 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     }
     
     // Convert world coordinates to screen coordinates for handle detection
-    const screenPos = worldToScreen(panel.x, panel.y);
+    const screenPos = localWorldToScreen(panel.x, panel.y);
     const screenWidth = panel.width * canvasState.worldScale * canvasState.scale;
     
     const handleSize = 8
     const rotationHandleY = screenPos.y - 30
     const rotationHandleX = screenPos.x + screenWidth / 2
     
+    // x and y are already in screen coordinates from handleMouseDown
     return Math.abs(x - rotationHandleX) <= handleSize && Math.abs(y - rotationHandleY) <= handleSize
   }
   
@@ -756,7 +832,16 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   // Render canvas when dependencies change
   useEffect(() => {
     const currentCanvas = isFullscreen ? fullscreenCanvasRef.current : canvasRef.current;
+    console.log('[DEBUG] Canvas render effect triggered:', {
+      hasCanvas: !!currentCanvas,
+      panelCount: panels.panels.length,
+      isFullscreen,
+      canvasWidth,
+      canvasHeight
+    });
+    
     if (currentCanvas && panels.panels.length > 0) {
+      console.log('[DEBUG] Calling renderCanvas...');
       // Use the ref to avoid dependency loop
       renderCanvasRef.current?.();
     }
@@ -917,7 +1002,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
               style={{
                 cursor: mouseState.isPanning ? 'grabbing' : 
                        spacePressed ? 'grab' : 
-                       isDragging ? 'grabbing' : 
+                       mouseState.isDragging ? 'grabbing' : 
                        isRotating ? 'crosshair' : 'crosshair',
                 display: 'block',
                 width: '100%',
@@ -1016,46 +1101,9 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
                 Guides: {canvasState.showGuides ? 'ON' : 'OFF'}
               </button>
               
-              {/* Temporary Clear All Panels Button */}
-              <button 
-                onClick={() => {
-                  dispatch({ type: 'SET_PANELS', payload: [] });
-                  dispatch({ type: 'SELECT_PANEL', payload: null });
-                  console.log('[PanelLayout] Cleared all panels');
-                }}
-                className="bg-red-600 hover:bg-red-500 px-3 py-2 rounded text-sm font-medium transition-colors"
-              >
-                🗑️ Clear All Panels
-              </button>
+
               
-              {/* Temporary Add Test Panel Button */}
-              <button 
-                onClick={() => {
-                  const testPanel = {
-                    id: `test-panel-${Date.now()}`,
-                    x: 1000,        // 1000 feet from west edge
-                    y: 1000,        // 1000 feet from north edge
-                    width: 200,     // 200 feet wide
-                    height: 100,    // 100 feet tall
-                    length: 100,    // 100 feet long (same as height)
-                    rotation: 0,
-                    fill: '#3b82f6',
-                    color: '#1e1b4b',
-                    panelNumber: 'TEST-001',
-                    rollNumber: 'ROLL-001',
-                    shape: 'rectangle' as const,
-                    meta: {
-                      repairs: [],
-                      location: { x: 1000, y: 1000, gridCell: { row: 0, col: 0 } }
-                    }
-                  };
-                  dispatch({ type: 'ADD_PANEL', payload: testPanel });
-                  console.log('[PanelLayout] Added test panel:', testPanel);
-                }}
-                className="bg-green-600 hover:bg-green-500 px-3 py-2 rounded text-sm font-medium transition-colors"
-              >
-                ➕ Add Test Panel
-              </button>
+
               
               <button 
                 onClick={() => {
@@ -1119,7 +1167,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
                               style={{
                   cursor: mouseState.isPanning ? 'grabbing' : 
                          spacePressed ? 'grab' : 
-                         isDragging ? 'grabbing' : 
+                         mouseState.isDragging ? 'grabbing' : 
                          isRotating ? 'crosshair' : 'crosshair',
                 display: 'block',
                 width: '100%',
