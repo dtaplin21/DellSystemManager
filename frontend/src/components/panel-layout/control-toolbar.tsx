@@ -171,6 +171,7 @@ export default function ControlToolbar({
   };
 
   const handleAddTriangle = () => {
+    console.log('🔍 [ControlToolbar] handleAddTriangle called');
     if (!validateForm()) return;
 
     const color = generatePastelColor();
@@ -190,6 +191,8 @@ export default function ControlToolbar({
       color: color
     };
 
+    console.log('🔍 [ControlToolbar] Creating triangle panel:', newPanel);
+    console.log('🔍 [ControlToolbar] Panel shape property:', newPanel.shape);
     onAddPanel(newPanel);
     
     // Reset form after adding panel
@@ -203,6 +206,7 @@ export default function ControlToolbar({
   };
 
   const handleAddRightTriangle = () => {
+    console.log('🔍 [ControlToolbar] handleAddRightTriangle called');
     if (!validateForm()) return;
 
     const color = generatePastelColor();
@@ -210,8 +214,9 @@ export default function ControlToolbar({
       id: generateId(),
       date: new Date().toISOString().slice(0, 10),
       panelNumber: panelForm.panelNumber,
-      length: parseFloat(panelForm.height),
       width: parseFloat(panelForm.width),
+      height: parseFloat(panelForm.height),
+      length: parseFloat(panelForm.height),
       rollNumber: panelForm.rollNumber,
       location: '',
       x: 100,
@@ -222,6 +227,8 @@ export default function ControlToolbar({
       color: color
     };
 
+    console.log('🔍 [ControlToolbar] Creating right triangle panel:', newPanel);
+    console.log('🔍 [ControlToolbar] Panel shape property:', newPanel.shape);
     onAddPanel(newPanel);
     
     // Reset form after adding panel
@@ -393,6 +400,73 @@ export default function ControlToolbar({
             >
               <Pencil className="h-4 w-4" />
               <span>Edit Panel</span>
+            </Button>
+            
+            {/* Test button for quick shape testing */}
+            <Button
+              variant="outline"
+              onClick={() => {
+                console.log('🔍 [ControlToolbar] Test triangle button clicked');
+                const testPanel = {
+                  id: generateId(),
+                  date: new Date().toISOString().slice(0, 10),
+                  panelNumber: 'TEST',
+                  rollNumber: 'TEST',
+                  width: 100,
+                  height: 100,
+                  length: 100,
+                  x: 200,
+                  y: 200,
+                  shape: 'triangle',
+                  rotation: 0,
+                  fill: '#ff0000',
+                  color: '#ff0000',
+                  location: '',
+                  meta: {
+                    repairs: [],
+                    location: { x: 200, y: 200, gridCell: { row: 0, col: 0 } }
+                  }
+                };
+                console.log('🔍 [ControlToolbar] Test triangle panel:', testPanel);
+                onAddPanel(testPanel);
+              }}
+              className="flex items-center space-x-2 bg-red-500 hover:bg-red-600 text-white"
+            >
+              <Triangle className="h-4 w-4" />
+              <span>Test Triangle</span>
+            </Button>
+            
+            <Button
+              variant="outline"
+              onClick={() => {
+                console.log('🔍 [ControlToolbar] Test right triangle button clicked');
+                const testPanel = {
+                  id: generateId(),
+                  date: new Date().toISOString().slice(0, 10),
+                  panelNumber: 'TEST-RT',
+                  rollNumber: 'TEST-RT',
+                  width: 100,
+                  height: 100,
+                  length: 100,
+                  x: 350,
+                  y: 200,
+                  shape: 'right-triangle',
+                  rotation: 0,
+                  fill: '#00ff00',
+                  color: '#00ff00',
+                  location: '',
+                  meta: {
+                    repairs: [],
+                    location: { x: 350, y: 200, gridCell: { row: 0, col: 0 } }
+                  }
+                };
+                console.log('🔍 [ControlToolbar] Test right triangle panel:', testPanel);
+                onAddPanel(testPanel);
+              }}
+              className="flex items-center space-x-2 bg-green-500 hover:bg-green-600 text-white"
+            >
+              <Triangle className="h-4 w-4" />
+              <span>Test Right Triangle</span>
             </Button>
           </div>
         </div>

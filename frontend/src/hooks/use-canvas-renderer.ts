@@ -96,14 +96,47 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
       ctx.translate(-centerX, -centerY);
     }
     
-    // Draw panel rectangle in screen coordinates
+    // Draw panel based on shape
     ctx.fillStyle = panel.fill || '#4f46e6'
-    ctx.fillRect(screenPos.x, screenPos.y, screenWidth, screenHeight)
-    
-    // Draw panel border
     ctx.strokeStyle = isSelected ? '#f59e0b' : panel.color || '#1e1b4b'
     ctx.lineWidth = isSelected ? 3 : 2
-    ctx.strokeRect(screenPos.x, screenPos.y, screenWidth, screenHeight)
+    
+    // Draw different shapes based on panel.shape
+    console.log('[DEBUG] Drawing panel with shape:', panel.shape, 'at position:', { x: screenPos.x, y: screenPos.y, width: screenWidth, height: screenHeight });
+    
+    switch (panel.shape) {
+      case 'triangle':
+        console.log('[DEBUG] Drawing equilateral triangle');
+        // Draw equilateral triangle
+        ctx.beginPath()
+        ctx.moveTo(screenPos.x + screenWidth / 2, screenPos.y) // Top point
+        ctx.lineTo(screenPos.x, screenPos.y + screenHeight) // Bottom left
+        ctx.lineTo(screenPos.x + screenWidth, screenPos.y + screenHeight) // Bottom right
+        ctx.closePath()
+        ctx.fill()
+        ctx.stroke()
+        break
+        
+      case 'right-triangle':
+        console.log('[DEBUG] Drawing right triangle');
+        // Draw right triangle
+        ctx.beginPath()
+        ctx.moveTo(screenPos.x, screenPos.y) // Top left
+        ctx.lineTo(screenPos.x + screenWidth, screenPos.y) // Top right
+        ctx.lineTo(screenPos.x + screenWidth, screenPos.y + screenHeight) // Bottom right
+        ctx.closePath()
+        ctx.fill()
+        ctx.stroke()
+        break
+        
+      case 'rectangle':
+      default:
+        console.log('[DEBUG] Drawing rectangle (default)');
+        // Draw rectangle (default)
+        ctx.fillRect(screenPos.x, screenPos.y, screenWidth, screenHeight)
+        ctx.strokeRect(screenPos.x, screenPos.y, screenWidth, screenHeight)
+        break
+    }
     
     // Draw panel text
     ctx.fillStyle = '#ffffff'
@@ -147,16 +180,47 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
     
     const handleSize = 8
     
-    const handles = [
-      { x: screenPos.x, y: screenPos.y, cursor: 'nw-resize' },
-      { x: screenPos.x + screenWidth / 2, y: screenPos.y, cursor: 'n-resize' },
-      { x: screenPos.x + screenWidth, y: screenPos.y, cursor: 'ne-resize' },
-      { x: screenPos.x + screenWidth, y: screenPos.y + screenHeight / 2, cursor: 'e-resize' },
-      { x: screenPos.x + screenWidth, y: screenPos.y + screenHeight, cursor: 'se-resize' },
-      { x: screenPos.x + screenWidth / 2, y: screenPos.y + screenHeight, cursor: 's-resize' },
-      { x: screenPos.x, y: screenPos.y + screenHeight, cursor: 'sw-resize' },
-      { x: screenPos.x, y: screenPos.y + screenHeight / 2, cursor: 'w-resize' }
-    ]
+    // Generate handles based on panel shape
+    let handles: Array<{ x: number; y: number; cursor: string }> = [];
+    
+    switch (panel.shape) {
+      case 'triangle':
+        // Triangle handles: corners and midpoints
+        handles = [
+          { x: screenPos.x + screenWidth / 2, y: screenPos.y, cursor: 'n-resize' }, // Top
+          { x: screenPos.x, y: screenPos.y + screenHeight, cursor: 'sw-resize' }, // Bottom left
+          { x: screenPos.x + screenWidth, y: screenPos.y + screenHeight, cursor: 'se-resize' }, // Bottom right
+          { x: screenPos.x + screenWidth / 4, y: screenPos.y + screenHeight / 2, cursor: 'w-resize' }, // Left mid
+          { x: screenPos.x + screenWidth * 3 / 4, y: screenPos.y + screenHeight / 2, cursor: 'e-resize' } // Right mid
+        ];
+        break;
+        
+      case 'right-triangle':
+        // Right triangle handles: corners and midpoints
+        handles = [
+          { x: screenPos.x, y: screenPos.y, cursor: 'nw-resize' }, // Top left
+          { x: screenPos.x + screenWidth, y: screenPos.y, cursor: 'ne-resize' }, // Top right
+          { x: screenPos.x + screenWidth, y: screenPos.y + screenHeight, cursor: 'se-resize' }, // Bottom right
+          { x: screenPos.x + screenWidth / 2, y: screenPos.y, cursor: 'n-resize' }, // Top mid
+          { x: screenPos.x + screenWidth, y: screenPos.y + screenHeight / 2, cursor: 'e-resize' } // Right mid
+        ];
+        break;
+        
+      case 'rectangle':
+      default:
+        // Rectangle handles: all corners and midpoints
+        handles = [
+          { x: screenPos.x, y: screenPos.y, cursor: 'nw-resize' },
+          { x: screenPos.x + screenWidth / 2, y: screenPos.y, cursor: 'n-resize' },
+          { x: screenPos.x + screenWidth, y: screenPos.y, cursor: 'ne-resize' },
+          { x: screenPos.x + screenWidth, y: screenPos.y + screenHeight / 2, cursor: 'e-resize' },
+          { x: screenPos.x + screenWidth, y: screenPos.y + screenHeight, cursor: 'se-resize' },
+          { x: screenPos.x + screenWidth / 2, y: screenPos.y + screenHeight, cursor: 's-resize' },
+          { x: screenPos.x, y: screenPos.y + screenHeight, cursor: 'sw-resize' },
+          { x: screenPos.x, y: screenPos.y + screenHeight / 2, cursor: 'w-resize' }
+        ];
+        break;
+    }
     
     ctx.save()
     
@@ -177,13 +241,36 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
       ctx.strokeRect(handle.x - handleSize / 2, handle.y - handleSize / 2, handleSize, handleSize)
     })
     
-    // Draw rotation handle
-    const rotationHandleY = screenPos.y - 30
+    // Draw rotation handle - position based on shape
+    let rotationHandleX: number;
+    let rotationHandleY: number;
+    
+    switch (panel.shape) {
+      case 'triangle':
+        // For triangle, place rotation handle above the top point
+        rotationHandleX = screenPos.x + screenWidth / 2;
+        rotationHandleY = screenPos.y - 30;
+        break;
+        
+      case 'right-triangle':
+        // For right triangle, place rotation handle above the top edge center
+        rotationHandleX = screenPos.x + screenWidth / 2;
+        rotationHandleY = screenPos.y - 30;
+        break;
+        
+      case 'rectangle':
+      default:
+        // For rectangle, place rotation handle above the top edge center
+        rotationHandleX = screenPos.x + screenWidth / 2;
+        rotationHandleY = screenPos.y - 30;
+        break;
+    }
+    
     ctx.fillStyle = '#10b981'
-    ctx.fillRect(screenPos.x + screenWidth / 2 - handleSize / 2, rotationHandleY - handleSize / 2, handleSize, handleSize)
+    ctx.fillRect(rotationHandleX - handleSize / 2, rotationHandleY - handleSize / 2, handleSize, handleSize)
     ctx.strokeStyle = '#ffffff'
     ctx.lineWidth = 1
-    ctx.strokeRect(screenPos.x + screenWidth / 2 - handleSize / 2, rotationHandleY - handleSize / 2, handleSize, handleSize)
+    ctx.strokeRect(rotationHandleX - handleSize / 2, rotationHandleY - handleSize / 2, handleSize, handleSize)
     
     ctx.restore()
   }, [canvasState, isValidPanel, getPanelValidationErrors, worldToScreen])
@@ -223,7 +310,14 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
     
     console.log('[DEBUG] Drawing valid panels:', validPanels.length);
     validPanels.forEach(panel => {
-      console.log('[DEBUG] Drawing panel:', { id: panel.id, x: panel.x, y: panel.y, width: panel.width, height: panel.height });
+      console.log('[DEBUG] Drawing panel:', { 
+        id: panel.id, 
+        x: panel.x, 
+        y: panel.y, 
+        width: panel.width, 
+        height: panel.height,
+        shape: panel.shape 
+      });
       drawPanel(ctx, panel, panel.id === selectedPanelId)
     })
     

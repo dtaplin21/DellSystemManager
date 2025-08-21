@@ -610,11 +610,63 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
           }
         });
         
-        // Simple AABB hit test (rotation not considered for simplicity)
-        const hitTestX = worldPos.x >= panel.x && worldPos.x <= panel.x + panel.width;
-        const hitTestY = worldPos.y >= panel.y && worldPos.y <= panel.y + panel.height;
+        // Enhanced hit test based on panel shape
+        let isHit = false;
         
-        if (hitTestX && hitTestY) {
+        switch (panel.shape) {
+          case 'triangle':
+            // Point-in-triangle test for equilateral triangle
+            const centerX = panel.x + panel.width / 2;
+            const topY = panel.y;
+            const leftX = panel.x;
+            const rightX = panel.x + panel.width;
+            const bottomY = panel.y + panel.height;
+            
+            // Check if point is inside triangle using barycentric coordinates
+            const v0x = rightX - leftX;
+            const v0y = bottomY - topY;
+            const v1x = centerX - leftX;
+            const v1y = topY - topY;
+            const v2x = worldPos.x - leftX;
+            const v2y = worldPos.y - topY;
+            
+            const dot00 = v0x * v0x + v0y * v0y;
+            const dot01 = v0x * v1x + v0y * v1y;
+            const dot02 = v0x * v2x + v0y * v2y;
+            const dot11 = v1x * v1x + v1y * v1y;
+            const dot12 = v1x * v2x + v1y * v2y;
+            
+            const invDenom = 1 / (dot00 * dot11 - dot01 * dot01);
+            const u = (dot11 * dot02 - dot01 * dot12) * invDenom;
+            const v = (dot00 * dot12 - dot01 * dot02) * invDenom;
+            
+            isHit = (u >= 0) && (v >= 0) && (u + v <= 1);
+            break;
+            
+          case 'right-triangle':
+            // Point-in-right-triangle test
+            const rightTopX = panel.x + panel.width;
+            const rightTopY = panel.y;
+            const rightBottomX = panel.x + panel.width;
+            const rightBottomY = panel.y + panel.height;
+            
+            // Check if point is to the left of the hypotenuse
+            const hypotenuseSlope = (rightBottomY - rightTopY) / (rightBottomX - rightTopX);
+            const expectedY = rightTopY + hypotenuseSlope * (worldPos.x - rightTopX);
+            isHit = worldPos.x >= panel.x && worldPos.x <= rightTopX && 
+                    worldPos.y >= panel.y && worldPos.y <= rightBottomY &&
+                    worldPos.y <= expectedY;
+            break;
+            
+          case 'rectangle':
+          default:
+            // Simple AABB hit test for rectangles
+            isHit = worldPos.x >= panel.x && worldPos.x <= panel.x + panel.width &&
+                    worldPos.y >= panel.y && worldPos.y <= panel.y + panel.height;
+            break;
+        }
+        
+        if (isHit) {
           console.log('[DEBUG] Panel hit! Panel ID:', panel.id);
           console.log('[DEBUG] Dispatching SELECT_PANEL for:', panel.id);
           dispatch({ type: 'SELECT_PANEL', payload: panel.id })
