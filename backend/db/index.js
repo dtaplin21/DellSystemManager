@@ -130,16 +130,45 @@ async function connectToDatabase() {
 
 async function applyMigrations() {
   try {
-    // Simple migration - just test if we can query the database
-    // Actual schema creation should be done via drizzle-kit push
+    console.log('🔧 Applying database migrations...');
     const client = await pool.connect();
-    await client.query('SELECT 1');
+    
+    // Create panel_layouts table if it doesn't exist
+    const createPanelLayoutsTable = `
+      CREATE TABLE IF NOT EXISTS panel_layouts (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        panels TEXT NOT NULL DEFAULT '[]',
+        width DECIMAL NOT NULL DEFAULT 4000,
+        height DECIMAL NOT NULL DEFAULT 4000,
+        scale DECIMAL NOT NULL DEFAULT 1.0,
+        last_updated TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+    `;
+    
+    await client.query(createPanelLayoutsTable);
+    console.log('✅ panel_layouts table created/verified');
+    
+    // Create index if it doesn't exist
+    const createIndex = `
+      CREATE INDEX IF NOT EXISTS idx_panel_layouts_project_id 
+      ON panel_layouts(project_id);
+    `;
+    
+    await client.query(createIndex);
+    console.log('✅ panel_layouts index created/verified');
+    
     client.release();
-    console.log('Database schema created successfully');
+    console.log('✅ Database migrations completed successfully');
   } catch (error) {
-    console.error('Failed to create database schema:', error);
+    console.error('❌ Failed to apply database migrations:', error);
+    console.error('❌ Migration error details:', {
+      code: error.code,
+      message: error.message,
+      stack: error.stack
+    });
     // Don't throw error - allow server to continue without database
-    console.log('Server will continue without database functionality');
+    console.log('⚠️ Server will continue without database functionality');
   }
 }
 

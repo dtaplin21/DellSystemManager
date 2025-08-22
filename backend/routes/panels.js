@@ -3,7 +3,7 @@ const { v4: uuidv4 } = require('uuid');
 const router = express.Router();
 const { auth } = require('../middlewares/auth');
 const { db } = require('../db');
-const { projects, panels } = require('../db/schema');
+const { projects, panelLayouts } = require('../db/schema');
 const { eq, and } = require('drizzle-orm');
 const { wsSendToRoom } = require('../services/websocket');
 
@@ -16,8 +16,45 @@ const DEFAULT_SCALE = 1.0;
 const validatePanel = (panel) => {
   if (!panel || typeof panel !== 'object') return false;
   
-  const requiredFields = ['id', 'shape', 'x', 'y', 'width', 'height'];
-  return requiredFields.every(field => panel.hasOwnProperty(field));
+  const requiredFields = ['id', 'shape', 'x', 'y', 'width', 'height', 'length'];
+  const hasRequiredFields = requiredFields.every(field => panel.hasOwnProperty(field));
+  
+  if (!hasRequiredFields) {
+    console.warn('❌ Panel validation failed - missing required fields:', {
+      panel: panel.id,
+      missing: requiredFields.filter(field => !panel.hasOwnProperty(field))
+    });
+    return false;
+  }
+  
+  // Validate data types
+  const isValid = (
+    typeof panel.id === 'string' &&
+    typeof panel.shape === 'string' &&
+    typeof panel.x === 'number' &&
+    typeof panel.y === 'number' &&
+    typeof panel.width === 'number' &&
+    typeof panel.height === 'number' &&
+    typeof panel.length === 'number'
+  );
+  
+  if (!isValid) {
+    console.warn('❌ Panel validation failed - invalid data types:', {
+      panel: panel.id,
+      types: {
+        id: typeof panel.id,
+        shape: typeof panel.shape,
+        x: typeof panel.x,
+        y: typeof panel.y,
+        width: typeof panel.width,
+        height: typeof panel.height,
+        length: typeof panel.length
+      }
+    });
+    return false;
+  }
+  
+  return true;
 };
 
 // Map panel to canonical format
@@ -44,10 +81,15 @@ const mapPanelToCanonical = (panel) => ({
 
 // Get panel layout for a project
 router.get('/layout/:projectId', async (req, res, next) => {
+  console.log('🔍 [PANELS] GET request received for project:', req.params.projectId);
+  console.log('🔍 [PANELS] Request headers:', req.headers);
+  
   // Apply auth middleware for production
   try {
     await auth(req, res, () => {});
+    console.log('✅ [PANELS] Auth middleware passed, user:', req.user?.id);
   } catch (error) {
+    console.log('❌ [PANELS] Auth middleware failed:', error.message);
     return res.status(401).json({ 
       message: 'Access denied. No token provided.',
       code: 'NO_TOKEN'
@@ -57,12 +99,15 @@ router.get('/layout/:projectId', async (req, res, next) => {
   try {
     const { projectId } = req.params;
     
+    console.log('🔍 [PANELS] Processing GET for project:', projectId);
+    
     // Basic ID validation
     if (!projectId || projectId.length === 0) {
       return res.status(400).json({ message: 'Invalid project ID' });
     }
     
     // Verify project access
+    console.log('🔍 [PANELS] Verifying project access for user:', req.user.id);
     let [project] = await db
       .select()
       .from(projects)
@@ -71,6 +116,11 @@ router.get('/layout/:projectId', async (req, res, next) => {
         eq(projects.userId, req.user.id)
       ));
     
+    console.log('🔍 [PANELS] Project found:', project ? 'YES' : 'NO');
+    if (project) {
+      console.log('🔍 [PANELS] Project details:', { id: project.id, name: project.name, userId: project.userId });
+    }
+    
     if (!project) {
       return res.status(404).json({ message: 'Project not found' });
     }
@@ -78,13 +128,16 @@ router.get('/layout/:projectId', async (req, res, next) => {
     // Get panel layout
     let [panelLayout] = await db
       .select()
-      .from(panels)
-      .where(eq(panels.projectId, projectId));
+      .from(panelLayouts)
+      .where(eq(panelLayouts.projectId, projectId));
+    
+    console.log('🔍 [PANELS] Panel layout query result:', panelLayout);
     
     // If layout doesn't exist, create a default one
     if (!panelLayout) {
+      console.log('🔍 [PANELS] Creating new panel layout for project:', projectId);
       [panelLayout] = await db
-        .insert(panels)
+        .insert(panelLayouts)
         .values({
           id: uuidv4(),
           projectId,
@@ -95,6 +148,8 @@ router.get('/layout/:projectId', async (req, res, next) => {
           lastUpdated: new Date(),
         })
         .returning();
+      
+      console.log('✅ [PANELS] New panel layout created:', panelLayout);
     }
     
     // Parse the panels JSON string to an actual array
@@ -129,10 +184,16 @@ router.get('/layout/:projectId', async (req, res, next) => {
 
 // Update panel layout
 router.patch('/layout/:projectId', async (req, res, next) => {
+  console.log('🔍 [PANELS] PATCH request received for project:', req.params.projectId);
+  console.log('🔍 [PANELS] Request headers:', req.headers);
+  console.log('🔍 [PANELS] Request body:', req.body);
+  
   // Apply auth middleware for production
   try {
     await auth(req, res, () => {});
+    console.log('✅ [PANELS] Auth middleware passed, user:', req.user?.id);
   } catch (error) {
+    console.log('❌ [PANELS] Auth middleware failed:', error.message);
     return res.status(401).json({ 
       message: 'Access denied. No token provided.',
       code: 'NO_TOKEN'
@@ -144,12 +205,16 @@ router.patch('/layout/:projectId', async (req, res, next) => {
     const { projectId } = req.params;
     const updateData = req.body;
     
+    console.log('🔍 [PANELS] Processing update for project:', projectId);
+    console.log('🔍 [PANELS] Update data:', JSON.stringify(updateData, null, 2));
+    
     // Basic ID validation
     if (!projectId || projectId.length === 0) {
       return res.status(400).json({ message: 'Invalid project ID' });
     }
     
     // Verify project access
+    console.log('🔍 [PANELS] Verifying project access for user:', req.user.id);
     let [project] = await db
       .select()
       .from(projects)
@@ -158,6 +223,11 @@ router.patch('/layout/:projectId', async (req, res, next) => {
         eq(projects.userId, req.user.id)
       ));
     
+    console.log('🔍 [PANELS] Project found:', project ? 'YES' : 'NO');
+    if (project) {
+      console.log('🔍 [PANELS] Project details:', { id: project.id, name: project.name, userId: project.userId });
+    }
+    
     if (!project) {
       return res.status(404).json({ message: 'Project not found' });
     }
@@ -165,13 +235,16 @@ router.patch('/layout/:projectId', async (req, res, next) => {
     // Get existing panel layout
     let [existingLayout] = await db
       .select()
-      .from(panels)
-      .where(eq(panels.projectId, projectId));
+      .from(panelLayouts)
+      .where(eq(panelLayouts.projectId, projectId));
+    
+    console.log('🔍 [PANELS] Existing layout query result:', existingLayout);
     
     // If layout doesn't exist, create a default one
     if (!existingLayout) {
+      console.log('🔍 [PANELS] Creating new panel layout for PATCH operation');
       [existingLayout] = await db
-        .insert(panels)
+        .insert(panelLayouts)
         .values({
           id: uuidv4(),
           projectId,
@@ -182,6 +255,8 @@ router.patch('/layout/:projectId', async (req, res, next) => {
           lastUpdated: new Date(),
         })
         .returning();
+      
+      console.log('✅ [PANELS] New panel layout created for PATCH:', existingLayout);
     }
     
     // Parse existing panels
@@ -195,46 +270,77 @@ router.patch('/layout/:projectId', async (req, res, next) => {
     
     // Update panels if provided
     if (updateData.panels && Array.isArray(updateData.panels)) {
+      console.log('🔍 [PANELS] Processing panel update with', updateData.panels.length, 'panels');
+      
       // Validate all panels before updating
       const validPanels = updateData.panels.filter(panel => validatePanel(panel));
       
       if (validPanels.length !== updateData.panels.length) {
-        console.warn('Some panels were invalid and were filtered out');
+        const invalidCount = updateData.panels.length - validPanels.length;
+        console.warn(`⚠️ [PANELS] ${invalidCount} panels were invalid and were filtered out`);
+        console.warn('⚠️ [PANELS] Invalid panels:', updateData.panels.filter(panel => !validatePanel(panel)));
       }
       
-      // Update the layout with new panels
-      const [updatedLayout] = await db
-        .update(panels)
-        .set({
-          panels: JSON.stringify(validPanels),
-          width: updateData.width || existingLayout.width,
-          height: updateData.height || existingLayout.height,
-          scale: updateData.scale || existingLayout.scale,
-          lastUpdated: new Date(),
-        })
-        .where(eq(panels.projectId, projectId))
-        .returning();
+      console.log('✅ [PANELS] Valid panels for update:', validPanels.length);
       
-      // Parse the panels for the response
-      const parsedLayout = {
-        ...updatedLayout,
-        width: typeof updatedLayout.width === 'number' ? updatedLayout.width : DEFAULT_LAYOUT_WIDTH,
-        height: typeof updatedLayout.height === 'number' ? updatedLayout.height : DEFAULT_LAYOUT_HEIGHT,
-        scale: typeof updatedLayout.scale === 'number' ? updatedLayout.scale : DEFAULT_SCALE,
-        panels: JSON.parse(updatedLayout.panels || '[]').map(mapPanelToCanonical),
-      };
-      
-      // Notify other clients via WebSockets
-      wsSendToRoom(`panel_layout_${projectId}`, {
-        type: 'PANEL_UPDATE',
-        projectId,
-        panels: JSON.parse(updatedLayout.panels || '[]'),
-        userId: req.user.id,
-        timestamp: updatedLayout.lastUpdated,
-      });
-      
-      res.status(200).json(parsedLayout);
+      try {
+        // Update the layout with new panels
+        const [updatedLayout] = await db
+          .update(panelLayouts)
+          .set({
+            panels: JSON.stringify(validPanels),
+            width: updateData.width || existingLayout.width,
+            height: updateData.height || existingLayout.height,
+            scale: updateData.scale || existingLayout.scale,
+            lastUpdated: new Date(),
+          })
+          .where(eq(panelLayouts.projectId, projectId))
+          .returning();
+        
+        console.log('✅ [PANELS] Database update successful:', {
+          projectId,
+          panelsCount: validPanels.length,
+          updatedAt: updatedLayout.lastUpdated
+        });
+        
+        // Parse the panels for the response
+        const parsedLayout = {
+          ...updatedLayout,
+          width: typeof updatedLayout.width === 'number' ? updatedLayout.width : DEFAULT_LAYOUT_WIDTH,
+          height: typeof updatedLayout.height === 'number' ? updatedLayout.height : DEFAULT_LAYOUT_HEIGHT,
+          scale: typeof updatedLayout.scale === 'number' ? updatedLayout.scale : DEFAULT_SCALE,
+          panels: JSON.parse(updatedLayout.panels || '[]').map(mapPanelToCanonical),
+        };
+        
+        // Notify other clients via WebSockets
+        try {
+          wsSendToRoom(`panel_layout_${projectId}`, {
+            type: 'PANEL_UPDATE',
+            projectId,
+            panels: JSON.parse(updatedLayout.panels || '[]'),
+            userId: req.user.id,
+            timestamp: updatedLayout.lastUpdated,
+          });
+          console.log('✅ [PANELS] WebSocket notification sent');
+        } catch (wsError) {
+          console.warn('⚠️ [PANELS] WebSocket notification failed:', wsError.message);
+        }
+        
+        res.status(200).json(parsedLayout);
+      } catch (dbError) {
+        console.error('❌ [PANELS] Database update failed:', dbError);
+        console.error('❌ [PANELS] Update data:', {
+          projectId,
+          panelsCount: validPanels.length,
+          error: dbError.message
+        });
+        return res.status(500).json({ 
+          message: 'Failed to update panel layout',
+          error: 'DATABASE_UPDATE_FAILED'
+        });
+      }
     } else {
+      console.log('🔍 [PANELS] No panels provided, returning existing layout');
       // No panels provided, return existing layout
       const parsedLayout = {
         ...existingLayout,
@@ -283,8 +389,8 @@ router.get('/requirements/:projectId', async (req, res, next) => {
     // Get panel requirements from the database
     const { data: requirements, error } = await db
       .select()
-      .from(panels)
-      .where(eq(panels.projectId, projectId));
+      .from(panelLayouts)
+      .where(eq(panelLayouts.projectId, projectId));
     
     if (error) {
       console.error('Error fetching panel requirements:', error);

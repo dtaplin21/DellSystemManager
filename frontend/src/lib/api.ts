@@ -519,24 +519,57 @@ export async function updatePanelLayout(projectId: string, data: {
   scale?: number;
 }): Promise<any> {
   try {
+    console.log('🔍 [API] updatePanelLayout called with:', { projectId, data });
+    
     const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/panels/layout/${projectId}`, {
       method: 'PATCH',
       body: JSON.stringify(data)
     });
     
+    console.log('🔍 [API] Backend response status:', response.status);
+    
     if (!response.ok) {
+      let errorMessage = 'Failed to update panel layout';
+      
       if (response.status === 401) {
-        throw new Error('Authentication required. Please log in.');
+        errorMessage = 'Authentication required. Please log in.';
+        console.error('❌ [API] Authentication failed for panel update');
+      } else if (response.status === 404) {
+        errorMessage = 'Panel layout not found.';
+        console.error('❌ [API] Panel layout not found for project:', projectId);
+      } else if (response.status === 500) {
+        errorMessage = 'Server error occurred while updating panel layout.';
+        console.error('❌ [API] Server error for panel update:', response.statusText);
       }
-      if (response.status === 404) {
-        throw new Error('Panel layout not found.');
+      
+      // Try to get error details from response
+      try {
+        const errorData = await response.json();
+        if (errorData.message) {
+          errorMessage = errorData.message;
+        }
+        if (errorData.error) {
+          console.error('❌ [API] Backend error code:', errorData.error);
+        }
+      } catch (parseError) {
+        console.warn('⚠️ [API] Could not parse error response');
       }
-      throw new Error(`Failed to update panel layout: ${response.statusText}`);
+      
+      throw new Error(errorMessage);
     }
     
-    return await response.json();
+    const result = await response.json();
+    console.log('✅ [API] Panel layout update successful:', {
+      projectId,
+      panelsCount: result.panels?.length || 0,
+      width: result.width,
+      height: result.height,
+      scale: result.scale
+    });
+    
+    return result;
   } catch (error) {
-    console.error('Update panel layout error:', error);
+    console.error('❌ [API] Update panel layout error:', error);
     throw error;
   }
 }

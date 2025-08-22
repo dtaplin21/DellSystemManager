@@ -4,23 +4,32 @@ const { eq } = require('drizzle-orm');
 
 const auth = async (req, res, next) => {
   try {
+    console.log('🔐 [AUTH] Authentication middleware called for:', req.method, req.path);
+    console.log('🔐 [AUTH] Request headers:', {
+      authorization: req.headers?.authorization ? 'Present' : 'Missing',
+      contentType: req.headers?.['content-type'],
+      userAgent: req.headers?.['user-agent']?.substring(0, 50) + '...'
+    });
+    
     // Only check Authorization header for Supabase tokens
     let token = null;
     
     if (req.headers?.authorization) {
       token = req.headers.authorization.replace('Bearer ', '');
+      console.log('🔐 [AUTH] Token extracted from Authorization header');
     }
     
     if (!token) {
-      console.log('❌ No Authorization header provided in auth middleware');
+      console.log('❌ [AUTH] No Authorization header provided in auth middleware');
       return res.status(401).json({ 
         message: 'Access denied. No token provided.',
         code: 'NO_TOKEN'
       });
     }
 
-    console.log('🔍 Token found in Authorization header, verifying with Supabase...');
-    console.log('🔍 Token preview:', token.substring(0, 20) + '...');
+    console.log('🔍 [AUTH] Token found in Authorization header, verifying with Supabase...');
+    console.log('🔍 [AUTH] Token preview:', token.substring(0, 20) + '...');
+    console.log('🔍 [AUTH] Token length:', token.length);
 
     // Verify the token with Supabase using server-side client
     const { data: { user: supabaseUser }, error } = await supabase.auth.getUser(token);
@@ -55,13 +64,16 @@ const auth = async (req, res, next) => {
       });
     }
 
-    console.log('✅ Token verified as Supabase token for user:', supabaseUser.id);
+    console.log('✅ [AUTH] Token verified as Supabase token for user:', supabaseUser.id);
     
     // Fetch complete user profile from database
+    console.log('🔍 [AUTH] Fetching user profile from database for user:', supabaseUser.id);
     const [userProfile] = await db
       .select()
       .from(users)
       .where(eq(users.id, supabaseUser.id));
+    
+    console.log('🔍 [AUTH] User profile from database:', userProfile ? 'Found' : 'Not found');
     
     // Set user info combining Supabase data with database profile
     req.user = {
@@ -74,8 +86,14 @@ const auth = async (req, res, next) => {
       profileImageUrl: userProfile?.profileImageUrl || supabaseUser.user_metadata?.avatar_url || null,
     };
     
-    console.log('✅ Auth successful with Supabase token for user:', req.user.id);
-    console.log('🔍 User admin status:', req.user.isAdmin);
+    console.log('✅ [AUTH] Auth successful with Supabase token for user:', req.user.id);
+    console.log('🔍 [AUTH] User details:', {
+      id: req.user.id,
+      email: req.user.email,
+      displayName: req.user.displayName,
+      isAdmin: req.user.isAdmin,
+      subscription: req.user.subscription
+    });
     return next();
     
   } catch (error) {

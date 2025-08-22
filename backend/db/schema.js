@@ -38,14 +38,14 @@ const projects = pgTable('projects', {
 });
 
 // Panel layouts table (matches actual database structure)
-const panels = pgTable('panel_layouts', {
+const panelLayouts = pgTable('panel_layouts', {
   id: uuid('id').primaryKey(),
   projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
-  panels: text('panels').notNull(), // JSON string of panel data
-  width: decimal('width').notNull(),
-  height: decimal('height').notNull(),
-  scale: decimal('scale').notNull().default('1'),
-  lastUpdated: timestamp('last_updated').notNull(),
+  panels: text('panels').notNull().default('[]'), // JSON string of panel data
+  width: decimal('width').notNull().default('4000'),
+  height: decimal('height').notNull().default('4000'),
+  scale: decimal('scale').notNull().default('1.0'),
+  lastUpdated: timestamp('last_updated').notNull().defaultNow(),
 });
 
 // Documents table
@@ -106,7 +106,7 @@ const panelLayoutRequirements = pgTable('panel_layout_requirements', {
 module.exports = {
   users,
   projects,
-  panels,
+  panelLayouts,
   documents,
   qcData,
   notifications,

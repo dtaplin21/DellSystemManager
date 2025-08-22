@@ -192,13 +192,36 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
       const scale = typeof currentLayout.scale === 'number' ? currentLayout.scale : DEFAULT_SCALE;
       const requestBody = { panels: supabasePanels, width, height, scale };
       
+      console.log('🔍 [SAVE] Sending panel update to backend:', {
+        projectId: project.id,
+        panelsCount: supabasePanels.length,
+        requestBody
+      });
+      
       // Use the updatePanelLayout function from the API helper
       const result = await updatePanelLayout(project.id, requestBody);
       
-      toastRef.current({
-        title: 'Project Saved',
-        description: 'Project data saved successfully.',
-      });
+      console.log('✅ [SAVE] Backend response received:', result);
+      
+      // Verify the save was successful
+      if (result && result.panels) {
+        console.log('✅ [SAVE] Panel save successful:', {
+          savedPanelsCount: result.panels.length,
+          savedWidth: result.width,
+          savedHeight: result.height,
+          savedScale: result.scale
+        });
+        
+        // Update local state with the saved data
+        setLayout(result);
+        
+        toastRef.current({
+          title: 'Project Saved',
+          description: `Successfully saved ${result.panels.length} panels to the database.`,
+        });
+      } else {
+        throw new Error('Backend returned invalid response format');
+      }
       
     } catch (error) {
       console.error('[DEBUG] Save: Error saving project:', error);
