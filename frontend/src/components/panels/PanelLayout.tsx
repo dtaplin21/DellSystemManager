@@ -149,24 +149,39 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     const containerWidth = containerDimensions.width;
     const containerHeight = containerDimensions.height;
     
-    const scaleX = containerWidth / worldWidth;
-    const scaleY = containerHeight / worldHeight;
+    // Add minimum dimensions to prevent extreme scaling
+    const minContainerWidth = 800;
+    const minContainerHeight = 600;
+    
+    const effectiveWidth = Math.max(containerWidth, minContainerWidth);
+    const effectiveHeight = Math.max(containerHeight, minContainerHeight);
+    
+    const scaleX = effectiveWidth / worldWidth;
+    const scaleY = effectiveHeight / worldHeight;
     const worldScale = Math.min(scaleX, scaleY);
+    
+    // Clamp worldScale to reasonable bounds to prevent extreme scaling
+    const clampedWorldScale = Math.max(0.1, Math.min(worldScale, 2.0));
+    
+    // Round to 3 decimal places to prevent unnecessary updates from tiny changes
+    const roundedWorldScale = Math.round(clampedWorldScale * 1000) / 1000;
     
     console.log('[PanelLayout] World dimensions calculated:', {
       worldWidth,
       worldHeight,
-      worldScale,
+      worldScale: roundedWorldScale,
       containerWidth,
       containerHeight,
-      resultingCanvasWidth: worldWidth * worldScale,
-      resultingCanvasHeight: worldHeight * worldScale
+      effectiveWidth,
+      effectiveHeight,
+      resultingCanvasWidth: worldWidth * roundedWorldScale,
+      resultingCanvasHeight: worldHeight * roundedWorldScale
     });
     
     // Debug: Check if this is causing panel size changes
     console.log('[DEBUG] World dimensions update - this will affect panel rendering size');
     
-    return { worldWidth, worldHeight, worldScale };
+    return { worldWidth, worldHeight, worldScale: roundedWorldScale };
   }, [containerDimensions.width, containerDimensions.height]);
   
   const [canvasState, setCanvasState] = useState<CanvasState>(() => {
@@ -184,9 +199,9 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
             showGuides: parsed.showGuides !== undefined ? parsed.showGuides : true,
             snapToGrid: parsed.snapToGrid !== undefined ? parsed.snapToGrid : true,
             gridSize: parsed.gridSize || 20,
-            worldWidth: worldDimensions.worldWidth,
-            worldHeight: worldDimensions.worldHeight,
-            worldScale: worldDimensions.worldScale
+            worldWidth: 4000, // Use constant values to avoid race condition
+            worldHeight: 4000,
+            worldScale: 0.3 // Use a reasonable default - will be updated by useEffect
           };
         }
       } catch (error) {
@@ -202,9 +217,9 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
       showGuides: true,
       snapToGrid: true,
       gridSize: 20,
-      worldWidth: worldDimensions.worldWidth,
-      worldHeight: worldDimensions.worldHeight,
-      worldScale: worldDimensions.worldScale
+      worldWidth: 4000, // Use constant values to avoid race condition
+      worldHeight: 4000,
+      worldScale: 0.3 // Use a reasonable default - will be updated by useEffect
     };
   });
 
@@ -228,9 +243,9 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     lastInternalPanels.current = JSON.stringify(panels.panels);
   }, [panels.panels]);
   
-  // Canvas dimensions
-  const [canvasWidth, setCanvasWidth] = useState(Math.ceil(worldDimensions.worldWidth * worldDimensions.worldScale))
-  const [canvasHeight, setCanvasHeight] = useState(Math.ceil(worldDimensions.worldHeight * worldDimensions.worldScale))
+  // Canvas dimensions - use stable values to prevent circular dependencies
+  const [canvasWidth, setCanvasWidth] = useState(1200) // Start with reasonable defaults
+  const [canvasHeight, setCanvasHeight] = useState(800)
   
   const { toast } = useToast()
   
@@ -245,16 +260,21 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   
   // Removed panelsRef - no longer needed since we pass panels directly to useCanvasRenderer
 
+  // Create a stable reference to world dimensions to prevent hook recreation
+  const worldDimensionsRef = useRef(worldDimensions);
+  
   // Memoize canvas state to prevent unnecessary hook recreations
   const memoizedCanvasState = useMemo(() => ({
-    worldScale: canvasState.worldScale,
+    // Use worldDimensions.worldScale for consistency with rendering
+    worldScale: worldDimensions.worldScale,
     scale: canvasState.scale,
     offsetX: canvasState.offsetX,
     offsetY: canvasState.offsetY,
     showGrid: canvasState.showGrid,
     snapEnabled: canvasState.snapToGrid
   }), [
-    canvasState.worldScale,
+    // Use the actual worldDimensions.worldScale to ensure consistency
+    worldDimensions.worldScale,
     canvasState.scale,
     canvasState.offsetX,
     canvasState.offsetY,
@@ -262,12 +282,43 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     canvasState.snapToGrid
   ]);
 
-  // Use interactive grid hook
+  // Use interactive grid hook with stable dependencies
   const { drawGrid, setupCanvas: setupGridCanvas, getWorldScale } = useInteractiveGrid({
     worldSize: WORLD_SIZE,
     gridConfig,
-    canvasState: memoizedCanvasState
+    canvasState: {
+      // Use stable values to prevent hook recreation
+      worldScale: worldDimensions.worldScale,
+      scale: canvasState.scale,
+      offsetX: canvasState.offsetX,
+      offsetY: canvasState.offsetY,
+      showGrid: canvasState.showGrid,
+      snapEnabled: canvasState.snapToGrid
+    }
   })
+  
+  // Debug when useInteractiveGrid is recreated
+  useEffect(() => {
+    console.log('[DEBUG] useInteractiveGrid recreated with new worldScale:', {
+      worldScale: worldDimensions.worldScale,
+      canvasStateScale: canvasState.scale
+    });
+  }, [worldDimensions.worldScale, canvasState.scale]);
+  
+  // Debug when world dimensions change
+  useEffect(() => {
+    if (worldDimensionsRef.current.worldScale !== worldDimensions.worldScale) {
+      console.log('[DEBUG] World dimensions changed in ref:', {
+        prev: worldDimensionsRef.current.worldScale,
+        new: worldDimensions.worldScale
+      });
+    }
+    worldDimensionsRef.current = worldDimensions;
+  }, [worldDimensions]);
+  
+  // Create a stable reference to canvas state to prevent hook recreation
+  const canvasStateRef = useRef(canvasState);
+  canvasStateRef.current = canvasState;
   
   // Memoize canvas renderer options to prevent unnecessary hook recreations
   const canvasRendererOptions = useMemo(() => ({
@@ -283,13 +334,15 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   }), [
     panels.panels,
     // Only depend on specific canvasState properties that affect rendering
-    canvasState.worldScale,
-    canvasState.scale,
-    canvasState.offsetX,
-    canvasState.offsetY,
-    canvasState.showGrid,
-    canvasState.showGuides,
-    canvasState.snapToGrid,
+    // Use stable references to prevent unnecessary hook recreations
+    // REMOVED worldDimensions.worldScale dependency to prevent hook recreation
+    // Use stable references to prevent hook recreation
+    canvasStateRef.current.scale,
+    canvasStateRef.current.offsetX,
+    canvasStateRef.current.offsetY,
+    canvasStateRef.current.showGrid,
+    canvasStateRef.current.showGuides,
+    canvasStateRef.current.snapToGrid,
     canvasWidth,
     canvasHeight,
     panels.selectedPanelId,
@@ -299,7 +352,12 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   ]);
 
   // Use canvas renderer hook FIRST to get renderCanvas function
-  const { renderCanvas, drawPanel, drawSelectionHandles, worldToScreen, screenToWorld } = useCanvasRenderer(canvasRendererOptions)
+  const { renderCanvas, drawPanel, drawSelectionHandles, worldToScreen, screenToWorld } = useCanvasRenderer({
+    ...canvasRendererOptions,
+    // Pass functions to get current state instead of values to prevent hook recreation
+    getWorldDimensions: () => worldDimensionsRef.current,
+    getCanvasState: () => canvasStateRef.current
+  })
   
   // Debug when useCanvasRenderer is recreated
   useEffect(() => {
@@ -584,7 +642,8 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
           if (bounds) {
             const { minX, minY, maxX, maxY } = bounds;
             
-            const worldScale = canvasState.worldScale;
+            // Use worldDimensions.worldScale for consistency with rendering
+            const worldScale = worldDimensions.worldScale;
             const panelWidth = (maxX - minX) * worldScale;
             const panelHeight = (maxY - minY) * worldScale;
             
@@ -604,7 +663,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
             }));
           }
         }
-  }, [panels.panels, canvasWidth, canvasHeight, canvasState.worldScale, calculatePanelBounds]);
+  }, [panels.panels, canvasWidth, canvasHeight, worldDimensions.worldScale, calculatePanelBounds]);
   
   // Auto-fit viewport when panels are loaded (with stable dependencies)
   // Temporarily disabled to prevent infinite loops
@@ -619,26 +678,29 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   // Use the EXACT same logic as the canvas renderer for consistency
   const localScreenToWorld = useCallback((sx: number, sy: number) => {
     // Match the exact transformation used in use-canvas-renderer.ts
-    const worldX = (sx - canvasState.offsetX) / (canvasState.worldScale * canvasState.scale);
-    const worldY = (sy - canvasState.offsetY) / (canvasState.worldScale * canvasState.scale);
+    // Use worldDimensions.worldScale for consistency with rendering
+    const worldX = (sx - canvasState.offsetX) / (worldDimensions.worldScale * canvasState.scale);
+    const worldY = (sy - canvasState.offsetY) / (worldDimensions.worldScale * canvasState.scale);
     
     const result = { x: worldX, y: worldY };
     console.log('[DEBUG] localScreenToWorld:', { 
       input: { sx, sy }, 
-      canvasState: { offsetX: canvasState.offsetX, offsetY: canvasState.offsetY, worldScale: canvasState.worldScale, scale: canvasState.scale },
-      totalScale: canvasState.worldScale * canvasState.scale,
+      canvasState: { offsetX: canvasState.offsetX, offsetY: canvasState.offsetY, scale: canvasState.scale },
+      worldDimensions: { worldScale: worldDimensions.worldScale },
+      totalScale: worldDimensions.worldScale * canvasState.scale,
       result 
     });
     return result;
-  }, [canvasState]);
+  }, [canvasState.offsetX, canvasState.offsetY, canvasState.scale, worldDimensions.worldScale]);
 
   const localWorldToScreen = useCallback((wx: number, wy: number) => {
-    const totalScale = canvasState.worldScale * canvasState.scale;
+    // Use worldDimensions.worldScale for consistency with rendering
+    const totalScale = worldDimensions.worldScale * canvasState.scale;
     return {
       x: wx * totalScale + canvasState.offsetX,
       y: wy * totalScale + canvasState.offsetY
     };
-  }, [canvasState]);
+  }, [worldDimensions.worldScale, canvasState.scale, canvasState.offsetX, canvasState.offsetY]);
 
   // Mouse event handlers
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -1064,20 +1126,58 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   
   // Update canvas state when world dimensions change
   useEffect(() => {
-    setCanvasState(prev => ({
-      ...prev,
-      worldWidth: worldDimensions.worldWidth,
-      worldHeight: worldDimensions.worldHeight,
-      worldScale: worldDimensions.worldScale
-    }));
+    console.log('[DEBUG] World dimensions changed, updating canvas state:', worldDimensions);
     
-    // Set canvas dimensions based on world dimensions (for normal mode)
-    // Only update if the dimensions actually changed to prevent unnecessary re-renders
+    // Only update canvasState if worldScale actually changed significantly
+    setCanvasState(prev => {
+      const scaleChanged = Math.abs(prev.worldScale - worldDimensions.worldScale) > 0.001;
+      
+      if (scaleChanged) {
+        console.log('[DEBUG] World scale changed significantly, updating canvas state:', {
+          prev: prev.worldScale,
+          new: worldDimensions.worldScale,
+          difference: Math.abs(prev.worldScale - worldDimensions.worldScale)
+        });
+        
+        return {
+          ...prev,
+          worldWidth: worldDimensions.worldWidth,
+          worldHeight: worldDimensions.worldHeight,
+          worldScale: worldDimensions.worldScale
+        };
+      }
+      
+      // Only update width/height if they changed
+      if (prev.worldWidth !== worldDimensions.worldWidth || prev.worldHeight !== worldDimensions.worldHeight) {
+        return {
+          ...prev,
+          worldWidth: worldDimensions.worldWidth,
+          worldHeight: worldDimensions.worldHeight
+        };
+      }
+      
+      return prev;
+    });
+    
+    // Update canvas dimensions only when worldScale changes significantly
     const newWidth = Math.ceil(worldDimensions.worldWidth * worldDimensions.worldScale);
     const newHeight = Math.ceil(worldDimensions.worldHeight * worldDimensions.worldScale);
     
-    setCanvasWidth(prev => prev !== newWidth ? newWidth : prev);
-    setCanvasHeight(prev => prev !== newHeight ? newHeight : prev);
+    setCanvasWidth(prev => {
+      if (Math.abs(prev - newWidth) > 1) {
+        console.log('[DEBUG] Canvas width updated:', { prev, new: newWidth });
+        return newWidth;
+      }
+      return prev;
+    });
+    
+    setCanvasHeight(prev => {
+      if (Math.abs(prev - newHeight) > 1) {
+        console.log('[DEBUG] Canvas height updated:', { prev, new: newHeight });
+        return newHeight;
+      }
+      return prev;
+    });
   }, [worldDimensions]);
   
   // Update container dimensions when container ref is available
@@ -1141,13 +1241,13 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
           scale: canvasState.scale,
           worldScale: canvasState.worldScale,
           worldDimensionsScale: worldDimensions.worldScale,
-          totalScale: canvasState.worldScale * canvasState.scale
+          totalScale: worldDimensions.worldScale * canvasState.scale
         });
       } catch (error) {
         console.warn('Failed to save zoom state to localStorage:', error);
       }
     }
-  }, [canvasState.scale, canvasState.offsetX, canvasState.offsetY, canvasState.showGrid, canvasState.showGuides, canvasState.snapToGrid, canvasState.gridSize, canvasState.worldScale, worldDimensions.worldScale]);
+  }, [canvasState.scale, canvasState.offsetX, canvasState.offsetY, canvasState.showGrid, canvasState.showGuides, canvasState.snapToGrid, canvasState.gridSize]);
   
   // Cleanup fullscreen mode on unmount
   useEffect(() => {
@@ -1255,7 +1355,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
                   Zoom: <span className="text-white font-medium">{zoomPercentage}%</span>
                 </div>
                 <div className="text-gray-300">
-                  Scale: <span className="text-white font-medium">{canvasState.worldScale.toFixed(3)}</span> px/ft
+                  Scale: <span className="text-white font-medium">{worldDimensions.worldScale.toFixed(3)}</span> px/ft
                 </div>
                 <div className="text-gray-300">
                   Panels: <span className="text-white font-medium">{panels.panels.length}</span>

@@ -34,6 +34,8 @@ export interface UseCanvasRendererOptions {
   isValidPanel: (panel: any) => panel is Panel
   getPanelValidationErrors: (panel: any) => string[]
   drawGrid: (ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement) => void
+  getWorldDimensions?: () => { worldWidth: number; worldHeight: number; worldScale: number }
+  getCanvasState?: () => CanvasState
 }
 
 export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasRendererReturn => {
@@ -46,17 +48,25 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
     getCurrentCanvas,
     isValidPanel,
     getPanelValidationErrors,
-    drawGrid
+    drawGrid,
+    getWorldDimensions,
+    getCanvasState
   } = options
 
   // Coordinate transformation helpers
   const worldToScreenCoord = useCallback((wx: number, wy: number) => {
-    return worldToScreen(wx, wy, canvasState.worldScale, canvasState.scale, canvasState.offsetX, canvasState.offsetY)
-  }, [canvasState.worldScale, canvasState.scale, canvasState.offsetX, canvasState.offsetY])
+    // Use dynamic state if available, otherwise fall back to canvasState
+    const currentCanvasState = getCanvasState ? getCanvasState() : canvasState;
+    const worldScale = getWorldDimensions ? getWorldDimensions().worldScale : currentCanvasState.worldScale;
+    return worldToScreen(wx, wy, worldScale, currentCanvasState.scale, currentCanvasState.offsetX, currentCanvasState.offsetY)
+  }, [getWorldDimensions, getCanvasState, canvasState])
 
   const screenToWorldCoord = useCallback((sx: number, sy: number) => {
-    return screenToWorld(sx, sy, canvasState.worldScale, canvasState.scale, canvasState.offsetX, canvasState.offsetY)
-  }, [canvasState.worldScale, canvasState.scale, canvasState.offsetX, canvasState.offsetY])
+    // Use dynamic state if available, otherwise fall back to canvasState
+    const currentCanvasState = getCanvasState ? getCanvasState() : canvasState;
+    const worldScale = getWorldDimensions ? getWorldDimensions().worldScale : currentCanvasState.worldScale;
+    return screenToWorld(sx, sy, worldScale, currentCanvasState.scale, currentCanvasState.offsetX, currentCanvasState.offsetY)
+  }, [getWorldDimensions, getCanvasState, canvasState])
 
   // Draw panel
   const drawPanel = useCallback((ctx: CanvasRenderingContext2D, panel: Panel, isSelected: boolean) => {
@@ -73,9 +83,12 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
     
     // Convert world coordinates (feet) to screen coordinates (pixels)
     // Use the geometry utility functions for proper transformation
-    const screenPos = worldToScreen(panel.x, panel.y, canvasState.worldScale, canvasState.scale, canvasState.offsetX, canvasState.offsetY);
-    const screenWidth = panel.width * canvasState.worldScale * canvasState.scale;
-    const screenHeight = panel.height * canvasState.worldScale * canvasState.scale;
+    // Use dynamic state if available, otherwise fall back to canvasState
+    const currentCanvasState = getCanvasState ? getCanvasState() : canvasState;
+    const worldScale = getWorldDimensions ? getWorldDimensions().worldScale : currentCanvasState.worldScale;
+    const screenPos = worldToScreen(panel.x, panel.y, worldScale, currentCanvasState.scale, currentCanvasState.offsetX, currentCanvasState.offsetY);
+    const screenWidth = panel.width * worldScale * currentCanvasState.scale;
+    const screenHeight = panel.height * worldScale * currentCanvasState.scale;
     
     // Check if panel is completely outside canvas bounds (with some margin)
     const margin = 100; // pixels
@@ -174,9 +187,12 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
     }
     
     // Convert world coordinates to screen coordinates
-    const screenPos = worldToScreen(panel.x, panel.y, canvasState.worldScale, canvasState.scale, canvasState.offsetX, canvasState.offsetY);
-    const screenWidth = panel.width * canvasState.worldScale * canvasState.scale;
-    const screenHeight = panel.height * canvasState.worldScale * canvasState.scale;
+    // Use dynamic state if available, otherwise fall back to canvasState
+    const currentCanvasState = getCanvasState ? getCanvasState() : canvasState;
+    const worldScale = getWorldDimensions ? getWorldDimensions().worldScale : currentCanvasState.worldScale;
+    const screenPos = worldToScreen(panel.x, panel.y, worldScale, currentCanvasState.scale, currentCanvasState.offsetX, currentCanvasState.offsetY);
+    const screenWidth = panel.width * worldScale * currentCanvasState.scale;
+    const screenHeight = panel.height * worldScale * currentCanvasState.scale;
     
     const handleSize = 8
     
@@ -273,7 +289,7 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
     ctx.strokeRect(rotationHandleX - handleSize / 2, rotationHandleY - handleSize / 2, handleSize, handleSize)
     
     ctx.restore()
-  }, [isValidPanel, getPanelValidationErrors, worldToScreen])
+  }, [isValidPanel, getPanelValidationErrors, worldToScreen, getWorldDimensions, canvasState.worldScale, canvasState.scale, canvasState.offsetX, canvasState.offsetY])
 
   // Canvas rendering function
   const renderCanvas = useCallback(() => {
@@ -293,7 +309,8 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
     ctx.clearRect(0, 0, actualCanvasWidth, actualCanvasHeight)
     
     // Draw grid using the new interactive grid system
-    if (canvasState.showGrid) {
+    const currentCanvasState = getCanvasState ? getCanvasState() : canvasState;
+    if (currentCanvasState.showGrid) {
       drawGrid(ctx, canvas)
     }
     
@@ -334,7 +351,7 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
         }
       }
     }
-  }, [panels, selectedPanelId, drawGrid, drawPanel, drawSelectionHandles, isValidPanel, getPanelValidationErrors, canvasState.showGrid])
+  }, [panels, selectedPanelId, drawGrid, drawPanel, drawSelectionHandles, isValidPanel, getPanelValidationErrors, getCanvasState, canvasState.showGrid])
 
   return {
     renderCanvas,
