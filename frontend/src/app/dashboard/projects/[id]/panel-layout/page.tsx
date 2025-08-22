@@ -212,8 +212,10 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
           savedScale: result.scale
         });
         
-        // Update local state with the saved data
-        setLayout(result);
+        // CRITICAL FIX: Don't overwrite local state with backend response
+        // This prevents newly added panels from disappearing
+        // The local state already has the panel, just confirm the save was successful
+        console.log('✅ [SAVE] Keeping local state intact, save confirmed');
         
         toastRef.current({
           title: 'Project Saved',

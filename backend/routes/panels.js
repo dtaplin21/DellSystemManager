@@ -358,6 +358,68 @@ router.patch('/layout/:projectId', async (req, res, next) => {
   }
 });
 
+// Debug endpoint to test panel operations
+router.get('/debug/:projectId', async (req, res, next) => {
+  try {
+    const { projectId } = req.params;
+    console.log('🔍 [DEBUG] Debug endpoint called for project:', projectId);
+    
+    // Check if project exists
+    let [project] = await db
+      .select()
+      .from(projects)
+      .where(eq(projects.id, projectId));
+    
+    console.log('🔍 [DEBUG] Project found:', project ? 'YES' : 'NO');
+    
+    // Check if panel layout exists
+    let [panelLayout] = await db
+      .select()
+      .from(panelLayouts)
+      .where(eq(panelLayouts.projectId, projectId));
+    
+    console.log('🔍 [DEBUG] Panel layout found:', panelLayout ? 'YES' : 'NO');
+    if (panelLayout) {
+      let panelsCount = 0;
+      try {
+        if (panelLayout.panels && typeof panelLayout.panels === 'string') {
+          const parsedPanels = JSON.parse(panelLayout.panels);
+          panelsCount = Array.isArray(parsedPanels) ? parsedPanels.length : 0;
+        }
+      } catch (parseError) {
+        console.warn('⚠️ [DEBUG] Could not parse panels JSON:', parseError.message);
+        panelsCount = 0;
+      }
+      
+      console.log('🔍 [DEBUG] Panel layout data:', {
+        id: panelLayout.id,
+        projectId: panelLayout.projectId,
+        panelsCount: panelsCount,
+        width: panelLayout.width,
+        height: panelLayout.height,
+        scale: panelLayout.scale,
+        lastUpdated: panelLayout.lastUpdated
+      });
+    }
+    
+    res.status(200).json({
+      project: project ? { id: project.id, name: project.name } : null,
+      panelLayout: panelLayout ? {
+        id: panelLayout.id,
+        projectId: panelLayout.projectId,
+        panels: panelLayout.panels ? JSON.parse(panelLayout.panels) : [],
+        width: panelLayout.width,
+        height: panelLayout.height,
+        scale: panelLayout.scale,
+        lastUpdated: panelLayout.lastUpdated
+      } : null
+    });
+  } catch (error) {
+    console.error('❌ [DEBUG] Debug endpoint error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Get panel requirements for a project
 router.get('/requirements/:projectId', async (req, res, next) => {
   // Apply auth middleware for production
