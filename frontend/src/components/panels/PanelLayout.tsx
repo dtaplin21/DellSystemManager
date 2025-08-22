@@ -138,42 +138,75 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   const isDraggingRef = useRef(false)
 
   const [spacePressed, setSpacePressed] = useState(false)
+  const [containerDimensions, setContainerDimensions] = useState({ width: 1200, height: 800 })
   
   // Calculate world dimensions - updated to 4000x4000
   const worldDimensions = useMemo(() => {
     const worldWidth = WORLD_SIZE; // 4000ft
     const worldHeight = WORLD_SIZE; // 4000ft
     
-    const minCanvasWidth = 1200;
-    const minCanvasHeight = 800;
+    // Use actual container dimensions if available, otherwise fall back to minimums
+    const containerWidth = containerDimensions.width;
+    const containerHeight = containerDimensions.height;
     
-    const scaleX = minCanvasWidth / worldWidth;
-    const scaleY = minCanvasHeight / worldHeight;
+    const scaleX = containerWidth / worldWidth;
+    const scaleY = containerHeight / worldHeight;
     const worldScale = Math.min(scaleX, scaleY);
     
     console.log('[PanelLayout] World dimensions calculated:', {
       worldWidth,
       worldHeight,
       worldScale,
+      containerWidth,
+      containerHeight,
       resultingCanvasWidth: worldWidth * worldScale,
       resultingCanvasHeight: worldHeight * worldScale
     });
     
+    // Debug: Check if this is causing panel size changes
+    console.log('[DEBUG] World dimensions update - this will affect panel rendering size');
+    
     return { worldWidth, worldHeight, worldScale };
-  }, []);
+  }, [containerDimensions]);
   
-  const [canvasState, setCanvasState] = useState<CanvasState>({
-    scale: 1,
-    offsetX: 0,
-    offsetY: 0,
-    showGrid: true,
-    showGuides: true,
-    snapToGrid: true,
-    gridSize: 20,
-    worldWidth: worldDimensions.worldWidth,
-    worldHeight: worldDimensions.worldHeight,
-    worldScale: worldDimensions.worldScale
-  })
+  const [canvasState, setCanvasState] = useState<CanvasState>(() => {
+    // Try to restore zoom state from localStorage
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('panelLayoutZoomState');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          return {
+            scale: parsed.scale || 1,
+            offsetX: parsed.offsetX || 0,
+            offsetY: parsed.offsetY || 0,
+            showGrid: parsed.showGrid !== undefined ? parsed.showGrid : true,
+            showGuides: parsed.showGuides !== undefined ? parsed.showGuides : true,
+            snapToGrid: parsed.snapToGrid !== undefined ? parsed.snapToGrid : true,
+            gridSize: parsed.gridSize || 20,
+            worldWidth: worldDimensions.worldWidth,
+            worldHeight: worldDimensions.worldHeight,
+            worldScale: worldDimensions.worldScale
+          };
+        }
+      } catch (error) {
+        console.warn('Failed to restore zoom state from localStorage:', error);
+      }
+    }
+    
+    return {
+      scale: 1,
+      offsetX: 0,
+      offsetY: 0,
+      showGrid: true,
+      showGuides: true,
+      snapToGrid: true,
+      gridSize: 20,
+      worldWidth: worldDimensions.worldWidth,
+      worldHeight: worldDimensions.worldHeight,
+      worldScale: worldDimensions.worldScale
+    };
+  });
 
   // Grid configuration
   const gridConfig: GridConfig = useMemo(() => ({
@@ -453,17 +486,17 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     const availableWidth = canvas.clientWidth - padding;
     const availableHeight = canvas.clientHeight - padding;
 
-    const newWorldScale = Math.min(availableWidth / WORLD_SIZE, availableHeight / WORLD_SIZE);
-    const worldSizeScreen = WORLD_SIZE * newWorldScale;
+    // Use the current worldScale from worldDimensions, don't change it
+    const worldScale = worldDimensions.worldScale;
+    const worldSizeScreen = WORLD_SIZE * worldScale;
 
     setCanvasState(prev => ({
       ...prev,
-      worldScale: newWorldScale,
       scale: 1.0,
       offsetX: (canvas.clientWidth - worldSizeScreen) / 2,
       offsetY: (canvas.clientHeight - worldSizeScreen) / 2,
     }));
-  }, []);
+  }, [worldDimensions.worldScale]);
 
   const zoomToFitPanels = useCallback(() => {
     const canvas = canvasRef.current;
@@ -485,21 +518,24 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     const availableWidth = canvas.clientWidth - 100; // screen padding
     const availableHeight = canvas.clientHeight - 100;
 
+    // Use the current worldScale from worldDimensions, don't change it
+    const worldScale = worldDimensions.worldScale;
+    
+    // Calculate the scale factor needed to fit panels within the available space
     const scaleX = availableWidth / (boundsWidth + padding);
     const scaleY = availableHeight / (boundsHeight + padding);
-    const newWorldScale = Math.min(scaleX, scaleY);
+    const fitScale = Math.min(scaleX, scaleY) / worldScale;
 
     const centerX = (minX + maxX) / 2;
     const centerY = (minY + maxY) / 2;
 
     setCanvasState(prev => ({
       ...prev,
-      worldScale: newWorldScale,
-      scale: 1.0,
-      offsetX: canvas.clientWidth / 2 - centerX * newWorldScale,
-      offsetY: canvas.clientHeight / 2 - centerY * newWorldScale,
+      scale: fitScale,
+      offsetX: canvas.clientWidth / 2 - centerX * worldScale,
+      offsetY: canvas.clientHeight / 2 - centerY * worldScale,
     }));
-  }, [panels.panels]);
+  }, [panels.panels, worldDimensions.worldScale]);
 
   // Auto-fit viewport when panels are loaded
   const autoFitViewport = useCallback(() => {
@@ -999,6 +1035,55 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     setCanvasWidth(Math.ceil(worldDimensions.worldWidth * worldDimensions.worldScale));
     setCanvasHeight(Math.ceil(worldDimensions.worldHeight * worldDimensions.worldScale));
   }, [worldDimensions]);
+  
+  // Update container dimensions when container ref is available
+  useEffect(() => {
+    const container = containerRef.current;
+    if (container) {
+      const updateDimensions = () => {
+        const rect = container.getBoundingClientRect();
+        setContainerDimensions({
+          width: rect.width,
+          height: rect.height
+        });
+      };
+      
+      updateDimensions();
+      
+      // Create a ResizeObserver to watch for container size changes
+      const resizeObserver = new ResizeObserver(updateDimensions);
+      resizeObserver.observe(container);
+      
+      return () => resizeObserver.disconnect();
+    }
+  }, []);
+  
+  // Persist zoom state to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('panelLayoutZoomState', JSON.stringify({
+          scale: canvasState.scale,
+          offsetX: canvasState.offsetX,
+          offsetY: canvasState.offsetY,
+          showGrid: canvasState.showGrid,
+          showGuides: canvasState.showGuides,
+          snapToGrid: canvasState.snapToGrid,
+          gridSize: canvasState.gridSize
+        }));
+        
+        // Debug logging for scale consistency
+        console.log('[DEBUG] Zoom state saved:', {
+          scale: canvasState.scale,
+          worldScale: canvasState.worldScale,
+          worldDimensionsScale: worldDimensions.worldScale,
+          totalScale: canvasState.worldScale * canvasState.scale
+        });
+      } catch (error) {
+        console.warn('Failed to save zoom state to localStorage:', error);
+      }
+    }
+  }, [canvasState.scale, canvasState.offsetX, canvasState.offsetY, canvasState.showGrid, canvasState.showGuides, canvasState.snapToGrid, canvasState.gridSize, canvasState.worldScale, worldDimensions.worldScale]);
   
   // Cleanup fullscreen mode on unmount
   useEffect(() => {
