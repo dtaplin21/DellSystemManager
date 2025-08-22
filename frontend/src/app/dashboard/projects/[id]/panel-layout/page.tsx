@@ -944,7 +944,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
       <div className="text-center py-8">
         <h2 className="text-xl font-semibold mb-2">Panel Layout Not Found</h2>
         <p className="text-gray-500 mb-4">
-          The panel layout you're looking for does not exist or you don't have access to it.
+          The panel layout you&apos;re looking for does not exist or you don&apos;t have access to it.
         </p>
         <Button onClick={() => router.push(`/dashboard/projects/${id}`)}>
           Back to Project

@@ -131,10 +131,10 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   const [spacePressed, setSpacePressed] = useState(false)
   const [containerDimensions, setContainerDimensions] = useState({ width: 1200, height: 800 })
   
-  // Calculate world dimensions - updated to 4000x4000
+  // Calculate world dimensions - updated to 15000x15000
   const worldDimensions = useMemo(() => {
-    const worldWidth = WORLD_SIZE; // 4000ft
-    const worldHeight = WORLD_SIZE; // 4000ft
+    const worldWidth = WORLD_SIZE; // 15000ft
+    const worldHeight = WORLD_SIZE; // 15000ft
     
     // Use actual container dimensions if available, otherwise fall back to minimums
     const containerWidth = containerDimensions.width;
@@ -156,11 +156,6 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     
     // Round to 3 decimal places to prevent unnecessary updates from tiny changes
     const roundedWorldScale = Math.round(clampedWorldScale * 1000) / 1000;
-    
-    // Debug: Log the exact calculation to check for precision issues
-    if (Math.abs(roundedWorldScale - worldDimensionsRef.current?.worldScale || 0) > 0.001) {
-      return { worldWidth, worldHeight, worldScale: roundedWorldScale };
-    }
     
     return { worldWidth, worldHeight, worldScale: roundedWorldScale };
   }, [containerDimensions.width, containerDimensions.height]);
@@ -237,13 +232,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   
   // Removed panelsRef - no longer needed since we pass panels directly to useCanvasRenderer
 
-  // Create a stable reference to world dimensions to prevent hook recreation
-  const worldDimensionsRef = useRef(worldDimensions);
-  
-  // Update world dimensions ref when world dimensions change
-  useEffect(() => {
-    worldDimensionsRef.current = worldDimensions;
-  }, [worldDimensions]);
+
   
   // Memoize canvas state to prevent unnecessary hook recreations
   const memoizedCanvasState = useMemo(() => ({
@@ -279,10 +268,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     }
   })
   
-  // Debug when world dimensions change
-  useEffect(() => {
-    worldDimensionsRef.current = worldDimensions;
-  }, [worldDimensions]);
+
   
   // Create a stable reference to canvas state to prevent hook recreation
   const canvasStateRef = useRef(canvasState);
@@ -323,7 +309,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   const { renderCanvas, drawPanel, drawSelectionHandles, worldToScreen, screenToWorld } = useCanvasRenderer({
     ...canvasRendererOptions,
     // Pass functions to get current state instead of values to prevent hook recreation
-    getWorldDimensions: () => worldDimensionsRef.current,
+    getWorldDimensions: () => worldDimensions,
     getCanvasState: () => canvasStateRef.current
   })
   
