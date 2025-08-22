@@ -99,7 +99,7 @@ const panelReducer = (state: PanelState, action: PanelAction): PanelState => {
   }
 }
 
-const WORLD_SIZE = 4000 // feet - using the new 4000x4000 world
+const WORLD_SIZE = 15000 // feet - using the 15000x15000 world to match backend and parent component
 const GRID_MINOR = 50 // feet
 const GRID_MAJOR = 250 // feet
 const SNAP_SIZE = 25 // feet
@@ -114,15 +114,6 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   
   // Get the selected panel from the reducer state
   const selectedPanel = panels.selectedPanelId ? panels.panels.find(p => p.id === panels.selectedPanelId) : null
-  
-  // Debug selected panel changes
-  useEffect(() => {
-    console.log('[DEBUG] Selected panel changed:', {
-      selectedPanelId: panels.selectedPanelId,
-      selectedPanel: selectedPanel,
-      totalPanels: panels.panels.length
-    });
-  }, [panels.selectedPanelId, selectedPanel, panels.panels.length]);
   
   // New mouse state for enhanced interactivity
   const [mouseState, setMouseState] = useState<MouseState>({
@@ -166,20 +157,10 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     // Round to 3 decimal places to prevent unnecessary updates from tiny changes
     const roundedWorldScale = Math.round(clampedWorldScale * 1000) / 1000;
     
-    console.log('[PanelLayout] World dimensions calculated:', {
-      worldWidth,
-      worldHeight,
-      worldScale: roundedWorldScale,
-      containerWidth,
-      containerHeight,
-      effectiveWidth,
-      effectiveHeight,
-      resultingCanvasWidth: worldWidth * roundedWorldScale,
-      resultingCanvasHeight: worldHeight * roundedWorldScale
-    });
-    
-    // Debug: Check if this is causing panel size changes
-    console.log('[DEBUG] World dimensions update - this will affect panel rendering size');
+    // Debug: Log the exact calculation to check for precision issues
+    if (Math.abs(roundedWorldScale - worldDimensionsRef.current?.worldScale || 0) > 0.001) {
+      return { worldWidth, worldHeight, worldScale: roundedWorldScale };
+    }
     
     return { worldWidth, worldHeight, worldScale: roundedWorldScale };
   }, [containerDimensions.width, containerDimensions.height]);
@@ -199,8 +180,8 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
             showGuides: parsed.showGuides !== undefined ? parsed.showGuides : true,
             snapToGrid: parsed.snapToGrid !== undefined ? parsed.snapToGrid : true,
             gridSize: parsed.gridSize || 20,
-            worldWidth: 4000, // Use constant values to avoid race condition
-            worldHeight: 4000,
+            worldWidth: WORLD_SIZE, // Use constant values to avoid race condition
+            worldHeight: WORLD_SIZE,
             worldScale: 0.3 // Use a reasonable default - will be updated by useEffect
           };
         }
@@ -217,8 +198,8 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
       showGuides: true,
       snapToGrid: true,
       gridSize: 20,
-      worldWidth: 4000, // Use constant values to avoid race condition
-      worldHeight: 4000,
+      worldWidth: WORLD_SIZE, // Use constant values to avoid race condition
+      worldHeight: WORLD_SIZE,
       worldScale: 0.3 // Use a reasonable default - will be updated by useEffect
     };
   });
@@ -236,10 +217,6 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   
   // Update internal panels ref when panels change
   useEffect(() => {
-    console.log('[DEBUG] Internal panels updated:', {
-      count: panels.panels.length,
-      panels: panels.panels.map(p => ({ id: p.id, x: p.x, y: p.y, width: p.width, height: p.height }))
-    });
     lastInternalPanels.current = JSON.stringify(panels.panels);
   }, [panels.panels]);
   
@@ -262,6 +239,11 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
 
   // Create a stable reference to world dimensions to prevent hook recreation
   const worldDimensionsRef = useRef(worldDimensions);
+  
+  // Update world dimensions ref when world dimensions change
+  useEffect(() => {
+    worldDimensionsRef.current = worldDimensions;
+  }, [worldDimensions]);
   
   // Memoize canvas state to prevent unnecessary hook recreations
   const memoizedCanvasState = useMemo(() => ({
@@ -297,22 +279,8 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     }
   })
   
-  // Debug when useInteractiveGrid is recreated
-  useEffect(() => {
-    console.log('[DEBUG] useInteractiveGrid recreated with new worldScale:', {
-      worldScale: worldDimensions.worldScale,
-      canvasStateScale: canvasState.scale
-    });
-  }, [worldDimensions.worldScale, canvasState.scale]);
-  
   // Debug when world dimensions change
   useEffect(() => {
-    if (worldDimensionsRef.current.worldScale !== worldDimensions.worldScale) {
-      console.log('[DEBUG] World dimensions changed in ref:', {
-        prev: worldDimensionsRef.current.worldScale,
-        new: worldDimensions.worldScale
-      });
-    }
     worldDimensionsRef.current = worldDimensions;
   }, [worldDimensions]);
   
@@ -359,29 +327,9 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     getCanvasState: () => canvasStateRef.current
   })
   
-  // Debug when useCanvasRenderer is recreated
-  useEffect(() => {
-    console.log('[DEBUG] useCanvasRenderer recreated with new panels:', {
-      panelCount: panels.panels.length,
-      panelPositions: panels.panels.map(p => ({ id: p.id, x: p.x, y: p.y }))
-    });
-  }, [panels.panels]);
-  
-  // Debug when canvas renderer options change
-  useEffect(() => {
-    console.log('[DEBUG] Canvas renderer options changed:', {
-      panelCount: panels.panels.length,
-      worldScale: canvasState.worldScale,
-      scale: canvasState.scale,
-      canvasWidth,
-      canvasHeight
-    });
-  }, [canvasRendererOptions]);
-  
   // Store the renderCanvas function in the ref
   useEffect(() => {
-    console.log('[DEBUG] Updating renderCanvasRef with new renderCanvas function');
-    renderCanvasRef.current = renderCanvas
+    renderCanvasRef.current = renderCanvas;
   }, [renderCanvas])
   
   // Use fullscreen canvas hook SECOND with the actual renderCanvas function
@@ -404,16 +352,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   
   // Consolidated fullscreen state management
   useEffect(() => {
-    console.log('🔍 [PanelLayout] Fullscreen state changed:', { 
-      isFullscreen, 
-      fullscreenCanvasWidth, 
-      fullscreenCanvasHeight,
-      fullscreenCanvasRef: fullscreenCanvasRef.current ? 'exists' : 'null'
-    });
-    
     if (isFullscreen && fullscreenCanvasRef.current) {
-      console.log('🔍 [PanelLayout] Setting up fullscreen canvas...');
-      
       // Setup canvas immediately
       const canvas = fullscreenCanvasRef.current;
       const screenWidth = window.innerWidth;
@@ -437,23 +376,13 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
           throw new Error('Failed to get canvas context');
         }
       } catch (error) {
-        console.error('🔍 [PanelLayout] Fullscreen canvas setup failed:', error);
         // Log error but continue - let the hook handle state reset
         return;
       }
       
-              console.log('🔍 [PanelLayout] Fullscreen canvas setup complete:', { 
-          screenWidth, 
-          screenHeight, 
-          dpr: window.devicePixelRatio || 1,
-          canvasWidth: canvas.width,
-          canvasHeight: canvas.height
-        });
-      
       // Force render after setup with a longer delay to ensure state is stable
       setTimeout(() => {
         if (renderCanvasRef.current && isFullscreen) {
-          console.log('🔍 [PanelLayout] Calling renderCanvas in fullscreen mode');
           renderCanvasRef.current();
         }
       }, 200);
@@ -465,17 +394,13 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     const externalPanelsRef = externalPanels || [];
     const externalPanelsString = JSON.stringify(externalPanelsRef);
     
-    console.log('[DEBUG] External panels received:', externalPanelsRef);
-    
     // Only process if external panels actually changed
     if (lastExternalPanels.current !== externalPanelsString) {
-      console.log('[PanelLayout] External panels changed, processing...');
       lastExternalPanels.current = externalPanelsString;
       
       // Check if internal panels are already the same
       const internalPanelsString = lastInternalPanels.current;
       if (externalPanelsString === internalPanelsString) {
-        console.log('[PanelLayout] Internal panels already match, skipping');
         return;
       }
       
@@ -489,11 +414,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
           return true;
         });
         
-        console.log('[DEBUG] Valid external panels:', validExternalPanels);
-        console.log('[DEBUG] Invalid external panels:', externalPanelsRef.filter(p => !isValidPanel(p)));
-        
         if (validExternalPanels.length > 0) {
-          console.log('[PanelLayout] Setting internal panels from external source');
           // Set a flag to prevent the notification useEffect from running
           lastInternalPanels.current = externalPanelsString;
           dispatch({ type: 'SET_PANELS', payload: validExternalPanels })
@@ -501,7 +422,6 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
       } else {
         // Only clear if internal panels are not already empty
         if (internalPanelsString !== '[]') {
-          console.log('[PanelLayout] Clearing internal panels from external source');
           // Set a flag to prevent the notification useEffect from running
           lastInternalPanels.current = '[]';
           dispatch({ type: 'SET_PANELS', payload: [] })
@@ -524,12 +444,10 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     
     // Skip if this change was triggered by external panels update
     if (currentPanelsString === lastInternalPanels.current) {
-      console.log('[PanelLayout] Skipping notification - change was from external source');
       return;
     }
     
     if (currentPanelsString !== lastNotifiedPanels.current && onPanelUpdateRef.current) {
-      console.log('[PanelLayout] Notifying parent of panel changes');
       // Additional check: only update if the change is meaningful
       const currentPanels = panels.panels;
       const lastNotifiedPanelsParsed = lastNotifiedPanels.current ? JSON.parse(lastNotifiedPanels.current) : [];
@@ -682,15 +600,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     const worldX = (sx - canvasState.offsetX) / (worldDimensions.worldScale * canvasState.scale);
     const worldY = (sy - canvasState.offsetY) / (worldDimensions.worldScale * canvasState.scale);
     
-    const result = { x: worldX, y: worldY };
-    console.log('[DEBUG] localScreenToWorld:', { 
-      input: { sx, sy }, 
-      canvasState: { offsetX: canvasState.offsetX, offsetY: canvasState.offsetY, scale: canvasState.scale },
-      worldDimensions: { worldScale: worldDimensions.worldScale },
-      totalScale: worldDimensions.worldScale * canvasState.scale,
-      result 
-    });
-    return result;
+    return { x: worldX, y: worldY };
   }, [canvasState.offsetX, canvasState.offsetY, canvasState.scale, worldDimensions.worldScale]);
 
   const localWorldToScreen = useCallback((wx: number, wy: number) => {
@@ -711,10 +621,6 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     const x = e.clientX - rect.left
     const y = e.clientY - rect.top
     
-    console.log('[DEBUG] Mouse click detected:', { x, y, button: e.button, spacePressed });
-    console.log('[DEBUG] Current panels:', panels.panels);
-    console.log('[DEBUG] Canvas state:', canvasState);
-    
     if (e.button === 1 || (e.button === 0 && spacePressed)) {
       // Middle click or space + left click for panning
       setMouseState(prev => ({
@@ -727,23 +633,12 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     } else if (e.button === 0) {
       // Left click for selection/dragging
       
-      console.log('[DEBUG] Starting hit test with panels:', panels.panels.length);
-      console.log('[DEBUG] Canvas state for hit test:', canvasState);
-      
       // Check panels in reverse order (top to bottom)
       for (let i = panels.panels.length - 1; i >= 0; i--) {
         const panel = panels.panels[i];
         
         // Convert screen coordinates to world coordinates for hit testing
         const worldPos = localScreenToWorld(x, y);
-        
-        // More detailed debugging
-        console.log('[DEBUG] Testing panel:', {
-          id: panel.id,
-          shape: panel.shape,
-          bounds: { x: panel.x, y: panel.y, width: panel.width, height: panel.height },
-          worldClick: worldPos
-        });
         
         // Enhanced hit test based on panel shape
         let isHit = false;
@@ -756,11 +651,6 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
             const leftX = panel.x;
             const rightX = panel.x + panel.width;
             const bottomY = panel.y + panel.height;
-            
-            console.log('[DEBUG] Triangle hit test:', {
-              panelBounds: { centerX, topY, leftX, rightX, bottomY },
-              worldPos
-            });
             
             // Check if point is inside triangle using barycentric coordinates
             const v0x = rightX - leftX;
@@ -780,8 +670,6 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
             const u = (dot11 * dot02 - dot01 * dot12) * invDenom;
             const v = (dot00 * dot12 - dot01 * dot02) * invDenom;
             
-            console.log('[DEBUG] Triangle barycentric calculation:', { u, v, uPlusV: u + v });
-            
             isHit = (u >= 0) && (v >= 0) && (u + v <= 1);
             break;
             
@@ -795,15 +683,6 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
             const rightBottomX = panel.x + panel.width;
             const rightBottomY = panel.y + panel.height;
             
-            console.log('[DEBUG] Right triangle hit test:', {
-              panelBounds: { leftTopX, leftTopY, rightTopX, rightTopY, rightBottomX, rightBottomY },
-              worldPos,
-              boundingBoxCheck: {
-                xInBounds: worldPos.x >= leftTopX && worldPos.x <= rightTopX,
-                yInBounds: worldPos.y >= leftTopY && worldPos.y <= rightBottomY
-              }
-            });
-            
             // Check if point is inside the bounding box
             if (worldPos.x >= leftTopX && worldPos.x <= rightTopX && 
                 worldPos.y >= leftTopY && worldPos.y <= rightBottomY) {
@@ -812,13 +691,6 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
               // For a point to be inside the triangle, it must be below the hypotenuse
               const hypotenuseSlope = (rightBottomY - leftTopY) / (rightBottomX - leftTopX);
               const hypotenuseY = leftTopY + hypotenuseSlope * (worldPos.x - leftTopX);
-              
-              console.log('[DEBUG] Right triangle hypotenuse calculation:', {
-                hypotenuseSlope,
-                hypotenuseY,
-                pointY: worldPos.y,
-                isBelowHypotenuse: worldPos.y >= hypotenuseY
-              });
               
               // Point is inside if it's below the hypotenuse
               isHit = worldPos.y >= hypotenuseY;
@@ -830,28 +702,15 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
           case 'rectangle':
           default:
             // Simple AABB hit test for rectangles
-            console.log('[DEBUG] Rectangle hit test:', {
-              panelBounds: { x: panel.x, y: panel.y, width: panel.width, height: panel.height },
-              worldPos,
-              hitTestResults: {
-                xInBounds: worldPos.x >= panel.x && worldPos.x <= panel.x + panel.width,
-                yInBounds: worldPos.y >= panel.y && worldPos.y <= panel.y + panel.height
-              }
-            });
             isHit = worldPos.x >= panel.x && worldPos.x <= panel.x + panel.width &&
                     worldPos.y >= panel.y && worldPos.y <= panel.y + panel.height;
             break;
         }
         
-        console.log('[DEBUG] Final hit test result for', panel.shape, ':', isHit);
-        
         if (isHit) {
-          console.log('[DEBUG] Panel hit! Panel ID:', panel.id);
-          console.log('[DEBUG] Dispatching SELECT_PANEL for:', panel.id);
           dispatch({ type: 'SELECT_PANEL', payload: panel.id })
           
           if (isRotationHandle(x, y, panel)) {
-            console.log('[DEBUG] Rotation handle detected, starting rotation');
             setIsRotating(true)
             // Convert screen coordinates to world coordinates for rotation calculation
             const worldPos = localScreenToWorld(x, y);
@@ -861,18 +720,15 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
             return
           }
           
-          console.log('[DEBUG] Starting drag for panel:', panel.id);
           // Only set the ref - simplified state management
           isDraggingRef.current = true;
           // Convert screen coordinates to world coordinates for drag calculation
           const worldPos = localScreenToWorld(x, y);
           setDragStart({ x: worldPos.x - panel.x, y: worldPos.y - panel.y });
-          console.log('[DEBUG] Drag start position set:', { x: worldPos.x - panel.x, y: worldPos.y - panel.y });
           return
         }
       }
       
-      console.log('[DEBUG] No panel hit');
       // No panel hit - clear selection
       dispatch({ type: 'SELECT_PANEL', payload: null })
     }
@@ -887,12 +743,6 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     const y = e.clientY - rect.top
     
     setMouseState(prev => ({ ...prev, x, y }))
-    
-    console.log('[DEBUG] Mouse move - current state:', { 
-      isDraggingRef: isDraggingRef.current,
-      selectedPanel: selectedPanel?.id,
-      mousePos: { x, y }
-    });
     
     if (mouseState.isPanning) {
       const deltaX = x - mouseState.dragStartX;
@@ -910,21 +760,11 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
         dragStartY: y,
       }));
     } else if (isDraggingRef.current && selectedPanel) {
-      console.log('[DEBUG] Drag in progress - updating panel position');
-      console.log('[DEBUG] Drag details:', {
-        isDraggingRef: isDraggingRef.current,
-        selectedPanelId: selectedPanel.id,
-        dragStart,
-        currentMousePos: { x, y }
-      });
-      
       const worldPos = localScreenToWorld(x, y);
-      console.log('[DEBUG] World position:', worldPos);
       
       // Use the dragStart state that was set when the panel was clicked
       const newX = worldPos.x - dragStart.x;
       const newY = worldPos.y - dragStart.y;
-      console.log('[DEBUG] Calculated new position:', { newX, newY });
 
       // Apply snap if enabled
       let finalX = newX;
@@ -932,13 +772,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
       if (canvasState.snapToGrid) {
         finalX = snapToGrid(newX, SNAP_SIZE);
         finalY = snapToGrid(newY, SNAP_SIZE);
-        console.log('[DEBUG] After snapping:', { finalX, finalY });
       }
-      
-      console.log('[DEBUG] Dispatching UPDATE_PANEL with:', {
-        id: selectedPanel.id,
-        updates: { x: finalX, y: finalY }
-      });
       
       dispatch({
         type: 'UPDATE_PANEL',
@@ -968,9 +802,6 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   }, [isRotating, selectedPanel, dragStart, rotationStart, canvasState, isFullscreen, mouseState, localScreenToWorld])
   
   const handleMouseUp = useCallback(() => {
-    console.log('[DEBUG] Mouse up - resetting states');
-    console.log('[DEBUG] Previous drag state:', isDraggingRef.current);
-    
     setIsRotating(false)
     isDraggingRef.current = false; // Reset ref immediately
     
@@ -979,8 +810,6 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
       isPanning: false,
       // Remove isDragging since we're only using the ref now
     }))
-    
-    console.log('[DEBUG] States reset - isDraggingRef:', isDraggingRef.current);
   }, [])
   
 
@@ -1053,24 +882,6 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     }
   }, [handleWheel, isFullscreen])
   
-  // Quick test click handler for debugging coordinate transformation
-  const testClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = isFullscreen ? fullscreenCanvasRef.current : canvasRef.current
-    if (!canvas) return
-    
-    const rect = canvas.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const y = e.clientY - rect.top
-    
-    const worldPos = localScreenToWorld(x, y)
-    console.log('[DEBUG] Test click coordinates:', { 
-      screen: {x, y}, 
-      world: worldPos, 
-      panels: panels.panels,
-      canvasState 
-    })
-  }, [isFullscreen, localScreenToWorld, panels.panels, canvasState])
-  
   // Keyboard events
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -1108,37 +919,18 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   // Render canvas when dependencies change
   useEffect(() => {
     const currentCanvas = isFullscreen ? fullscreenCanvasRef.current : canvasRef.current;
-    console.log('[DEBUG] Canvas render effect triggered:', {
-      hasCanvas: !!currentCanvas,
-      panelCount: panels.panels.length,
-      isFullscreen,
-      canvasWidth,
-      canvasHeight,
-      panelPositions: panels.panels.map(p => ({ id: p.id, x: p.x, y: p.y }))
-    });
-    
-    if (currentCanvas) {
-      console.log('[DEBUG] Calling renderCanvas...');
-      // Use the ref to avoid dependency loop
-      renderCanvasRef.current?.();
+    if (currentCanvas && renderCanvasRef.current) {
+      renderCanvasRef.current();
     }
   }, [panels.panels, canvasState, canvasWidth, canvasHeight, isFullscreen]) // Changed from panels.panels.length to panels.panels
   
   // Update canvas state when world dimensions change
   useEffect(() => {
-    console.log('[DEBUG] World dimensions changed, updating canvas state:', worldDimensions);
-    
     // Only update canvasState if worldScale actually changed significantly
     setCanvasState(prev => {
       const scaleChanged = Math.abs(prev.worldScale - worldDimensions.worldScale) > 0.001;
       
       if (scaleChanged) {
-        console.log('[DEBUG] World scale changed significantly, updating canvas state:', {
-          prev: prev.worldScale,
-          new: worldDimensions.worldScale,
-          difference: Math.abs(prev.worldScale - worldDimensions.worldScale)
-        });
-        
         return {
           ...prev,
           worldWidth: worldDimensions.worldWidth,
@@ -1165,7 +957,6 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     
     setCanvasWidth(prev => {
       if (Math.abs(prev - newWidth) > 1) {
-        console.log('[DEBUG] Canvas width updated:', { prev, new: newWidth });
         return newWidth;
       }
       return prev;
@@ -1173,7 +964,6 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     
     setCanvasHeight(prev => {
       if (Math.abs(prev - newHeight) > 1) {
-        console.log('[DEBUG] Canvas height updated:', { prev, new: newHeight });
         return newHeight;
       }
       return prev;
@@ -1201,7 +991,6 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
             // Only update if dimensions actually changed significantly (more than 1px)
             if (Math.abs(prev.width - newDimensions.width) > 1 || 
                 Math.abs(prev.height - newDimensions.height) > 1) {
-              console.log('[DEBUG] Container dimensions updated:', { prev, new: newDimensions });
               return newDimensions;
             }
             return prev;
@@ -1235,14 +1024,6 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
           snapToGrid: canvasState.snapToGrid,
           gridSize: canvasState.gridSize
         }));
-        
-        // Debug logging for scale consistency
-        console.log('[DEBUG] Zoom state saved:', {
-          scale: canvasState.scale,
-          worldScale: canvasState.worldScale,
-          worldDimensionsScale: worldDimensions.worldScale,
-          totalScale: worldDimensions.worldScale * canvasState.scale
-        });
       } catch (error) {
         console.warn('Failed to save zoom state to localStorage:', error);
       }
@@ -1275,14 +1056,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   
   return (
     <>
-      {/* Debug Fullscreen State - TEMPORARY */}
-      <div className="fixed top-0 right-0 bg-blue-500 text-white p-2 z-[10000] text-xs">
-        Fullscreen: {isFullscreen ? 'TRUE' : 'FALSE'} | 
-        Width: {fullscreenCanvasWidth} | 
-        Height: {fullscreenCanvasHeight}
-      </div>
-      
-            {/* Fullscreen Canvas Portal */}
+      {/* Fullscreen Canvas Portal */}
       {isFullscreen && (
         <>
         <div
@@ -1361,7 +1135,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
                   Panels: <span className="text-white font-medium">{panels.panels.length}</span>
                 </div>
                 <div className="text-gray-300">
-                  Cursor: <span className="text-white font-medium">{Math.round(worldPos.x)}', {Math.round(worldPos.y)}'</span>
+                  Cursor: <span className="text-white font-medium">{Math.round(worldPos.x)}&apos;, {Math.round(worldPos.y)}&apos;</span>
                 </div>
               </div>
               
@@ -1489,15 +1263,9 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
                 Guides: {canvasState.showGuides ? 'ON' : 'OFF'}
               </button>
               
-
-              
-
-              
               <button 
                 onClick={() => {
-                  console.log('�� [PanelLayout] Fullscreen button clicked, current state:', isFullscreen);
                   toggleFullscreen();
-                  console.log('🔍 [PanelLayout] toggleFullscreen called');
                 }}
                 className={`${isFullscreen ? 'bg-blue-600 hover:bg-blue-500' : 'bg-gray-600 hover:bg-gray-500'} px-3 py-2 rounded text-sm font-medium transition-colors ml-2`}
                 title={isFullscreen ? "Exit Fullscreen (ESC)" : "Enter Fullscreen (Ctrl+F)"}
@@ -1529,10 +1297,10 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
               Panels: <span className="text-white font-medium" data-testid="text-panel-count">{panels.panels.length}</span>
             </div>
             <div className="text-gray-300">
-              Cursor: <span className="text-white font-medium" data-testid="text-cursor-coords">{Math.round(worldPos.x)}', {Math.round(worldPos.y)}'</span>
+              Cursor: <span className="text-white font-medium" data-testid="text-cursor-coords">{Math.round(worldPos.x)}&apos;, {Math.round(worldPos.y)}&apos;</span>
             </div>
           </div>
-            </div>
+        </div>
             
         {/* Canvas Container */}
         <div className="flex-1 bg-gray-800 relative overflow-hidden">
@@ -1568,7 +1336,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
 
             {/* Coordinate Display */}
             <div className="absolute top-4 left-4 bg-black bg-opacity-75 text-white px-3 py-2 rounded text-sm font-mono pointer-events-none">
-              <div data-testid="text-world-coords">World: {Math.round(worldPos.x)}', {Math.round(worldPos.y)}'</div>
+              <div data-testid="text-world-coords">World: {Math.round(worldPos.x)}&apos;, {Math.round(worldPos.y)}&apos;</div>
               <div data-testid="text-screen-coords">Screen: {Math.round(mouseState.x)}, {Math.round(mouseState.y)}</div>
             </div>
             
@@ -1585,19 +1353,6 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
                 <div>Delete: Remove Panel</div>
               </div>
             </div>
-            
-            {/* Temporary Test Button for Debugging */}
-            <button
-              onClick={() => {
-                console.log('[DEBUG] Test button clicked');
-                console.log('[DEBUG] Current panels:', panels.panels);
-                console.log('[DEBUG] Canvas state:', canvasState);
-                console.log('[DEBUG] Drag ref state:', isDraggingRef.current);
-              }}
-              className="absolute top-4 right-4 bg-red-600 hover:bg-red-500 px-3 py-2 rounded text-sm font-medium transition-colors z-10"
-            >
-              Debug Info
-            </button>
           </div>
         </div>
       </div>

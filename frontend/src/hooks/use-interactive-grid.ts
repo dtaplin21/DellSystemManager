@@ -28,7 +28,7 @@ export interface UseInteractiveGridOptions {
   canvasState: CanvasState
 }
 
-const WORLD_SIZE = 4000 // feet - using the new 4000x4000 world
+const WORLD_SIZE = 15000 // feet - using the 15000x15000 world to match backend and parent component
 
 export const useInteractiveGrid = (options: UseInteractiveGridOptions): UseInteractiveGridReturn => {
   const { worldSize, gridConfig, canvasState } = options

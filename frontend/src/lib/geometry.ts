@@ -22,8 +22,8 @@ export function worldToScreen(
 ): WorldToScreenResult {
   const totalScale = worldScale * scale;
   return {
-    x: wx * totalScale + offsetX,
-    y: wy * totalScale + offsetY
+    x: Math.round((wx * totalScale + offsetX) * 1000) / 1000,
+    y: Math.round((wy * totalScale + offsetY) * 1000) / 1000
   };
 }
 
@@ -37,8 +37,8 @@ export function screenToWorld(
 ): ScreenToWorldResult {
   const totalScale = worldScale * scale;
   return {
-    x: (sx - offsetX) / totalScale,
-    y: (sy - offsetY) / totalScale
+    x: Math.round(((sx - offsetX) / totalScale) * 1000) / 1000,
+    y: Math.round(((sy - offsetY) / totalScale) * 1000) / 1000
   };
 }
 

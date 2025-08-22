@@ -90,6 +90,25 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
     const screenWidth = panel.width * worldScale * currentCanvasState.scale;
     const screenHeight = panel.height * worldScale * currentCanvasState.scale;
     
+    // Debug: Log exact values used for rendering to check for precision issues
+    if (Math.abs(worldScale - (getCanvasState ? getCanvasState().worldScale : canvasState.worldScale)) > 0.001) {
+      console.log('[DEBUG] Panel rendering values:', {
+        id: panel.id,
+        shape: panel.shape,
+        worldCoords: { x: panel.x, y: panel.y, width: panel.width, height: panel.height },
+        worldScale,
+        canvasScale: currentCanvasState.scale,
+        totalScale: worldScale * currentCanvasState.scale,
+        screenCoords: { x: screenPos.x, y: screenPos.y, width: screenWidth, height: screenHeight },
+        precision: {
+          x: panel.x.toString().split('.')[1]?.length || 0,
+          y: panel.y.toString().split('.')[1]?.length || 0,
+          width: panel.width.toString().split('.')[1]?.length || 0,
+          height: panel.height.toString().split('.')[1]?.length || 0
+        }
+      });
+    }
+    
     // Check if panel is completely outside canvas bounds (with some margin)
     const margin = 100; // pixels
     if (screenPos.x + screenWidth < -margin || screenPos.x > canvas.clientWidth + margin || 
@@ -115,11 +134,8 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
     ctx.lineWidth = isSelected ? 3 : 2
     
     // Draw different shapes based on panel.shape
-    console.log('[DEBUG] Drawing panel with shape:', panel.shape, 'at position:', { x: screenPos.x, y: screenPos.y, width: screenWidth, height: screenHeight });
-    
     switch (panel.shape) {
       case 'triangle':
-        console.log('[DEBUG] Drawing equilateral triangle');
         // Draw equilateral triangle
         ctx.beginPath()
         ctx.moveTo(screenPos.x + screenWidth / 2, screenPos.y) // Top point
@@ -131,7 +147,6 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
         break
         
       case 'right-triangle':
-        console.log('[DEBUG] Drawing right triangle');
         // Draw right triangle
         ctx.beginPath()
         ctx.moveTo(screenPos.x, screenPos.y) // Top left
@@ -144,7 +159,6 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
         
       case 'rectangle':
       default:
-        console.log('[DEBUG] Drawing rectangle (default)');
         // Draw rectangle (default)
         ctx.fillRect(screenPos.x, screenPos.y, screenWidth, screenHeight)
         ctx.strokeRect(screenPos.x, screenPos.y, screenWidth, screenHeight)
@@ -299,8 +313,6 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
     const ctx = canvas.getContext('2d')
     if (!ctx) return
     
-    console.log('[DEBUG] renderCanvas called with panels:', panels.map(p => ({ id: p.id, x: p.x, y: p.y })));
-    
     // Get actual canvas dimensions (important for fullscreen mode)
     const actualCanvasWidth = canvas.width;
     const actualCanvasHeight = canvas.height;
@@ -325,16 +337,7 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
       return true;
     });
     
-    console.log('[DEBUG] Drawing valid panels:', validPanels.length);
     validPanels.forEach(panel => {
-      console.log('[DEBUG] Drawing panel:', { 
-        id: panel.id, 
-        x: panel.x, 
-        y: panel.y, 
-        width: panel.width, 
-        height: panel.height,
-        shape: panel.shape 
-      });
       drawPanel(ctx, panel, panel.id === selectedPanelId)
     })
     

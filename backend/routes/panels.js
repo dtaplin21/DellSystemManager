@@ -80,11 +80,6 @@ router.get('/layout/:projectId', async (req, res, next) => {
     }
   }
   try {
-    console.log('🔍 GET /layout/:projectId called');
-    console.log('🔍 Project ID:', req.params.projectId);
-    console.log('🔍 User:', req.user);
-    
-    // Set cache control headers to prevent caching
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
@@ -93,15 +88,10 @@ router.get('/layout/:projectId', async (req, res, next) => {
     
     // Basic ID validation
     if (!projectId || projectId.length === 0) {
-      console.log('❌ Invalid project ID');
       return res.status(400).json({ message: 'Invalid project ID' });
     }
     
     // Verify project access - GET ROUTE
-    console.log('🔍 Checking project access...');
-    console.log('🔍 User ID:', req.user.id);
-    console.log('🔍 Project ID:', projectId);
-    
     let [project] = await db
       .select()
       .from(projects)
@@ -112,37 +102,24 @@ router.get('/layout/:projectId', async (req, res, next) => {
     
     // In development mode, if no project found, try to find any project with this ID
     if (!project && process.env.NODE_ENV === 'development' && req.headers['x-development-mode'] === 'true') {
-      console.log('🔧 [DEV] No project found for dev user, trying to find project by ID only...');
       [project] = await db
         .select()
         .from(projects)
         .where(eq(projects.id, projectId));
-      
-      if (project) {
-        console.log('🔧 [DEV] Found project in development mode:', project.id);
-      }
     }
     
-    console.log('🔍 Project found:', !!project);
-    
     if (!project) {
-      console.log('❌ Project not found');
       return res.status(404).json({ message: 'Project not found' });
     }
     
     // Get panel layout
-    console.log('🔍 Getting panel layout...');
     let [panelLayout] = await db
       .select()
       .from(panels)
       .where(eq(panels.projectId, projectId));
     
-    console.log('🔍 Panel layout found:', !!panelLayout);
-    console.log('🔍 Raw panel layout from DB:', panelLayout);
-    
     // If layout doesn't exist, create a default one
     if (!panelLayout) {
-      console.log('🔍 Creating default panel layout...');
       [panelLayout] = await db
         .insert(panels)
         .values({
@@ -155,7 +132,6 @@ router.get('/layout/:projectId', async (req, res, next) => {
           lastUpdated: new Date(),
         })
         .returning();
-      console.log('🔍 Default layout created:', !!panelLayout);
     }
     
     // Parse the panels JSON string to an actual array
@@ -163,15 +139,9 @@ router.get('/layout/:projectId', async (req, res, next) => {
     try {
       if (panelLayout.panels && typeof panelLayout.panels === 'string') {
         parsedPanels = JSON.parse(panelLayout.panels);
-        console.log('🔍 Parsed panels from JSON string:', parsedPanels);
-        console.log('🔍 Parsed panels length:', parsedPanels.length);
-        console.log('🔍 Parsed panels type:', typeof parsedPanels);
-        console.log('🔍 Is array?', Array.isArray(parsedPanels));
       } else if (Array.isArray(panelLayout.panels)) {
         parsedPanels = panelLayout.panels;
-        console.log('🔍 Panels already an array:', parsedPanels);
       } else {
-        console.log('🔍 Panels is neither string nor array:', typeof panelLayout.panels, panelLayout.panels);
         parsedPanels = [];
       }
     } catch (parseError) {
@@ -187,18 +157,6 @@ router.get('/layout/:projectId', async (req, res, next) => {
       scale: typeof panelLayout.scale === 'number' ? panelLayout.scale : DEFAULT_SCALE,
     };
     
-    console.log('✅ Final parsed layout:', {
-      id: parsedLayout.id,
-      projectId: parsedLayout.projectId,
-      panelsCount: parsedLayout.panels.length,
-      panelsType: typeof parsedLayout.panels,
-      isArray: Array.isArray(parsedLayout.panels),
-      width: parsedLayout.width,
-      height: parsedLayout.height,
-      scale: parsedLayout.scale
-    });
-    
-    console.log('✅ Panels loaded from DB:', parsedLayout.panels);
     res.status(200).json(parsedLayout);
   } catch (error) {
     console.error('❌ Error in GET /layout/:projectId:', error);
@@ -225,25 +183,15 @@ router.patch('/layout/:projectId', async (req, res, next) => {
   }
   try {
     res.setHeader('Cache-Control', 'no-store');
-    console.log('🔍 PATCH /layout/:projectId called');
-    console.log('🔍 Project ID:', req.params.projectId);
-    console.log('🔍 Request body:', req.body);
-    console.log('🔍 User:', req.user);
-    
     const { projectId } = req.params;
     const updateData = req.body;
     
     // Basic ID validation
     if (!projectId || projectId.length === 0) {
-      console.log('❌ Invalid project ID');
       return res.status(400).json({ message: 'Invalid project ID' });
     }
     
     // Verify project access - PATCH ROUTE
-    console.log('🔍 Checking project access...');
-    console.log('🔍 User ID:', req.user.id);
-    console.log('🔍 Project ID:', projectId);
-    
     let [project] = await db
       .select()
       .from(projects)
@@ -254,123 +202,100 @@ router.patch('/layout/:projectId', async (req, res, next) => {
     
     // In development mode, if no project found, try to find any project with this ID
     if (!project && process.env.NODE_ENV === 'development' && req.headers['x-development-mode'] === 'true') {
-      console.log('🔧 [DEV] No project found for dev user, trying to find project by ID only...');
       [project] = await db
         .select()
         .from(projects)
         .where(eq(projects.id, projectId));
-      
-      if (project) {
-        console.log('🔧 [DEV] Found project in development mode:', project.id);
-      }
     }
     
-    console.log('🔍 Project found:', !!project);
-    
     if (!project) {
-      console.log('❌ Project not found');
       return res.status(404).json({ message: 'Project not found' });
     }
     
-    // Get existing layout
-    console.log('🔍 Getting existing layout...');
-    const [existingLayout] = await db
+    // Get existing panel layout
+    let [existingLayout] = await db
       .select()
       .from(panels)
       .where(eq(panels.projectId, projectId));
     
-    console.log('🔍 Existing layout found:', !!existingLayout);
-    
+    // If layout doesn't exist, create a default one
     if (!existingLayout) {
-      console.log('❌ Panel layout not found');
-      return res.status(404).json({ message: 'Panel layout not found' });
+      [existingLayout] = await db
+        .insert(panels)
+        .values({
+          id: uuidv4(),
+          projectId,
+          panels: '[]',
+          width: DEFAULT_LAYOUT_WIDTH,
+          height: DEFAULT_LAYOUT_HEIGHT,
+          scale: DEFAULT_SCALE,
+          lastUpdated: new Date(),
+        })
+        .returning();
     }
     
-    // Prepare update data
-    const updateValues = {};
-    
-    // Handle panels array - we store it as a JSON string in the database
-    if (updateData.panels) {
-      console.log('🔍 Raw panels from frontend:', updateData.panels);
-      console.log('🔍 Frontend panel structure analysis:', {
-        firstPanel: updateData.panels[0] ? {
-          hasId: !!updateData.panels[0].id,
-          hasType: !!updateData.panels[0].type,
-          hasShape: !!updateData.panels[0].shape,
-          hasWidthFeet: !!updateData.panels[0].width_feet,
-          hasHeightFeet: !!updateData.panels[0].height_feet,
-          hasWidth: !!updateData.panels[0].width,
-          hasHeight: !!updateData.panels[0].height,
-          hasX: !!updateData.panels[0].x,
-          hasY: !!updateData.panels[0].y
-        } : 'No panels'
-      });
-      
-      // Ensure every panel is mapped to canonical format
-      const mappedPanels = updateData.panels.map((panel, index) => {
-        console.log(`🔍 Mapping panel ${index}:`, panel);
-        const mapped = mapPanelToCanonical(panel);
-        console.log(`🔍 Mapped panel ${index}:`, mapped);
-        return mapped;
-      });
-      
-      // Validate all panels
-      const validPanels = mappedPanels.filter((panel, index) => {
-        const isValid = validatePanel(panel);
-        if (!isValid) {
-          console.log(`❌ Panel ${index} validation failed:`, panel);
-        }
-        return isValid;
-      });
-      
-      console.log('🔍 Valid panels after validation:', validPanels);
-      
-      updateData.panels = validPanels;
-      updateValues.panels = JSON.stringify(validPanels);
-      console.log('🔍 Panels being saved to DB:', validPanels);
+    // Parse existing panels
+    let currentPanels = [];
+    try {
+      currentPanels = JSON.parse(existingLayout.panels || '[]');
+    } catch (parseError) {
+      console.error('Error parsing existing panels:', parseError);
+      currentPanels = [];
     }
     
-    // Handle other properties
-    if (updateData.width !== undefined) updateValues.width = updateData.width;
-    if (updateData.height !== undefined) updateValues.height = updateData.height;
-    if (updateData.scale !== undefined) updateValues.scale = updateData.scale;
-    
-    // Always update lastUpdated timestamp
-    updateValues.lastUpdated = new Date();
-    
-    console.log('🔍 Update values:', updateValues);
-    
-    // Update panel layout
-    console.log('🔍 Updating panel layout...');
-    const [updatedLayout] = await db
-      .update(panels)
-      .set(updateValues)
-      .where(eq(panels.projectId, projectId))
-      .returning();
-    
-    console.log('🔍 Update successful:', !!updatedLayout);
-    
-    // Parse the panels for the response
-    const parsedLayout = {
-      ...updatedLayout,
-      width: typeof updatedLayout.width === 'number' ? updatedLayout.width : DEFAULT_LAYOUT_WIDTH,
-      height: typeof updatedLayout.height === 'number' ? updatedLayout.height : DEFAULT_LAYOUT_HEIGHT,
-      scale: typeof updatedLayout.scale === 'number' ? updatedLayout.scale : DEFAULT_SCALE,
-      panels: JSON.parse(updatedLayout.panels || '[]').map(mapPanelToCanonical),
-    };
-    console.log('✅ Panels returned to client:', parsedLayout.panels);
-    
-    // Notify other clients via WebSockets
-    wsSendToRoom(`panel_layout_${projectId}`, {
-      type: 'PANEL_UPDATE',
-      projectId,
-      panels: JSON.parse(updatedLayout.panels || '[]'),
-      userId: req.user.id,
-      timestamp: updatedLayout.lastUpdated,
-    });
-    
-    console.log('✅ Panel layout updated successfully');
-    res.status(200).json(parsedLayout);
+    // Update panels if provided
+    if (updateData.panels && Array.isArray(updateData.panels)) {
+      // Validate all panels before updating
+      const validPanels = updateData.panels.filter(panel => validatePanel(panel));
+      
+      if (validPanels.length !== updateData.panels.length) {
+        console.warn('Some panels were invalid and were filtered out');
+      }
+      
+      // Update the layout with new panels
+      const [updatedLayout] = await db
+        .update(panels)
+        .set({
+          panels: JSON.stringify(validPanels),
+          width: updateData.width || existingLayout.width,
+          height: updateData.height || existingLayout.height,
+          scale: updateData.scale || existingLayout.scale,
+          lastUpdated: new Date(),
+        })
+        .where(eq(panels.projectId, projectId))
+        .returning();
+      
+      // Parse the panels for the response
+      const parsedLayout = {
+        ...updatedLayout,
+        width: typeof updatedLayout.width === 'number' ? updatedLayout.width : DEFAULT_LAYOUT_WIDTH,
+        height: typeof updatedLayout.height === 'number' ? updatedLayout.height : DEFAULT_LAYOUT_HEIGHT,
+        scale: typeof updatedLayout.scale === 'number' ? updatedLayout.scale : DEFAULT_SCALE,
+        panels: JSON.parse(updatedLayout.panels || '[]').map(mapPanelToCanonical),
+      };
+      
+      // Notify other clients via WebSockets
+      wsSendToRoom(`panel_layout_${projectId}`, {
+        type: 'PANEL_UPDATE',
+        projectId,
+        panels: JSON.parse(updatedLayout.panels || '[]'),
+        userId: req.user.id,
+        timestamp: updatedLayout.lastUpdated,
+      });
+      
+      res.status(200).json(parsedLayout);
+    } else {
+      // No panels provided, return existing layout
+      const parsedLayout = {
+        ...existingLayout,
+        width: typeof existingLayout.width === 'number' ? existingLayout.width : DEFAULT_LAYOUT_WIDTH,
+        height: typeof existingLayout.height === 'number' ? existingLayout.height : DEFAULT_LAYOUT_HEIGHT,
+        scale: typeof existingLayout.scale === 'number' ? existingLayout.scale : DEFAULT_SCALE,
+        panels: currentPanels.map(mapPanelToCanonical),
+      };
+      
+      res.status(200).json(parsedLayout);
+    }
   } catch (error) {
     console.error('❌ Error in PATCH /layout/:projectId:', error);
     next(error);
@@ -448,13 +373,11 @@ router.get('/export/:projectId', auth, subscriptionCheck('premium'), async (req,
       // Send the file data
       res.send(Buffer.from(response.data));
     } catch (cadError) {
-      console.error('CAD service error:', cadError.message);
-      res.status(500).json({ 
-        message: 'CAD export failed',
-        error: cadError.message
-      });
+      console.error('CAD service error:', cadError);
+      res.status(500).json({ message: 'Failed to export to CAD format' });
     }
   } catch (error) {
+    console.error('Export error:', error);
     next(error);
   }
 });

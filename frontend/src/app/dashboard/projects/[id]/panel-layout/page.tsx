@@ -49,7 +49,6 @@ interface PanelLayout {
 // Default layout dimensions (15000ft x 15000ft)
 const DEFAULT_LAYOUT_WIDTH = 15000;
 const DEFAULT_LAYOUT_HEIGHT = 15000;
-const PIXELS_PER_FOOT = 200; // 100 pixels = 0.5ft, so 200 pixels = 1ft
 const DEFAULT_SCALE = 1.0; // Reasonable default scale - 1.0 means 1 unit = 1 pixel (no scaling)
 
 const BACKEND_URL = 'http://localhost:8003';
@@ -91,8 +90,6 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
 
   // Handle adding new panels
   const handleAddPanel = useCallback(async (newPanel: any) => {
-    console.log('[DEBUG] handleAddPanel called with:', newPanel);
-    
     try {
       // Transform the panel data to match the Panel interface
       const transformedPanel = {
@@ -116,8 +113,6 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
         }
       };
       
-      console.log('[DEBUG] Transformed panel:', transformedPanel);
-      
       // Add to layout state
       if (layout) {
         const updatedLayout = {
@@ -127,10 +122,8 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
         setLayout(updatedLayout);
         
         // Save to backend immediately
-        console.log('[DEBUG] Panel added to layout, saving to backend...');
         try {
           await saveProjectToSupabase(updatedLayout, project!);
-          console.log('[DEBUG] Panel saved to backend successfully');
         } catch (saveError) {
           console.error('[DEBUG] Failed to save panel to backend:', saveError);
           toastRef.current({
@@ -140,8 +133,6 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
           });
         }
       }
-      
-      console.log('[DEBUG] Panel added successfully');
     } catch (error) {
       console.error('[DEBUG] Error adding panel:', error);
       toastRef.current({
@@ -154,33 +145,31 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
 
   // Monitor id changes
   useEffect(() => {
-    console.log('[DEBUG] id state changed to:', id);
+    if (id !== '') {
+      console.log('[DEBUG] id state changed to:', id);
+    }
   }, [id]);
   
   // Monitor layout state changes
   useEffect(() => {
-    console.log('[DEBUG] Layout state changed:', {
-      hasLayout: !!layout,
-      panelCount: layout?.panels?.length || 0,
-      layoutDimensions: layout ? { width: layout.width, height: layout.height } : null,
-      firstPanel: layout?.panels?.[0] ? {
-        id: layout.panels[0].id,
-        x: layout.panels[0].x,
-        y: layout.panels[0].y,
-        width: layout.panels[0].width,
-        height: layout.panels[0].height
-      } : null
-    });
+    if (layout && layout.panels && layout.panels.length !== (layoutRef.current?.panels?.length || 0)) {
+      console.log('[DEBUG] Layout state changed:', {
+        hasLayout: !!layout,
+        panelCount: layout?.panels?.length || 0,
+        layoutDimensions: layout ? { width: layout.width, height: layout.height } : null,
+        firstPanel: layout?.panels?.[0] ? {
+          id: layout.panels[0].id,
+          x: layout.panels[0].x,
+          y: layout.panels[0].y,
+          width: layout.panels[0].width,
+          height: layout.panels[0].height
+        } : null
+      });
+    }
   }, [layout]);
 
   // Save function now takes layout and project as arguments
   const saveProjectToSupabase = async (currentLayout: PanelLayout, project: Project) => {
-    console.log('[DIAG] Saving panels:', currentLayout?.panels);
-    console.log('SaveProjectToSupabase called!');
-    console.log('project:', project);
-    console.log('layout:', currentLayout);
-    console.log('user:', user);
-
     try {
       // Convert panels back to Supabase format, DO NOT divide by PIXELS_PER_FOOT
       const supabasePanels = currentLayout.panels.map(panel => ({
@@ -203,20 +192,8 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
       const scale = typeof currentLayout.scale === 'number' ? currentLayout.scale : DEFAULT_SCALE;
       const requestBody = { panels: supabasePanels, width, height, scale };
       
-      console.log('[DIAG] Request body to backend:', JSON.stringify(requestBody, null, 2));
-      console.log('[DIAG] Request body analysis:', {
-        hasPanels: !!requestBody.panels,
-        panelsLength: requestBody.panels?.length || 0,
-        panelsType: typeof requestBody.panels,
-        isArray: Array.isArray(requestBody.panels),
-        width: requestBody.width,
-        height: requestBody.height,
-        scale: requestBody.scale
-      });
-      
       // Use the updatePanelLayout function from the API helper
       const result = await updatePanelLayout(project.id, requestBody);
-      console.log('[DIAG] Backend response from updatePanelLayout:', JSON.stringify(result, null, 2));
       
       toastRef.current({
         title: 'Project Saved',
