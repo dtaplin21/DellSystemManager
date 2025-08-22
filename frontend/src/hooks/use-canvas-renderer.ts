@@ -52,11 +52,11 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
   // Coordinate transformation helpers
   const worldToScreenCoord = useCallback((wx: number, wy: number) => {
     return worldToScreen(wx, wy, canvasState.worldScale, canvasState.scale, canvasState.offsetX, canvasState.offsetY)
-  }, [canvasState])
+  }, [canvasState.worldScale, canvasState.scale, canvasState.offsetX, canvasState.offsetY])
 
   const screenToWorldCoord = useCallback((sx: number, sy: number) => {
     return screenToWorld(sx, sy, canvasState.worldScale, canvasState.scale, canvasState.offsetX, canvasState.offsetY)
-  }, [canvasState])
+  }, [canvasState.worldScale, canvasState.scale, canvasState.offsetX, canvasState.offsetY])
 
   // Draw panel
   const drawPanel = useCallback((ctx: CanvasRenderingContext2D, panel: Panel, isSelected: boolean) => {
@@ -162,7 +162,7 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
     ctx.fillText(dimensionsText, centerX, centerY + 25)
     
     ctx.restore()
-  }, [canvasState, canvasWidth, canvasHeight, isValidPanel, getPanelValidationErrors, worldToScreen, getCurrentCanvas])
+  }, [isValidPanel, getPanelValidationErrors, worldToScreen, getCurrentCanvas])
 
   // Draw selection handles
   const drawSelectionHandles = useCallback((ctx: CanvasRenderingContext2D, panel: Panel) => {
@@ -273,7 +273,7 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
     ctx.strokeRect(rotationHandleX - handleSize / 2, rotationHandleY - handleSize / 2, handleSize, handleSize)
     
     ctx.restore()
-  }, [canvasState, isValidPanel, getPanelValidationErrors, worldToScreen])
+  }, [isValidPanel, getPanelValidationErrors, worldToScreen])
 
   // Canvas rendering function
   const renderCanvas = useCallback(() => {
@@ -334,7 +334,7 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
         }
       }
     }
-  }, [panels, canvasState, canvasWidth, canvasHeight, selectedPanelId, drawGrid, drawPanel, drawSelectionHandles, isValidPanel, getPanelValidationErrors])
+  }, [panels, selectedPanelId, drawGrid, drawPanel, drawSelectionHandles, isValidPanel, getPanelValidationErrors, canvasState.showGrid])
 
   return {
     renderCanvas,

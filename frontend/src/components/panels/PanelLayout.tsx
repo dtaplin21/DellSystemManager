@@ -167,7 +167,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     console.log('[DEBUG] World dimensions update - this will affect panel rendering size');
     
     return { worldWidth, worldHeight, worldScale };
-  }, [containerDimensions]);
+  }, [containerDimensions.width, containerDimensions.height]);
   
   const [canvasState, setCanvasState] = useState<CanvasState>(() => {
     // Try to restore zoom state from localStorage
@@ -245,32 +245,61 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   
   // Removed panelsRef - no longer needed since we pass panels directly to useCanvasRenderer
 
+  // Memoize canvas state to prevent unnecessary hook recreations
+  const memoizedCanvasState = useMemo(() => ({
+    worldScale: canvasState.worldScale,
+    scale: canvasState.scale,
+    offsetX: canvasState.offsetX,
+    offsetY: canvasState.offsetY,
+    showGrid: canvasState.showGrid,
+    snapEnabled: canvasState.snapToGrid
+  }), [
+    canvasState.worldScale,
+    canvasState.scale,
+    canvasState.offsetX,
+    canvasState.offsetY,
+    canvasState.showGrid,
+    canvasState.snapToGrid
+  ]);
+
   // Use interactive grid hook
   const { drawGrid, setupCanvas: setupGridCanvas, getWorldScale } = useInteractiveGrid({
     worldSize: WORLD_SIZE,
     gridConfig,
-    canvasState: {
-      worldScale: canvasState.worldScale,
-      scale: canvasState.scale,
-      offsetX: canvasState.offsetX,
-      offsetY: canvasState.offsetY,
-      showGrid: canvasState.showGrid,
-      snapEnabled: canvasState.snapToGrid
-    }
+    canvasState: memoizedCanvasState
   })
   
-  // Use canvas renderer hook FIRST to get renderCanvas function
-  const { renderCanvas, drawPanel, drawSelectionHandles, worldToScreen, screenToWorld } = useCanvasRenderer({
-    panels: panels.panels, // Pass panels directly instead of using ref
-    canvasState,
+  // Memoize canvas renderer options to prevent unnecessary hook recreations
+  const canvasRendererOptions = useMemo(() => ({
+    panels: panels.panels,
+    canvasState, // Use the full canvasState
     canvasWidth,
     canvasHeight,
-    selectedPanelId: panels.selectedPanelId, // Use panels.selectedPanelId directly instead of panelData.selectedPanelId
+    selectedPanelId: panels.selectedPanelId,
     getCurrentCanvas: () => getCurrentCanvasRef.current(),
     isValidPanel,
     getPanelValidationErrors,
     drawGrid
-  })
+  }), [
+    panels.panels,
+    // Only depend on specific canvasState properties that affect rendering
+    canvasState.worldScale,
+    canvasState.scale,
+    canvasState.offsetX,
+    canvasState.offsetY,
+    canvasState.showGrid,
+    canvasState.showGuides,
+    canvasState.snapToGrid,
+    canvasWidth,
+    canvasHeight,
+    panels.selectedPanelId,
+    isValidPanel,
+    getPanelValidationErrors,
+    drawGrid
+  ]);
+
+  // Use canvas renderer hook FIRST to get renderCanvas function
+  const { renderCanvas, drawPanel, drawSelectionHandles, worldToScreen, screenToWorld } = useCanvasRenderer(canvasRendererOptions)
   
   // Debug when useCanvasRenderer is recreated
   useEffect(() => {
@@ -279,6 +308,17 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
       panelPositions: panels.panels.map(p => ({ id: p.id, x: p.x, y: p.y }))
     });
   }, [panels.panels]);
+  
+  // Debug when canvas renderer options change
+  useEffect(() => {
+    console.log('[DEBUG] Canvas renderer options changed:', {
+      panelCount: panels.panels.length,
+      worldScale: canvasState.worldScale,
+      scale: canvasState.scale,
+      canvasWidth,
+      canvasHeight
+    });
+  }, [canvasRendererOptions]);
   
   // Store the renderCanvas function in the ref
   useEffect(() => {
@@ -1032,20 +1072,41 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     }));
     
     // Set canvas dimensions based on world dimensions (for normal mode)
-    setCanvasWidth(Math.ceil(worldDimensions.worldWidth * worldDimensions.worldScale));
-    setCanvasHeight(Math.ceil(worldDimensions.worldHeight * worldDimensions.worldScale));
+    // Only update if the dimensions actually changed to prevent unnecessary re-renders
+    const newWidth = Math.ceil(worldDimensions.worldWidth * worldDimensions.worldScale);
+    const newHeight = Math.ceil(worldDimensions.worldHeight * worldDimensions.worldScale);
+    
+    setCanvasWidth(prev => prev !== newWidth ? newWidth : prev);
+    setCanvasHeight(prev => prev !== newHeight ? newHeight : prev);
   }, [worldDimensions]);
   
   // Update container dimensions when container ref is available
   useEffect(() => {
     const container = containerRef.current;
     if (container) {
+      let timeoutId: NodeJS.Timeout;
+      
       const updateDimensions = () => {
         const rect = container.getBoundingClientRect();
-        setContainerDimensions({
-          width: rect.width,
-          height: rect.height
-        });
+        
+        // Debounce dimension updates to prevent excessive recalculations
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+          setContainerDimensions(prev => {
+            const newDimensions = {
+              width: rect.width,
+              height: rect.height
+            };
+            
+            // Only update if dimensions actually changed significantly (more than 1px)
+            if (Math.abs(prev.width - newDimensions.width) > 1 || 
+                Math.abs(prev.height - newDimensions.height) > 1) {
+              console.log('[DEBUG] Container dimensions updated:', { prev, new: newDimensions });
+              return newDimensions;
+            }
+            return prev;
+          });
+        }, 100); // 100ms debounce
       };
       
       updateDimensions();
@@ -1054,7 +1115,10 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
       const resizeObserver = new ResizeObserver(updateDimensions);
       resizeObserver.observe(container);
       
-      return () => resizeObserver.disconnect();
+      return () => {
+        clearTimeout(timeoutId);
+        resizeObserver.disconnect();
+      };
     }
   }, []);
   
