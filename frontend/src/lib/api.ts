@@ -1,7 +1,7 @@
 import { supabase, getCurrentSession } from './supabase';
 
 const BACKEND_URL = 'http://localhost:8003';
-const IS_DEVELOPMENT = process.env.NODE_ENV === 'development';
+
 
 // Health check function to test backend connectivity
 export const checkBackendHealth = async (): Promise<boolean> => {
@@ -32,39 +32,7 @@ export const checkBackendHealth = async (): Promise<boolean> => {
   }
 };
 
-// Development mode authentication helper
-export const createDevelopmentSession = async (): Promise<string | null> => {
-  if (!IS_DEVELOPMENT) return null;
-  
-  try {
-    console.log('🔧 [DEBUG] Attempting development mode authentication...');
-    
-    // Try to create a development session
-    const response = await fetch(`${BACKEND_URL}/api/auth/dev-login`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Development-Mode': 'true',
-      },
-      body: JSON.stringify({
-        mode: 'development',
-        timestamp: Date.now(),
-      }),
-    });
-    
-    if (response.ok) {
-      const data = await response.json();
-      console.log('✅ Development session created:', data);
-      return data.token || null;
-    } else {
-      console.warn('⚠️ Development auth endpoint not available:', response.status);
-      return null;
-    }
-  } catch (error) {
-    console.warn('⚠️ Development authentication failed:', error);
-    return null;
-  }
-};
+
 
 // Helper function to get auth headers using Supabase's native token management
 export const getAuthHeaders = async () => {
@@ -112,18 +80,7 @@ export const getAuthHeaders = async () => {
       }
     }
     
-    // If still no session and in development mode, try development authentication
-    if (!session && IS_DEVELOPMENT) {
-      try {
-        const devToken = await createDevelopmentSession();
-        if (devToken) {
-          console.log('🔧 Using development mode token');
-          session = { access_token: devToken };
-        }
-      } catch (devAuthError) {
-        console.warn('⚠️ Development authentication failed:', devAuthError);
-      }
-    }
+
     
     const headers = {
       'Content-Type': 'application/json',
@@ -163,8 +120,7 @@ const makeAuthenticatedRequest = async (url: string, options: RequestInit = {}, 
       headers: {
         ...headers,
         ...options.headers,
-        // Add development mode header in development environment
-        ...(IS_DEVELOPMENT && { 'X-Development-Mode': 'true' }),
+
       },
       credentials: 'include',
       cache: options.cache || 'default',
@@ -271,48 +227,12 @@ export async function fetchProjectById(id: string): Promise<any> {
     } catch (authError) {
       console.warn('⚠️ Authenticated request failed, trying without auth:', authError);
       
-      // Fallback: try without authentication
-      const fallbackResponse = await fetch(`${BACKEND_URL}/api/projects/${id}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(IS_DEVELOPMENT && { 'X-Development-Mode': 'true' }),
-        },
-      });
-      
-      if (fallbackResponse.ok) {
-        const projectData = await fallbackResponse.json();
-        console.log('🔄 [DEBUG] fetchProjectById fallback successful:', projectData);
-        return projectData;
-      } else {
-        throw new Error(`Fallback request failed: ${fallbackResponse.statusText}`);
-      }
+
     }
   } catch (error) {
     console.error('🔍 [DEBUG] fetchProjectById error:', error);
     
-    // Final fallback: return mock data for development
-    if (IS_DEVELOPMENT) {
-      console.log('🔧 [DEBUG] Returning mock project data for development');
-      return {
-        id: id,
-        name: 'Development Project',
-        description: 'Mock project for development testing',
-        status: 'active',
-        client: 'Development Client',
-        location: 'Development Location',
-        startDate: new Date().toISOString(),
-        endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-        area: 1000,
-        progress: 50,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        scale: 1.0,
-        layoutWidth: 4000,
-        layoutHeight: 4000,
-        panels: []
-      };
-    }
+
     
     throw error;
   }
@@ -362,61 +282,12 @@ export async function fetchPanelLayout(projectId: string): Promise<any> {
     } catch (authError) {
       console.warn('⚠️ Authenticated panel layout request failed, trying without auth:', authError);
       
-      // Fallback: try without authentication
-      const fallbackResponse = await fetch(`${BACKEND_URL}/api/panels/layout/${projectId}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(IS_DEVELOPMENT && { 'X-Development-Mode': 'true' }),
-        },
-        cache: 'no-store'
-      });
-      
-      if (fallbackResponse.ok) {
-        const layoutData = await fallbackResponse.json();
-        console.log('🔄 [DEBUG] fetchPanelLayout fallback successful:', layoutData);
-        return layoutData;
-      } else {
-        throw new Error(`Fallback panel layout request failed: ${fallbackResponse.statusText}`);
-      }
+
     }
   } catch (error) {
     console.error('🔍 [DEBUG] fetchPanelLayout error:', error);
     
-    // Final fallback: return mock data for development
-    if (IS_DEVELOPMENT) {
-      console.log('🔧 [DEBUG] Returning mock panel layout data for development');
-      return {
-        id: `layout-${projectId}`,
-        projectId: projectId,
-        panels: [
-          {
-            id: 'dev-panel-1',
-            shape: 'rectangle',
-            x: 1000,
-            y: 1000,
-            width: 200,
-            height: 150,
-            length: 150,
-            rotation: 0,
-            fill: '#3b82f6',
-            color: '#3b82f6',
-            rollNumber: 'DEV-001',
-            panelNumber: '1',
-            date: new Date().toISOString(),
-            location: 'Development',
-            meta: {
-              repairs: [],
-              location: { x: 1000, y: 1000, gridCell: { row: 0, col: 0 } }
-            }
-          }
-        ],
-        width: 4000,
-        height: 4000,
-        scale: 1.0,
-        lastUpdated: new Date().toISOString()
-      };
-    }
+
     
     throw error;
   }
