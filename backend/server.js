@@ -31,30 +31,6 @@ app.use(cookieParser());
 // Backend server should not handle root requests - only API routes
 // Root requests should go directly to gateway server on port 5000
 
-// Health check endpoint
-app.get('/health', async (req, res) => {
-  try {
-    // Test database connection
-    const client = await pool.connect();
-    await client.query('SELECT 1 as test');
-    client.release();
-    
-    res.status(200).json({ 
-      status: 'healthy',
-      database: 'connected',
-      timestamp: new Date().toISOString()
-    });
-  } catch (error) {
-    console.error('❌ Health check failed:', error);
-    res.status(500).json({ 
-      status: 'unhealthy',
-      database: 'disconnected',
-      error: error.message,
-      timestamp: new Date().toISOString()
-    });
-  }
-});
-
 // Setup API routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/projects', require('./routes/projects'));
@@ -89,6 +65,30 @@ app.use((err, req, res, next) => {
 
 // Database connection
 const { connectToDatabase, applyMigrations, pool } = require('./db');
+
+// Health check endpoint - moved here after pool import
+app.get('/health', async (req, res) => {
+  try {
+    // Test database connection
+    const client = await pool.connect();
+    await client.query('SELECT 1 as test');
+    client.release();
+    
+    res.status(200).json({ 
+      status: 'healthy',
+      database: 'connected',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Health check failed:', error);
+    res.status(500).json({ 
+      status: 'unhealthy',
+      database: 'disconnected',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
 
 // Check for OpenAI API configuration
 const { isOpenAIConfigured, initAIServices } = require('./services/ai-connector');

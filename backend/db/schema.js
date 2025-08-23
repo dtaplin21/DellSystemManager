@@ -41,7 +41,7 @@ const projects = pgTable('projects', {
 const panelLayouts = pgTable('panel_layouts', {
   id: uuid('id').primaryKey(),
   projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
-  panels: text('panels').notNull().default('[]'), // JSON string of panel data
+  panels: jsonb('panels').notNull().default('[]'), // JSON data for better performance and validation
   width: decimal('width').notNull().default('4000'),
   height: decimal('height').notNull().default('4000'),
   scale: decimal('scale').notNull().default('1.0'),

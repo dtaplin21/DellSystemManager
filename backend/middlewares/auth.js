@@ -98,7 +98,7 @@ const auth = async (req, res, next) => {
     
   } catch (error) {
     console.error('❌ Auth middleware error:', error);
-    res.status(500).json({ 
+    return res.status(500).json({ 
       message: 'Server error during authentication.',
       code: 'SERVER_ERROR'
     });

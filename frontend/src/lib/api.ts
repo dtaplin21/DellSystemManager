@@ -103,99 +103,63 @@ export const getAuthHeaders = async () => {
   }
 };
 
-// Helper function to make authenticated API calls with automatic retry
-const makeAuthenticatedRequest = async (url: string, options: RequestInit = {}, retryCount = 0) => {
+export async function makeAuthenticatedRequest(url: string, options: RequestInit = {}): Promise<Response> {
   try {
-    console.log(`🔍 makeAuthenticatedRequest: Making request to ${url} (attempt ${retryCount + 1})`);
-    
-    const headers = await getAuthHeaders();
-    
-    // Add timeout to prevent hanging requests
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-    
-    try {
-          const response = await fetch(url, {
-      ...options,
-      headers: {
-        ...headers,
-        ...options.headers,
-
-      },
-      credentials: 'include',
-      cache: options.cache || 'default',
-      signal: controller.signal,
+    console.log('🔍 [AUTH] === makeAuthenticatedRequest START ===');
+    console.log('🔍 [AUTH] Request URL:', url);
+    console.log('🔍 [AUTH] Request method:', options.method || 'GET');
+    console.log('🔍 [AUTH] Request options:', {
+      headers: options.headers,
+      body: options.body ? 'Present' : 'None',
+      cache: options.cache
     });
-      
-      clearTimeout(timeoutId);
-      
-      if (response.status === 401 && retryCount < 1) {
-        console.log('🔄 Received 401, attempting token refresh...');
-        
-        try {
-          // Try to refresh the session using Supabase's native refresh
-          const { data: refreshed, error } = await supabase.auth.refreshSession();
-          
-          if (!error && refreshed.session) {
-            console.log('✅ Token refreshed successfully, retrying request...');
-            return makeAuthenticatedRequest(url, options, retryCount + 1);
-          } else {
-            console.error('❌ Token refresh failed:', error);
-            // Clear session and redirect to login
-            await supabase.auth.signOut();
-            if (typeof window !== 'undefined') {
-              window.location.href = '/login';
-            }
-            throw new Error('Session expired. Please log in again.');
-          }
-        } catch (refreshError) {
-          console.error('❌ Network error during token refresh:', refreshError);
-          
-          // Check if it's a network connectivity issue
-          if (refreshError instanceof Error && (refreshError.message.includes('fetch') || 
-              refreshError.message.includes('network') ||
-              refreshError.message.includes('ERR_INTERNET_DISCONNECTED'))) {
-            throw new Error('Network connection lost. Please check your internet connection and try again.');
-          }
-          
-          // For other errors, clear session and redirect
-          await supabase.auth.signOut();
-          if (typeof window !== 'undefined') {
-            window.location.href = '/login';
-          }
-          throw new Error('Authentication failed. Please log in again.');
-        }
-      }
-      
-      return response;
-    } catch (fetchError) {
-      clearTimeout(timeoutId);
-      
-      // Handle fetch-specific errors
-      if (fetchError instanceof Error) {
-        if (fetchError.name === 'AbortError') {
-          throw new Error('Request timeout. Please try again.');
-        }
-        if (fetchError.message.includes('fetch') || fetchError.message.includes('network')) {
-          throw new Error('Network error. Please check your connection and try again.');
-        }
-      }
-      
-      throw fetchError;
+    
+    // Get the current session
+    const { data: { session } } = await supabase.auth.getSession();
+    console.log('🔍 [AUTH] Session status:', {
+      hasSession: !!session,
+      userId: session?.user?.id,
+      accessToken: session?.access_token ? 'Present' : 'Missing'
+    });
+    
+    if (!session?.access_token) {
+      console.error('❌ [AUTH] No access token found in session');
+      throw new Error('No authentication token found. Please log in.');
     }
+    
+    // Prepare headers
+    const headers = new Headers(options.headers);
+    headers.set('Authorization', `Bearer ${session.access_token}`);
+    headers.set('Content-Type', 'application/json');
+    
+    console.log('🔍 [AUTH] Request headers prepared:', {
+      authorization: 'Bearer [HIDDEN]',
+      contentType: headers.get('content-type'),
+      userAgent: headers.get('user-agent')
+    });
+    
+    // Make the request
+    console.log('🔍 [AUTH] Sending authenticated request...');
+    const response = await fetch(url, {
+      ...options,
+      headers
+    });
+    
+    console.log('🔍 [AUTH] Response received:', {
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok,
+      headers: Object.fromEntries(response.headers.entries())
+    });
+    
+    console.log('🔍 [AUTH] === makeAuthenticatedRequest END ===');
+    return response;
+    
   } catch (error) {
-    console.error('❌ makeAuthenticatedRequest error:', error);
-    
-    // Handle network connectivity errors
-    if (error instanceof Error && (error.message.includes('fetch') || 
-        error.message.includes('network') ||
-        error.message.includes('ERR_INTERNET_DISCONNECTED'))) {
-      throw new Error('Network connection lost. Please check your internet connection and try again.');
-    }
-    
+    console.error('❌ [AUTH] makeAuthenticatedRequest error:', error);
     throw error;
   }
-};
+}
 
 export async function fetchProjectById(id: string): Promise<any> {
   try {
@@ -258,37 +222,59 @@ export async function fetchProjects(): Promise<any> {
 
 export async function fetchPanelLayout(projectId: string): Promise<any> {
   try {
-    console.log('🔍 [DEBUG] fetchPanelLayout called with projectId:', projectId);
+    console.log('🔍 [API] === fetchPanelLayout START ===');
+    console.log('🔍 [API] Input projectId:', projectId);
     
     // First attempt: with authentication
     try {
+      console.log('🔍 [API] Making authenticated request to backend...');
       const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/panels/layout/${projectId}`, {
         cache: 'no-store'
       });
       
+      console.log('🔍 [API] Backend response received:', {
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries())
+      });
+      
       if (!response.ok) {
         if (response.status === 401) {
+          console.error('❌ [API] Authentication failed - 401 Unauthorized');
           throw new Error('Authentication required. Please log in.');
         }
         if (response.status === 404) {
+          console.error('❌ [API] Panel layout not found - 404 Not Found');
           throw new Error('Panel layout not found.');
         }
+        console.error('❌ [API] Backend error:', response.status, response.statusText);
         throw new Error(`Failed to fetch panel layout: ${response.statusText}`);
       }
       
       const layoutData = await response.json();
-      console.log('🔍 [DEBUG] fetchPanelLayout successful:', layoutData);
+      console.log('✅ [API] Panel layout data parsed successfully:', {
+        hasData: !!layoutData,
+        dataType: typeof layoutData,
+        hasPanels: !!layoutData?.panels,
+        panelCount: layoutData?.panels?.length || 0,
+        width: layoutData?.width,
+        height: layoutData?.height,
+        scale: layoutData?.scale
+      });
+      
+      if (layoutData?.panels) {
+        console.log('🔍 [API] First panel:', layoutData.panels[0]);
+        console.log('🔍 [API] Last panel:', layoutData.panels[layoutData.panels.length - 1]);
+      }
+      
+      console.log('🔍 [API] === fetchPanelLayout END ===');
       return layoutData;
     } catch (authError) {
-      console.warn('⚠️ Authenticated panel layout request failed, trying without auth:', authError);
-      
-
+      console.warn('⚠️ [API] Authenticated panel layout request failed:', authError);
+      throw new Error('Authentication required. Please log in.');
     }
   } catch (error) {
-    console.error('🔍 [DEBUG] fetchPanelLayout error:', error);
-    
-
-    
+    console.error('❌ [API] fetchPanelLayout error:', error);
     throw error;
   }
 }
@@ -513,13 +499,17 @@ export async function updateProject(projectId: string, data: {
 }
 
 export async function updatePanelLayout(projectId: string, data: {
-  panels?: any[];
-  width?: number;
-  height?: number;
-  scale?: number;
+  panels: any[];
+  width: number;
+  height: number;
+  scale: number;
 }): Promise<any> {
   try {
-    console.log('🔍 [API] updatePanelLayout called with:', { projectId, data });
+    console.log('🔍 [API] === updatePanelLayout START ===');
+    console.log('🔍 [API] Input parameters:', { projectId, data });
+    console.log('🔍 [API] Panel count:', data.panels?.length || 0);
+    console.log('🔍 [API] First panel:', data.panels?.[0]);
+    console.log('🔍 [API] Last panel:', data.panels?.[data.panels?.length - 1]);
     
     const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/panels/layout/${projectId}`, {
       method: 'PATCH',
@@ -527,6 +517,7 @@ export async function updatePanelLayout(projectId: string, data: {
     });
     
     console.log('🔍 [API] Backend response status:', response.status);
+    console.log('🔍 [API] Response headers:', Object.fromEntries(response.headers.entries()));
     
     if (!response.ok) {
       let errorMessage = 'Failed to update panel layout';
@@ -566,6 +557,7 @@ export async function updatePanelLayout(projectId: string, data: {
       height: result.height,
       scale: result.scale
     });
+    console.log('🔍 [API] === updatePanelLayout END ===');
     
     return result;
   } catch (error) {

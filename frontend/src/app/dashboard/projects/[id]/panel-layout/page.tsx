@@ -54,6 +54,8 @@ const DEFAULT_SCALE = 1.0; // Reasonable default scale - 1.0 means 1 unit = 1 pi
 const BACKEND_URL = 'http://localhost:8003';
 
 export default function PanelLayoutPage({ params }: { params: Promise<{ id: string }> }) {
+  console.log('🔍 [COMPONENT] === PanelLayoutPage INITIALIZING ===');
+  
   const [project, setProject] = useState<Project | null>(null);
   const [layout, setLayout] = useState<PanelLayout | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -87,10 +89,40 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
   useEffect(() => {
     layoutRef.current = layout;
   }, [layout]);
+  
+  // Log state changes
+  useEffect(() => {
+    console.log('🔍 [COMPONENT] Layout state changed:', {
+      hasLayout: !!layout,
+      panelCount: layout?.panels?.length || 0,
+      width: layout?.width,
+      height: layout?.height,
+      scale: layout?.scale
+    });
+  }, [layout]);
+  
+  useEffect(() => {
+    console.log('🔍 [COMPONENT] Project state changed:', {
+      hasProject: !!project,
+      projectId: project?.id,
+      projectName: project?.name
+    });
+  }, [project]);
+  
+  useEffect(() => {
+    console.log('🔍 [COMPONENT] ID state changed:', id);
+  }, [id]);
 
   // Handle adding new panels
   const handleAddPanel = useCallback(async (newPanel: any) => {
     try {
+      console.log('🔍 [ADD] === ADD PANEL START ===');
+      console.log('🔍 [ADD] New panel data:', newPanel);
+      console.log('🔍 [ADD] Current layout state:', {
+        hasLayout: !!layout,
+        currentPanelCount: layout?.panels?.length || 0
+      });
+      
       // Transform the panel data to match the Panel interface
       const transformedPanel = {
         id: newPanel.id,
@@ -113,28 +145,44 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
         }
       };
       
+      console.log('🔍 [ADD] Transformed panel:', transformedPanel);
+      
       // Add to layout state
       if (layout) {
         const updatedLayout = {
           ...layout,
           panels: [...(layout.panels || []), transformedPanel]
         };
+        
+        console.log('🔍 [ADD] Updating layout state:', {
+          oldPanelCount: layout.panels?.length || 0,
+          newPanelCount: updatedLayout.panels.length,
+          newPanelId: transformedPanel.id
+        });
+        
         setLayout(updatedLayout);
         
         // Save to backend immediately
         try {
+          console.log('🔍 [ADD] Saving to backend immediately...');
           await saveProjectToSupabase(updatedLayout, project!);
+          console.log('✅ [ADD] Panel saved to backend successfully');
         } catch (saveError) {
-          console.error('[DEBUG] Failed to save panel to backend:', saveError);
+          console.error('❌ [ADD] Failed to save panel to backend:', saveError);
           toastRef.current({
             title: 'Warning',
             description: 'Panel added locally but failed to save to backend. Please save manually.',
             variant: 'destructive',
           });
         }
+      } else {
+        console.warn('⚠️ [ADD] No layout available for new panel');
       }
+      
+      console.log('🔍 [ADD] === ADD PANEL END ===');
+      
     } catch (error) {
-      console.error('[DEBUG] Error adding panel:', error);
+      console.error('❌ [ADD] Error adding panel:', error);
       toastRef.current({
         title: 'Error',
         description: 'Failed to add panel. Please try again.',
@@ -171,6 +219,16 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
   // Save function now takes layout and project as arguments
   const saveProjectToSupabase = async (currentLayout: PanelLayout, project: Project) => {
     try {
+      console.log('🔍 [SAVE] === SAVE FUNCTION START ===');
+      console.log('🔍 [SAVE] Input layout:', {
+        hasLayout: !!currentLayout,
+        panelCount: currentLayout?.panels?.length || 0,
+        width: currentLayout?.width,
+        height: currentLayout?.height,
+        scale: currentLayout?.scale
+      });
+      console.log('🔍 [SAVE] First few panels:', currentLayout?.panels?.slice(0, 3));
+      
       // Convert panels back to Supabase format, DO NOT divide by PIXELS_PER_FOOT
       const supabasePanels = currentLayout.panels.map(panel => ({
         project_id: project.id,
@@ -186,6 +244,12 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
         stroke_width: 1, // Default stroke width
         rotation: panel.rotation || 0
       }));
+      
+      console.log('🔍 [SAVE] Transformed panels for backend:', {
+        count: supabasePanels.length,
+        firstPanel: supabasePanels[0],
+        lastPanel: supabasePanels[supabasePanels.length - 1]
+      });
       
       const width = typeof currentLayout.width === 'number' ? currentLayout.width : DEFAULT_LAYOUT_WIDTH;
       const height = typeof currentLayout.height === 'number' ? currentLayout.height : DEFAULT_LAYOUT_HEIGHT;
@@ -222,11 +286,14 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
           description: `Successfully saved ${result.panels.length} panels to the database.`,
         });
       } else {
+        console.error('❌ [SAVE] Backend returned invalid response:', result);
         throw new Error('Backend returned invalid response format');
       }
       
+      console.log('🔍 [SAVE] === SAVE FUNCTION END ===');
+      
     } catch (error) {
-      console.error('[DEBUG] Save: Error saving project:', error);
+      console.error('❌ [SAVE] Error saving project:', error);
       toastRef.current({
         title: 'Error',
         description: `Failed to save project data: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -1012,7 +1079,12 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
                 onClick={async () => {
                   try {
                     // Clear in backend
-                    await updatePanelLayout(id, { panels: [] });
+                    await updatePanelLayout(id, { 
+                      panels: [],
+                      width: layout?.width || DEFAULT_LAYOUT_WIDTH,
+                      height: layout?.height || DEFAULT_LAYOUT_HEIGHT,
+                      scale: layout?.scale || DEFAULT_SCALE
+                    });
                     // Clear in frontend
                     setLayout(prev => prev ? { ...prev, panels: [] } : null);
                     console.log('[DEBUG] Cleared layout panels in backend and frontend');

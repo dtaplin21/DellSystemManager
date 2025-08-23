@@ -57,7 +57,8 @@ const validatePanel = (panel) => {
   return true;
 };
 
-// Map panel to canonical format
+// Map panel to canonical format - REMOVED: No longer needed after fixing data transformation issues
+/*
 const mapPanelToCanonical = (panel) => ({
   id: panel.id,
   shape: panel.shape || 'rectangle',
@@ -68,7 +69,7 @@ const mapPanelToCanonical = (panel) => ({
   length: panel.length || panel.height || 100,
   rotation: panel.rotation || 0,
   fill: panel.fill || '#3b82f6',
-  color: panel.color || '#3b82f6',
+  color: panel.color || panel.fill || '#3b82f6',
   rollNumber: panel.rollNumber || '',
   panelNumber: panel.panelNumber || '',
   date: panel.date || new Date().toISOString(),
@@ -78,11 +79,17 @@ const mapPanelToCanonical = (panel) => ({
     location: panel.meta?.location || { x: panel.x || 0, y: panel.y || 0, gridCell: { row: 0, col: 0 } }
   }
 });
+*/
 
 // Get panel layout for a project
 router.get('/layout/:projectId', async (req, res, next) => {
-  console.log('🔍 [PANELS] GET request received for project:', req.params.projectId);
-  console.log('🔍 [PANELS] Request headers:', req.headers);
+  console.log('🔍 [PANELS] === GET /layout/:projectId START ===');
+  console.log('🔍 [PANELS] Request params:', req.params);
+  console.log('🔍 [PANELS] Request headers:', {
+    authorization: req.headers?.authorization ? 'Present' : 'Missing',
+    contentType: req.headers?.['content-type'],
+    userAgent: req.headers?.['user-agent']?.substring(0, 50) + '...'
+  });
   
   // Apply auth middleware for production
   try {
@@ -103,6 +110,7 @@ router.get('/layout/:projectId', async (req, res, next) => {
     
     // Basic ID validation
     if (!projectId || projectId.length === 0) {
+      console.error('❌ [PANELS] Invalid project ID:', projectId);
       return res.status(400).json({ message: 'Invalid project ID' });
     }
     
@@ -122,6 +130,7 @@ router.get('/layout/:projectId', async (req, res, next) => {
     }
     
     if (!project) {
+      console.error('❌ [PANELS] Project not found or access denied');
       return res.status(404).json({ message: 'Project not found' });
     }
     
@@ -131,7 +140,11 @@ router.get('/layout/:projectId', async (req, res, next) => {
       .from(panelLayouts)
       .where(eq(panelLayouts.projectId, projectId));
     
-    console.log('🔍 [PANELS] Panel layout query result:', panelLayout);
+    console.log('🔍 [PANELS] Panel layout query result:', {
+      found: !!panelLayout,
+      id: panelLayout?.id,
+      projectId: panelLayout?.projectId
+    });
     
     // If layout doesn't exist, create a default one
     if (!panelLayout) {
@@ -141,7 +154,7 @@ router.get('/layout/:projectId', async (req, res, next) => {
         .values({
           id: uuidv4(),
           projectId,
-          panels: '[]', // Empty array as string
+          panels: [], // Empty array as JSONB
           width: DEFAULT_LAYOUT_WIDTH,
           height: DEFAULT_LAYOUT_HEIGHT,
           scale: DEFAULT_SCALE,
@@ -149,44 +162,89 @@ router.get('/layout/:projectId', async (req, res, next) => {
         })
         .returning();
       
-      console.log('✅ [PANELS] New panel layout created:', panelLayout);
+      console.log('✅ [PANELS] New panel layout created:', {
+        id: panelLayout.id,
+        projectId: panelLayout.projectId,
+        panels: panelLayout.panels
+      });
     }
     
-    // Parse the panels JSON string to an actual array
+    // Parse the panels JSONB data to an actual array
     let parsedPanels = [];
     try {
-      if (panelLayout.panels && typeof panelLayout.panels === 'string') {
-        parsedPanels = JSON.parse(panelLayout.panels);
-      } else if (Array.isArray(panelLayout.panels)) {
-        parsedPanels = panelLayout.panels;
-      } else {
-        parsedPanels = [];
+      if (panelLayout.panels) {
+        if (typeof panelLayout.panels === 'string') {
+          // Handle legacy TEXT format
+          parsedPanels = JSON.parse(panelLayout.panels);
+        } else if (Array.isArray(panelLayout.panels)) {
+          // Handle JSONB array format
+          parsedPanels = panelLayout.panels;
+        } else if (typeof panelLayout.panels === 'object') {
+          // Handle JSONB object format
+          parsedPanels = Array.isArray(panelLayout.panels) ? panelLayout.panels : [];
+        }
       }
+      console.log('🔍 [PANELS] Panels parsed successfully:', {
+        count: parsedPanels.length,
+        isArray: Array.isArray(parsedPanels),
+        firstPanel: parsedPanels[0],
+        lastPanel: parsedPanels[parsedPanels.length - 1]
+      });
     } catch (parseError) {
       console.error('🔍 Error parsing panels JSON:', parseError);
+      console.error('🔍 Panel data type:', typeof panelLayout.panels);
+      console.error('🔍 Panel data:', panelLayout.panels);
       parsedPanels = [];
     }
     
-    const parsedLayout = {
-      ...panelLayout,
+    // Prepare response
+    const responseData = {
+      id: panelLayout.id,
+      projectId: panelLayout.projectId,
       panels: parsedPanels,
       width: typeof panelLayout.width === 'number' ? panelLayout.width : DEFAULT_LAYOUT_WIDTH,
       height: typeof panelLayout.height === 'number' ? panelLayout.height : DEFAULT_LAYOUT_HEIGHT,
       scale: typeof panelLayout.scale === 'number' ? panelLayout.scale : DEFAULT_SCALE,
+      lastUpdated: panelLayout.lastUpdated
     };
     
-    res.status(200).json(parsedLayout);
+    console.log('✅ [PANELS] Response data prepared:', {
+      id: responseData.id,
+      projectId: responseData.projectId,
+      panelCount: responseData.panels.length,
+      width: responseData.width,
+      height: responseData.height,
+      scale: responseData.scale,
+      lastUpdated: responseData.lastUpdated
+    });
+    
+    console.log('🔍 [PANELS] === GET /layout/:projectId END ===');
+    res.status(200).json(responseData);
+    
   } catch (error) {
-    console.error('❌ Error in GET /layout/:projectId:', error);
-    next(error);
+    console.error('❌ [PANELS] GET /layout/:projectId error:', error);
+    console.error('❌ [PANELS] Error details:', {
+      message: error.message,
+      stack: error.stack,
+      code: error.code
+    });
+    return res.status(500).json({ 
+      message: 'Internal server error',
+      error: error.message 
+    });
   }
 });
 
-// Update panel layout
+// Update panel layout for a project
 router.patch('/layout/:projectId', async (req, res, next) => {
-  console.log('🔍 [PANELS] PATCH request received for project:', req.params.projectId);
-  console.log('🔍 [PANELS] Request headers:', req.headers);
+  console.log('🔍 [PANELS] === PATCH /layout/:projectId START ===');
+  console.log('🔍 [PANELS] Request params:', req.params);
   console.log('🔍 [PANELS] Request body:', req.body);
+  console.log('🔍 [PANELS] Request headers:', {
+    authorization: req.headers?.authorization ? 'Present' : 'Missing',
+    contentType: req.headers?.['content-type'],
+    userAgent: req.headers?.['user-agent']?.substring(0, 50) + '...'
+  });
   
   // Apply auth middleware for production
   try {
@@ -201,15 +259,26 @@ router.patch('/layout/:projectId', async (req, res, next) => {
   }
   
   try {
-    res.setHeader('Cache-Control', 'no-store');
     const { projectId } = req.params;
     const updateData = req.body;
     
-    console.log('🔍 [PANELS] Processing update for project:', projectId);
-    console.log('🔍 [PANELS] Update data:', JSON.stringify(updateData, null, 2));
+    console.log('🔍 [PANELS] Processing PATCH for project:', projectId);
+    console.log('🔍 [PANELS] Update data received:', {
+      hasPanels: !!updateData.panels,
+      panelCount: updateData.panels?.length || 0,
+      width: updateData.width,
+      height: updateData.height,
+      scale: updateData.scale
+    });
+    
+    if (updateData.panels && Array.isArray(updateData.panels)) {
+      console.log('🔍 [PANELS] First panel:', updateData.panels[0]);
+      console.log('🔍 [PANELS] Last panel:', updateData.panels[updateData.panels.length - 1]);
+    }
     
     // Basic ID validation
     if (!projectId || projectId.length === 0) {
+      console.error('❌ [PANELS] Invalid project ID:', projectId);
       return res.status(400).json({ message: 'Invalid project ID' });
     }
     
@@ -229,6 +298,7 @@ router.patch('/layout/:projectId', async (req, res, next) => {
     }
     
     if (!project) {
+      console.error('❌ [PANELS] Project not found or access denied');
       return res.status(404).json({ message: 'Project not found' });
     }
     
@@ -238,17 +308,29 @@ router.patch('/layout/:projectId', async (req, res, next) => {
       .from(panelLayouts)
       .where(eq(panelLayouts.projectId, projectId));
     
-    console.log('🔍 [PANELS] Existing layout query result:', existingLayout);
+    console.log('🔍 [PANELS] Existing layout found:', existingLayout ? 'YES' : 'NO');
+    if (existingLayout) {
+      console.log('🔍 [PANELS] Existing layout data:', {
+        id: existingLayout.id,
+        projectId: existingLayout.projectId,
+        hasPanels: !!existingLayout.panels,
+        panelCount: existingLayout.panels ? (Array.isArray(existingLayout.panels) ? existingLayout.panels.length : 'Not array') : 'No panels',
+        width: existingLayout.width,
+        height: existingLayout.height,
+        scale: existingLayout.scale,
+        lastUpdated: existingLayout.lastUpdated
+      });
+    }
     
-    // If layout doesn't exist, create a default one
+    // If no existing layout, create one
     if (!existingLayout) {
-      console.log('🔍 [PANELS] Creating new panel layout for PATCH operation');
+      console.log('🔍 [PANELS] Creating new panel layout for project:', projectId);
       [existingLayout] = await db
         .insert(panelLayouts)
         .values({
           id: uuidv4(),
           projectId,
-          panels: '[]',
+          panels: [], // Empty array as JSONB
           width: DEFAULT_LAYOUT_WIDTH,
           height: DEFAULT_LAYOUT_HEIGHT,
           scale: DEFAULT_SCALE,
@@ -256,105 +338,132 @@ router.patch('/layout/:projectId', async (req, res, next) => {
         })
         .returning();
       
-      console.log('✅ [PANELS] New panel layout created for PATCH:', existingLayout);
+      console.log('✅ [PANELS] New panel layout created:', existingLayout);
     }
     
     // Parse existing panels
     let currentPanels = [];
     try {
-      currentPanels = JSON.parse(existingLayout.panels || '[]');
+      if (existingLayout.panels) {
+        if (typeof existingLayout.panels === 'string') {
+          // Handle legacy TEXT format
+          currentPanels = JSON.parse(existingLayout.panels);
+        } else if (Array.isArray(existingLayout.panels)) {
+          // Handle JSONB array format
+          currentPanels = existingLayout.panels;
+        } else if (typeof existingLayout.panels === 'object') {
+          // Handle JSONB object format
+          currentPanels = Array.isArray(existingLayout.panels) ? existingLayout.panels : [];
+        }
+      }
+      console.log('🔍 [PANELS] Current panels parsed:', {
+        count: currentPanels.length,
+        isArray: Array.isArray(currentPanels)
+      });
     } catch (parseError) {
-      console.error('Error parsing existing panels:', parseError);
+      console.error('🔍 Error parsing existing panels JSON:', parseError);
       currentPanels = [];
     }
     
-    // Update panels if provided
+    // If panels are provided, update the layout
     if (updateData.panels && Array.isArray(updateData.panels)) {
-      console.log('🔍 [PANELS] Processing panel update with', updateData.panels.length, 'panels');
+      console.log('🔍 [PANELS] Updating layout with new panels:', {
+        newPanelCount: updateData.panels.length,
+        oldPanelCount: currentPanels.length
+      });
       
-      // Validate all panels before updating
-      const validPanels = updateData.panels.filter(panel => validatePanel(panel));
+      // Validate panels
+      const validPanels = updateData.panels.filter(validatePanel);
+      console.log('🔍 [PANELS] Panel validation results:', {
+        total: updateData.panels.length,
+        valid: validPanels.length,
+        invalid: updateData.panels.length - validPanels.length
+      });
       
-      if (validPanels.length !== updateData.panels.length) {
-        const invalidCount = updateData.panels.length - validPanels.length;
-        console.warn(`⚠️ [PANELS] ${invalidCount} panels were invalid and were filtered out`);
-        console.warn('⚠️ [PANELS] Invalid panels:', updateData.panels.filter(panel => !validatePanel(panel)));
+      if (validPanels.length === 0) {
+        console.warn('⚠️ [PANELS] No valid panels provided');
+        return res.status(400).json({ message: 'No valid panels provided' });
       }
       
-      console.log('✅ [PANELS] Valid panels for update:', validPanels.length);
+      // Update the layout with new panels
+      const [updatedLayout] = await db
+        .update(panelLayouts)
+        .set({
+          panels: validPanels, // Store as JSONB directly
+          width: updateData.width || existingLayout.width,
+          height: updateData.height || existingLayout.height,
+          scale: updateData.scale || existingLayout.scale,
+          lastUpdated: new Date(),
+        })
+        .where(eq(panelLayouts.projectId, projectId))
+        .returning();
       
+      console.log('✅ [PANELS] Layout updated in database:', {
+        id: updatedLayout.id,
+        projectId: updatedLayout.projectId,
+        panelCount: validPanels.length,
+        width: updatedLayout.width,
+        height: updatedLayout.height,
+        scale: updatedLayout.scale,
+        lastUpdated: updatedLayout.lastUpdated
+      });
+      
+      // Return panels exactly as saved - no transformation needed for JSONB
+      console.log('🔍 [PANELS] Returning saved panels without transformation:', updatedLayout.panels);
+      
+      const parsedLayout = {
+        ...updatedLayout,
+        width: typeof updatedLayout.width === 'number' ? updatedLayout.width : DEFAULT_LAYOUT_WIDTH,
+        height: typeof updatedLayout.height === 'number' ? updatedLayout.height : DEFAULT_LAYOUT_HEIGHT,
+        scale: typeof updatedLayout.scale === 'number' ? updatedLayout.scale : DEFAULT_SCALE,
+        panels: updatedLayout.panels, // Return panels exactly as saved
+      };
+      
+      // Notify other clients via WebSockets
       try {
-        // Update the layout with new panels
-        const [updatedLayout] = await db
-          .update(panelLayouts)
-          .set({
-            panels: JSON.stringify(validPanels),
-            width: updateData.width || existingLayout.width,
-            height: updateData.height || existingLayout.height,
-            scale: updateData.scale || existingLayout.scale,
-            lastUpdated: new Date(),
-          })
-          .where(eq(panelLayouts.projectId, projectId))
-          .returning();
-        
-        console.log('✅ [PANELS] Database update successful:', {
+        wsSendToRoom(`panel_layout_${projectId}`, {
+          type: 'PANEL_UPDATE',
           projectId,
-          panelsCount: validPanels.length,
-          updatedAt: updatedLayout.lastUpdated
+          panels: updatedLayout.panels || [],
+          userId: req.user.id,
+          timestamp: updatedLayout.lastUpdated,
         });
-        
-        // Parse the panels for the response
-        const parsedLayout = {
-          ...updatedLayout,
-          width: typeof updatedLayout.width === 'number' ? updatedLayout.width : DEFAULT_LAYOUT_WIDTH,
-          height: typeof updatedLayout.height === 'number' ? updatedLayout.height : DEFAULT_LAYOUT_HEIGHT,
-          scale: typeof updatedLayout.scale === 'number' ? updatedLayout.scale : DEFAULT_SCALE,
-          panels: JSON.parse(updatedLayout.panels || '[]').map(mapPanelToCanonical),
-        };
-        
-        // Notify other clients via WebSockets
-        try {
-          wsSendToRoom(`panel_layout_${projectId}`, {
-            type: 'PANEL_UPDATE',
-            projectId,
-            panels: JSON.parse(updatedLayout.panels || '[]'),
-            userId: req.user.id,
-            timestamp: updatedLayout.lastUpdated,
-          });
-          console.log('✅ [PANELS] WebSocket notification sent');
-        } catch (wsError) {
-          console.warn('⚠️ [PANELS] WebSocket notification failed:', wsError.message);
-        }
-        
-        res.status(200).json(parsedLayout);
-      } catch (dbError) {
-        console.error('❌ [PANELS] Database update failed:', dbError);
-        console.error('❌ [PANELS] Update data:', {
-          projectId,
-          panelsCount: validPanels.length,
-          error: dbError.message
-        });
-        return res.status(500).json({ 
-          message: 'Failed to update panel layout',
-          error: 'DATABASE_UPDATE_FAILED'
-        });
+        console.log('✅ [PANELS] WebSocket notification sent');
+      } catch (wsError) {
+        console.warn('⚠️ [PANELS] WebSocket notification failed:', wsError.message);
       }
+      
+      console.log('🔍 [PANELS] === PATCH /layout/:projectId END ===');
+      return res.status(200).json(parsedLayout);
+      
     } else {
-      console.log('🔍 [PANELS] No panels provided, returning existing layout');
-      // No panels provided, return existing layout
+      // No panels provided, return existing layout - Return panels exactly as stored, no transformation
+      console.log('🔍 [PANELS] No panels provided, returning existing layout - Return panels exactly as stored, no transformation');
+      console.log('🔍 [PANELS] Returning stored panels without transformation:', existingLayout.panels);
+      
       const parsedLayout = {
         ...existingLayout,
         width: typeof existingLayout.width === 'number' ? existingLayout.width : DEFAULT_LAYOUT_WIDTH,
         height: typeof existingLayout.height === 'number' ? existingLayout.height : DEFAULT_LAYOUT_HEIGHT,
         scale: typeof existingLayout.scale === 'number' ? existingLayout.scale : DEFAULT_SCALE,
-        panels: currentPanels.map(mapPanelToCanonical),
+        panels: existingLayout.panels || [], // Return panels exactly as stored
       };
       
-      res.status(200).json(parsedLayout);
+      console.log('🔍 [PANELS] === PATCH /layout/:projectId END ===');
+      return res.status(200).json(parsedLayout);
     }
+    
   } catch (error) {
-    console.error('❌ Error in PATCH /layout/:projectId:', error);
-    next(error);
+    console.error('❌ [PANELS] PATCH /layout/:projectId error:', error);
+    console.error('❌ [PANELS] Error details:', {
+      message: error.message,
+      stack: error.stack,
+      code: error.code
+    });
+    return res.status(500).json({ 
+      message: 'Internal server error',
+      error: error.message 
+    });
   }
 });
 
@@ -382,9 +491,17 @@ router.get('/debug/:projectId', async (req, res, next) => {
     if (panelLayout) {
       let panelsCount = 0;
       try {
-        if (panelLayout.panels && typeof panelLayout.panels === 'string') {
-          const parsedPanels = JSON.parse(panelLayout.panels);
-          panelsCount = Array.isArray(parsedPanels) ? parsedPanels.length : 0;
+        if (panelLayout.panels) {
+          if (typeof panelLayout.panels === 'string') {
+            // Handle legacy TEXT format
+            const parsedPanels = JSON.parse(panelLayout.panels);
+            panelsCount = Array.isArray(parsedPanels) ? parsedPanels.length : 0;
+          } else if (Array.isArray(panelLayout.panels)) {
+            // Handle JSONB array format
+            panelsCount = panelLayout.panels.length;
+          } else {
+            panelsCount = 0;
+          }
         }
       } catch (parseError) {
         console.warn('⚠️ [DEBUG] Could not parse panels JSON:', parseError.message);
@@ -402,12 +519,31 @@ router.get('/debug/:projectId', async (req, res, next) => {
       });
     }
     
+    let panels = [];
+    try {
+      if (panelLayout && panelLayout.panels) {
+        if (typeof panelLayout.panels === 'string') {
+          // Handle legacy TEXT format
+          panels = JSON.parse(panelLayout.panels);
+        } else if (Array.isArray(panelLayout.panels)) {
+          // Handle JSONB array format
+          panels = panelLayout.panels;
+        }
+        if (!Array.isArray(panels)) {
+          panels = [];
+        }
+      }
+    } catch (parseError) {
+      console.warn('⚠️ [DEBUG] Could not parse panels JSON for response:', parseError.message);
+      panels = [];
+    }
+    
     res.status(200).json({
       project: project ? { id: project.id, name: project.name } : null,
       panelLayout: panelLayout ? {
         id: panelLayout.id,
         projectId: panelLayout.projectId,
-        panels: panelLayout.panels ? JSON.parse(panelLayout.panels) : [],
+        panels: panels,
         width: panelLayout.width,
         height: panelLayout.height,
         scale: panelLayout.scale,
