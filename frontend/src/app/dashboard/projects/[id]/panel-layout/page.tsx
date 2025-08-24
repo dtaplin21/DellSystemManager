@@ -83,9 +83,10 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
   const { toast } = useToast();
   const router = useRouter();
   
-  // Debounce timer ref
-  const saveDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  // Refs for stable references
   const layoutRef = useRef<PanelLayout | null>(null);
+  const toastRef = useRef<any>(null);
+  const worldDimensionsRef = useRef<{ worldScale: number }>({ worldScale: 1 });
   useEffect(() => {
     layoutRef.current = layout;
   }, [layout]);
@@ -113,9 +114,16 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
     console.log('🔍 [COMPONENT] ID state changed:', id);
   }, [id]);
 
+  // State for preventing unnecessary reloads after panel operations
+  const [isPanelOperationInProgress, setIsPanelOperationInProgress] = useState(false);
+  
+  // State for tracking unsaved changes
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  
   // Handle adding new panels
   const handleAddPanel = useCallback(async (newPanel: any) => {
     try {
+      setIsPanelOperationInProgress(true); // Prevent automatic reloads
       console.log('🔍 [ADD] === ADD PANEL START ===');
       console.log('🔍 [ADD] New panel data:', newPanel);
       console.log('🔍 [ADD] Current layout state:', {
@@ -192,23 +200,12 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
         
         setLayout(updatedLayout);
         
-        // Save to backend immediately using the updatedLayout object directly
-        try {
-          console.log('🔍 [ADD] Saving to backend immediately...');
-          console.log('🔍 [ADD] Using updatedLayout object for save:', {
-            panelCount: updatedLayout.panels.length,
-            firstPanel: updatedLayout.panels[0]
-          });
-          await saveProjectToSupabase(updatedLayout, project!);
-          console.log('✅ [ADD] Panel saved to backend successfully');
-        } catch (saveError) {
-          console.error('❌ [ADD] Failed to save panel to backend:', saveError);
-          toastRef.current({
-            title: 'Warning',
-            description: 'Panel added locally but failed to save to backend. Please save manually.',
-            variant: 'destructive',
-          });
-        }
+        // Mark that there are unsaved changes
+        setHasUnsavedChanges(true);
+        
+        // No automatic save - user must manually save when ready
+        console.log('✅ [ADD] Panel added to local state - use Save button to persist changes');
+        
       } else {
         console.warn('⚠️ [ADD] No layout available for new panel');
         console.warn('⚠️ [ADD] Layout state is null or undefined');
@@ -223,6 +220,8 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
         description: 'Failed to add panel. Please try again.',
         variant: 'destructive',
       });
+    } finally {
+      setIsPanelOperationInProgress(false); // Re-enable automatic reloads
     }
   }, [layout, project]);
 
@@ -595,7 +594,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
     }
   }, [layout?.panels]) // Keep the original dependency but use ref-based caching
 
-  // Panel update handler - Enhanced with auto-save
+  // Panel update handler - Manual save only
   const handlePanelUpdate = useCallback(async (updatedPanels: Panel[]) => {
     console.log('[DEBUG] handlePanelUpdate called with panels:', updatedPanels);
     console.log('[DEBUG] Current layout state:', {
@@ -611,7 +610,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
     }
     
     try {
-      // Update local layout state
+      // Update local layout state only - no auto-save
       const updatedLayout = {
         ...layout,
         panels: updatedPanels,
@@ -631,25 +630,11 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
       
       setLayout(updatedLayout);
       
-      // Save to backend with debouncing
-      if (saveDebounceRef.current) {
-        clearTimeout(saveDebounceRef.current);
-      }
+      // Mark that there are unsaved changes
+      setHasUnsavedChanges(true);
       
-      saveDebounceRef.current = setTimeout(async () => {
-        console.log('[DEBUG] Auto-saving panel layout to backend...');
-        try {
-          await saveProjectToSupabase(updatedLayout, project);
-          console.log('[DEBUG] Panel layout auto-saved successfully');
-        } catch (error) {
-          console.error('[DEBUG] Auto-save failed:', error);
-          toastRef.current({
-            title: 'Auto-save Failed',
-            description: 'Failed to save panel changes. Please save manually.',
-            variant: 'destructive',
-          });
-        }
-      }, 1000); // 1 second debounce
+      // No auto-save - user must manually save when ready
+      console.log('[DEBUG] Layout updated locally - use Save button to persist changes');
       
     } catch (error) {
       console.error('[DEBUG] Error updating panels:', error);
@@ -660,15 +645,6 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
       });
     }
   }, [layout, project]);
-
-  // Cleanup debounce timer on unmount
-  useEffect(() => {
-    return () => {
-      if (saveDebounceRef.current) {
-        clearTimeout(saveDebounceRef.current);
-      }
-    };
-  }, []);
 
   // Add test panels function
   const createTestPanels = useCallback(() => {
@@ -1009,8 +985,6 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
   }, [id]); // Only depend on id, not toast
 
   // Store toast function in ref to prevent infinite loops
-  const toastRef = useRef(toast);
-  
   useEffect(() => {
     toastRef.current = toast;
   }, [toast]);
@@ -1021,9 +995,16 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
       console.log('[DEBUG] Load: No id yet, skipping loadProjectAndLayout');
       return;
     }
+    
+    // Prevent automatic reloading when panel operations are in progress
+    if (isPanelOperationInProgress) {
+      console.log('[DEBUG] Load: Panel operation in progress, skipping automatic reload');
+      return;
+    }
+    
     console.log('[DEBUG] Load: Calling loadProjectAndLayout with id:', id);
     loadProjectAndLayout();
-  }, [id, loadProjectAndLayout]); // Now properly depend on the function
+  }, [id, loadProjectAndLayout, isPanelOperationInProgress]); // Add flag to dependencies
 
   // AI Layout Execution Functions
   const handleExecuteAILayout = async () => {
@@ -1103,6 +1084,20 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
     }
   }, [layout?.id, layout?.panels?.length]); // Only log when layout ID or panel count changes
 
+  // Add warning when leaving page with unsaved changes
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+        return 'You have unsaved changes. Are you sure you want to leave?';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
   if (isLoading) {
     return (
       <div className="flex justify-center py-8">
@@ -1111,7 +1106,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
     );
   }
 
-  // Debug logging only in development and only when values actually change
+  // Debug logging only in development
   if (process.env.NODE_ENV === 'development') {
     console.log('🔍 [DEBUG] Render state - project name:', project?.name);
     console.log('🔍 [DEBUG] Render state - project type:', typeof project?.name);
@@ -1154,7 +1149,44 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
             <div>Mapped Panels: {mappedPanels.length}</div>
             <div>Project Info: {projectInfo.projectName || 'Not set'}</div>
             <div>User: {user ? `✅ ${user.email}` : '❌ Not authenticated'}</div>
+            <div className={hasUnsavedChanges ? "text-orange-600 font-semibold" : "text-green-600"}>
+              Status: {hasUnsavedChanges ? "⚠️ Unsaved Changes" : "✅ All Changes Saved"}
+            </div>
             <div className="mt-2 space-x-2">
+              <Button 
+                size="sm" 
+                onClick={async () => {
+                  if (layout && project) {
+                    try {
+                      console.log('[DEBUG] Manual save triggered by user');
+                      await saveProjectToSupabase(layout, project);
+                      setHasUnsavedChanges(false); // Clear unsaved changes flag
+                      toastRef.current({
+                        title: 'Success',
+                        description: 'Panel layout saved successfully!',
+                        variant: 'default',
+                      });
+                    } catch (error) {
+                      console.error('[DEBUG] Manual save failed:', error);
+                      toastRef.current({
+                        title: 'Error',
+                        description: 'Failed to save panel layout',
+                        variant: 'destructive',
+                      });
+                    }
+                  } else {
+                    toastRef.current({
+                      title: 'Error',
+                      description: 'Cannot save - layout or project not loaded',
+                      variant: 'destructive',
+                    });
+                  }
+                }} 
+                variant={hasUnsavedChanges ? "destructive" : "default"}
+                className={hasUnsavedChanges ? "bg-orange-600 hover:bg-orange-700 text-white" : "bg-green-600 hover:bg-green-700 text-white"}
+              >
+                {hasUnsavedChanges ? "💾 Save*" : "💾 Save Project"}
+              </Button>
               <Button size="sm" onClick={createTestPanels} variant="outline">
                 Create Test Panels
               </Button>
