@@ -131,7 +131,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
         y: newPanel.y,
         width: newPanel.width,
         height: newPanel.height,
-        length: newPanel.length,
+        length: newPanel.length || newPanel.height || 100, // Default to height if length not provided
         rotation: newPanel.rotation || 0,
         fill: newPanel.fill,
         color: newPanel.color,

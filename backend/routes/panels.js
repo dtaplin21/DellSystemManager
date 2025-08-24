@@ -12,48 +12,70 @@ const DEFAULT_LAYOUT_WIDTH = 4000;
 const DEFAULT_LAYOUT_HEIGHT = 4000;
 const DEFAULT_SCALE = 1.0;
 
-// Panel validation function
+// Validate panel data - updated to handle the actual format sent from frontend
 const validatePanel = (panel) => {
-  if (!panel || typeof panel !== 'object') return false;
-  
-  const requiredFields = ['id', 'shape', 'x', 'y', 'width', 'height', 'length'];
-  const hasRequiredFields = requiredFields.every(field => panel.hasOwnProperty(field));
-  
-  if (!hasRequiredFields) {
-    console.warn('❌ Panel validation failed - missing required fields:', {
-      panel: panel.id,
-      missing: requiredFields.filter(field => !panel.hasOwnProperty(field))
-    });
+  if (!panel || typeof panel !== 'object') {
+    console.warn('❌ Panel validation failed - not an object:', panel);
     return false;
   }
   
-  // Validate data types
+  // The frontend sends panels in this format:
+  // { project_id, type, x, y, width_feet, height_feet, roll_number, panel_number, fill, stroke, stroke_width, rotation }
+  
+  // Required fields for the frontend format
+  const requiredFields = ['project_id', 'type', 'x', 'y', 'width_feet', 'height_feet'];
+  for (const field of requiredFields) {
+    if (!(field in panel)) {
+      console.warn('❌ Panel validation failed - missing required field:', field, 'Panel:', panel.project_id || 'unknown');
+      return false;
+    }
+  }
+  
+  // Validate data types for required fields
   const isValid = (
-    typeof panel.id === 'string' &&
-    typeof panel.shape === 'string' &&
+    typeof panel.project_id === 'string' &&
+    typeof panel.type === 'string' &&
     typeof panel.x === 'number' &&
     typeof panel.y === 'number' &&
-    typeof panel.width === 'number' &&
-    typeof panel.height === 'number' &&
-    typeof panel.length === 'number'
+    typeof panel.width_feet === 'number' &&
+    typeof panel.height_feet === 'number'
   );
   
   if (!isValid) {
     console.warn('❌ Panel validation failed - invalid data types:', {
-      panel: panel.id,
+      panel: panel.project_id || 'unknown',
       types: {
-        id: typeof panel.id,
-        shape: typeof panel.shape,
+        project_id: typeof panel.project_id,
+        type: typeof panel.type,
         x: typeof panel.x,
         y: typeof panel.y,
-        width: typeof panel.width,
-        height: typeof panel.height,
-        length: typeof panel.length
+        width_feet: typeof panel.width_feet,
+        height_feet: typeof panel.height_feet
       }
     });
     return false;
   }
   
+  // Optional fields - validate if present
+  if (panel.rotation !== undefined && typeof panel.rotation !== 'number') {
+    console.warn('❌ Panel validation failed - rotation must be a number if present:', {
+      panel: panel.project_id || 'unknown',
+      rotation: panel.rotation,
+      type: typeof panel.rotation
+    });
+    return false;
+  }
+  
+  if (panel.stroke_width !== undefined && typeof panel.stroke_width !== 'number') {
+    console.warn('❌ Panel validation failed - stroke_width must be a number if present:', {
+      panel: panel.project_id || 'unknown',
+      stroke_width: panel.stroke_width,
+      type: typeof panel.stroke_width
+    });
+    return false;
+  }
+  
+  console.log('✅ Panel validation passed:', panel.project_id || 'unknown');
   return true;
 };
 
@@ -372,8 +394,28 @@ router.patch('/layout/:projectId', async (req, res, next) => {
         oldPanelCount: currentPanels.length
       });
       
+      // Log each panel before validation
+      console.log('🔍 [PANELS] Raw panels received:', updateData.panels);
+      
       // Validate panels
-      const validPanels = updateData.panels.filter(validatePanel);
+      const validPanels = updateData.panels.filter(panel => {
+        const isValid = validatePanel(panel);
+        if (!isValid) {
+          console.warn('⚠️ [PANELS] Panel validation failed for panel:', {
+            project_id: panel?.project_id,
+            type: panel?.type,
+            x: panel?.x,
+            y: panel?.y,
+            width_feet: panel?.width_feet,
+            height_feet: panel?.height_feet,
+            roll_number: panel?.roll_number,
+            panel_number: panel?.panel_number,
+            rotation: panel?.rotation
+          });
+        }
+        return isValid;
+      });
+      
       console.log('🔍 [PANELS] Panel validation results:', {
         total: updateData.panels.length,
         valid: validPanels.length,
@@ -381,7 +423,8 @@ router.patch('/layout/:projectId', async (req, res, next) => {
       });
       
       if (validPanels.length === 0) {
-        console.warn('⚠️ [PANELS] No valid panels provided');
+        console.warn('⚠️ [PANELS] No valid panels provided after validation');
+        console.warn('⚠️ [PANELS] All panels failed validation');
         return res.status(400).json({ message: 'No valid panels provided' });
       }
       
@@ -406,6 +449,13 @@ router.patch('/layout/:projectId', async (req, res, next) => {
         height: updatedLayout.height,
         scale: updatedLayout.scale,
         lastUpdated: updatedLayout.lastUpdated
+      });
+      
+      // Log what's actually stored in the database
+      console.log('🔍 [PANELS] Database stored panels:', {
+        rawPanels: updatedLayout.panels,
+        panelCount: Array.isArray(updatedLayout.panels) ? updatedLayout.panels.length : 'Not array',
+        firstPanel: Array.isArray(updatedLayout.panels) ? updatedLayout.panels[0] : 'N/A'
       });
       
       // Return panels exactly as saved - no transformation needed for JSONB
