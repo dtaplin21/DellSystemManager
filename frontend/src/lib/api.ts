@@ -510,6 +510,17 @@ export async function updatePanelLayout(projectId: string, data: {
     console.log('🔍 [API] Panel count:', data.panels?.length || 0);
     console.log('🔍 [API] First panel:', data.panels?.[0]);
     console.log('🔍 [API] Last panel:', data.panels?.[data.panels?.length - 1]);
+    console.log('🔍 [API] Full data object:', JSON.stringify(data, null, 2));
+    
+    // Safety check: ensure panels array exists and is not empty
+    if (!data.panels || !Array.isArray(data.panels)) {
+      console.error('❌ [API] Invalid panels data:', data.panels);
+      throw new Error('Invalid panels data: panels must be an array');
+    }
+    
+    if (data.panels.length === 0) {
+      console.warn('⚠️ [API] Empty panels array being sent to backend');
+    }
     
     const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/panels/layout/${projectId}`, {
       method: 'PATCH',

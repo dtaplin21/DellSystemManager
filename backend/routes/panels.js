@@ -396,9 +396,26 @@ router.patch('/layout/:projectId', async (req, res, next) => {
       
       // Log each panel before validation
       console.log('🔍 [PANELS] Raw panels received:', updateData.panels);
+      console.log('🔍 [PANELS] First panel structure:', {
+        keys: updateData.panels[0] ? Object.keys(updateData.panels[0]) : 'No panels',
+        firstPanel: updateData.panels[0]
+      });
       
       // Validate panels
       const validPanels = updateData.panels.filter(panel => {
+        console.log('🔍 [PANELS] Validating panel:', {
+          id: panel?.project_id || 'unknown',
+          keys: Object.keys(panel || {}),
+          hasRequiredFields: {
+            project_id: !!panel?.project_id,
+            type: !!panel?.type,
+            x: !!panel?.x,
+            y: !!panel?.y,
+            width_feet: !!panel?.width_feet,
+            height_feet: !!panel?.height_feet
+          }
+        });
+        
         const isValid = validatePanel(panel);
         if (!isValid) {
           console.warn('⚠️ [PANELS] Panel validation failed for panel:', {

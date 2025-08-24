@@ -123,6 +123,28 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
         currentPanelCount: layout?.panels?.length || 0
       });
       
+      // Safety check: ensure layout is properly initialized
+      if (!layout) {
+        console.error('❌ [ADD] Layout not initialized yet');
+        toastRef.current({
+          title: 'Error',
+          description: 'Layout not ready. Please wait for the page to load completely.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      
+      // Safety check: ensure panels array exists
+      if (!Array.isArray(layout.panels)) {
+        console.error('❌ [ADD] Layout panels array is not properly initialized:', layout.panels);
+        toastRef.current({
+          title: 'Error',
+          description: 'Layout panels not properly initialized. Please refresh the page.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      
       // Transform the panel data to match the Panel interface
       const transformedPanel = {
         id: newPanel.id,
@@ -149,22 +171,34 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
       
       // Add to layout state
       if (layout) {
+        console.log('🔍 [ADD] Current layout before update:', {
+          hasLayout: !!layout,
+          panels: layout.panels,
+          panelCount: layout.panels?.length || 0,
+          layoutKeys: Object.keys(layout)
+        });
+        
         const updatedLayout = {
           ...layout,
           panels: [...(layout.panels || []), transformedPanel]
         };
         
-        console.log('🔍 [ADD] Updating layout state:', {
+        console.log('🔍 [ADD] Updated layout:', {
           oldPanelCount: layout.panels?.length || 0,
           newPanelCount: updatedLayout.panels.length,
-          newPanelId: transformedPanel.id
+          newPanelId: transformedPanel.id,
+          updatedLayoutKeys: Object.keys(updatedLayout)
         });
         
         setLayout(updatedLayout);
         
-        // Save to backend immediately
+        // Save to backend immediately using the updatedLayout object directly
         try {
           console.log('🔍 [ADD] Saving to backend immediately...');
+          console.log('🔍 [ADD] Using updatedLayout object for save:', {
+            panelCount: updatedLayout.panels.length,
+            firstPanel: updatedLayout.panels[0]
+          });
           await saveProjectToSupabase(updatedLayout, project!);
           console.log('✅ [ADD] Panel saved to backend successfully');
         } catch (saveError) {
@@ -177,6 +211,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
         }
       } else {
         console.warn('⚠️ [ADD] No layout available for new panel');
+        console.warn('⚠️ [ADD] Layout state is null or undefined');
       }
       
       console.log('🔍 [ADD] === ADD PANEL END ===');
@@ -227,23 +262,59 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
         height: currentLayout?.height,
         scale: currentLayout?.scale
       });
+      console.log('🔍 [SAVE] Full layout object:', JSON.stringify(currentLayout, null, 2));
+      console.log('🔍 [SAVE] Layout panels property:', {
+        panels: currentLayout?.panels,
+        panelsType: typeof currentLayout?.panels,
+        isArray: Array.isArray(currentLayout?.panels),
+        length: currentLayout?.panels?.length
+      });
+      console.log('🔍 [SAVE] Project object:', {
+        project: project,
+        projectId: project?.id,
+        projectIdType: typeof project?.id,
+        projectKeys: project ? Object.keys(project) : 'No project'
+      });
       console.log('🔍 [SAVE] First few panels:', currentLayout?.panels?.slice(0, 3));
       
-      // Convert panels back to Supabase format, DO NOT divide by PIXELS_PER_FOOT
-      const supabasePanels = currentLayout.panels.map(panel => ({
-        project_id: project.id,
-        type: panel.shape || 'rectangle', // Use shape instead of type
-        x: panel.x, // already in feet
-        y: panel.y, // already in feet
-        width_feet: panel.width, // Use width directly
-        height_feet: panel.height, // Use height directly
-        roll_number: panel.rollNumber || '',
-        panel_number: panel.panelNumber || '',
-        fill: panel.fill || '#3b82f6',
-        stroke: panel.color || '#000000', // Use color as stroke
-        stroke_width: 1, // Default stroke width
-        rotation: panel.rotation || 0
-      }));
+      // Safety check: ensure panels array exists
+      if (!currentLayout.panels || !Array.isArray(currentLayout.panels)) {
+        console.error('❌ [SAVE] No valid panels array found:', currentLayout.panels);
+        throw new Error('No valid panels array found in layout');
+      }
+      
+      // Convert panels back to Supabase format, DO NOT divide by PIXELS_PER_FEET
+      const supabasePanels = currentLayout.panels.map((panel, index) => {
+        console.log(`🔍 [SAVE] Transforming panel ${index}:`, {
+          originalPanel: panel,
+          panelKeys: Object.keys(panel),
+          hasRequiredFields: {
+            shape: !!panel.shape,
+            x: typeof panel.x === 'number',
+            y: typeof panel.y === 'number',
+            width: typeof panel.width === 'number',
+            height: typeof panel.height === 'number'
+          }
+        });
+        
+        const transformedPanel = {
+          project_id: project.id,
+          type: panel.shape || 'rectangle', // Use shape instead of type
+          x: panel.x, // already in feet
+          y: panel.y, // already in feet
+          width_feet: panel.width, // Use width directly
+          height_feet: panel.height, // Use height directly
+          roll_number: panel.rollNumber || '',
+          panel_number: panel.panelNumber || '',
+          fill: panel.fill || '#3b82f6',
+          stroke: panel.color || '#000000', // Use color as stroke
+          stroke_width: 1, // Default stroke width
+          rotation: panel.rotation || 0
+        };
+        
+        console.log(`🔍 [SAVE] Transformed panel ${index}:`, transformedPanel);
+        return transformedPanel;
+      });
       
       console.log('🔍 [SAVE] Transformed panels for backend:', {
         count: supabasePanels.length,
@@ -412,17 +483,27 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
           width: DEFAULT_LAYOUT_WIDTH,
           height: DEFAULT_LAYOUT_HEIGHT,
           scale: DEFAULT_SCALE,
-          panels: processedPanels
+          panels: processedPanels || [] // Ensure panels is always an array
         };
         console.log('[DEBUG] Setting layout with default dimensions:', newLayout);
+        console.log('[DEBUG] New layout panels array:', {
+          panels: newLayout.panels,
+          isArray: Array.isArray(newLayout.panels),
+          length: newLayout.panels.length
+        });
         setLayout(newLayout);
       } else {
         console.log('🔍 [DEBUG] Using existing layout data');
         const newLayout = {
           ...layoutData,
-          panels: processedPanels
+          panels: processedPanels || [] // Ensure panels is always an array
         };
         console.log('[DEBUG] Setting layout with existing data:', newLayout);
+        console.log('[DEBUG] New layout panels array:', {
+          panels: newLayout.panels,
+          isArray: Array.isArray(newLayout.panels),
+          length: newLayout.panels.length
+        });
         setLayout(newLayout);
       }
     } catch (error) {
