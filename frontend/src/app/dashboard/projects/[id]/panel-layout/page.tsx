@@ -1002,9 +1002,15 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
       return;
     }
     
+    // Prevent automatic reloading when there are unsaved changes
+    if (hasUnsavedChanges) {
+      console.log('[DEBUG] Load: Unsaved changes detected, skipping automatic reload to preserve user work');
+      return;
+    }
+    
     console.log('[DEBUG] Load: Calling loadProjectAndLayout with id:', id);
     loadProjectAndLayout();
-  }, [id, loadProjectAndLayout, isPanelOperationInProgress]); // Add flag to dependencies
+  }, [id, loadProjectAndLayout, isPanelOperationInProgress, hasUnsavedChanges]); // Add hasUnsavedChanges to dependencies
 
   // AI Layout Execution Functions
   const handleExecuteAILayout = async () => {
@@ -1152,6 +1158,9 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
             <div className={hasUnsavedChanges ? "text-orange-600 font-semibold" : "text-green-600"}>
               Status: {hasUnsavedChanges ? "⚠️ Unsaved Changes" : "✅ All Changes Saved"}
             </div>
+            <div className="text-blue-600">
+              💡 Tip: Use Save button to persist changes, Reset Database to clear all panels
+            </div>
             <div className="mt-2 space-x-2">
               <Button 
                 size="sm" 
@@ -1206,6 +1215,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
                     });
                     // Clear in frontend
                     setLayout(prev => prev ? { ...prev, panels: [] } : null);
+                    setHasUnsavedChanges(false); // No unsaved changes after clearing
                     console.log('[DEBUG] Cleared layout panels in backend and frontend');
                     toastRef.current({
                       title: 'Success',
@@ -1225,6 +1235,48 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
                 className="bg-red-100 text-red-700 border-red-300 hover:bg-red-200"
               >
                 🗑️ Clear Layout
+              </Button>
+              <Button 
+                size="sm" 
+                onClick={async () => {
+                  if (confirm('⚠️ WARNING: This will permanently delete ALL panels from the database. This action cannot be undone. Are you sure you want to continue?')) {
+                    try {
+                      // Clear in backend
+                      await updatePanelLayout(id, { 
+                        panels: [],
+                        width: DEFAULT_LAYOUT_WIDTH,
+                        height: DEFAULT_LAYOUT_HEIGHT,
+                        scale: DEFAULT_SCALE
+                      });
+                      // Clear in frontend
+                      setLayout(prev => prev ? { 
+                        ...prev, 
+                        panels: [],
+                        width: DEFAULT_LAYOUT_WIDTH,
+                        height: DEFAULT_LAYOUT_HEIGHT,
+                        scale: DEFAULT_SCALE
+                      } : null);
+                      setHasUnsavedChanges(false); // No unsaved changes after clearing
+                      console.log('[DEBUG] Reset entire layout to defaults in backend and frontend');
+                      toastRef.current({
+                        title: 'Success',
+                        description: 'Database reset to clean state',
+                        variant: 'default',
+                      });
+                    } catch (error) {
+                      console.error('[DEBUG] Error resetting database:', error);
+                      toastRef.current({
+                        title: 'Error',
+                        description: 'Failed to reset database',
+                        variant: 'destructive',
+                      });
+                    }
+                  }
+                }} 
+                variant="outline"
+                className="bg-orange-100 text-orange-700 border-orange-300 hover:bg-orange-200"
+              >
+                🔄 Reset Database
               </Button>
             </div>
           </CardContent>
