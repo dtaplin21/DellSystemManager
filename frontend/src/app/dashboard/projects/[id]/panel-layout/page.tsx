@@ -254,15 +254,21 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
   // Save function now takes layout and project as arguments
   const saveProjectToSupabase = async (currentLayout: PanelLayout, project: Project) => {
     try {
-      console.log('🔍 [SAVE] === SAVE FUNCTION START ===');
-      console.log('🔍 [SAVE] Input layout:', {
-        hasLayout: !!currentLayout,
-        panelCount: currentLayout?.panels?.length || 0,
-        width: currentLayout?.width,
-        height: currentLayout?.height,
-        scale: currentLayout?.scale
+      if (!project || !currentLayout) {
+        console.error('❌ [SAVE] Missing project or layout:', { project, currentLayout });
+        return;
+      }
+
+      console.log('🔍 [SAVE] === SAVE PROJECT START ===');
+      console.log('🔍 [SAVE] Current layout state:', {
+        currentLayout: currentLayout,
+        layoutType: typeof currentLayout,
+        hasPanels: !!currentLayout.panels,
+        panelsType: typeof currentLayout.panels,
+        isArray: Array.isArray(currentLayout.panels),
+        panelsLength: currentLayout.panels?.length,
+        panelsKeys: currentLayout.panels ? Object.keys(currentLayout.panels) : 'No panels object'
       });
-      console.log('🔍 [SAVE] Full layout object:', JSON.stringify(currentLayout, null, 2));
       console.log('🔍 [SAVE] Layout panels property:', {
         panels: currentLayout?.panels,
         panelsType: typeof currentLayout?.panels,
