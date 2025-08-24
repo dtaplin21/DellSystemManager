@@ -299,7 +299,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
             x: typeof panel.x === 'number',
             y: typeof panel.y === 'number',
             width: typeof panel.width === 'number',
-            height: typeof panel.height === 'number'
+            length: typeof panel.length === 'number'
           }
         });
         
@@ -309,7 +309,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
           x: panel.x, // already in feet
           y: panel.y, // already in feet
           width_feet: panel.width, // Use width directly
-          height_feet: panel.height, // Use height directly
+          height_feet: panel.length, // Use length for height_feet (frontend uses 'length', backend expects 'height_feet')
           roll_number: panel.rollNumber || '',
           panel_number: panel.panelNumber || '',
           fill: panel.fill || '#3b82f6',
