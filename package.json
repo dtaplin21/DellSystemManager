@@ -42,6 +42,7 @@
     "dxf-writer": "^1.18.4",
     "exceljs": "^4.4.0",
     "express": "^5.1.0",
+    "express-fileupload": "^1.5.2",
     "file-saver": "^2.0.5",
     "firebase": "^11.7.1",
     "firebase-admin": "^13.2.0",

@@ -45,7 +45,9 @@ app.use('/api/panel-requirements', require('./routes/panelRequirements'));
 app.use('/api/handwriting', require('./routes/handwriting'));
 app.use('/api/system', require('./routes/api/system'));
 app.use('/api/connected-workflow', require('./routes/connected-workflow'));
+app.use('/api/asbuilt', require('./routes/asbuilt'));
 console.log('✅ /api/connected-workflow route registered');
+console.log('✅ /api/asbuilt route registered');
 
 // Error handler
 app.use((err, req, res, next) => {

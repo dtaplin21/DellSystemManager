@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { LayoutDashboard, FolderOpen, FileText, Settings, UserCircle, CreditCard, LucideIcon } from 'lucide-react';
+import { LayoutDashboard, FolderOpen, FileText, Settings, UserCircle, CreditCard, TestTube, LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // Define TypeScript interfaces
@@ -55,6 +55,18 @@ export default function Sidebar() {
       href: '/dashboard/documents',
       icon: FileText,
       current: Boolean(isActive('/dashboard/documents'))
+    },
+    {
+      section: 'Development',
+      current: false, // Section header is never active
+      items: [
+        {
+          name: 'Phase 5 Testing',
+          href: '/dashboard/phase5-testing',
+          icon: TestTube,
+          current: Boolean(isActive('/dashboard/phase5-testing'))
+        }
+      ]
     },
     {
       section: 'Account',

@@ -20,6 +20,7 @@ import { useCanvasRenderer } from '../../hooks/use-canvas-renderer'
 import { useFullscreenCanvas } from '../../hooks/use-fullscreen-canvas'
 import { useInteractiveGrid, type GridConfig } from '../../hooks/use-interactive-grid'
 import { snapToGrid, clamp } from '../../lib/geometry'
+import PanelSidebar from '../panel-layout/panel-sidebar'
 
 interface PanelLayoutProps {
   mode: 'manual' | 'auto'
@@ -32,6 +33,7 @@ interface PanelLayoutProps {
   }
   externalPanels?: Panel[]
   onPanelUpdate?: (panels: Panel[]) => void
+  projectId?: string
 }
 
 interface CanvasState {
@@ -104,7 +106,7 @@ const GRID_MINOR = 50 // feet
 const GRID_MAJOR = 250 // feet
 const SNAP_SIZE = 25 // feet
 
-export default function PanelLayout({ mode, projectInfo, externalPanels, onPanelUpdate }: PanelLayoutProps) {
+export default function PanelLayout({ mode, projectInfo, externalPanels, onPanelUpdate, projectId }: PanelLayoutProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [panels, dispatch] = useReducer(panelReducer, { panels: [], selectedPanelId: null })
@@ -130,6 +132,8 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
 
   const [spacePressed, setSpacePressed] = useState(false)
   const [containerDimensions, setContainerDimensions] = useState({ width: 1200, height: 800 })
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [selectedPanelForSidebar, setSelectedPanelForSidebar] = useState<Panel | null>(null)
   
   // Calculate world dimensions - updated to 15000x15000
   const worldDimensions = useMemo(() => {
@@ -696,6 +700,10 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
         if (isHit) {
           dispatch({ type: 'SELECT_PANEL', payload: panel.id })
           
+          // Open sidebar for panel details
+          setSelectedPanelForSidebar(panel)
+          setSidebarOpen(true)
+          
           if (isRotationHandle(x, y, panel)) {
             setIsRotating(true)
             // Convert screen coordinates to world coordinates for rotation calculation
@@ -883,6 +891,9 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
       } else if (e.key === 'Delete' && panels.selectedPanelId) {
         dispatch({ type: 'DELETE_PANEL', payload: panels.selectedPanelId });
         dispatch({ type: 'SELECT_PANEL', payload: null });
+      } else if (e.key === 'Escape' && sidebarOpen) {
+        setSidebarOpen(false);
+        setSelectedPanelForSidebar(null);
       }
     };
 
@@ -900,7 +911,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
       document.removeEventListener('keydown', handleKeyDown);
       document.removeEventListener('keyup', handleKeyUp);
     };
-  }, [isFullscreen, toggleFullscreen, panels.selectedPanelId]);
+  }, [isFullscreen, toggleFullscreen, panels.selectedPanelId, sidebarOpen]);
   
   // Render canvas when dependencies change
   useEffect(() => {
@@ -1331,6 +1342,21 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
           </div>
         </div>
         </div>
+      )}
+
+      {/* Panel Sidebar */}
+      {sidebarOpen && selectedPanelForSidebar && (
+        <PanelSidebar
+          isOpen={sidebarOpen}
+          onToggle={() => setSidebarOpen(!sidebarOpen)}
+          projectId={projectId || 'default'}
+          panelId={selectedPanelForSidebar.id}
+          panelNumber={selectedPanelForSidebar.panelNumber || 'Unknown'}
+          onClose={() => {
+            setSidebarOpen(false)
+            setSelectedPanelForSidebar(null)
+          }}
+        />
       )}
     </>
   )
