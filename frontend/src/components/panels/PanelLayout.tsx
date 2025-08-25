@@ -1046,7 +1046,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
       {isFullscreen && (
         <>
         <div
-          className="fixed inset-0 w-screen h-screen bg-gray-900 z-50 overflow-hidden"
+          className="fixed inset-0 w-screen h-screen z-50 overflow-hidden"
           style={{
             position: 'fixed',
             top: 0,
@@ -1138,7 +1138,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
           </div>
           
           {/* Fullscreen Canvas */}
-          <div className="canvas-container w-full h-full pt-16"> {/* pt-16 accounts for toolbar height */}
+          <div className="w-full h-full pt-16 bg-white"> {/* pt-16 accounts for toolbar height, white background */}
             <canvas
               ref={fullscreenCanvasRef}
               width={fullscreenCanvasWidth || window.innerWidth}
@@ -1159,26 +1159,15 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
             />
           </div>
           
-                                             {/* Help Overlay */}
-             <div className="absolute bottom-4 right-4 bg-black bg-opacity-75 text-white px-3 py-2 rounded text-sm pointer-events-none z-20">
-               <div className="font-medium mb-1">Controls:</div>
-               <div className="text-xs text-gray-300 space-y-1">
-                 <div>Wheel: Zoom</div>
-                 <div>Space + Drag: Pan</div>
-                 <div>Middle Click + Drag: Pan</div>
-                 <div>Click: Select Panel</div>
-                 <div>Drag: Move Panel</div>
-                 <div>ESC: Exit Fullscreen</div>
-                 <div>Ctrl+F: Toggle Fullscreen</div>
-                 <div>Delete: Remove Selected Panel</div>
-               </div>
-             </div>
+                                             {/* Help Overlay - REMOVED in fullscreen to maximize grid space */}
+          {/* Footer removed in fullscreen mode to maximize grid area */}
         </div>
         </>
       )}
       
-      {/* Normal Panel Layout Container */}
-      <div className="h-screen flex flex-col bg-gray-900 text-white">
+      {/* Normal Panel Layout Container - Hidden in fullscreen mode */}
+      {!isFullscreen && (
+        <div className="h-screen flex flex-col bg-gray-900 text-white">
         {/* Enhanced Toolbar */}
         <div className="bg-gray-800 border-b border-gray-700 px-4 py-3 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center space-x-4">
@@ -1341,7 +1330,8 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
             </div>
           </div>
         </div>
-      </div>
+        </div>
+      )}
     </>
   )
 }

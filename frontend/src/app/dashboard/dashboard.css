@@ -516,6 +516,15 @@
   overflow: hidden;
 }
 
+/* Fullscreen Canvas - Maximum space utilization */
+.fullscreen-canvas {
+  width: 100vw !important;
+  height: calc(100vh - 64px) !important; /* Account for toolbar height */
+  max-width: 100vw !important;
+  max-height: calc(100vh - 64px) !important;
+  overflow: hidden !important;
+}
+
 /* ===== RESPONSIVE BREAKPOINTS ===== */
 
 /* Mobile First - Base styles (up to 640px) */

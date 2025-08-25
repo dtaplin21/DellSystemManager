@@ -33,7 +33,8 @@ export const useFullscreenCanvas = (options: UseFullscreenCanvasOptions): UseFul
     if (canvasWidth > 0 && canvasHeight > 0) {
       // Always keep fullscreen dimensions ready
       setFullscreenCanvasWidth(window.innerWidth || canvasWidth);
-      setFullscreenCanvasHeight(window.innerHeight || canvasHeight);
+      // Account for toolbar height (approximately 64px) in fullscreen mode
+      setFullscreenCanvasHeight((window.innerHeight - 64) || canvasHeight);
     }
   }, [canvasWidth, canvasHeight]);
 
@@ -57,7 +58,8 @@ export const useFullscreenCanvas = (options: UseFullscreenCanvasOptions): UseFul
         // Use React's batch update for better performance
         Promise.resolve().then(() => {
           setFullscreenCanvasWidth(screenWidth);
-          setFullscreenCanvasHeight(screenHeight);
+          // Account for toolbar height (approximately 64px) in fullscreen mode
+          setFullscreenCanvasHeight(screenHeight - 64);
         });
         
         // Hide body overflow BEFORE state change
@@ -153,7 +155,8 @@ export const useFullscreenCanvas = (options: UseFullscreenCanvasOptions): UseFul
         const screenWidth = window.innerWidth;
         const screenHeight = window.innerHeight;
         setFullscreenCanvasWidth(screenWidth);
-        setFullscreenCanvasHeight(screenHeight);
+        // Account for toolbar height (approximately 64px) in fullscreen mode
+        setFullscreenCanvasHeight(screenHeight - 64);
       }
     };
 
