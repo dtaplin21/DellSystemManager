@@ -151,8 +151,8 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     const scaleY = effectiveHeight / worldHeight;
     const worldScale = Math.min(scaleX, scaleY);
     
-    // Clamp worldScale to reasonable bounds to prevent extreme scaling
-    const clampedWorldScale = Math.max(0.1, Math.min(worldScale, 2.0));
+            // Clamp worldScale to reasonable bounds to prevent extreme scaling
+        const clampedWorldScale = Math.max(0.1, Math.min(worldScale, 10.0));
     
     // Round to 3 decimal places to prevent unnecessary updates from tiny changes
     const roundedWorldScale = Math.round(clampedWorldScale * 1000) / 1000;
@@ -456,11 +456,11 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   
   // Canvas Functions
   const zoomIn = useCallback(() => {
-    setCanvasState(prev => ({ ...prev, scale: clamp(prev.scale * 1.25, 0.1, 6) }))
+    setCanvasState(prev => ({ ...prev, scale: clamp(prev.scale * 1.25, 0.1, 10) }))
   }, [])
   
   const zoomOut = useCallback(() => {
-    setCanvasState(prev => ({ ...prev, scale: clamp(prev.scale * 0.8, 0.1, 6) }))
+    setCanvasState(prev => ({ ...prev, scale: clamp(prev.scale * 0.8, 0.1, 10) }))
   }, [])
   
   const resetView = useCallback(() => {
@@ -554,7 +554,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
         const padding = 100;
             const scaleX = (canvasWidth - padding) / panelWidth;
             const scaleY = (canvasHeight - padding) / panelHeight;
-            const newScale = Math.min(scaleX, scaleY, 2.0);
+            const newScale = Math.min(scaleX, scaleY, 10.0);
             
             const offsetX = (canvasWidth - panelWidth * newScale) / 2 - minX * worldScale * newScale;
             const offsetY = (canvasHeight - panelHeight * newScale) / 2 - minY * worldScale * newScale;

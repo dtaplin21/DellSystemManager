@@ -21,7 +21,7 @@ import ProjectSelector from '@/components/projects/project-selector';
 const PIXELS_PER_FOOT = 200; // 100 pixels = 0.5ft, so 200 pixels = 1ft
 const MIN_SCALE = 0.1; // More intuitive minimum scale
 const ZOOM_STEP = 0.1; // Larger step for better control
-const MAX_SCALE = 3.0; // More intuitive maximum scale
+const MAX_SCALE = 10.0; // Increased from 3.0 to 10.0 for 3.3x more zoom capability
 
 interface ControlToolbarProps {
   scale: number;
