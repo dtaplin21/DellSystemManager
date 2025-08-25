@@ -260,9 +260,9 @@ export default function ControlToolbar({
 
   return (
     <>
-      <div className="flex items-center justify-between p-4 border-b">
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2">
+      <div className="control-toolbar flex items-center justify-between p-4 border-b">
+        <div className="control-toolbar-group flex items-center space-x-4">
+          <div className="control-toolbar-group flex items-center space-x-2">
             <Button
               variant="outline"
               size="icon"
@@ -324,7 +324,7 @@ export default function ControlToolbar({
             <span>{currentProject ? currentProject.name : 'Choose Project'}</span>
           </Button>
 
-          <div className="flex items-center space-x-2">
+          <div className="control-toolbar-group flex items-center space-x-2">
             <Input
               type="text"
               name="rollNumber"
@@ -367,11 +367,11 @@ export default function ControlToolbar({
             />
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className="panel-creation-controls flex items-center space-x-2">
             <Button
               variant="outline"
               onClick={handleAddRectangle}
-              className="flex items-center space-x-2"
+              className="panel-shape-button flex items-center space-x-2"
             >
               <Square className="h-4 w-4" />
               <span>Add Rectangle</span>
@@ -379,7 +379,7 @@ export default function ControlToolbar({
             <Button
               variant="outline"
               onClick={handleAddTriangle}
-              className="flex items-center space-x-2"
+              className="panel-shape-button flex items-center space-x-2"
             >
               <Triangle className="h-4 w-4" />
               <span>Add Triangle</span>
@@ -387,7 +387,7 @@ export default function ControlToolbar({
             <Button
               variant="outline"
               onClick={handleAddRightTriangle}
-              className="flex items-center space-x-2"
+              className="panel-shape-button flex items-center space-x-2"
             >
               <Triangle className="h-4 w-4" />
               <span>Add Right Triangle</span>
@@ -396,7 +396,7 @@ export default function ControlToolbar({
               variant="outline"
               onClick={handleEditPanel}
               disabled={!selectedPanel}
-              className="flex items-center space-x-2"
+              className="panel-shape-button flex items-center space-x-2"
             >
               <Pencil className="h-4 w-4" />
               <span>Edit Panel</span>

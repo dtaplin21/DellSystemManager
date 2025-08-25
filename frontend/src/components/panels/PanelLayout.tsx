@@ -1059,10 +1059,10 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
           }}
         >
           {/* Fullscreen Toolbar */}
-          <div className="absolute top-0 left-0 right-0 bg-gray-800 border-b border-gray-700 px-4 py-3 flex items-center justify-between z-10">
-            <div className="flex items-center space-x-4">
+          <div className="bottom-toolbar absolute top-0 left-0 right-0 bg-gray-800 border-b border-gray-700 px-4 py-3 flex items-center justify-between z-10">
+            <div className="bottom-toolbar-group flex items-center space-x-4">
               {/* Zoom Controls */}
-              <div className="flex items-center space-x-2">
+              <div className="bottom-toolbar-group flex items-center space-x-2">
                 <button 
                   onClick={zoomOut}
                   className="bg-gray-700 hover:bg-gray-600 px-3 py-2 rounded text-sm font-medium transition-colors text-white"
@@ -1091,7 +1091,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
               </div>
               
               {/* Grid Controls */}
-              <div className="flex items-center space-x-2">
+              <div className="bottom-toolbar-group flex items-center space-x-2">
                 <div className="border-l border-gray-600 h-6 mx-2"></div>
                 <button 
                   onClick={() => setCanvasState(prev => ({ ...prev, showGrid: !prev.showGrid }))}
@@ -1109,8 +1109,8 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
             </div>
             
             {/* Status and Exit */}
-            <div className="flex items-center space-x-6">
-              <div className="flex items-center space-x-6 text-sm font-mono text-white">
+            <div className="bottom-toolbar-group flex items-center space-x-6">
+              <div className="bottom-toolbar-group flex items-center space-x-6 text-sm font-mono text-white">
                 <div className="text-gray-300">
                   Zoom: <span className="text-white font-medium">{zoomPercentage}%</span>
                 </div>
@@ -1138,7 +1138,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
           </div>
           
           {/* Fullscreen Canvas */}
-          <div className="w-full h-full pt-16"> {/* pt-16 accounts for toolbar height */}
+          <div className="canvas-container w-full h-full pt-16"> {/* pt-16 accounts for toolbar height */}
             <canvas
               ref={fullscreenCanvasRef}
               width={fullscreenCanvasWidth || window.innerWidth}

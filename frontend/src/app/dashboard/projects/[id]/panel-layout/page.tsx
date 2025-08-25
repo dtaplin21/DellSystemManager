@@ -16,6 +16,7 @@ import AIExecutionOverlay from '@/components/panel-layout/ai-execution-overlay';
 import { generateId } from '@/lib/utils';
 import { useCanvasActionExecutor, AILayoutAction } from '@/services/canvasActionExecutor';
 import { Panel } from '@/types/panel';
+import '@/app/dashboard/dashboard.css';
 
 interface Project {
   id: string;
@@ -1208,10 +1209,10 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
   }
 
   return (
-    <div className="space-y-4 p-4">
+    <div className="panel-layout-container space-y-4 p-4">
       {/* Debug Information */}
       {process.env.NODE_ENV === 'development' && (
-        <Card className="bg-yellow-50 border-yellow-200">
+        <Card className="debug-info-section bg-yellow-50 border-yellow-200">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-yellow-800">Debug Information</CardTitle>
           </CardHeader>
@@ -1229,7 +1230,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
             <div className="text-blue-600">
               💡 Tip: Use Save button to persist changes, Reset Database to clear all panels
             </div>
-            <div className="mt-2 space-x-2">
+            <div className="debug-info-buttons mt-2">
               <Button 
                 size="sm" 
                 onClick={async () => {
@@ -1455,7 +1456,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
           })()}
         </CardHeader>
         <CardContent className="p-0">
-          <div className="w-full h-[calc(100vh-300px)] overflow-hidden">
+          <div className="canvas-container w-full h-[calc(100vh-300px)] overflow-hidden">
             {(() => {
               try {
                 // Add null checks for layout
