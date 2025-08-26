@@ -278,8 +278,15 @@ router.get('/:projectId/:panelId', async (req, res) => {
       });
     }
 
-    // Get right neighbor peek (placeholder for now)
-    const rightNeighborPeek = await asbuiltService.findRightNeighbor(projectId, panelId);
+    // Get right neighbor peek (placeholder for now) - with error handling
+    let rightNeighborPeek = null;
+    try {
+      rightNeighborPeek = await asbuiltService.findRightNeighbor(projectId, panelId);
+    } catch (neighborError) {
+      console.warn('⚠️ [ASBUILT] Right neighbor lookup failed (non-critical):', neighborError.message);
+      // Don't fail the entire request for this non-critical feature
+      rightNeighborPeek = null;
+    }
 
     const response = {
       ...groupedRecords,

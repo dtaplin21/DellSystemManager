@@ -55,6 +55,14 @@ class AsbuiltService {
   async getPanelRecords(projectId, panelId) {
     console.log('🔍 [SERVICE] getPanelRecords called with:', { projectId, panelId });
     
+    // Check database connection health first
+    try {
+      await this.pool.query('SELECT 1 as health_check');
+    } catch (dbError) {
+      console.error('❌ [SERVICE] Database connection failed:', dbError.message);
+      throw new Error(`Database connection failed: ${dbError.message}`);
+    }
+    
     // First check if the table exists
     const tableCheckQuery = `
       SELECT EXISTS (
@@ -216,9 +224,15 @@ class AsbuiltService {
    * Find right neighbor panel for peek
    */
   async findRightNeighbor(projectId, panelId) {
-    // This would need to integrate with the panel layout system
-    // For now, return null - will be implemented in PanelLayout integration
-    return null;
+    try {
+      // This would need to integrate with the panel layout system
+      // For now, return null - will be implemented in PanelLayout integration
+      return null;
+    } catch (error) {
+      console.error('Error in findRightNeighbor:', error);
+      // Return null instead of throwing to prevent crashes
+      return null;
+    }
   }
 
   /**

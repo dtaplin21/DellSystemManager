@@ -95,6 +95,22 @@ app.get('/health', async (req, res) => {
 // Check for OpenAI API configuration
 const { isOpenAIConfigured, initAIServices } = require('./services/ai-connector');
 
+// Global error handlers for unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('🚨 UNHANDLED PROMISE REJECTION:');
+  console.error('Promise:', promise);
+  console.error('Reason:', reason);
+  console.error('Stack:', reason?.stack);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('💥 UNCAUGHT EXCEPTION:');
+  console.error('Error:', error.message);
+  console.error('Stack:', error.stack);
+  // Gracefully shutdown the server
+  process.exit(1);
+});
+
 // Start the server
 async function startServer() {
   // Check environment configuration
