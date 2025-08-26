@@ -97,8 +97,20 @@ router.get('/:projectId/:panelId', async (req, res) => {
   try {
     const { projectId, panelId } = req.params;
     
+    // Add validation as suggested
+    if (!projectId || !panelId) {
+      console.error('❌ Missing parameters:', { projectId, panelId });
+      return res.status(400).json({ 
+        error: "Missing projectId or panelId",
+        received: { projectId, panelId }
+      });
+    }
+    
+    console.log('🔍 [ASBUILT] Fetching records for:', { projectId, panelId });
+    
     // Get all records for the panel
     const records = await asbuiltService.getPanelRecords(projectId, panelId);
+    console.log('🔍 [ASBUILT] Records fetched:', { count: records?.length || 0 });
     
     // Group records by domain
     const groupedRecords = {
@@ -110,12 +122,14 @@ router.get('/:projectId/:panelId', async (req, res) => {
       destructive: []
     };
 
-    records.forEach(record => {
-      const domain = record.domain;
-      if (groupedRecords[domain]) {
-        groupedRecords[domain].push(record);
-      }
-    });
+    if (records && Array.isArray(records)) {
+      records.forEach(record => {
+        const domain = record.domain;
+        if (groupedRecords[domain]) {
+          groupedRecords[domain].push(record);
+        }
+      });
+    }
 
     // Get right neighbor peek (placeholder for now)
     const rightNeighborPeek = await asbuiltService.findRightNeighbor(projectId, panelId);
@@ -125,12 +139,21 @@ router.get('/:projectId/:panelId', async (req, res) => {
       rightNeighborPeek
     };
 
+    console.log('✅ [ASBUILT] Successfully returning response for panel:', panelId);
     res.json(response);
   } catch (error) {
-    console.error('Error fetching panel records:', error);
+    console.error('❌ [ASBUILT] Error fetching panel records:', error);
+    console.error('❌ [ASBUILT] Error stack:', error.stack);
+    console.error('❌ [ASBUILT] Error details:', {
+      name: error.name,
+      code: error.code,
+      message: error.message
+    });
+    
     res.status(500).json({ 
       error: 'Failed to fetch panel records', 
-      message: error.message 
+      message: error.message,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 });

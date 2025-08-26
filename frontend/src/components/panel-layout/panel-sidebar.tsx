@@ -120,7 +120,7 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
         'Authorization': `Bearer ${session.access_token}`
       };
       
-      const response = await fetch(`/api/asbuilt/${projectId}/${panelId}`, {
+      const response = await fetch(`http://localhost:8003/api/asbuilt/${projectId}/${panelId}`, {
         headers
       });
 

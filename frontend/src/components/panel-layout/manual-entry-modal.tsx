@@ -182,7 +182,7 @@ const ManualEntryModal: React.FC<ManualEntryModalProps> = ({
         throw new Error('No authentication token found. Please log in.');
       }
 
-      const response = await fetch('/api/asbuilt/manual', {
+      const response = await fetch('http://localhost:8003/api/asbuilt/manual', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,

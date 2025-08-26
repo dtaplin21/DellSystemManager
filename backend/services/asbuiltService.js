@@ -53,17 +53,42 @@ class AsbuiltService {
    * Get all records for a specific panel across all domains
    */
   async getPanelRecords(projectId, panelId) {
-    const query = `
-      SELECT * FROM asbuilt_records 
-      WHERE project_id = $1 AND panel_id = $2
-      ORDER BY domain, created_at DESC
+    console.log('🔍 [SERVICE] getPanelRecords called with:', { projectId, panelId });
+    
+    // First check if the table exists
+    const tableCheckQuery = `
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'asbuilt_records'
+      );
     `;
-
+    
     try {
+      const tableExists = await this.pool.query(tableCheckQuery);
+      console.log('🔍 [SERVICE] Table exists check:', tableExists.rows[0]);
+      
+      if (!tableExists.rows[0]?.exists) {
+        console.error('❌ [SERVICE] asbuilt_records table does not exist!');
+        throw new Error('asbuilt_records table does not exist in database');
+      }
+      
+      const query = `
+        SELECT * FROM asbuilt_records 
+        WHERE project_id = $1 AND panel_id = $2
+        ORDER BY domain, created_at DESC
+      `;
+
+      console.log('🔍 [SERVICE] Executing query:', query);
+      console.log('🔍 [SERVICE] Query parameters:', [projectId, panelId]);
+      
       const result = await this.pool.query(query, [projectId, panelId]);
+      console.log('✅ [SERVICE] Query successful, rows returned:', result.rows.length);
+      
       return result.rows;
     } catch (error) {
-      console.error('Error fetching panel records:', error);
+      console.error('❌ [SERVICE] Error fetching panel records:', error);
+      console.error('❌ [SERVICE] Error stack:', error.stack);
       throw new Error(`Failed to fetch panel records: ${error.message}`);
     }
   }

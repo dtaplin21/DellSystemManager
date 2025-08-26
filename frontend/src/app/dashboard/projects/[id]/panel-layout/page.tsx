@@ -1526,6 +1526,7 @@ export default function PanelLayoutPage({ params }: { params: Promise<{ id: stri
                       projectInfo={projectInfo}
                       externalPanels={mappedPanels}
                       onPanelUpdate={handlePanelUpdate}
+                      projectId={id}
                     />
                   </div>
                 );
