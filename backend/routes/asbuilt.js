@@ -89,6 +89,44 @@ router.post('/import', async (req, res) => {
 });
 
 /**
+ * @route GET /api/asbuilt/_debug/:projectId/:panelId
+ * @desc Debug endpoint to check panel existence and database connectivity
+ * @access Private
+ */
+router.get('/_debug/:projectId/:panelId', async (req, res) => {
+  try {
+    const { projectId, panelId } = req.params;
+    
+    console.log('🔍 [DEBUG] Checking panel existence:', { projectId, panelId });
+    
+    // Check if project exists in projects table
+    const projectExists = await asbuiltService.checkProjectExists(projectId);
+    
+    // Check if panel exists in panel_layouts table
+    const panelExists = await asbuiltService.checkPanelExists(projectId, panelId);
+    
+    // Check database connectivity
+    const dbOk = await asbuiltService.checkDatabaseConnection();
+    
+    res.json({
+      projectId,
+      panelId,
+      projectExists,
+      panelExists,
+      dbOk,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('🔥 [DEBUG] Debug endpoint failed:', error);
+    res.status(500).json({ 
+      error: 'Debug endpoint failed', 
+      detail: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
+
+/**
  * @route GET /api/asbuilt/:projectId/:panelId
  * @desc Get all asbuilt records for a specific panel
  * @access Private
@@ -97,12 +135,22 @@ router.get('/:projectId/:panelId', async (req, res) => {
   try {
     const { projectId, panelId } = req.params;
     
-    // Add validation as suggested
+    // Enhanced validation as suggested
     if (!projectId || !panelId) {
       console.error('❌ Missing parameters:', { projectId, panelId });
       return res.status(400).json({ 
         error: "Missing projectId or panelId",
         received: { projectId, panelId }
+      });
+    }
+    
+    // Optional: verify UUID format for projectId
+    if (!/^[0-9a-f-]{36}$/i.test(projectId)) {
+      console.log('❌ Invalid projectId format:', projectId);
+      return res.status(400).json({ 
+        error: 'Invalid projectId format',
+        projectId,
+        expected: 'UUID format (e.g., 69fc302b-166d-4543-9990-89c4b1e0ed59)'
       });
     }
     
@@ -142,18 +190,13 @@ router.get('/:projectId/:panelId', async (req, res) => {
     console.log('✅ [ASBUILT] Successfully returning response for panel:', panelId);
     res.json(response);
   } catch (error) {
-    console.error('❌ [ASBUILT] Error fetching panel records:', error);
-    console.error('❌ [ASBUILT] Error stack:', error.stack);
-    console.error('❌ [ASBUILT] Error details:', {
-      name: error.name,
-      code: error.code,
-      message: error.message
-    });
-    
-    res.status(500).json({ 
-      error: 'Failed to fetch panel records', 
-      message: error.message,
-      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    console.error('🔥 /api/asbuilt route failed:', error);
+    console.error('Error stack:', error.stack);
+    return res.status(500).json({ 
+      error: 'Internal Server Error', 
+      detail: error?.message || String(error),
+      projectId: req.params.projectId,
+      panelId: req.params.panelId
     });
   }
 });

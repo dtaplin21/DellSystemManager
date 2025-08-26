@@ -125,7 +125,8 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch asbuilt data: ${response.statusText}`);
+        const text = await response.text().catch(() => '');
+        throw new Error(`Failed to fetch asbuilt data: ${response.status} ${response.statusText} ${text}`);
       }
 
       const data: PanelAsbuiltSummary = await response.json();
@@ -144,6 +145,11 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
         repairs: [],
         destructive: []
       });
+      
+      // Show helpful message for empty data
+      if (error.message.includes('404')) {
+        setError('No as-built data found for this panel. Data will appear here once imported or manually entered.');
+      }
     } finally {
       setLoading(false);
     }

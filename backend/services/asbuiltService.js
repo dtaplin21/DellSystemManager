@@ -265,6 +265,87 @@ class AsbuiltService {
   async close() {
     await this.pool.end();
   }
+
+  /**
+   * Check if project exists in projects table
+   */
+  async checkProjectExists(projectId) {
+    try {
+      const query = `
+        SELECT EXISTS (
+          SELECT 1 FROM projects 
+          WHERE id = $1
+        );
+      `;
+      const result = await this.pool.query(query, [projectId]);
+      return result.rows[0]?.exists || false;
+    } catch (error) {
+      console.error('Error checking project existence:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Check if panel exists in panel_layouts table
+   */
+  async checkPanelExists(projectId, panelId) {
+    try {
+      const query = `
+        SELECT EXISTS (
+          SELECT 1 FROM panel_layouts 
+          WHERE project_id = $1 
+          AND panels @> '[{"panel_number": $2}]'
+        );
+      `;
+      const result = await this.pool.query(query, [projectId, panelId]);
+      return result.rows[0]?.exists || false;
+    } catch (error) {
+      console.error('Error checking panel existence:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Check database connectivity
+   */
+  async checkDatabaseConnection() {
+    try {
+      const result = await this.pool.query('SELECT 1 as test');
+      return result.rows[0]?.test === 1;
+    } catch (error) {
+      console.error('Database connectivity check failed:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Get panel information from panel_layouts table
+   */
+  async getPanelInfo(projectId, panelId) {
+    try {
+      const query = `
+        SELECT 
+          pl.id as layout_id,
+          p->>'panel_number' as panel_number,
+          p->>'roll_number' as roll_number,
+          p->>'width_feet' as width_feet,
+          p->>'height_feet' as height_feet,
+          p->>'x' as x,
+          p->>'y' as y
+        FROM panel_layouts pl,
+        LATERAL jsonb_array_elements(pl.panels) AS p
+        WHERE pl.project_id = $1 
+        AND p->>'panel_number' = $2
+        LIMIT 1
+      `;
+      
+      const result = await this.pool.query(query, [projectId, panelId]);
+      return result.rows[0] || null;
+    } catch (error) {
+      console.error('Error getting panel info:', error);
+      return null;
+    }
+  }
 }
 
 module.exports = AsbuiltService;
