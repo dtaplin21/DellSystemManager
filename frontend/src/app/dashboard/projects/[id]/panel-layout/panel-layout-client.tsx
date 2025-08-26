@@ -26,12 +26,12 @@ interface Project {
   status: string;
   client?: string;
   location?: string;
-  startDate?: string;
-  endDate?: string;
-  area?: number;
+  startDate?: string | null;
+  endDate?: string | null;
+  area?: number | null;
   progress: number;
-  created_at: string;
-  updated_at: string;
+  createdAt?: string | null;
+  updatedAt?: string | null;
   scale?: number;
   layoutWidth?: number;
   layoutHeight?: number;
