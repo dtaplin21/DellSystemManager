@@ -315,40 +315,54 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed left-0 top-0 h-full w-96 bg-white border-r border-gray-200 shadow-xl z-50 overflow-hidden">
+    <>
+      {/* Backdrop */}
+      <div 
+        className="fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity duration-300"
+        onClick={onClose}
+      />
+      
+      {/* Sidebar */}
+      <div className="fixed left-0 top-0 h-full w-full max-w-2xl bg-white border-r border-gray-200 shadow-2xl z-50 overflow-hidden transform transition-all duration-300 ease-in-out animate-in slide-in-from-left">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+        <div className="flex items-center gap-4">
           <Button
             variant="ghost"
             size="sm"
             onClick={onToggle}
-            className="p-1 h-8 w-8"
+            className="p-2 h-10 w-10 hover:bg-blue-100"
           >
-            <ChevronLeft className="h-4 w-4" />
+            <ChevronLeft className="h-5 w-5 text-blue-600" />
           </Button>
           <div>
-            <h2 className="font-semibold text-gray-900">
-              Selected Panel: P-{panelNumber}
+            <h2 className="text-2xl font-bold text-gray-900">
+              Panel {panelNumber}
             </h2>
-            <p className="text-sm text-gray-600">As-built Information</p>
+            <p className="text-lg text-gray-600">As-built Data & Information</p>
           </div>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onClose}
-          className="p-1 h-8 w-8"
-        >
-          <ChevronRight className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-3">
+          <div className="text-right">
+            <p className="text-sm text-gray-500">Project ID</p>
+            <p className="text-xs font-mono text-gray-700">{projectId.slice(0, 8)}...</p>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onClose}
+            className="p-2 h-10 w-10 hover:bg-red-100"
+          >
+            <ChevronRight className="h-5 w-5 text-red-600" />
+          </Button>
+        </div>
       </div>
 
       {/* Right Neighbor Peek */}
       {renderRightNeighborPeek()}
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 overflow-y-auto p-6">
         {loading ? (
           <div className="flex items-center justify-center py-8">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -366,70 +380,93 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
         ) : (
           <div className="space-y-4">
             {/* Domain Accordions */}
-            <Accordion 
-              type="single" 
-              collapsible 
-              value={activeDomain || undefined}
-              onValueChange={(value) => setActiveDomain(value as AsbuiltDomain)}
-              className="w-full"
-            >
-              {domainConfigs.map((config) => {
-                const recordCount = getRecordCount(config.key);
-                const records = getRecords(config.key);
+            <div className="space-y-6">
+              <div className="text-center mb-6">
+                <h3 className="text-xl font-semibold text-gray-800 mb-2">As-built Data Domains</h3>
+                <p className="text-gray-600">Click on any domain to view detailed records</p>
+              </div>
+              
+              <Accordion 
+                type="single" 
+                collapsible 
+                value={activeDomain || undefined}
+                onValueChange={(value) => setActiveDomain(value as AsbuiltDomain)}
+                className="w-full space-y-4"
+              >
+                {domainConfigs.map((config) => {
+                  const recordCount = getRecordCount(config.key);
+                  const records = getRecords(config.key);
 
-                return (
-                  <AccordionItem key={config.key} value={config.key} className="border rounded-lg">
-                    <AccordionTrigger className="px-4 py-3 hover:no-underline">
-                      <div className="flex items-center gap-3 flex-1">
-                        <div className={`p-2 rounded-full ${config.color}`}>
-                          {config.icon}
+                  return (
+                    <AccordionItem key={config.key} value={config.key} className="border-2 border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow">
+                      <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-gray-50 rounded-t-xl">
+                        <div className="flex items-center gap-4 flex-1">
+                          <div className={`p-3 rounded-full ${config.color} shadow-sm`}>
+                            {config.icon}
+                          </div>
+                          <div className="flex-1 text-left">
+                            <h3 className="text-lg font-semibold text-gray-900">{config.name}</h3>
+                            <p className="text-sm text-gray-600">{config.description}</p>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <Badge variant="secondary" className="text-sm px-3 py-1">
+                              {recordCount} records
+                            </Badge>
+                            <div className="text-gray-400">
+                              <ChevronRight className="h-5 w-5 transition-transform" />
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex-1 text-left">
-                          <h3 className="font-medium text-gray-900">{config.name}</h3>
-                          <p className="text-sm text-gray-600">{config.description}</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="secondary" className="text-xs">
-                            {recordCount} records
-                          </Badge>
-                        </div>
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="px-4 pb-4">
-                      {recordCount === 0 ? (
-                        <div className="text-center py-6 text-gray-500">
-                          <p>No {config.name.toLowerCase()} records found</p>
-                          <p className="text-sm">Records will appear here after import or manual entry</p>
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          {records.map((record, index) => renderRecordItem(record, index))}
-                        </div>
-                      )}
-                    </AccordionContent>
-                  </AccordionItem>
-                );
-              })}
-            </Accordion>
+                      </AccordionTrigger>
+                      <AccordionContent className="px-6 pb-6 bg-gray-50 rounded-b-xl">
+                        {recordCount === 0 ? (
+                          <div className="text-center py-8 text-gray-500">
+                            <div className="text-6xl mb-4">📁</div>
+                            <p className="text-lg font-medium mb-2">No {config.name.toLowerCase()} records found</p>
+                            <p className="text-sm text-gray-600 mb-4">Records will appear here after import or manual entry</p>
+                            <div className="flex gap-2 justify-center">
+                              <Button size="sm" variant="outline" onClick={() => setShowImportModal(true)}>
+                                📊 Import Data
+                              </Button>
+                              <Button size="sm" variant="outline" onClick={() => setShowManualEntryModal(true)}>
+                                ✏️ Manual Entry
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            {records.map((record, index) => renderRecordItem(record, index))}
+                          </div>
+                        )}
+                      </AccordionContent>
+                    </AccordionItem>
+                  );
+                })}
+              </Accordion>
+            </div>
 
             {/* Action Buttons */}
-            <div className="pt-4 border-t border-gray-200">
-              <div className="grid grid-cols-2 gap-3">
+            <div className="pt-6 border-t-2 border-gray-200 mt-8">
+              <div className="text-center mb-4">
+                <h3 className="text-lg font-semibold text-gray-800 mb-2">Quick Actions</h3>
+                <p className="text-sm text-gray-600">Add new as-built data for this panel</p>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
                 <Button 
-                  variant="outline" 
-                  size="sm"
+                  variant="default" 
+                  size="lg"
                   onClick={() => setShowImportModal(true)}
-                  className="w-full"
+                  className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white"
                 >
-                  Import Data
+                  📊 Import Excel Data
                 </Button>
                 <Button 
                   variant="outline" 
-                  size="sm"
+                  size="lg"
                   onClick={() => setShowManualEntryModal(true)}
-                  className="w-full"
+                  className="w-full h-12 border-2 border-gray-300 hover:border-gray-400"
                 >
-                  Manual Entry
+                  ✏️ Manual Entry
                 </Button>
               </div>
             </div>
@@ -453,7 +490,8 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
         panelId={panelId}
         onEntryComplete={handleManualEntryComplete}
       />
-    </div>
+      </div>
+    </>
   );
 };
 

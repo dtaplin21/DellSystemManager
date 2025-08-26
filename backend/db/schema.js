@@ -117,7 +117,7 @@ const panelLayoutRequirements = pgTable('panel_layout_requirements', {
 const asbuiltRecords = pgTable('asbuilt_records', {
   id: uuid('id').primaryKey().defaultRandom(),
   projectId: uuid('project_id').notNull(),
-  panelId: uuid('panel_id').notNull(),
+  panelId: varchar('panel_id', { length: 255 }).notNull(), // ✅ FIXED: Changed from uuid to varchar
   domain: asbuiltDomain('domain').notNull(),
   sourceDocId: uuid('source_doc_id'),
   rawData: jsonb('raw_data').notNull(),

@@ -34,33 +34,8 @@ router.get('/_test/:projectId/:panelId', async (req, res) => {
     if (records && Array.isArray(records)) {
       records.forEach(record => {
         const domain = record.domain;
-        // Map database domain values to frontend keys
-        let mappedKey;
-        switch (domain) {
-          case 'panel_placement':
-            mappedKey = 'panelPlacement';
-            break;
-          case 'panel_seaming':
-            mappedKey = 'panelSeaming';
-            break;
-          case 'non_destructive':
-            mappedKey = 'nonDestructive';
-            break;
-          case 'trial_weld':
-            mappedKey = 'trialWeld';
-            break;
-          case 'repairs':
-            mappedKey = 'repairs';
-            break;
-          case 'destructive':
-            mappedKey = 'destructive';
-            break;
-          default:
-            console.warn('Unknown domain:', domain);
-            return;
-        }
-        if (groupedRecords[mappedKey]) {
-          groupedRecords[mappedKey].push(record);
+        if (groupedRecords[domain]) {
+          groupedRecords[domain].push(record);
         }
       });
     }
@@ -247,33 +222,8 @@ router.get('/:projectId/:panelId', async (req, res) => {
     if (records && Array.isArray(records)) {
       records.forEach(record => {
         const domain = record.domain;
-        // Map database domain values to frontend keys
-        let mappedKey;
-        switch (domain) {
-          case 'panel_placement':
-            mappedKey = 'panelPlacement';
-            break;
-          case 'panel_seaming':
-            mappedKey = 'panelSeaming';
-            break;
-          case 'non_destructive':
-            mappedKey = 'nonDestructive';
-            break;
-          case 'trial_weld':
-            mappedKey = 'trialWeld';
-            break;
-          case 'repairs':
-            mappedKey = 'repairs';
-            break;
-          case 'destructive':
-            mappedKey = 'destructive';
-            break;
-          default:
-            console.warn('Unknown domain:', domain);
-            return;
-        }
-        if (groupedRecords[mappedKey]) {
-          groupedRecords[mappedKey].push(record);
+        if (groupedRecords[domain]) {
+          groupedRecords[domain].push(record);
         }
       });
     }
