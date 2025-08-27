@@ -260,22 +260,28 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
         </div>
         
         <div className="space-y-1">
-          {Object.entries(record.mappedData).map(([key, value]) => {
-            if (!value) return null;
-            
-            return (
-              <div key={key} className="flex justify-between text-sm">
-                <span className="font-medium text-gray-700 capitalize">
-                  {key.replace(/([A-Z])/g, ' $1').trim()}:
-                </span>
-                <span className="text-gray-900">
-                  {typeof value === 'string' && value.length > 50 
-                    ? `${value.substring(0, 50)}...` 
-                    : value.toString()}
-                </span>
-              </div>
-            );
-          })}
+          {record.mappedData && typeof record.mappedData === 'object' ? (
+            Object.entries(record.mappedData).map(([key, value]) => {
+              if (!value) return null;
+              
+              return (
+                <div key={key} className="flex justify-between text-sm">
+                  <span className="font-medium text-gray-700 capitalize">
+                    {key.replace(/([A-Z])/g, ' $1').trim()}:
+                  </span>
+                  <span className="text-gray-900">
+                    {typeof value === 'string' && value.length > 50 
+                      ? `${value.substring(0, 50)}...` 
+                      : value.toString()}
+                  </span>
+                </div>
+              );
+            })
+          ) : (
+            <div className="text-sm text-gray-500 italic">
+              No mapped data available
+            </div>
+          )}
         </div>
       </div>
     );

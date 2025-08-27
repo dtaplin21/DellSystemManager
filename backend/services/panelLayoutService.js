@@ -27,7 +27,14 @@ class PanelLayoutService {
       let currentPanels = [];
       if (existingLayout) {
         try {
-          currentPanels = JSON.parse(existingLayout.panels || '[]');
+          // Check if panels is already an object (JSONB) or needs parsing
+          if (typeof existingLayout.panels === 'string') {
+            currentPanels = JSON.parse(existingLayout.panels || '[]');
+          } else if (Array.isArray(existingLayout.panels)) {
+            currentPanels = existingLayout.panels;
+          } else {
+            currentPanels = [];
+          }
         } catch (error) {
           console.error('Error parsing existing panels:', error);
           currentPanels = [];
@@ -99,7 +106,20 @@ class PanelLayoutService {
         throw new Error('Panel layout not found');
       }
 
-      let currentPanels = JSON.parse(existingLayout.panels || '[]');
+      let currentPanels = [];
+      try {
+        // Check if panels is already an object (JSONB) or needs parsing
+        if (typeof existingLayout.panels === 'string') {
+          currentPanels = JSON.parse(existingLayout.panels || '[]');
+        } else if (Array.isArray(existingLayout.panels)) {
+          currentPanels = existingLayout.panels;
+        } else {
+          currentPanels = [];
+        }
+      } catch (error) {
+        console.error('Error parsing panels in movePanel:', error);
+        currentPanels = [];
+      }
       const panelIndex = currentPanels.findIndex(p => p.id === panelId);
 
       if (panelIndex === -1) {
@@ -116,7 +136,7 @@ class PanelLayoutService {
 
       // Update layout
       await db
-        .update(panels)
+        .update(panelLayouts)
         .set({
           panels: JSON.stringify(currentPanels),
           lastUpdated: new Date()
@@ -144,7 +164,20 @@ class PanelLayoutService {
         throw new Error('Panel layout not found');
       }
 
-      let currentPanels = JSON.parse(existingLayout.panels || '[]');
+      let currentPanels = [];
+      try {
+        // Check if panels is already an object (JSONB) or needs parsing
+        if (typeof existingLayout.panels === 'string') {
+          currentPanels = JSON.parse(existingLayout.panels || '[]');
+        } else if (Array.isArray(existingLayout.panels)) {
+          currentPanels = existingLayout.panels;
+        } else {
+          currentPanels = [];
+        }
+      } catch (error) {
+        console.error('Error parsing panels in deletePanel:', error);
+        currentPanels = [];
+      }
       const filteredPanels = currentPanels.filter(p => p.id !== panelId);
 
       if (filteredPanels.length === currentPanels.length) {
@@ -206,7 +239,14 @@ class PanelLayoutService {
 
       let currentPanels = [];
       try {
-        currentPanels = JSON.parse(layout.panels || '[]');
+        // Check if panels is already an object (JSONB) or needs parsing
+        if (typeof layout.panels === 'string') {
+          currentPanels = JSON.parse(layout.panels || '[]');
+        } else if (Array.isArray(layout.panels)) {
+          currentPanels = layout.panels;
+        } else {
+          currentPanels = [];
+        }
       } catch (error) {
         console.error('Error parsing panels:', error);
         currentPanels = [];

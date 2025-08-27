@@ -107,7 +107,14 @@ export async function getPanelLayoutSafe(projectId: string) {
     lastUpdated: new Date().toISOString()
   };
   
-  return safeFetch(url, fallbackData);
+  const response = await safeFetch(url, fallbackData);
+  
+  // Extract layout data from the response structure
+  if (response && response.success && response.layout) {
+    return response.layout;
+  }
+  
+  return fallbackData;
 }
 
 /**
