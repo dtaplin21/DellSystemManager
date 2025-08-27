@@ -68,7 +68,7 @@ export async function getAsbuiltSafe(projectId: string, panelId: string) {
  * Safe project data fetch with fallback
  */
 export async function getProjectSafe(projectId: string) {
-  const url = `${BACKEND_BASE}/api/projects/${projectId}`;
+  const url = `${BACKEND_BASE}/api/projects/ssr/${projectId}`;
   
   const fallbackData = {
     id: projectId,
@@ -95,7 +95,7 @@ export async function getProjectSafe(projectId: string) {
  * Safe panel layout data fetch with fallback
  */
 export async function getPanelLayoutSafe(projectId: string) {
-  const url = `${BACKEND_BASE}/api/panel-layout/${projectId}`;
+  const url = `${BACKEND_BASE}/api/panel-layout/ssr-layout/${projectId}`;
   
   const fallbackData = {
     id: 'fallback-layout',

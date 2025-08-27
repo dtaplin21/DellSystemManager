@@ -89,7 +89,7 @@ router.delete('/delete-panel', auth, async (req, res) => {
   }
 });
 
-// Get layout for a project
+// Get layout for a project (authenticated)
 router.get('/get-layout/:projectId', auth, async (req, res) => {
   try {
     const { projectId } = req.params;
@@ -108,6 +108,32 @@ router.get('/get-layout/:projectId', auth, async (req, res) => {
 
   } catch (error) {
     console.error('Error getting layout:', error);
+    res.status(500).json({
+      error: 'Failed to get layout',
+      details: error.message
+    });
+  }
+});
+
+// Get layout for a project (SSR - no auth required)
+router.get('/ssr-layout/:projectId', async (req, res) => {
+  try {
+    const { projectId } = req.params;
+
+    if (!projectId) {
+      return res.status(400).json({ error: 'Project ID is required' });
+    }
+
+    const layout = await panelLayoutService.getLayout(projectId);
+
+    res.json({
+      success: true,
+      layout,
+      message: 'Layout retrieved successfully'
+    });
+
+  } catch (error) {
+    console.error('Error getting layout for SSR:', error);
     res.status(500).json({
       error: 'Failed to get layout',
       details: error.message

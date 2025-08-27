@@ -1,5 +1,5 @@
 const { db } = require('../db/index');
-const { panels, projects } = require('../db/schema');
+const { panelLayouts, projects } = require('../db/schema');
 const { eq, and } = require('drizzle-orm');
 
 class PanelLayoutService {
@@ -21,8 +21,8 @@ class PanelLayoutService {
       // Get existing panel layout or create new one
       let [existingLayout] = await db
         .select()
-        .from(panels)
-        .where(eq(panels.projectId, projectId));
+        .from(panelLayouts)
+        .where(eq(panelLayouts.projectId, projectId));
 
       let currentPanels = [];
       if (existingLayout) {
@@ -61,14 +61,14 @@ class PanelLayoutService {
       // Update or create panel layout
       if (existingLayout) {
         await db
-          .update(panels)
+          .update(panelLayouts)
           .set({
             panels: JSON.stringify(currentPanels),
             lastUpdated: new Date()
           })
-          .where(eq(panels.projectId, projectId));
+          .where(eq(panelLayouts.projectId, projectId));
       } else {
-        await db.insert(panels).values({
+        await db.insert(panelLayouts).values({
           projectId,
           panels: JSON.stringify(currentPanels),
           width: project.layoutWidth || 1000,
@@ -92,8 +92,8 @@ class PanelLayoutService {
     try {
       const [existingLayout] = await db
         .select()
-        .from(panels)
-        .where(eq(panels.projectId, projectId));
+        .from(panelLayouts)
+        .where(eq(panelLayouts.projectId, projectId));
 
       if (!existingLayout) {
         throw new Error('Panel layout not found');
@@ -121,7 +121,7 @@ class PanelLayoutService {
           panels: JSON.stringify(currentPanels),
           lastUpdated: new Date()
         })
-        .where(eq(panels.projectId, projectId));
+        .where(eq(panelLayouts.projectId, projectId));
 
       return currentPanels[panelIndex];
     } catch (error) {
@@ -137,8 +137,8 @@ class PanelLayoutService {
     try {
       const [existingLayout] = await db
         .select()
-        .from(panels)
-        .where(eq(panels.projectId, projectId));
+        .from(panelLayouts)
+        .where(eq(panelLayouts.projectId, projectId));
 
       if (!existingLayout) {
         throw new Error('Panel layout not found');
@@ -153,12 +153,12 @@ class PanelLayoutService {
 
       // Update layout
       await db
-        .update(panels)
+        .update(panelLayouts)
         .set({
           panels: JSON.stringify(filteredPanels),
           lastUpdated: new Date()
         })
-        .where(eq(panels.projectId, projectId));
+        .where(eq(panelLayouts.projectId, projectId));
 
       return { success: true, deletedPanelId: panelId };
     } catch (error) {
@@ -197,8 +197,8 @@ class PanelLayoutService {
     try {
       const [layout] = await db
         .select()
-        .from(panels)
-        .where(eq(panels.projectId, projectId));
+        .from(panelLayouts)
+        .where(eq(panelLayouts.projectId, projectId));
 
       if (!layout) {
         return { panels: [], width: 1000, height: 800, scale: 1 };
@@ -238,12 +238,12 @@ class PanelLayoutService {
 
       // Update layout with optimized panels
       await db
-        .update(panels)
+        .update(panelLayouts)
         .set({
           panels: JSON.stringify(optimizedPanels),
           lastUpdated: new Date().toISOString()
         })
-        .where(eq(panels.projectId, projectId));
+        .where(eq(panelLayouts.projectId, projectId));
 
       return optimizedPanels;
     } catch (error) {

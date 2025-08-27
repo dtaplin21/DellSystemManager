@@ -66,7 +66,7 @@ router.get('/', async (req, res, next) => {
   }
 });
 
-// Get project by ID
+// Get project by ID (authenticated)
 router.get('/:id', async (req, res, next) => {
   // Apply auth middleware for production
   try {
@@ -87,6 +87,36 @@ router.get('/:id', async (req, res, next) => {
       .select('*')
       .eq('id', id)
       .eq('user_id', req.user.id)
+      .single();
+    
+    if (error || !projects) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
+    
+    res.status(200).json({
+      id: projects.id,
+      name: projects.name,
+      description: projects.description,
+      status: projects.status,
+      location: projects.location,
+      created_at: projects.created_at,
+      updated_at: projects.updated_at,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get project by ID (SSR - no auth required)
+router.get('/ssr/:id', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    
+    // Get project without user authentication for SSR
+    const { data: projects, error } = await supabase
+      .from('projects')
+      .select('*')
+      .eq('id', id)
       .single();
     
     if (error || !projects) {
