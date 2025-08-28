@@ -6,6 +6,11 @@ export interface UseFullscreenCanvasReturn {
   toggleFullscreen: () => void
   fullscreenCanvasWidth: number
   fullscreenCanvasHeight: number
+  // NEW: Panel interaction in fullscreen mode
+  selectedPanel: any | null
+  sidebarOpen: boolean
+  handlePanelClick: (panel: any) => void
+  closeSidebar: () => void
 }
 
 export interface UseFullscreenCanvasOptions {
@@ -26,7 +31,24 @@ export const useFullscreenCanvas = (options: UseFullscreenCanvasOptions): UseFul
   const [fullscreenCanvasWidth, setFullscreenCanvasWidth] = useState(0)
   const [fullscreenCanvasHeight, setFullscreenCanvasHeight] = useState(0)
   
+  // NEW: Panel interaction state for fullscreen mode
+  const [selectedPanel, setSelectedPanel] = useState<any | null>(null)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  
   const fullscreenCanvasRef = useRef<HTMLCanvasElement>(null)
+
+  // NEW: Panel interaction functions for fullscreen mode
+  const handlePanelClick = useCallback((panel: any) => {
+    console.log('🚀 [useFullscreenCanvas] Panel clicked in fullscreen:', panel);
+    setSelectedPanel(panel);
+    setSidebarOpen(true);
+  }, []);
+
+  const closeSidebar = useCallback(() => {
+    console.log('🚀 [useFullscreenCanvas] Closing sidebar');
+    setSidebarOpen(false);
+    setSelectedPanel(null);
+  }, []);
 
   // Initialize fullscreen canvas dimensions when component mounts
   useEffect(() => {
@@ -137,7 +159,7 @@ export const useFullscreenCanvas = (options: UseFullscreenCanvasOptions): UseFul
     }
   }, [isFullscreen]); // Only depend on isFullscreen, not toast
 
-  // Cleanup fullscreen mode on unmount
+  // Cleanup fullscreen mode on unmount and when exiting fullscreen
   useEffect(() => {
     return () => {
       if (isFullscreen) {
@@ -145,6 +167,15 @@ export const useFullscreenCanvas = (options: UseFullscreenCanvasOptions): UseFul
         document.documentElement.style.overflow = '';
       }
     };
+  }, [isFullscreen]);
+
+  // Reset panel state when exiting fullscreen
+  useEffect(() => {
+    if (!isFullscreen) {
+      console.log('🚀 [useFullscreenCanvas] Exiting fullscreen, resetting panel state');
+      setSelectedPanel(null);
+      setSidebarOpen(false);
+    }
   }, [isFullscreen]);
 
   // Handle window resize in fullscreen mode
@@ -191,16 +222,23 @@ export const useFullscreenCanvas = (options: UseFullscreenCanvasOptions): UseFul
       console.log('🚀 [useFullscreenCanvas] State changed:', { 
         isFullscreen, 
         fullscreenCanvasWidth, 
-        fullscreenCanvasHeight 
+        fullscreenCanvasHeight,
+        selectedPanel: selectedPanel?.id || null,
+        sidebarOpen
       });
     }
-  }, [isFullscreen, fullscreenCanvasWidth, fullscreenCanvasHeight]);
+  }, [isFullscreen, fullscreenCanvasWidth, fullscreenCanvasHeight, selectedPanel, sidebarOpen]);
 
   return {
     isFullscreen,
     fullscreenCanvasRef,
     toggleFullscreen,
     fullscreenCanvasWidth,
-    fullscreenCanvasHeight
+    fullscreenCanvasHeight,
+    // NEW: Panel interaction properties
+    selectedPanel,
+    sidebarOpen,
+    handlePanelClick,
+    closeSidebar
   }
 }

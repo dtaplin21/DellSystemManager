@@ -456,12 +456,4 @@ export const useAIServiceHealth = () => {
   };
 };
 
-// Export all hooks for easy access
-export {
-  usePanelOptimization,
-  useDocumentAnalysis,
-  useDataExtraction,
-  useQCAnalysis,
-  useProjectRecommendations,
-  useAIServiceHealth
-}; 
+// All hooks are already exported individually above 

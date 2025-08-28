@@ -319,8 +319,8 @@ export default function ExcelImporter({ projectId, onImportComplete }: ExcelImpo
         <ul className="text-sm text-gray-600 space-y-1 list-disc list-inside">
           <li>Use consistent column formats (e.g., dates as MM/DD/YYYY)</li>
           <li>Ensure the file contains at least Panel ID, Date, and Result columns</li>
-          <li>For Type, use values like "destructive", "trial", "repair", etc.</li>
-          <li>For Result, use values like "pass", "fail", or "pending"</li>
+          <li>For Type, use values like &quot;destructive&quot;, &quot;trial&quot;, &quot;repair&quot;, etc.</li>
+          <li>For Result, use values like &quot;pass&quot;, &quot;fail&quot;, or &quot;pending&quot;</li>
         </ul>
       </div>
     </div>

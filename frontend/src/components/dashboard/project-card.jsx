@@ -101,7 +101,7 @@ export default function ProjectCard({ project, onUpdate }) {
           <DialogHeader>
             <DialogTitle>Edit Project</DialogTitle>
             <DialogDescription>
-              Make changes to the project details. Click save when you're done.
+              Make changes to the project details. Click save when you&apos;re done.
             </DialogDescription>
           </DialogHeader>
           

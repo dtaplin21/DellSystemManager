@@ -328,7 +328,12 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     fullscreenCanvasRef, 
     toggleFullscreen,
     fullscreenCanvasWidth,
-    fullscreenCanvasHeight
+    fullscreenCanvasHeight,
+    // NEW: Panel interaction properties from fullscreen hook
+    selectedPanel: fullscreenSelectedPanel,
+    sidebarOpen: fullscreenSidebarOpen,
+    handlePanelClick: fullscreenHandlePanelClick,
+    closeSidebar: fullscreenCloseSidebar
   } = useFullscreenCanvas({
       canvasWidth,
       canvasHeight,
@@ -698,11 +703,19 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
         }
         
         if (isHit) {
+          console.log('🎯 [PanelLayout] Panel hit:', panel);
           dispatch({ type: 'SELECT_PANEL', payload: panel.id })
           
-          // Open sidebar for panel details
-          setSelectedPanelForSidebar(panel)
-          setSidebarOpen(true)
+          // Handle panel interaction based on mode
+          if (isFullscreen) {
+            console.log('🎯 [PanelLayout] In fullscreen mode, calling fullscreenHandlePanelClick');
+            // In fullscreen mode: use fullscreen hook's panel interaction
+            fullscreenHandlePanelClick(panel);
+          } else {
+            console.log('🎯 [PanelLayout] In normal mode, no sidebar');
+            // In normal mode: no sidebar (clean interface)
+            // Could add other interactions here if needed
+          }
           
           if (isRotationHandle(x, y, panel)) {
             setIsRotating(true)
@@ -1344,19 +1357,25 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
         </div>
       )}
 
-      {/* Panel Sidebar */}
-      {sidebarOpen && selectedPanelForSidebar && (
-        <PanelSidebar
-          isOpen={sidebarOpen}
-          onToggle={() => setSidebarOpen(!sidebarOpen)}
-          projectId={projectId || 'default'}
-          panelId={selectedPanelForSidebar.id}
-          panelNumber={selectedPanelForSidebar.panelNumber || 'Unknown'}
-          onClose={() => {
-            setSidebarOpen(false)
-            setSelectedPanelForSidebar(null)
-          }}
-        />
+      {/* Panel Sidebar - ONLY in fullscreen mode using fullscreen hook state */}
+      {isFullscreen && fullscreenSidebarOpen && fullscreenSelectedPanel && (
+        <>
+          {console.log('🎯 [PanelLayout] Rendering sidebar with:', { 
+            isFullscreen, 
+            fullscreenSidebarOpen, 
+            fullscreenSelectedPanel: fullscreenSelectedPanel?.id,
+            projectId,
+            panelId: fullscreenSelectedPanel?.id 
+          })}
+          <PanelSidebar
+            isOpen={fullscreenSidebarOpen}
+            onToggle={fullscreenCloseSidebar}
+            projectId={projectId || 'default'}
+            panelId={fullscreenSelectedPanel.id}
+            panelNumber={fullscreenSelectedPanel.panelNumber || 'Unknown'}
+            onClose={fullscreenCloseSidebar}
+          />
+        </>
       )}
     </>
   )

@@ -104,12 +104,14 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
   const fetchAsbuiltData = useCallback(async () => {
     if (!projectId || !panelId) return;
 
+    console.log('🔍 [PanelSidebar] Fetching asbuilt data for:', { projectId, panelId });
     setLoading(true);
     setError(null);
 
     try {
       // Get the current Supabase session
       const { data: { session } } = await supabase.auth.getSession();
+      console.log('🔍 [PanelSidebar] Session status:', !!session?.access_token);
       
       if (!session?.access_token) {
         throw new Error('No authentication token found. Please log in.');
@@ -120,19 +122,26 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
         'Authorization': `Bearer ${session.access_token}`
       };
       
-      const response = await fetch(`http://localhost:8003/api/asbuilt/${projectId}/${panelId}`, {
+      const url = `http://localhost:8003/api/asbuilt/${projectId}/${panelId}`;
+      console.log('🔍 [PanelSidebar] Fetching from:', url);
+      
+      const response = await fetch(url, {
         headers
       });
 
+      console.log('🔍 [PanelSidebar] Response status:', response.status, response.statusText);
+
       if (!response.ok) {
         const text = await response.text().catch(() => '');
+        console.error('🔍 [PanelSidebar] Error response:', text);
         throw new Error(`Failed to fetch asbuilt data: ${response.status} ${response.statusText} ${text}`);
       }
 
       const data: PanelAsbuiltSummary = await response.json();
+      console.log('🔍 [PanelSidebar] Data received:', data);
       setAsbuiltData(data);
     } catch (err) {
-      console.error('Error fetching asbuilt data:', err);
+      console.error('🔍 [PanelSidebar] Error fetching asbuilt data:', err);
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch data';
       setError(errorMessage);
       
@@ -147,7 +156,7 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
       });
       
       // Show helpful message for empty data
-      if (error.message.includes('404')) {
+      if (err instanceof Error && err.message.includes('404')) {
         setError('No as-built data found for this panel. Data will appear here once imported or manually entered.');
       }
     } finally {

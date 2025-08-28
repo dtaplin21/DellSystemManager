@@ -14,14 +14,22 @@ async function safeFetch<T>(
   options?: RequestInit
 ): Promise<T> {
   try {
+    console.log('🔍 [Safe-API] Fetching:', url);
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout for SSR
+    
     const res = await fetch(url, { 
       cache: 'no-store', // SSR
+      signal: controller.signal,
       ...options 
     });
     
+    clearTimeout(timeoutId);
+    
     if (!res.ok) {
       const text = await res.text().catch(() => '');
-      console.error(`🚨 API fetch failed: ${res.status} ${res.statusText}`, {
+      console.error(`🚨 [Safe-API] API fetch failed: ${res.status} ${res.statusText}`, {
         url,
         status: res.status,
         statusText: res.statusText,
@@ -32,9 +40,11 @@ async function safeFetch<T>(
       return fallbackData;
     }
     
-    return await res.json();
+    const data = await res.json();
+    console.log('🔍 [Safe-API] Fetch successful for:', url);
+    return data;
   } catch (err: any) {
-    console.error('🚨 API fetch threw error:', {
+    console.error('🚨 [Safe-API] API fetch threw error:', {
       url,
       error: err?.message || err,
       stack: err?.stack
@@ -110,8 +120,15 @@ export async function getPanelLayoutSafe(projectId: string) {
   const response = await safeFetch(url, fallbackData);
   
   // Extract layout data from the response structure
-  if (response && response.success && response.layout) {
-    return response.layout;
+  // The response might be the layout directly or wrapped in a success object
+  if (response && typeof response === 'object') {
+    if ('success' in response && response.success && 'layout' in response && response.layout) {
+      return response.layout;
+    }
+    // If response is the layout directly (no wrapper)
+    if ('panels' in response && 'width' in response && 'height' in response) {
+      return response;
+    }
   }
   
   return fallbackData;
@@ -142,13 +159,21 @@ export async function getDocumentsSafe(projectId: string) {
  */
 export async function checkBackendHealth(): Promise<boolean> {
   try {
+    console.log('🔍 [Safe-API] Checking backend health at:', `${BACKEND_BASE}/health`);
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout for SSR
+    
     const res = await fetch(`${BACKEND_BASE}/health`, { 
       cache: 'no-store',
-      signal: AbortSignal.timeout(5000) // 5 second timeout
+      signal: controller.signal
     });
+    
+    clearTimeout(timeoutId);
+    console.log('🔍 [Safe-API] Backend health response:', res.status, res.statusText);
     return res.ok;
   } catch (err) {
-    console.error('🚨 Backend health check failed:', err);
+    console.error('🚨 [Safe-API] Backend health check failed:', err);
     return false;
   }
 }

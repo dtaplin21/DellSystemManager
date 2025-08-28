@@ -125,6 +125,44 @@ export default function PanelLayoutClient({
     console.log('🔍 [CLIENT] ProjectId changed:', projectId);
   }, [projectId]);
 
+  // Fetch real data from backend when component mounts (client-side)
+  useEffect(() => {
+    const fetchRealData = async () => {
+      try {
+        console.log('🔍 [CLIENT] Fetching real data from backend...');
+        
+        // Fetch real project data
+        const projectResponse = await fetch(`${BACKEND_URL}/api/projects/ssr/${projectId}`);
+        if (projectResponse.ok) {
+          const realProject = await projectResponse.json();
+          console.log('🔍 [CLIENT] Real project data fetched:', realProject);
+          setProject(realProject);
+        } else {
+          console.warn('🔍 [CLIENT] Failed to fetch real project data:', projectResponse.status);
+        }
+        
+        // Fetch real layout data
+        const layoutResponse = await fetch(`${BACKEND_URL}/api/panel-layout/ssr-layout/${projectId}`);
+        if (layoutResponse.ok) {
+          const realLayout = await layoutResponse.json();
+          console.log('🔍 [CLIENT] Real layout data fetched:', realLayout);
+          if (realLayout.success && realLayout.layout) {
+            setLayout(realLayout.layout);
+          }
+        } else {
+          console.warn('🔍 [CLIENT] Failed to fetch real layout data:', layoutResponse.status);
+        }
+      } catch (error) {
+        console.error('🔍 [CLIENT] Error fetching real data:', error);
+      }
+    };
+
+    // Only fetch if we have fallback data (indicating SSR mode)
+    if (project.name === 'Project (SSR Mode)' || layout.id === 'ssr-fallback-layout') {
+      fetchRealData();
+    }
+  }, [projectId, project.name, layout.id]);
+
   // State for preventing unnecessary reloads after panel operations
   const [isPanelOperationInProgress, setIsPanelOperationInProgress] = useState(false);
   

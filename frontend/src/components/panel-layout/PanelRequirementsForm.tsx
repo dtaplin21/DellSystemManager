@@ -560,7 +560,7 @@ export default function PanelRequirementsForm({ projectId, documents: propDocume
                   <div>
                     <h4 className="font-semibold text-blue-900">How AI Analysis Works</h4>
                     <p className="text-sm text-blue-700 mt-1">
-                      Select documents below and click "Analyze Documents" to automatically extract panel requirements. 
+                      Select documents below and click &quot;Analyze Documents&quot; to automatically extract panel requirements. 
                       The AI will analyze your documents and populate the form fields with extracted information.
                     </p>
                   </div>

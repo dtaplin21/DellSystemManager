@@ -284,7 +284,7 @@ export default function ProjectsPage() {
                 </button>
               </div>
               <div className="modal-body">
-                <p>Are you sure you want to delete the project <strong>"{projectToDelete.name}"</strong>?</p>
+                <p>Are you sure you want to delete the project <strong>&quot;{projectToDelete.name}&quot;</strong>?</p>
                 <p className="warning-text">This action cannot be undone. All project data, panel layouts, QC data, and documents will be permanently deleted.</p>
               </div>
               <div className="form-actions">
@@ -316,7 +316,7 @@ export default function ProjectsPage() {
         ) : projects.length === 0 ? (
           <div className="empty-state">
             <h2 className="empty-state-title">No Projects Yet</h2>
-            <p className="empty-state-message">It looks like you haven't created any projects. Get started by creating your first one!</p>
+            <p className="empty-state-message">It looks like you haven&apos;t created any projects. Get started by creating your first one!</p>
             <button 
               onClick={() => setShowCreateModal(true)}
               className="btn-create-empty"

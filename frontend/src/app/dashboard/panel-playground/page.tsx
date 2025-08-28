@@ -781,7 +781,7 @@ export default function PanelPlaygroundPage() {
                     onClick={() => setSelectedPanel(panel.id)}
                   >
                     <div className="font-medium">{panel.rollNumber} - {panel.panelNumber}</div>
-                    <div className="text-gray-600">{panel.width}' × {panel.length}'</div>
+                    <div className="text-gray-600">{panel.width}&apos; × {panel.length}&apos;</div>
                   </div>
                 ))}
               </div>

@@ -72,7 +72,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
     return (
       <div className="text-center py-8">
         <h2 className="text-xl font-semibold mb-2">Project Not Found</h2>
-        <p className="text-gray-500 mb-4">The project you're looking for does not exist or you don't have access to it.</p>
+        <p className="text-gray-500 mb-4">The project you&apos;re looking for does not exist or you don&apos;t have access to it.</p>
         <Link href="/dashboard/projects">
           <Button>Back to Projects</Button>
         </Link>

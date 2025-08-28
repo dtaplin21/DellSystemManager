@@ -294,7 +294,7 @@ export default function PanelAIChat({ projectInfo, panels, setPanels }: PanelAIC
       </div>
       
       <div className="mt-2 text-xs text-gray-500">
-        Try: "Create a new panel", "Move panel P1 to the north", "Resize panel P2 to 120 ft x 45 ft"
+        Try: &quot;Create a new panel&quot;, &quot;Move panel P1 to the north&quot;, &quot;Resize panel P2 to 120 ft x 45 ft&quot;
       </div>
     </div>
   )
