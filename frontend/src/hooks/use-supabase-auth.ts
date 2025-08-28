@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase, getCurrentSession } from '../lib/supabase';
+import { getSupabaseClient, getCurrentSession } from '../lib/supabase';
 import type { User, Session } from '@supabase/supabase-js';
 
 interface Profile {
@@ -38,7 +38,7 @@ export function useSupabaseAuth() {
     }, 15000);
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    const { data: { subscription } } = getSupabaseClient().auth.onAuthStateChange(
       async (event, session) => {
         console.log('🔍 Auth state change:', event, session ? 'session present' : 'no session');
         setSession(session);
@@ -119,7 +119,7 @@ export function useSupabaseAuth() {
     display_name: string;
     company?: string;
   }) => {
-    const { data, error } = await supabase.auth.signUp({
+    const { data, error } = await getSupabaseClient().auth.signUp({
       email,
       password,
       options: {
@@ -142,7 +142,7 @@ export function useSupabaseAuth() {
   };
 
   const signIn = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await getSupabaseClient().auth.signInWithPassword({
       email,
       password,
     });
@@ -159,7 +159,7 @@ export function useSupabaseAuth() {
   };
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
+    const { error } = await getSupabaseClient().auth.signOut();
     if (error) {
       console.error('Logout error:', error);
     }
@@ -171,7 +171,7 @@ export function useSupabaseAuth() {
     if (!user) throw new Error('No user logged in');
 
     // Update user metadata in Supabase
-    const { data, error } = await supabase.auth.updateUser({
+    const { data, error } = await getSupabaseClient().auth.updateUser({
       data: {
         display_name: updates.display_name,
         company: updates.company,
@@ -191,7 +191,7 @@ export function useSupabaseAuth() {
   };
 
   const resetPassword = async (email: string) => {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    const { error } = await getSupabaseClient().auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/reset-password`,
     });
 
@@ -204,7 +204,7 @@ export function useSupabaseAuth() {
   const refreshSession = useCallback(async () => {
     try {
       console.log('🔄 Manually refreshing session...');
-      const { data: refreshed, error } = await supabase.auth.refreshSession();
+      const { data: refreshed, error } = await getSupabaseClient().auth.refreshSession();
       
       if (error) {
         console.error('❌ Error refreshing session:', error);
@@ -232,7 +232,7 @@ export function useSupabaseAuth() {
   const clearSessionAndRedirect = useCallback(async () => {
     try {
       console.log('🧹 Clearing session and redirecting to login...');
-      await supabase.auth.signOut();
+      await getSupabaseClient().auth.signOut();
       setUser(null);
       setSession(null);
       
