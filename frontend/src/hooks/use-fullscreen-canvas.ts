@@ -10,6 +10,8 @@ export interface UseFullscreenCanvasReturn {
   selectedPanel: any | null
   sidebarOpen: boolean
   handlePanelClick: (panel: any) => void
+  toggleSidebar: () => void
+  openSidebar: () => void
   closeSidebar: () => void
 }
 
@@ -40,15 +42,38 @@ export const useFullscreenCanvas = (options: UseFullscreenCanvasOptions): UseFul
   // NEW: Panel interaction functions for fullscreen mode
   const handlePanelClick = useCallback((panel: any) => {
     console.log('🚀 [useFullscreenCanvas] Panel clicked in fullscreen:', panel);
-    setSelectedPanel(panel);
-    setSidebarOpen(true);
+    
+    // If clicking the same panel, toggle sidebar
+    if (selectedPanel?.id === panel.id) {
+      setSidebarOpen(prev => !prev);
+      console.log('🚀 [useFullscreenCanvas] Same panel clicked, toggling sidebar:', !sidebarOpen);
+    } else {
+      // If clicking a different panel, select it and open sidebar
+      setSelectedPanel(panel);
+      setSidebarOpen(true);
+      console.log('🚀 [useFullscreenCanvas] New panel selected, opening sidebar');
+    }
+  }, [selectedPanel, sidebarOpen]);
+
+  const toggleSidebar = useCallback(() => {
+    console.log('🚀 [useFullscreenCanvas] Toggling sidebar manually');
+    setSidebarOpen(prev => !prev);
   }, []);
 
   const closeSidebar = useCallback(() => {
     console.log('🚀 [useFullscreenCanvas] Closing sidebar');
     setSidebarOpen(false);
-    setSelectedPanel(null);
+    // Don't clear selectedPanel - keep it for when sidebar reopens
   }, []);
+
+  const openSidebar = useCallback(() => {
+    if (selectedPanel) {
+      console.log('🚀 [useFullscreenCanvas] Opening sidebar for selected panel');
+      setSidebarOpen(true);
+    } else {
+      console.log('🚀 [useFullscreenCanvas] No panel selected, cannot open sidebar');
+    }
+  }, [selectedPanel]);
 
   // Initialize fullscreen canvas dimensions when component mounts
   useEffect(() => {
@@ -195,26 +220,33 @@ export const useFullscreenCanvas = (options: UseFullscreenCanvasOptions): UseFul
     return () => window.removeEventListener('resize', handleResize);
   }, [isFullscreen]);
 
-  // Handle ESC key to exit fullscreen
+  // Handle ESC key to exit fullscreen or close sidebar
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isFullscreen) {
-        console.log('🚀 [useFullscreenCanvas] ESC key pressed, exiting fullscreen');
         e.preventDefault();
-        // Use functional update to avoid dependency issues
-        setIsFullscreen(false);
-        // Restore body overflow
-        document.body.style.overflow = '';
-        document.documentElement.style.overflow = '';
-        // Restore normal dimensions
-        setFullscreenCanvasWidth(canvasWidth);
-        setFullscreenCanvasHeight(canvasHeight);
+        
+        // If sidebar is open, close it first
+        if (sidebarOpen) {
+          console.log('🚀 [useFullscreenCanvas] ESC key pressed, closing sidebar');
+          setSidebarOpen(false);
+        } else {
+          // If sidebar is closed, exit fullscreen
+          console.log('🚀 [useFullscreenCanvas] ESC key pressed, exiting fullscreen');
+          setIsFullscreen(false);
+          // Restore body overflow
+          document.body.style.overflow = '';
+          document.documentElement.style.overflow = '';
+          // Restore normal dimensions
+          setFullscreenCanvasWidth(canvasWidth);
+          setFullscreenCanvasHeight(canvasHeight);
+        }
       }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isFullscreen, canvasWidth, canvasHeight]); // Depend on values, not functions
+  }, [isFullscreen, sidebarOpen, canvasWidth, canvasHeight]); // Depend on values, not functions
 
   // Debug logging for state changes (only in development)
   useEffect(() => {
@@ -239,6 +271,8 @@ export const useFullscreenCanvas = (options: UseFullscreenCanvasOptions): UseFul
     selectedPanel,
     sidebarOpen,
     handlePanelClick,
+    toggleSidebar,
+    openSidebar,
     closeSidebar
   }
 }

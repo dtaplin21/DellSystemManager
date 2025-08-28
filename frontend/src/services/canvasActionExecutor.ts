@@ -1,6 +1,8 @@
 import { getCurrentSession } from '@/lib/supabase';
 
-const BACKEND_URL = 'http://localhost:8003';
+import config from '@/lib/config';
+
+const BACKEND_URL = config.backend.baseUrl;
 
 // Helper function to make authenticated API calls
 const makeAuthenticatedRequest = async (url: string, options: RequestInit = {}) => {

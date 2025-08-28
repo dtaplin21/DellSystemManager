@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Download, X, FileText, FileSpreadsheet, FileImage } from 'lucide-react';
 import { downloadDocument, getAuthHeaders } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
+import config from '@/lib/config';
 
 interface DocumentViewerProps {
   document: any | null;
@@ -35,7 +36,7 @@ export default function DocumentViewer({ document, isOpen, onClose }: DocumentVi
 
     try {
       // Get the file URL for preview (without download parameter)
-      const fileUrl = `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003'}/api/documents/download/${document.id}`;
+      const fileUrl = `${config.endpoints.documents(document.projectId)}/download/${document.id}`;
       setContent(fileUrl);
     } catch (err) {
       console.error('Error loading document content:', err);
@@ -50,7 +51,7 @@ export default function DocumentViewer({ document, isOpen, onClose }: DocumentVi
 
     try {
       // Use the download endpoint with download parameter
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003'}/api/documents/download/${document.id}?download=true`, {
+      const response = await fetch(`${config.endpoints.documents(document.projectId)}/download/${document.id}?download=true`, {
         headers: await getAuthHeaders(),
         credentials: 'include',
       });

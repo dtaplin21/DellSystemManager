@@ -333,6 +333,8 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     selectedPanel: fullscreenSelectedPanel,
     sidebarOpen: fullscreenSidebarOpen,
     handlePanelClick: fullscreenHandlePanelClick,
+    toggleSidebar: fullscreenToggleSidebar,
+    openSidebar: fullscreenOpenSidebar,
     closeSidebar: fullscreenCloseSidebar
   } = useFullscreenCanvas({
       canvasWidth,
@@ -1357,6 +1359,18 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
         </div>
       )}
 
+      {/* Selected Panel Indicator - Shows when panel is selected but sidebar is closed */}
+      {isFullscreen && fullscreenSelectedPanel && !fullscreenSidebarOpen && (
+        <div className="fixed top-20 right-4 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg z-30 pointer-events-none">
+          <div className="text-sm font-medium">
+            Panel {fullscreenSelectedPanel.panelNumber || 'Unknown'} Selected
+          </div>
+          <div className="text-xs opacity-90">
+            Click panel again or press ESC to open sidebar
+          </div>
+        </div>
+      )}
+
       {/* Panel Sidebar - ONLY in fullscreen mode using fullscreen hook state */}
       {isFullscreen && fullscreenSidebarOpen && fullscreenSelectedPanel && (
         <>
@@ -1369,7 +1383,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
           })}
           <PanelSidebar
             isOpen={fullscreenSidebarOpen}
-            onToggle={fullscreenCloseSidebar}
+            onToggle={fullscreenToggleSidebar}
             projectId={projectId || 'default'}
             panelId={fullscreenSelectedPanel.id}
             panelNumber={fullscreenSelectedPanel.panelNumber || 'Unknown'}

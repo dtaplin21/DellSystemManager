@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import NoProjectSelected from '@/components/ui/no-project-selected';
 import AIAnalysis from '@/components/documents/ai-analysis';
 import { uploadDocument, fetchDocuments, getAuthHeaders } from '@/lib/api';
+import config from '@/lib/config';
 import './documents.css';
 
 interface Document {
@@ -143,7 +144,9 @@ export default function DocumentsPage() {
       });
 
       // Use the download endpoint with download parameter
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003'}/api/documents/download/${docId}?download=true`, {
+import config from '@/lib/config';
+
+      const response = await fetch(`${config.endpoints.documents(projectId)}/download/${docId}?download=true`, {
         headers: await getAuthHeaders(),
         credentials: 'include',
       });

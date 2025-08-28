@@ -1,6 +1,8 @@
 import { getSupabaseClient, getCurrentSession } from './supabase';
 
-const BACKEND_URL = 'http://localhost:8003';
+import config from './config';
+
+const BACKEND_URL = config.backend.baseUrl;
 
 
 // Health check function to test backend connectivity

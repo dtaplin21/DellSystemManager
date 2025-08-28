@@ -21,6 +21,8 @@ import {
 import ExcelImportModal from './excel-import-modal';
 import ManualEntryModal from './manual-entry-modal';
 import { getSupabaseClient } from '@/lib/supabase';
+import { getAsbuiltSafe } from '@/lib/safe-api';
+import config from '@/lib/config';
 
 interface PanelSidebarProps {
   isOpen: boolean;
@@ -109,37 +111,11 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
     setError(null);
 
     try {
-      // Get the current Supabase session
-      const { data: { session } } = await getSupabaseClient().auth.getSession();
-      console.log('🔍 [PanelSidebar] Session status:', !!session?.access_token);
-      
-      if (!session?.access_token) {
-        throw new Error('No authentication token found. Please log in.');
-      }
-
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token}`
-      };
-      
-      const url = `http://localhost:8003/api/asbuilt/${projectId}/${panelId}`;
-      console.log('🔍 [PanelSidebar] Fetching from:', url);
-      
-      const response = await fetch(url, {
-        headers
-      });
-
-      console.log('🔍 [PanelSidebar] Response status:', response.status, response.statusText);
-
-      if (!response.ok) {
-        const text = await response.text().catch(() => '');
-        console.error('🔍 [PanelSidebar] Error response:', text);
-        throw new Error(`Failed to fetch asbuilt data: ${response.status} ${response.statusText} ${text}`);
-      }
-
-      const data: PanelAsbuiltSummary = await response.json();
+      // Use the safe API function with centralized configuration
+      const data: PanelAsbuiltSummary = await getAsbuiltSafe(projectId, panelId);
       console.log('🔍 [PanelSidebar] Data received:', data);
       setAsbuiltData(data);
+      setError(null); // Clear any previous errors
     } catch (err) {
       console.error('🔍 [PanelSidebar] Error fetching asbuilt data:', err);
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch data';

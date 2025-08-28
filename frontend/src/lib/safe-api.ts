@@ -3,7 +3,9 @@
  * and return fallback data to prevent page crashes
  */
 
-const BACKEND_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003';
+import config from './config';
+
+const BACKEND_BASE = config.backend.baseUrl;
 
 /**
  * Safe fetch wrapper that handles errors and returns fallback data
@@ -56,7 +58,73 @@ async function safeFetch<T>(
 }
 
 /**
- * Safe asbuilt data fetch with fallback
+ * Safe authenticated fetch wrapper that includes Supabase auth headers
+ */
+async function safeAuthenticatedFetch<T>(
+  url: string, 
+  fallbackData: T,
+  options?: RequestInit
+): Promise<T> {
+  try {
+    console.log('🔍 [Safe-API] Authenticated fetch:', url);
+    
+    // Dynamically import to avoid SSR issues
+    const { getSupabaseClient } = await import('./supabase');
+    
+    // Get the current session
+    const { data: { session } } = await getSupabaseClient().auth.getSession();
+    
+    if (!session?.access_token) {
+      console.warn('⚠️ [Safe-API] No auth token, returning fallback data');
+      return fallbackData;
+    }
+    
+    console.log('🔍 [Safe-API] Auth token found, making authenticated request');
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    
+    const res = await fetch(url, { 
+      cache: 'no-store',
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+        ...options?.headers
+      },
+      ...options 
+    });
+    
+    clearTimeout(timeoutId);
+    
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      console.error(`🚨 [Safe-API] Authenticated API fetch failed: ${res.status} ${res.statusText}`, {
+        url,
+        status: res.status,
+        statusText: res.statusText,
+        responseText: text
+      });
+      
+      return fallbackData;
+    }
+    
+    const data = await res.json();
+    console.log('🔍 [Safe-API] Authenticated fetch successful for:', url);
+    return data;
+  } catch (err: any) {
+    console.error('🚨 [Safe-API] Authenticated API fetch threw error:', {
+      url,
+      error: err?.message || err,
+      stack: err?.stack
+    });
+    
+    return fallbackData;
+  }
+}
+
+/**
+ * Safe asbuilt data fetch with fallback (authenticated)
  */
 export async function getAsbuiltSafe(projectId: string, panelId: string) {
   const url = `${BACKEND_BASE}/api/asbuilt/${projectId}/${panelId}`;
@@ -71,7 +139,8 @@ export async function getAsbuiltSafe(projectId: string, panelId: string) {
     rightNeighborPeek: null
   };
   
-  return safeFetch(url, fallbackData);
+  // Use authenticated fetch since asbuilt endpoint requires auth
+  return safeAuthenticatedFetch(url, fallbackData);
 }
 
 /**
@@ -135,7 +204,7 @@ export async function getPanelLayoutSafe(projectId: string) {
 }
 
 /**
- * Safe document list fetch with fallback
+ * Safe document list fetch with fallback (authenticated)
  */
 export async function getDocumentsSafe(projectId: string) {
   const url = `${BACKEND_BASE}/api/documents/${projectId}`;
@@ -151,7 +220,8 @@ export async function getDocumentsSafe(projectId: string) {
     }
   };
   
-  return safeFetch(url, fallbackData);
+  // Use authenticated fetch since documents endpoint requires auth
+  return safeAuthenticatedFetch(url, fallbackData);
 }
 
 /**
