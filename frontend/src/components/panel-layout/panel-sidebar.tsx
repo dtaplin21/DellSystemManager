@@ -20,7 +20,7 @@ import {
 } from '@/types/asbuilt';
 import ExcelImportModal from './excel-import-modal';
 import ManualEntryModal from './manual-entry-modal';
-import { supabase } from '@/lib/supabase';
+import { getSupabaseClient } from '@/lib/supabase';
 
 interface PanelSidebarProps {
   isOpen: boolean;
@@ -110,7 +110,7 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
 
     try {
       // Get the current Supabase session
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await getSupabaseClient().auth.getSession();
       console.log('🔍 [PanelSidebar] Session status:', !!session?.access_token);
       
       if (!session?.access_token) {

@@ -22,32 +22,46 @@ const createMockClient = (): SupabaseClient => {
   } as any as SupabaseClient;
 };
 
-// Create the Supabase client
-let supabase: SupabaseClient;
+// Create the Supabase client lazily to avoid SSR issues
+let supabase: SupabaseClient | null = null;
 
-try {
-  if (supabaseUrl && supabaseAnonKey) {
-    supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: true,
-      }
-    });
-  } else {
+const getSupabaseClient = (): SupabaseClient => {
+  if (supabase) {
+    return supabase;
+  }
+
+  // Only create client on the client side
+  if (typeof window === 'undefined') {
+    return createMockClient();
+  }
+
+  try {
+    if (supabaseUrl && supabaseAnonKey) {
+      supabase = createClient(supabaseUrl, supabaseAnonKey, {
+        auth: {
+          autoRefreshToken: true,
+          persistSession: true,
+          detectSessionInUrl: true,
+        }
+      });
+    } else {
+      supabase = createMockClient();
+    }
+  } catch (error) {
+    console.error('Error creating Supabase client:', error);
     supabase = createMockClient();
   }
-} catch (error) {
-  console.error('Error creating Supabase client:', error);
-  supabase = createMockClient();
-}
 
-export { supabase };
+  return supabase;
+};
+
+export { getSupabaseClient };
 
 // Helper function to get current session
 export const getCurrentSession = async () => {
   try {
-    const { data: { session }, error } = await supabase.auth.getSession();
+    const client = getSupabaseClient();
+    const { data: { session }, error } = await client.auth.getSession();
     return error ? null : session;
   } catch (error) {
     console.error('Error getting session:', error);
@@ -58,7 +72,8 @@ export const getCurrentSession = async () => {
 // Helper function to ensure valid session
 export const ensureValidSession = async () => {
   try {
-    const { data: { session }, error } = await supabase.auth.getSession();
+    const client = getSupabaseClient();
+    const { data: { session }, error } = await client.auth.getSession();
     
     if (error || !session) {
       return null;
@@ -70,7 +85,7 @@ export const ensureValidSession = async () => {
     const buffer = 5 * 60; // 5 minutes
     
     if (expiresAt && (expiresAt - now) < buffer) {
-      const { data: { session: newSession }, error: refreshError } = await supabase.auth.refreshSession();
+      const { data: { session: newSession }, error: refreshError } = await client.auth.refreshSession();
       return refreshError ? null : newSession;
     }
     

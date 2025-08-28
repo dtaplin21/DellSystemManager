@@ -4,7 +4,7 @@ import React, { useEffect } from 'react';
 import { WebSocketProvider } from '@/contexts/websocket-context';
 import { ProjectsProvider } from '@/contexts/ProjectsProvider';
 import { ToastProvider } from '@/components/ui/toast';
-import { supabase, ensureValidSession } from '@/lib/supabase';
+import { getSupabaseClient, ensureValidSession } from '@/lib/supabase';
 
 interface ClientProvidersProps {
   children: React.ReactNode;

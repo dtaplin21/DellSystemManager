@@ -35,7 +35,7 @@ import {
   ImportResponse, 
   FieldMapping 
 } from '@/types/asbuilt';
-import { supabase } from '@/lib/supabase';
+import { getSupabaseClient } from '@/lib/supabase';
 
 interface ExcelImportModalProps {
   isOpen: boolean;
@@ -139,7 +139,7 @@ const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
 
     try {
       // Get the current Supabase session
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await getSupabaseClient().auth.getSession();
       
       if (!session?.access_token) {
         throw new Error('No authentication token found. Please log in.');
