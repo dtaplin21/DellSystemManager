@@ -1,4 +1,4 @@
-import { supabase, getCurrentSession } from './supabase';
+import { getSupabaseClient, getCurrentSession } from './supabase';
 
 const BACKEND_URL = 'http://localhost:8003';
 
@@ -115,7 +115,7 @@ export async function makeAuthenticatedRequest(url: string, options: RequestInit
     });
     
     // Get the current session
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await getSupabaseClient().auth.getSession();
     console.log('🔍 [AUTH] Session status:', {
       hasSession: !!session,
       userId: session?.user?.id,

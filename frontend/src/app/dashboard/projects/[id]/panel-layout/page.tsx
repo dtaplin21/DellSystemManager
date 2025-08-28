@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
 import Loading from './loading';
 import Error from './error';
+import PanelLayoutClient from './panel-layout-client';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -56,42 +57,11 @@ export default async function PanelLayoutPage({ params }: PageProps) {
     
     return (
       <Suspense fallback={<Loading />}>
-        <div className="min-h-screen bg-gray-50 p-8">
-          <div className="max-w-4xl mx-auto">
-            <div className="bg-white rounded-lg shadow-lg p-6">
-              <h1 className="text-2xl font-bold text-gray-900 mb-4">
-                Panel Layout - {project.name}
-              </h1>
-              <p className="text-gray-600 mb-6">
-                Loading panel layout data... This page will be enhanced with full functionality once loaded.
-              </p>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-blue-50 p-4 rounded-lg">
-                  <h3 className="font-semibold text-blue-900 mb-2">Project Info</h3>
-                  <p><strong>ID:</strong> {project.id}</p>
-                  <p><strong>Status:</strong> {project.status}</p>
-                  <p><strong>Client:</strong> {project.client}</p>
-                  <p><strong>Location:</strong> {project.location}</p>
-                </div>
-                
-                <div className="bg-green-50 p-4 rounded-lg">
-                  <h3 className="font-semibold text-green-900 mb-2">Layout Info</h3>
-                  <p><strong>Width:</strong> {layout.width} ft</p>
-                  <p><strong>Height:</strong> {layout.height} ft</p>
-                  <p><strong>Scale:</strong> {layout.scale}</p>
-                  <p><strong>Panels:</strong> {layout.panels.length}</p>
-                </div>
-              </div>
-              
-              <div className="mt-6 text-center">
-                <p className="text-sm text-gray-500">
-                  Full panel layout functionality will be available after the page loads completely.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
+        <PanelLayoutClient
+          projectId={id}
+          initialProject={project}
+          initialLayout={layout}
+        />
       </Suspense>
     );
   } catch (error) {

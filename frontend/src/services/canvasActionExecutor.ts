@@ -1,4 +1,4 @@
-import { supabase, getCurrentSession } from '@/lib/supabase';
+import { getCurrentSession } from '@/lib/supabase';
 
 const BACKEND_URL = 'http://localhost:8003';
 
