@@ -136,7 +136,7 @@ export async function getAsbuiltSafe(projectId: string, panelId: string) {
     trialWeld: [],
     repairs: [],
     destructive: [],
-    rightNeighborPeek: null
+    rightNeighborPeek: undefined
   };
   
   // Use authenticated fetch since asbuilt endpoint requires auth

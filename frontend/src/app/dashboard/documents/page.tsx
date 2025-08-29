@@ -144,9 +144,7 @@ export default function DocumentsPage() {
       });
 
       // Use the download endpoint with download parameter
-import config from '@/lib/config';
-
-      const response = await fetch(`${config.endpoints.documents(projectId)}/download/${docId}?download=true`, {
+      const response = await fetch(`${config.endpoints.documents(selectedProjectId)}/download/${docId}?download=true`, {
         headers: await getAuthHeaders(),
         credentials: 'include',
       });

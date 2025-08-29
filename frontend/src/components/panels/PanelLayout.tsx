@@ -338,6 +338,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     toggleSidebar: fullscreenToggleSidebar,
     openSidebar: fullscreenOpenSidebar,
     closeSidebar: fullscreenCloseSidebar,
+
     // NEW: Mini-sidebar state and controls
     miniSidebarVisible: fullscreenMiniSidebarVisible,
     miniSidebarExpanded: fullscreenMiniSidebarExpanded,
@@ -722,6 +723,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
           // Handle panel interaction based on mode
           if (isFullscreen) {
             // In fullscreen mode: use fullscreen hook's panel interaction
+            console.log('🎯 [PanelLayout] Panel clicked in fullscreen, calling fullscreenHandlePanelClick');
             fullscreenHandlePanelClick(panel);
           } else {
             console.log('🎯 [PanelLayout] In normal mode, no sidebar');
@@ -751,7 +753,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
       // No panel hit - clear selection
       dispatch({ type: 'SELECT_PANEL', payload: null })
     }
-  }, [panels, canvasState, isFullscreen, spacePressed, localScreenToWorld])
+  }, [panels, canvasState, isFullscreen, spacePressed, localScreenToWorld, fullscreenHandlePanelClick])
   
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = isFullscreen ? fullscreenCanvasRef.current : canvasRef.current
@@ -1231,9 +1233,10 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
         </>
       )}
       
-      {/* Mini-Sidebar - Shows when panel is clicked in fullscreen mode */}
+            {/* Mini-Sidebar - Shows when panel is clicked in fullscreen mode */}
       {isFullscreen && fullscreenMiniSidebarVisible && (
-        <div 
+        <>
+          <div 
           data-mini-sidebar
           className="fixed left-0 top-1/2 transform -translate-y-1/2 bg-white border-r border-gray-200 shadow-lg z-[9999] rounded-r-lg animate-in slide-in-from-left-mini"
         >
@@ -1249,6 +1252,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
             )}
           </button>
         </div>
+        </>
       )}
       
       {/* Normal Panel Layout Container - Hidden in fullscreen mode */}
@@ -1417,29 +1421,21 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
           </div>
         </div>
         
-        {/* Selected Panel Indicator - Shows when panel is selected but sidebar is closed */}
-        {fullscreenSelectedPanel && !fullscreenSidebarOpen && (
-          <div className="fixed top-20 right-4 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg z-30 pointer-events-none">
-            <div className="text-sm font-medium">
-              Panel {fullscreenSelectedPanel.panelNumber || 'Unknown'} Selected
-            </div>
-            <div className="text-xs opacity-90">
-              Click panel again or press ESC to open sidebar
-            </div>
-          </div>
-        )}
 
-        {/* Panel Sidebar - ONLY in fullscreen mode when mini-sidebar is expanded */}
+
+                {/* Panel Sidebar - ONLY in fullscreen mode when mini-sidebar is expanded */}
         {fullscreenMiniSidebarVisible && fullscreenMiniSidebarExpanded && fullscreenSelectedPanel && (
-          <PanelSidebar
-            isOpen={true}
-            miniMode={false}
-            onToggle={fullscreenToggleMiniSidebar}
-            projectId={projectId || 'default'}
-            panelId={fullscreenSelectedPanel.id}
-            panelNumber={fullscreenSelectedPanel.panelNumber || 'Unknown'}
-            onClose={fullscreenCollapseMiniSidebar}
-          />
+          <>
+            <PanelSidebar
+              isOpen={true}
+              miniMode={false}
+              onToggle={fullscreenToggleMiniSidebar}
+              projectId={projectId || 'default'}
+              panelId={fullscreenSelectedPanel.id}
+              panelNumber={fullscreenSelectedPanel.panelNumber || 'Unknown'}
+              onClose={fullscreenCollapseMiniSidebar}
+            />
+          </>
         )}
         </div>
       )}
