@@ -337,7 +337,7 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
       
               {/* Sidebar */}
         <div 
-          className="fixed left-0 top-0 h-full w-96 bg-white border-r border-gray-200 shadow-2xl z-[9999] overflow-hidden"
+          className="fixed left-0 top-0 h-full w-96 bg-white border-r border-gray-200 shadow-2xl z-[9999] overflow-hidden flex flex-col"
           style={{
             position: 'fixed',
             left: '0px',
@@ -354,7 +354,7 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
           }}
         >
       {/* Header */}
-      <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+      <div className="flex-shrink-0 flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
         <div className="flex items-center gap-4">
           <Button
             variant="ghost"
@@ -388,7 +388,9 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
       </div>
 
       {/* Right Neighbor Peek */}
-      {renderRightNeighborPeek()}
+      <div className="flex-shrink-0">
+        {renderRightNeighborPeek()}
+      </div>
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-6">
