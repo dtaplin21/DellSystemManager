@@ -306,17 +306,53 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
   if (!isOpen) return null;
   
   console.log('🎯 [PanelSidebar] Rendering sidebar with props:', { isOpen, projectId, panelId, panelNumber });
+  
+  // Add a test element to verify rendering
+  console.log('🎯 [PanelSidebar] About to render sidebar JSX');
 
   return (
     <>
       {/* Backdrop */}
       <div 
-        className="fixed inset-0 bg-black bg-opacity-50 z-[9998] transition-opacity duration-300"
+        className="fixed inset-0 bg-red-500 bg-opacity-80 z-[9998] transition-opacity duration-300"
         onClick={onClose}
+        style={{
+          position: 'fixed',
+          top: '0px',
+          left: '0px',
+          right: '0px',
+          bottom: '0px',
+          backgroundColor: 'rgba(239, 68, 68, 0.8)',
+          zIndex: 9998
+        }}
       />
       
-      {/* Sidebar */}
-      <div className="fixed left-0 top-0 h-full w-96 bg-white border-r border-gray-200 shadow-2xl z-[9999] overflow-hidden transform transition-all duration-300 ease-in-out animate-in slide-in-from-left">
+      {/* Test Element - Should be visible even with CSS issues */}
+      <div 
+        className="fixed top-4 left-4 bg-red-500 text-white px-4 py-2 rounded z-[9999]"
+        style={{ position: 'fixed', top: '16px', left: '16px', backgroundColor: 'red', color: 'white', zIndex: 9999 }}
+      >
+        🎯 SIDEBAR TEST ELEMENT - Should be visible!
+      </div>
+      
+              {/* Sidebar */}
+        <div 
+          className="fixed left-0 top-0 h-full w-96 bg-white border-r border-gray-200 shadow-2xl z-[9999] overflow-hidden"
+          style={{
+            position: 'fixed',
+            left: '0px',
+            top: '0px',
+            height: '100vh',
+            width: '384px',
+            backgroundColor: 'white',
+            borderRight: '1px solid #e5e7eb',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+            zIndex: 9999,
+            overflow: 'hidden',
+            transform: 'translateX(0px)',
+            opacity: 1
+          }}
+        >
       {/* Header */}
       <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
         <div className="flex items-center gap-4">

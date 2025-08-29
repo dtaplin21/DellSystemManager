@@ -342,6 +342,16 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     toast
   })
   
+  // Debug fullscreen state
+  console.log('🎯 [PanelLayout] Fullscreen state from hook:', { 
+    isFullscreen, 
+    fullscreenSelectedPanel: fullscreenSelectedPanel?.id, 
+    fullscreenSidebarOpen 
+  });
+  
+  // Debug panel click handler
+  console.log('🎯 [PanelLayout] Panel click handler available:', !!fullscreenHandlePanelClick);
+  
   // Update the getCurrentCanvas function to use the fullscreen state
   useEffect(() => {
     getCurrentCanvasRef.current = () => isFullscreen ? fullscreenCanvasRef.current : canvasRef.current
@@ -711,6 +721,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
           // Handle panel interaction based on mode
           if (isFullscreen) {
             console.log('🎯 [PanelLayout] In fullscreen mode, calling fullscreenHandlePanelClick');
+            console.log('🎯 [PanelLayout] Panel data:', { id: panel.id, panelNumber: panel.panelNumber });
             // In fullscreen mode: use fullscreen hook's panel interaction
             fullscreenHandlePanelClick(panel);
           } else {
@@ -1068,11 +1079,31 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   
   return (
     <>
+      {/* Debug Fullscreen State */}
+      <div className="fixed top-4 right-4 bg-purple-500 text-white px-4 py-2 rounded z-[9999]">
+        🎯 Fullscreen: {isFullscreen ? 'ON' : 'OFF'} | Sidebar: {fullscreenSidebarOpen ? 'OPEN' : 'CLOSED'} | Panel: {fullscreenSelectedPanel?.id || 'NONE'}
+      </div>
+      
       {/* Fullscreen Canvas Portal */}
       {isFullscreen && (
         <>
+        {/* TEST ELEMENT - Should be visible if fullscreen portal renders */}
+        <div className="fixed top-4 left-4 bg-yellow-500 text-black px-4 py-2 rounded z-[9999]">
+          🚨 FULLSCREEN PORTAL ACTIVE - z-index: 9999
+        </div>
+        
+        {/* TEST ELEMENT - Show fullscreen state */}
+        <div className="fixed top-20 left-4 bg-blue-500 text-white px-4 py-2 rounded z-[9999]">
+          🎯 Fullscreen State: {isFullscreen ? 'TRUE' : 'FALSE'}
+        </div>
+        
+        {/* TEST ELEMENT - Show sidebar state */}
+        <div className="fixed top-36 left-4 bg-green-500 text-white px-4 py-2 rounded z-[9999]">
+          🎯 Sidebar State: {fullscreenSidebarOpen ? 'OPEN' : 'CLOSED'} | Panel: {fullscreenSelectedPanel?.id || 'NONE'}
+        </div>
+        
         <div
-          className="fixed inset-0 w-screen h-screen z-50 overflow-hidden"
+          className="fixed inset-0 w-screen h-screen overflow-hidden"
           style={{
             position: 'fixed',
             top: 0,
@@ -1081,7 +1112,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
             bottom: 0,
             width: '100vw',
             height: '100vh',
-            zIndex: 9999
+            zIndex: 50
           }}
         >
           {/* Fullscreen Toolbar */}
@@ -1154,7 +1185,15 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
               <div className="border-l border-gray-600 h-6 mx-2"></div>
               
               <button 
-                onClick={() => toggleFullscreen()}
+                onClick={() => {
+                  console.log('🎯 [PanelLayout] Fullscreen button clicked, current state:', isFullscreen);
+                  console.log('🎯 [PanelLayout] toggleFullscreen function available:', !!toggleFullscreen);
+                  toggleFullscreen();
+                  // Add a test element to show the button was clicked
+                  setTimeout(() => {
+                    console.log('🎯 [PanelLayout] After toggleFullscreen, new state:', isFullscreen);
+                  }, 100);
+                }}
                 className="bg-red-600 hover:bg-red-500 px-4 py-2 rounded text-sm font-medium transition-colors text-white flex items-center space-x-2"
               >
                 <span>Exit Fullscreen</span>
@@ -1184,6 +1223,45 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
               }}
             />
           </div>
+          
+          {/* Selected Panel Indicator - Shows when panel is selected but sidebar is closed */}
+          {fullscreenSelectedPanel && !fullscreenSidebarOpen && (
+            <div className="fixed top-20 right-4 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg z-30 pointer-events-none">
+              <div className="text-sm font-medium">
+                Panel {fullscreenSelectedPanel.panelNumber || 'Unknown'} Selected
+              </div>
+              <div className="text-xs opacity-90">
+                Click panel again or press ESC to open sidebar
+              </div>
+            </div>
+          )}
+
+          {/* Panel Sidebar - ONLY in fullscreen mode using fullscreen hook state */}
+          {fullscreenSidebarOpen && fullscreenSelectedPanel && (
+            <>
+              {console.log('🎯 [PanelLayout] Rendering sidebar with:', { 
+                isFullscreen, 
+                fullscreenSidebarOpen, 
+                fullscreenSelectedPanel: fullscreenSelectedPanel?.id,
+                projectId,
+                panelId: fullscreenSelectedPanel?.id 
+              })}
+              
+              {/* Debug Info - Should be visible */}
+              <div className="fixed top-20 left-4 bg-green-500 text-white px-4 py-2 rounded z-[9999]">
+                🎯 SIDEBAR CONDITION MET: {fullscreenSidebarOpen ? 'OPEN' : 'CLOSED'} | Panel: {fullscreenSelectedPanel?.id}
+              </div>
+              
+              <PanelSidebar
+                isOpen={fullscreenSidebarOpen}
+                onToggle={fullscreenToggleSidebar}
+                projectId={projectId || 'default'}
+                panelId={fullscreenSelectedPanel.id}
+                panelNumber={fullscreenSelectedPanel.panelNumber || 'Unknown'}
+                onClose={fullscreenCloseSidebar}
+              />
+            </>
+          )}
           
                                              {/* Help Overlay - REMOVED in fullscreen to maximize grid space */}
           {/* Footer removed in fullscreen mode to maximize grid area */}
@@ -1379,6 +1457,12 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
               projectId,
               panelId: fullscreenSelectedPanel?.id 
             })}
+            
+            {/* Debug Info - Should be visible */}
+            <div className="fixed top-20 left-4 bg-green-500 text-white px-4 py-2 rounded z-[9999]">
+              🎯 SIDEBAR CONDITION MET: {fullscreenSidebarOpen ? 'OPEN' : 'CLOSED'} | Panel: {fullscreenSelectedPanel?.id}
+            </div>
+            
             <PanelSidebar
               isOpen={fullscreenSidebarOpen}
               onToggle={fullscreenToggleSidebar}
