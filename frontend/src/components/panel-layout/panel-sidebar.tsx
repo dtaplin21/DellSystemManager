@@ -26,6 +26,7 @@ import config from '@/lib/config';
 
 interface PanelSidebarProps {
   isOpen: boolean;
+  miniMode?: boolean; // NEW: Controls whether to show mini or full sidebar
   onToggle: () => void;
   projectId: string;
   panelId: string;
@@ -43,6 +44,7 @@ interface DomainConfig {
 
 const PanelSidebar: React.FC<PanelSidebarProps> = ({
   isOpen,
+  miniMode = false, // Default to false for backward compatibility
   onToggle,
   projectId,
   panelId,
@@ -303,12 +305,25 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
     );
   };
 
+  // If in mini mode, render just the expand arrow
+  if (miniMode) {
+    return (
+      <div 
+        data-mini-sidebar
+        className="fixed left-0 top-1/2 transform -translate-y-1/2 bg-white border-r border-gray-200 shadow-lg z-[9999] rounded-r-lg animate-in slide-in-from-left-mini"
+      >
+        <button 
+          onClick={onToggle}
+          className="p-3 hover:bg-blue-50 transition-colors rounded-r-lg"
+          title="Expand sidebar"
+        >
+          <ChevronRight className="h-6 w-6 text-blue-600" />
+        </button>
+      </div>
+    );
+  }
+
   if (!isOpen) return null;
-  
-  console.log('🎯 [PanelSidebar] Rendering sidebar with props:', { isOpen, projectId, panelId, panelNumber });
-  
-  // Add a test element to verify rendering
-  console.log('🎯 [PanelSidebar] About to render sidebar JSX');
 
   return (
     <>
@@ -327,13 +342,7 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
         }}
       />
       
-      {/* Test Element - Should be visible even with CSS issues */}
-      <div 
-        className="fixed top-4 left-4 bg-red-500 text-white px-4 py-2 rounded z-[9999]"
-        style={{ position: 'fixed', top: '16px', left: '16px', backgroundColor: 'red', color: 'white', zIndex: 9999 }}
-      >
-        🎯 SIDEBAR TEST ELEMENT - Should be visible!
-      </div>
+
       
               {/* Sidebar */}
         <div 
@@ -379,10 +388,11 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
           <Button
             variant="ghost"
             size="sm"
-            onClick={onClose}
-            className="p-2 h-10 w-10 hover:bg-red-100"
+            onClick={onToggle}
+            className="p-2 h-10 w-10 hover:bg-blue-100"
+            title="Collapse sidebar"
           >
-            <ChevronRight className="h-5 w-5 text-red-600" />
+            <ChevronLeft className="h-5 w-5 text-blue-600" />
           </Button>
         </div>
       </div>

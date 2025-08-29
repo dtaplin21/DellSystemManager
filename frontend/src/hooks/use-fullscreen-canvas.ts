@@ -13,6 +13,13 @@ export interface UseFullscreenCanvasReturn {
   toggleSidebar: () => void
   openSidebar: () => void
   closeSidebar: () => void
+  // NEW: Mini-sidebar state and controls
+  miniSidebarVisible: boolean
+  miniSidebarExpanded: boolean
+  toggleMiniSidebar: () => void
+  expandMiniSidebar: () => void
+  collapseMiniSidebar: () => void
+  hideMiniSidebar: () => void
 }
 
 export interface UseFullscreenCanvasOptions {
@@ -37,23 +44,28 @@ export const useFullscreenCanvas = (options: UseFullscreenCanvasOptions): UseFul
   const [selectedPanel, setSelectedPanel] = useState<any | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   
+  // NEW: Mini-sidebar state management
+  const [miniSidebarVisible, setMiniSidebarVisible] = useState(false)
+  const [miniSidebarExpanded, setMiniSidebarExpanded] = useState(false)
+  
   const fullscreenCanvasRef = useRef<HTMLCanvasElement>(null)
 
   // NEW: Panel interaction functions for fullscreen mode
   const handlePanelClick = useCallback((panel: any) => {
     console.log('🚀 [useFullscreenCanvas] Panel clicked in fullscreen:', panel);
     
-    // If clicking the same panel, toggle sidebar
+    // If clicking the same panel, toggle mini-sidebar expansion
     if (selectedPanel?.id === panel.id) {
-      setSidebarOpen(prev => !prev);
-      console.log('🚀 [useFullscreenCanvas] Same panel clicked, toggling sidebar:', !sidebarOpen);
+      setMiniSidebarExpanded(prev => !prev);
+      console.log('🚀 [useFullscreenCanvas] Same panel clicked, toggling mini-sidebar expansion:', !miniSidebarExpanded);
     } else {
-      // If clicking a different panel, select it and open sidebar
+      // If clicking a different panel, select it and show mini-sidebar
       setSelectedPanel(panel);
-      setSidebarOpen(true);
-      console.log('🚀 [useFullscreenCanvas] New panel selected, opening sidebar');
+      setMiniSidebarVisible(true);
+      setMiniSidebarExpanded(false);
+      console.log('🚀 [useFullscreenCanvas] New panel selected, showing mini-sidebar');
     }
-  }, [selectedPanel, sidebarOpen]);
+  }, [selectedPanel, miniSidebarExpanded]);
 
   const toggleSidebar = useCallback(() => {
     console.log('🚀 [useFullscreenCanvas] Toggling sidebar manually');
@@ -74,6 +86,29 @@ export const useFullscreenCanvas = (options: UseFullscreenCanvasOptions): UseFul
       console.log('🚀 [useFullscreenCanvas] No panel selected, cannot open sidebar');
     }
   }, [selectedPanel]);
+  
+  // NEW: Mini-sidebar control functions
+  const toggleMiniSidebar = useCallback(() => {
+    console.log('🚀 [useFullscreenCanvas] Toggling mini-sidebar expansion');
+    setMiniSidebarExpanded(prev => !prev);
+  }, []);
+  
+  const expandMiniSidebar = useCallback(() => {
+    console.log('🚀 [useFullscreenCanvas] Expanding mini-sidebar');
+    setMiniSidebarExpanded(true);
+  }, []);
+  
+  const collapseMiniSidebar = useCallback(() => {
+    console.log('🚀 [useFullscreenCanvas] Collapsing mini-sidebar');
+    setMiniSidebarExpanded(false);
+  }, []);
+  
+  const hideMiniSidebar = useCallback(() => {
+    console.log('🚀 [useFullscreenCanvas] Hiding mini-sidebar');
+    setMiniSidebarVisible(false);
+    setMiniSidebarExpanded(false);
+    setSelectedPanel(null);
+  }, []);
 
   // Initialize fullscreen canvas dimensions when component mounts
   useEffect(() => {
@@ -200,6 +235,8 @@ export const useFullscreenCanvas = (options: UseFullscreenCanvasOptions): UseFul
       console.log('🚀 [useFullscreenCanvas] Exiting fullscreen, resetting panel state');
       setSelectedPanel(null);
       setSidebarOpen(false);
+      setMiniSidebarVisible(false);
+      setMiniSidebarExpanded(false);
     }
   }, [isFullscreen]);
 
@@ -226,10 +263,14 @@ export const useFullscreenCanvas = (options: UseFullscreenCanvasOptions): UseFul
       if (e.key === 'Escape' && isFullscreen) {
         e.preventDefault();
         
-        // If sidebar is open, close it first
-        if (sidebarOpen) {
-          console.log('🚀 [useFullscreenCanvas] ESC key pressed, closing sidebar');
-          setSidebarOpen(false);
+        // If mini-sidebar is expanded, collapse it first
+        if (miniSidebarExpanded) {
+          console.log('🚀 [useFullscreenCanvas] ESC key pressed, collapsing mini-sidebar');
+          setMiniSidebarExpanded(false);
+        } else if (miniSidebarVisible) {
+          // If mini-sidebar is visible but not expanded, hide it
+          console.log('🚀 [useFullscreenCanvas] ESC key pressed, hiding mini-sidebar');
+          hideMiniSidebar();
         } else {
           // If sidebar is closed, exit fullscreen
           console.log('🚀 [useFullscreenCanvas] ESC key pressed, exiting fullscreen');
@@ -256,10 +297,12 @@ export const useFullscreenCanvas = (options: UseFullscreenCanvasOptions): UseFul
         fullscreenCanvasWidth, 
         fullscreenCanvasHeight,
         selectedPanel: selectedPanel?.id || null,
-        sidebarOpen
+        sidebarOpen,
+        miniSidebarVisible,
+        miniSidebarExpanded
       });
     }
-  }, [isFullscreen, fullscreenCanvasWidth, fullscreenCanvasHeight, selectedPanel, sidebarOpen]);
+  }, [isFullscreen, fullscreenCanvasWidth, fullscreenCanvasHeight, selectedPanel, sidebarOpen, miniSidebarVisible, miniSidebarExpanded]);
 
   return {
     isFullscreen,
@@ -273,6 +316,13 @@ export const useFullscreenCanvas = (options: UseFullscreenCanvasOptions): UseFul
     handlePanelClick,
     toggleSidebar,
     openSidebar,
-    closeSidebar
+    closeSidebar,
+    // NEW: Mini-sidebar state and controls
+    miniSidebarVisible,
+    miniSidebarExpanded,
+    toggleMiniSidebar,
+    expandMiniSidebar,
+    collapseMiniSidebar,
+    hideMiniSidebar
   }
 }
