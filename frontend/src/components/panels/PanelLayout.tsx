@@ -1213,8 +1213,8 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
             />
           </div>
           
-          {/* Selected Panel Indicator - Shows when panel is selected but sidebar is closed */}
-          {fullscreenSelectedPanel && !fullscreenSidebarOpen && (
+          {/* Selected Panel Indicator - Shows when panel is selected but mini-sidebar is not expanded */}
+          {fullscreenSelectedPanel && !fullscreenMiniSidebarExpanded && (
             <div className="fixed top-20 right-4 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg z-30 pointer-events-none">
               <div className="text-sm font-medium">
                 Panel {fullscreenSelectedPanel.panelNumber || 'Unknown'} Selected
@@ -1223,33 +1223,6 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
                 Click panel again or press ESC to open sidebar
               </div>
             </div>
-          )}
-
-          {/* Panel Sidebar - ONLY in fullscreen mode using fullscreen hook state */}
-          {fullscreenSidebarOpen && fullscreenSelectedPanel && (
-            <>
-              {console.log('🎯 [PanelLayout] Rendering sidebar with:', { 
-                isFullscreen, 
-                fullscreenSidebarOpen, 
-                fullscreenSelectedPanel: fullscreenSelectedPanel?.id,
-                projectId,
-                panelId: fullscreenSelectedPanel?.id 
-              })}
-              
-              {/* Debug Info - Should be visible */}
-              <div className="fixed top-20 left-4 bg-green-500 text-white px-4 py-2 rounded z-[9999]">
-                🎯 SIDEBAR CONDITION MET: {fullscreenSidebarOpen ? 'OPEN' : 'CLOSED'} | Panel: {fullscreenSelectedPanel?.id}
-              </div>
-              
-              <PanelSidebar
-                isOpen={fullscreenSidebarOpen}
-                onToggle={fullscreenToggleSidebar}
-                projectId={projectId || 'default'}
-                panelId={fullscreenSelectedPanel.id}
-                panelNumber={fullscreenSelectedPanel.panelNumber || 'Unknown'}
-                onClose={fullscreenCloseSidebar}
-              />
-            </>
           )}
           
                                              {/* Help Overlay - REMOVED in fullscreen to maximize grid space */}
