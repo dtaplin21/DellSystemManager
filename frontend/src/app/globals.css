@@ -80,5 +80,40 @@
   .btn-orange:hover {
     background-color: #e86f00;
   }
+  
+  /* Panel sidebar slide animations */
+  .animate-in {
+    animation-fill-mode: both;
+  }
+  
+  .slide-in-from-left {
+    animation: slideInFromLeft 0.3s ease-out;
+  }
+  
+  @keyframes slideInFromLeft {
+    from {
+      transform: translateX(-100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+  
+  .slide-out-to-left {
+    animation: slideOutToLeft 0.3s ease-in;
+  }
+  
+  @keyframes slideOutToLeft {
+    from {
+      transform: translateX(0);
+      opacity: 1;
+    }
+    to {
+      transform: translateX(-100%);
+      opacity: 0;
+    }
+  }
 }
 

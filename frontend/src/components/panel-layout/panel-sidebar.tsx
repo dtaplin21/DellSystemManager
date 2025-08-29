@@ -304,17 +304,19 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
   };
 
   if (!isOpen) return null;
+  
+  console.log('🎯 [PanelSidebar] Rendering sidebar with props:', { isOpen, projectId, panelId, panelNumber });
 
   return (
     <>
       {/* Backdrop */}
       <div 
-        className="fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity duration-300"
+        className="fixed inset-0 bg-black bg-opacity-50 z-[9998] transition-opacity duration-300"
         onClick={onClose}
       />
       
       {/* Sidebar */}
-      <div className="fixed left-0 top-0 h-full w-full max-w-2xl bg-white border-r border-gray-200 shadow-2xl z-50 overflow-hidden transform transition-all duration-300 ease-in-out animate-in slide-in-from-left">
+      <div className="fixed left-0 top-0 h-full w-96 bg-white border-r border-gray-200 shadow-2xl z-[9999] overflow-hidden transform transition-all duration-300 ease-in-out animate-in slide-in-from-left">
       {/* Header */}
       <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
         <div className="flex items-center gap-4">
