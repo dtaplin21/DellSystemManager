@@ -48,22 +48,40 @@ export const useFullscreenCanvas = (options: UseFullscreenCanvasOptions): UseFul
   const [miniSidebarVisible, setMiniSidebarVisible] = useState(false)
   const [miniSidebarExpanded, setMiniSidebarExpanded] = useState(false)
   
+  // Debug effect to track state changes
+  useEffect(() => {
+    console.log('🚀 [useFullscreenCanvas] State changed:', {
+      miniSidebarVisible,
+      miniSidebarExpanded,
+      selectedPanel: selectedPanel?.id
+    });
+  }, [miniSidebarVisible, miniSidebarExpanded, selectedPanel]);
+  
   const fullscreenCanvasRef = useRef<HTMLCanvasElement>(null)
 
   // NEW: Panel interaction functions for fullscreen mode
   const handlePanelClick = useCallback((panel: any) => {
     console.log('🚀 [useFullscreenCanvas] Panel clicked in fullscreen:', panel);
+    console.log('🚀 [useFullscreenCanvas] Current selectedPanel:', selectedPanel?.id);
+    console.log('🚀 [useFullscreenCanvas] Current miniSidebarExpanded:', miniSidebarExpanded);
     
     // If clicking the same panel, toggle mini-sidebar expansion
     if (selectedPanel?.id === panel.id) {
-      setMiniSidebarExpanded(prev => !prev);
-      console.log('🚀 [useFullscreenCanvas] Same panel clicked, toggling mini-sidebar expansion:', !miniSidebarExpanded);
+      console.log('🚀 [useFullscreenCanvas] Same panel clicked, toggling mini-sidebar expansion');
+      setMiniSidebarExpanded(prev => {
+        const newState = !prev;
+        console.log('🚀 [useFullscreenCanvas] Toggling miniSidebarExpanded from', prev, 'to', newState);
+        return newState;
+      });
     } else {
       // If clicking a different panel, select it and show mini-sidebar
+      console.log('🚀 [useFullscreenCanvas] New panel selected, showing mini-sidebar');
       setSelectedPanel(panel);
       setMiniSidebarVisible(true);
       setMiniSidebarExpanded(false);
-      console.log('🚀 [useFullscreenCanvas] New panel selected, showing mini-sidebar');
+      console.log('🚀 [useFullscreenCanvas] Set selectedPanel to:', panel.id);
+      console.log('🚀 [useFullscreenCanvas] Set miniSidebarVisible to: true');
+      console.log('🚀 [useFullscreenCanvas] Set miniSidebarExpanded to: false');
     }
   }, [selectedPanel, miniSidebarExpanded]);
 
@@ -90,16 +108,23 @@ export const useFullscreenCanvas = (options: UseFullscreenCanvasOptions): UseFul
   // NEW: Mini-sidebar control functions
   const toggleMiniSidebar = useCallback(() => {
     console.log('🚀 [useFullscreenCanvas] Toggling mini-sidebar expansion');
-    setMiniSidebarExpanded(prev => !prev);
-  }, []);
+    console.log('🚀 [useFullscreenCanvas] Current miniSidebarExpanded state:', miniSidebarExpanded);
+    setMiniSidebarExpanded(prev => {
+      const newState = !prev;
+      console.log('🚀 [useFullscreenCanvas] Setting miniSidebarExpanded to:', newState);
+      return newState;
+    });
+  }, [miniSidebarExpanded]);
   
   const expandMiniSidebar = useCallback(() => {
     console.log('🚀 [useFullscreenCanvas] Expanding mini-sidebar');
+    console.log('🚀 [useFullscreenCanvas] Setting miniSidebarExpanded to true');
     setMiniSidebarExpanded(true);
   }, []);
   
   const collapseMiniSidebar = useCallback(() => {
     console.log('🚀 [useFullscreenCanvas] Collapsing mini-sidebar');
+    console.log('🚀 [useFullscreenCanvas] Setting miniSidebarExpanded to false');
     setMiniSidebarExpanded(false);
   }, []);
   

@@ -352,6 +352,18 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     toast
   })
   
+  // Debug logging for fullscreen state
+  useEffect(() => {
+    if (isFullscreen) {
+      console.log('🚀 [PanelLayout] Fullscreen state changed. Current values:', {
+        fullscreenMiniSidebarVisible,
+        fullscreenMiniSidebarExpanded,
+        fullscreenSelectedPanel: fullscreenSelectedPanel?.id,
+        fullscreenSelectedPanelNumber: fullscreenSelectedPanel?.panelNumber
+      });
+    }
+  }, [isFullscreen, fullscreenMiniSidebarVisible, fullscreenMiniSidebarExpanded, fullscreenSelectedPanel]);
+  
 
   
   // Update the getCurrentCanvas function to use the fullscreen state
@@ -1236,12 +1248,25 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
             {/* Mini-Sidebar - Shows when panel is clicked in fullscreen mode */}
       {isFullscreen && fullscreenMiniSidebarVisible && (
         <>
+          {console.log('🚀 [PanelLayout] Rendering mini-sidebar button. State:', {
+            isFullscreen,
+            fullscreenMiniSidebarVisible,
+            fullscreenMiniSidebarExpanded,
+            fullscreenSelectedPanel: fullscreenSelectedPanel?.id
+          })}
           <div 
           data-mini-sidebar
           className="fixed left-0 top-1/2 transform -translate-y-1/2 bg-white border-r border-gray-200 shadow-lg z-[9999] rounded-r-lg animate-in slide-in-from-left-mini"
         >
           <button 
-            onClick={fullscreenToggleMiniSidebar}
+            onClick={() => {
+              console.log('🚀 [PanelLayout] Arrow button clicked! Current state:', {
+                fullscreenMiniSidebarVisible,
+                fullscreenMiniSidebarExpanded,
+                fullscreenSelectedPanel: fullscreenSelectedPanel?.id
+              });
+              fullscreenToggleMiniSidebar();
+            }}
             className="p-3 hover:bg-blue-50 transition-colors rounded-r-lg"
             title={fullscreenMiniSidebarExpanded ? "Collapse sidebar" : "Expand sidebar"}
           >
@@ -1423,21 +1448,29 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
         
 
 
-                {/* Panel Sidebar - ONLY in fullscreen mode when mini-sidebar is expanded */}
-        {fullscreenMiniSidebarVisible && fullscreenMiniSidebarExpanded && fullscreenSelectedPanel && (
-          <>
-            <PanelSidebar
-              isOpen={true}
-              miniMode={false}
-              onToggle={fullscreenToggleMiniSidebar}
-              projectId={projectId || 'default'}
-              panelId={fullscreenSelectedPanel.id}
-              panelNumber={fullscreenSelectedPanel.panelNumber || 'Unknown'}
-              onClose={fullscreenCollapseMiniSidebar}
-            />
-          </>
-        )}
-        </div>
+                </div>
+      )}
+      
+      {/* Panel Sidebar - ONLY in fullscreen mode when mini-sidebar is expanded */}
+      {fullscreenMiniSidebarVisible && fullscreenMiniSidebarExpanded && fullscreenSelectedPanel && (
+        <>
+          {console.log('🚀 [PanelLayout] Rendering PanelSidebar with:', {
+            fullscreenMiniSidebarVisible,
+            fullscreenMiniSidebarExpanded,
+            fullscreenSelectedPanel: fullscreenSelectedPanel?.id,
+            panelNumber: fullscreenSelectedPanel?.panelNumber
+          })}
+          
+          <PanelSidebar
+            isOpen={true}
+            miniMode={false}
+            onToggle={fullscreenToggleMiniSidebar}
+            projectId={projectId || 'default'}
+            panelId={fullscreenSelectedPanel.id}
+            panelNumber={fullscreenSelectedPanel.panelNumber || 'Unknown'}
+            onClose={fullscreenCollapseMiniSidebar}
+          />
+        </>
       )}
     </>
   )

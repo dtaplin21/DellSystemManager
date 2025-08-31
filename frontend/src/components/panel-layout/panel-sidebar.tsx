@@ -51,12 +51,27 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
   panelNumber,
   onClose
 }) => {
+  console.log('🚀 [PanelSidebar] Component mounted with props:', {
+    isOpen,
+    miniMode,
+    projectId,
+    panelId,
+    panelNumber
+  });
   const [asbuiltData, setAsbuiltData] = useState<PanelAsbuiltSummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeDomain, setActiveDomain] = useState<AsbuiltDomain | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showManualEntryModal, setShowManualEntryModal] = useState(false);
+
+  // Debug effect to track component lifecycle
+  useEffect(() => {
+    console.log('🚀 [PanelSidebar] Component mounted/updated');
+    return () => {
+      console.log('🚀 [PanelSidebar] Component unmounting');
+    };
+  }, []);
 
   // Domain configuration for the six accordion folders
   const domainConfigs: DomainConfig[] = [
@@ -346,7 +361,7 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
       
               {/* Sidebar */}
         <div 
-          className="fixed left-0 top-0 h-full w-96 bg-white border-r border-gray-200 shadow-2xl z-[9999] overflow-hidden flex flex-col"
+          className="fixed left-0 top-0 h-full w-96 bg-white border-r border-gray-200 shadow-2xl z-[99999] overflow-hidden flex flex-col"
           style={{
             position: 'fixed',
             left: '0px',
@@ -356,7 +371,7 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
             backgroundColor: 'white',
             borderRight: '1px solid #e5e7eb',
             boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-            zIndex: 9999,
+            zIndex: 99999,
             overflow: 'hidden',
             transform: 'translateX(0px)',
             opacity: 1
@@ -364,6 +379,7 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
         >
       {/* Header */}
       <div className="flex-shrink-0 flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+
         <div className="flex items-center gap-4">
           <Button
             variant="ghost"
