@@ -342,20 +342,7 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
 
   return (
     <>
-      {/* Backdrop */}
-      <div 
-        className="fixed inset-0 bg-red-500 bg-opacity-80 z-[9998] transition-opacity duration-300"
-        onClick={onClose}
-        style={{
-          position: 'fixed',
-          top: '0px',
-          left: '0px',
-          right: '0px',
-          bottom: '0px',
-          backgroundColor: 'rgba(239, 68, 68, 0.8)',
-          zIndex: 9998
-        }}
-      />
+
       
 
       
