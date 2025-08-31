@@ -138,36 +138,20 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   const [selectedPanelForSidebar, setSelectedPanelForSidebar] = useState<Panel | null>(null)
   
   // Calculate world dimensions - updated to 15000x15000
+  // Use stable world scale to prevent coordinate system changes on re-render
   const worldDimensions = useMemo(() => {
     const worldWidth = WORLD_SIZE; // 15000ft
     const worldHeight = WORLD_SIZE; // 15000ft
     
-    // Use actual container dimensions if available, otherwise fall back to minimums
-    const containerWidth = containerDimensions.width;
-    const containerHeight = containerDimensions.height;
+    // Use a stable world scale that doesn't change on container resize
+    // This prevents panels from jumping around when the coordinate system changes
+    const stableWorldScale = 0.3; // Fixed scale that works well for most use cases
     
-    // Add minimum dimensions to prevent extreme scaling
-    const minContainerWidth = 800;
-    const minContainerHeight = 600;
-    
-    const effectiveWidth = Math.max(containerWidth, minContainerWidth);
-    const effectiveHeight = Math.max(containerHeight, minContainerHeight);
-    
-    const scaleX = effectiveWidth / worldWidth;
-    const scaleY = effectiveHeight / worldHeight;
-    const worldScale = Math.min(scaleX, scaleY);
-    
-            // Clamp worldScale to reasonable bounds to prevent extreme scaling
-        const clampedWorldScale = Math.max(0.1, Math.min(worldScale, 10.0));
-    
-    // Round to 3 decimal places to prevent unnecessary updates from tiny changes
-    const roundedWorldScale = Math.round(clampedWorldScale * 1000) / 1000;
-    
-    return { worldWidth, worldHeight, worldScale: roundedWorldScale };
-  }, [containerDimensions.width, containerDimensions.height]);
+    return { worldWidth, worldHeight, worldScale: stableWorldScale };
+  }, []); // No dependencies - stable world scale
   
   const [canvasState, setCanvasState] = useState<CanvasState>(() => {
-    // Try to restore zoom state from localStorage
+    // Try to restore zoom state and panel view from localStorage
     if (typeof window !== 'undefined') {
       try {
         const saved = localStorage.getItem('panelLayoutZoomState');
@@ -183,7 +167,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
             gridSize: parsed.gridSize || 20,
             worldWidth: WORLD_SIZE, // Use constant values to avoid race condition
             worldHeight: WORLD_SIZE,
-            worldScale: 0.3 // Use a reasonable default - will be updated by useEffect
+            worldScale: 0.3 // Use stable world scale
           };
         }
       } catch (error) {
@@ -201,7 +185,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
       gridSize: 20,
       worldWidth: WORLD_SIZE, // Use constant values to avoid race condition
       worldHeight: WORLD_SIZE,
-      worldScale: 0.3 // Use a reasonable default - will be updated by useEffect
+      worldScale: 0.3 // Use stable world scale
     };
   });
 
@@ -401,16 +385,14 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
         return;
       }
       
-      // Force render after setup with a longer delay to ensure state is stable
-      setTimeout(() => {
-        if (renderCanvasRef.current && isFullscreen) {
-          renderCanvasRef.current();
-        }
-      }, 200);
+      // Force render immediately after setup
+      if (renderCanvasRef.current && isFullscreen) {
+        renderCanvasRef.current();
+      }
     }
   }, [isFullscreen]); // Only depend on isFullscreen
   
-  // Initialize panels from external source
+  // Initialize panels from external source with position persistence
   useEffect(() => {
     const externalPanelsRef = externalPanels || [];
     const externalPanelsString = JSON.stringify(externalPanelsRef);
@@ -436,9 +418,37 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
         });
         
         if (validExternalPanels.length > 0) {
+          // Try to restore panel positions from localStorage with validation
+          let panelsWithPositions = validExternalPanels;
+          try {
+            const savedPositions = localStorage.getItem('panelLayoutPositions');
+            if (savedPositions) {
+              const positionMap = JSON.parse(savedPositions);
+              panelsWithPositions = validExternalPanels.map(panel => {
+                const saved = positionMap[panel.id];
+                if (saved && typeof saved.x === 'number' && typeof saved.y === 'number') {
+                  // Validate that restored positions are within reasonable bounds
+                  const maxCoordinate = 10000; // Maximum reasonable coordinate value
+                  const validX = Math.abs(saved.x) <= maxCoordinate ? saved.x : panel.x;
+                  const validY = Math.abs(saved.y) <= maxCoordinate ? saved.y : panel.y;
+                  
+                  if (validX !== panel.x || validY !== panel.y) {
+                    console.log(`[PanelLayout] Restored position for panel ${panel.id}: (${panel.x}, ${panel.y}) -> (${validX}, ${validY})`);
+                  }
+                  
+                  return { ...panel, x: validX, y: validY };
+                }
+                return panel;
+              });
+              console.log('[PanelLayout] Restored panel positions from localStorage');
+            }
+          } catch (error) {
+            console.warn('[PanelLayout] Failed to restore panel positions:', error);
+          }
+          
           // Set a flag to prevent the notification useEffect from running
           lastInternalPanels.current = externalPanelsString;
-          dispatch({ type: 'SET_PANELS', payload: validExternalPanels })
+          dispatch({ type: 'SET_PANELS', payload: panelsWithPositions })
         }
       } else {
         // Only clear if internal panels are not already empty
@@ -451,7 +461,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     }
   }, [externalPanels]) // Only depend on externalPanels
   
-  // Notify parent of panel updates
+  // Notify parent of panel updates and save positions to localStorage
   const onPanelUpdateRef = useRef(onPanelUpdate);
   const lastNotifiedPanels = useRef<string>('')
   
@@ -466,6 +476,18 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     // Skip if this change was triggered by external panels update
     if (currentPanelsString === lastInternalPanels.current) {
       return;
+    }
+    
+    // Save panel positions to localStorage whenever they change
+    try {
+      const positionMap: Record<string, { x: number; y: number }> = {};
+      panels.panels.forEach(panel => {
+        positionMap[panel.id] = { x: panel.x, y: panel.y };
+      });
+      localStorage.setItem('panelLayoutPositions', JSON.stringify(positionMap));
+      console.log('[PanelLayout] Saved panel positions to localStorage');
+    } catch (error) {
+      console.warn('[PanelLayout] Failed to save panel positions:', error);
     }
     
     if (currentPanelsString !== lastNotifiedPanels.current && onPanelUpdateRef.current) {
@@ -489,32 +511,67 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     }
   }, [panels.panels]) // Only depend on panels.panels
   
-  // Canvas Functions
+  // Canvas Functions with automatic state persistence
+  const saveCanvasState = useCallback((newState: Partial<CanvasState>) => {
+    try {
+      const currentSaved = localStorage.getItem('panelLayoutZoomState');
+      const current = currentSaved ? JSON.parse(currentSaved) : {};
+      const updated = { ...current, ...newState };
+      localStorage.setItem('panelLayoutZoomState', JSON.stringify(updated));
+    } catch (error) {
+      console.warn('Failed to save canvas state:', error);
+    }
+  }, []);
+  
   const zoomIn = useCallback(() => {
-    setCanvasState(prev => ({ ...prev, scale: clamp(prev.scale * 1.25, 0.1, 10) }))
-  }, [])
+    setCanvasState(prev => {
+      const newState = { ...prev, scale: clamp(prev.scale * 1.25, 0.1, 10) };
+      saveCanvasState(newState);
+      return newState;
+    });
+  }, [saveCanvasState]);
   
   const zoomOut = useCallback(() => {
-    setCanvasState(prev => ({ ...prev, scale: clamp(prev.scale * 0.8, 0.1, 10) }))
-  }, [])
+    setCanvasState(prev => {
+      const newState = { ...prev, scale: clamp(prev.scale * 0.8, 0.1, 10) };
+      saveCanvasState(newState);
+      return newState;
+    });
+  }, [saveCanvasState]);
   
   const resetView = useCallback(() => {
-    setCanvasState(prev => ({ ...prev, scale: 1, offsetX: 0, offsetY: 0 }))
-  }, [])
+    setCanvasState(prev => {
+      const newState = { ...prev, scale: 1, offsetX: 0, offsetY: 0 };
+      saveCanvasState(newState);
+      return newState;
+    });
+  }, [saveCanvasState]);
   
   const toggleGrid = useCallback(() => {
-    setCanvasState(prev => ({ ...prev, showGrid: !prev.showGrid }))
-  }, [])
+    setCanvasState(prev => {
+      const newState = { ...prev, showGrid: !prev.showGrid };
+      saveCanvasState(newState);
+      return newState;
+    });
+  }, [saveCanvasState]);
   
   const toggleGuides = useCallback(() => {
-    setCanvasState(prev => ({ ...prev, showGuides: !prev.showGuides }))
-  }, [])
+    setCanvasState(prev => {
+      const newState = { ...prev, showGuides: !prev.showGuides };
+      saveCanvasState(newState);
+      return newState;
+    });
+  }, [saveCanvasState]);
   
   const toggleSnap = useCallback(() => {
-    setCanvasState(prev => ({ ...prev, snapToGrid: !prev.snapToGrid }))
-  }, [])
+    setCanvasState(prev => {
+      const newState = { ...prev, snapToGrid: !prev.snapToGrid };
+      saveCanvasState(newState);
+      return newState;
+    });
+  }, [saveCanvasState]);
   
-  // New zoom functions
+  // New zoom functions with automatic state persistence
   const zoomToFitSite = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -527,13 +584,17 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     const worldScale = worldDimensions.worldScale;
     const worldSizeScreen = WORLD_SIZE * worldScale;
 
-    setCanvasState(prev => ({
-      ...prev,
-      scale: 1.0,
-      offsetX: (canvas.clientWidth - worldSizeScreen) / 2,
-      offsetY: (canvas.clientHeight - worldSizeScreen) / 2,
-    }));
-  }, [worldDimensions.worldScale]);
+    setCanvasState(prev => {
+      const newState = {
+        ...prev,
+        scale: 1.0,
+        offsetX: (canvas.clientWidth - worldSizeScreen) / 2,
+        offsetY: (canvas.clientHeight - worldSizeScreen) / 2,
+      };
+      saveCanvasState(newState);
+      return newState;
+    });
+  }, [worldDimensions.worldScale, saveCanvasState]);
 
   const zoomToFitPanels = useCallback(() => {
     const canvas = canvasRef.current;
@@ -566,13 +627,17 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     const centerX = (minX + maxX) / 2;
     const centerY = (minY + maxY) / 2;
 
-    setCanvasState(prev => ({
-      ...prev,
-      scale: fitScale,
-      offsetX: canvas.clientWidth / 2 - centerX * worldScale,
-      offsetY: canvas.clientHeight / 2 - centerY * worldScale,
-    }));
-  }, [panels.panels, worldDimensions.worldScale]);
+    setCanvasState(prev => {
+      const newState = {
+        ...prev,
+        scale: fitScale,
+        offsetX: canvas.clientWidth / 2 - centerX * worldScale,
+        offsetY: canvas.clientHeight / 2 - centerY * worldScale,
+      };
+      saveCanvasState(newState);
+      return newState;
+    });
+  }, [panels.panels, worldDimensions.worldScale, saveCanvasState]);
 
   // Auto-fit viewport when panels are loaded
   const autoFitViewport = useCallback(() => {
@@ -781,11 +846,15 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
       const deltaX = x - mouseState.dragStartX;
       const deltaY = y - mouseState.dragStartY;
 
-      setCanvasState(prev => ({
-        ...prev,
-        offsetX: prev.offsetX + deltaX,
-        offsetY: prev.offsetY + deltaY,
-      }));
+      setCanvasState(prev => {
+        const newState = {
+          ...prev,
+          offsetX: prev.offsetX + deltaX,
+          offsetY: prev.offsetY + deltaY,
+        };
+        saveCanvasState(newState);
+        return newState;
+      });
 
       setMouseState(prev => ({
         ...prev,
@@ -887,12 +956,16 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     const wx = (mouseX - canvasState.offsetX) / sOld;
     const wy = (mouseY - canvasState.offsetY) / sOld;
     
-    setCanvasState(prev => ({
-      ...prev,
-      scale: newScale,
-      offsetX: mouseX - wx * sNew,
-      offsetY: mouseY - wy * sNew,
-    }))
+    setCanvasState(prev => {
+      const newState = {
+        ...prev,
+        scale: newScale,
+        offsetX: mouseX - wx * sNew,
+        offsetY: mouseY - wy * sNew,
+      };
+      saveCanvasState(newState);
+      return newState;
+    });
   }, [canvasState, isFullscreen])
 
   // Add wheel event listener
