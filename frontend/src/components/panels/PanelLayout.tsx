@@ -432,15 +432,37 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
                   const validX = Math.abs(saved.x) <= maxCoordinate ? saved.x : panel.x;
                   const validY = Math.abs(saved.y) <= maxCoordinate ? saved.y : panel.y;
                   
-                  if (validX !== panel.x || validY !== panel.y) {
-                    console.log(`[PanelLayout] Restored position for panel ${panel.id}: (${panel.x}, ${panel.y}) -> (${validX}, ${validY})`);
+                  // ALWAYS prioritize localStorage positions over backend defaults
+                  // This prevents panels from stacking when backend sends default positions
+                  const finalX = validX;
+                  const finalY = validY;
+                  
+                  if (finalX !== panel.x || finalY !== panel.y) {
+                    console.log(`[PanelLayout] Restored position for panel ${panel.id}: (${panel.x}, ${panel.y}) -> (${finalX}, ${finalY})`);
                   }
                   
-                  return { ...panel, x: validX, y: validY };
+                  return { ...panel, x: finalX, y: finalY };
                 }
                 return panel;
               });
               console.log('[PanelLayout] Restored panel positions from localStorage');
+            } else {
+              // If no localStorage data, spread out panels to prevent stacking
+              console.log('[PanelLayout] No localStorage positions found, spreading out panels');
+              panelsWithPositions = validExternalPanels.map((panel, index) => {
+                // Check if panel has default stacking position (50,50 or similar)
+                const isDefaultPosition = (panel.x === 50 && panel.y === 50) || 
+                                        (panel.x === 0 && panel.y === 0) ||
+                                        (Math.abs(panel.x - 50) < 10 && Math.abs(panel.y - 50) < 10);
+                
+                if (isDefaultPosition) {
+                  const spreadX = index * 300 + 100;
+                  const spreadY = 100;
+                  console.log(`[PanelLayout] Spreading panel ${panel.id} from (${panel.x}, ${panel.y}) to (${spreadX}, ${spreadY})`);
+                  return { ...panel, x: spreadX, y: spreadY };
+                }
+                return panel;
+              });
             }
           } catch (error) {
             console.warn('[PanelLayout] Failed to restore panel positions:', error);
