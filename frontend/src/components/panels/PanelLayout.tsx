@@ -92,6 +92,16 @@ const panelReducer = (state: PanelState, action: PanelAction): PanelState => {
     case 'ADD_PANEL':
       return { ...state, panels: [...state.panels, action.payload] }
     case 'UPDATE_PANEL':
+      // CRITICAL DEBUG: Track panel updates
+      if (DEBUG_POSITION_PERSISTENCE) {
+        console.log('🚨 [PanelLayout] UPDATE_PANEL action:', {
+          action: 'UPDATE_PANEL',
+          panelId: action.payload.id,
+          updates: action.payload.updates,
+          currentPanel: state.panels.find(p => p.id === action.payload.id),
+          totalPanels: state.panels.length
+        });
+      }
       return {
         ...state,
         panels: state.panels.map(panel =>
@@ -648,24 +658,46 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   }, [onPanelUpdate]);
   
   useEffect(() => {
+    // CRITICAL DEBUG: Track localStorage saving
+    console.log('🚨 [PanelLayout] === localStorage SAVING DEBUG ===');
+    console.log('🚨 [PanelLayout] panels.panels changed, checking if save needed...');
+    console.log('🚨 [PanelLayout] Current panels:', panels.panels);
+    console.log('🚨 [PanelLayout] panels.panels.length:', panels.panels.length);
+    
     // Only notify parent if panels actually changed
     const currentPanelsString = JSON.stringify(panels.panels);
+    console.log('🚨 [PanelLayout] currentPanelsString:', currentPanelsString);
+    console.log('🚨 [PanelLayout] lastInternalPanels.current:', lastInternalPanels.current);
     
     // Skip if this change was triggered by external panels update
     if (currentPanelsString === lastInternalPanels.current) {
+      console.log('🚨 [PanelLayout] ⚠️ SKIPPING localStorage save - panels unchanged from external update');
       return;
     }
+    
+    console.log('🚨 [PanelLayout] ✅ Proceeding with localStorage save...');
     
     // Save panel positions to localStorage whenever they change
     try {
       const positionMap: Record<string, { x: number; y: number }> = {};
       panels.panels.forEach(panel => {
         positionMap[panel.id] = { x: panel.x, y: panel.y };
+        console.log(`🚨 [PanelLayout] Saving panel ${panel.id}: x=${panel.x}, y=${panel.y}`);
       });
-      localStorage.setItem('panelLayoutPositions', JSON.stringify(positionMap));
-      console.log('[PanelLayout] Saved panel positions to localStorage');
+      
+      const positionMapString = JSON.stringify(positionMap);
+      console.log('🚨 [PanelLayout] About to save positionMap to localStorage:', positionMapString);
+      
+      localStorage.setItem('panelLayoutPositions', positionMapString);
+      console.log('🚨 [PanelLayout] ✅ SUCCESS: Saved panel positions to localStorage');
+      console.log('🚨 [PanelLayout] Saved', Object.keys(positionMap).length, 'panel positions');
+      
+      // Verify the save worked
+      const verification = localStorage.getItem('panelLayoutPositions');
+      console.log('🚨 [PanelLayout] Verification - localStorage now contains:', verification);
+      
     } catch (error) {
-      console.warn('[PanelLayout] Failed to save panel positions:', error);
+      console.error('🚨 [PanelLayout] ❌ FAILED to save panel positions:', error);
     }
     
     if (currentPanelsString !== lastNotifiedPanels.current && onPanelUpdateRef.current) {
@@ -1053,6 +1085,13 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
         finalX = snapToGrid(newX, SNAP_SIZE);
         finalY = snapToGrid(newY, SNAP_SIZE);
       }
+      
+      // CRITICAL DEBUG: Track panel dragging
+      console.log('🚨 [PanelLayout] === PANEL DRAGGING ===');
+      console.log('🚨 [PanelLayout] Dragging panel:', selectedPanel.id);
+      console.log('🚨 [PanelLayout] Old position:', { x: selectedPanel.x, y: selectedPanel.y });
+      console.log('🚨 [PanelLayout] New position:', { x: finalX, y: finalY });
+      console.log('🚨 [PanelLayout] Dispatching UPDATE_PANEL action...');
       
       dispatch({
         type: 'UPDATE_PANEL',

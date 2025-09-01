@@ -1053,6 +1053,25 @@ export default function PanelLayoutClient({
                   >
                     💾 Force Save Positions
                   </Button>
+                  <Button 
+                    onClick={() => {
+                      console.log('🚨 [DEBUG] === MANUAL localStorage TEST ===');
+                      try {
+                        const testData = { test: 'data', timestamp: Date.now() };
+                        localStorage.setItem('testKey', JSON.stringify(testData));
+                        const retrieved = localStorage.getItem('testKey');
+                        console.log('🚨 [DEBUG] Test save successful:', retrieved);
+                        console.log('🚨 [DEBUG] localStorage is working properly');
+                      } catch (error) {
+                        console.error('🚨 [DEBUG] localStorage test failed:', error);
+                      }
+                    }} 
+                    variant="outline" 
+                    size="sm"
+                    className="w-full"
+                  >
+                    🧪 Test localStorage
+                  </Button>
                 </div>
               </div>
             </div>
