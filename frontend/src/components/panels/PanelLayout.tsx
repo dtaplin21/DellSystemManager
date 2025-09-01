@@ -24,6 +24,9 @@ import { useInteractiveGrid, type GridConfig } from '../../hooks/use-interactive
 import { snapToGrid, clamp } from '../../lib/geometry'
 import PanelSidebar from '../panel-layout/panel-sidebar'
 
+// CRITICAL FIX #12: Comprehensive position persistence debugging
+const DEBUG_POSITION_PERSISTENCE = process.env.NODE_ENV === 'development';
+
 interface PanelLayoutProps {
   mode: 'manual' | 'auto'
   projectInfo: {
@@ -76,6 +79,15 @@ interface MouseState {
 const panelReducer = (state: PanelState, action: PanelAction): PanelState => {
   switch (action.type) {
     case 'SET_PANELS':
+      // CRITICAL FIX #12: Debug position persistence
+      if (DEBUG_POSITION_PERSISTENCE) {
+        console.log('[PanelLayout] SET_PANELS action:', {
+          action: 'SET_PANELS',
+          panelCount: action.payload.length,
+          firstPanel: action.payload[0] ? { id: action.payload[0].id, x: action.payload[0].x, y: action.payload[0].y } : null,
+          lastPanel: action.payload[action.payload.length - 1] ? { id: action.payload[action.payload.length - 1].id, x: action.payload[action.payload.length - 1].x, y: action.payload[action.payload.length - 1].y } : null
+        });
+      }
       return { ...state, panels: action.payload }
     case 'ADD_PANEL':
       return { ...state, panels: [...state.panels, action.payload] }
@@ -109,6 +121,11 @@ const GRID_MAJOR = 250 // feet
 const SNAP_SIZE = 25 // feet
 
 export default function PanelLayout({ mode, projectInfo, externalPanels, onPanelUpdate, projectId }: PanelLayoutProps) {
+  console.log('🚨 [PanelLayout] === COMPONENT RENDER START ===');
+  console.log('🚨 [PanelLayout] Rendering with props:', { mode, projectInfo, externalPanels, onPanelUpdate, projectId });
+  console.log('🚨 [PanelLayout] externalPanels received:', externalPanels);
+  console.log('🚨 [PanelLayout] externalPanels.length:', externalPanels?.length || 0);
+  
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [panels, dispatch] = useReducer(panelReducer, { panels: [], selectedPanelId: null })
@@ -204,6 +221,19 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   useEffect(() => {
     lastInternalPanels.current = JSON.stringify(panels.panels);
   }, [panels.panels]);
+  
+  // CRITICAL DEBUG: Track component lifecycle
+  useEffect(() => {
+    console.log('🚨 [PanelLayout] === COMPONENT MOUNTED ===');
+    console.log('🚨 [PanelLayout] Initial externalPanels:', externalPanels);
+    console.log('🚨 [PanelLayout] Initial panels state:', panels);
+    
+    return () => {
+      console.log('🚨 [PanelLayout] === COMPONENT UNMOUNTING ===');
+      console.log('🚨 [PanelLayout] Final panels state:', panels);
+      console.log('🚨 [PanelLayout] Final externalPanels:', externalPanels);
+    };
+  }, []);
   
   // Canvas dimensions - use stable values to prevent circular dependencies
   const [canvasWidth, setCanvasWidth] = useState(1200) // Start with reasonable defaults
@@ -392,63 +422,179 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     }
   }, [isFullscreen]); // Only depend on isFullscreen
   
-  // Initialize panels from external source with position persistence
+  // CRITICAL DEBUG: Initialize panels from external source with position persistence
   useEffect(() => {
+    console.log('🚨 [PanelLayout] === PANEL RE-RENDER DEBUG START ===');
+    console.log('🚨 [PanelLayout] externalPanels changed, processing...');
+    console.log('🚨 [PanelLayout] externalPanels:', externalPanels);
+    console.log('🚨 [PanelLayout] externalPanels.length:', externalPanels?.length || 0);
+    
     const externalPanelsRef = externalPanels || [];
     const externalPanelsString = JSON.stringify(externalPanelsRef);
     
+    console.log('🚨 [PanelLayout] externalPanelsString:', externalPanelsString);
+    console.log('🚨 [PanelLayout] lastExternalPanels.current:', lastExternalPanels.current);
+    
     // Only process if external panels actually changed
     if (lastExternalPanels.current !== externalPanelsString) {
+      console.log('🚨 [PanelLayout] External panels changed, processing update...');
       lastExternalPanels.current = externalPanelsString;
       
       // Check if internal panels are already the same
       const internalPanelsString = lastInternalPanels.current;
+      console.log('🚨 [PanelLayout] internalPanelsString:', internalPanelsString);
+      console.log('🚨 [PanelLayout] externalPanelsString === internalPanelsString:', externalPanelsString === internalPanelsString);
+      
       if (externalPanelsString === internalPanelsString) {
+        console.log('🚨 [PanelLayout] No change detected, skipping update');
         return;
       }
       
+      // CRITICAL DEBUG: localStorage position check with detailed logging
+      console.log('🚨 [PanelLayout] === localStorage POSITION CHECK ===');
+      const savedPositions = localStorage.getItem('panelLayoutPositions');
+      console.log('🚨 [PanelLayout] savedPositions from localStorage:', savedPositions);
+      
+      if (savedPositions && externalPanelsRef.length > 0) {
+        try {
+          const positionMap = JSON.parse(savedPositions);
+          const hasValidSavedPositions = Object.keys(positionMap).length > 0;
+          
+          console.log('🚨 [PanelLayout] positionMap parsed:', positionMap);
+          console.log('🚨 [PanelLayout] hasValidSavedPositions:', hasValidSavedPositions);
+          console.log('🚨 [PanelLayout] localStorage panel count:', Object.keys(positionMap).length);
+          
+          if (hasValidSavedPositions) {
+            // Check if external panels are all at default positions
+            console.log('🚨 [PanelLayout] Checking for default positions in external panels...');
+            const defaultPositionDetails = externalPanelsRef.map(panel => ({
+              id: panel.id,
+              x: panel.x,
+              y: panel.y,
+              isDefault: (panel.x === 50 && panel.y === 50) || 
+                        (panel.x === 0 && panel.y === 0) ||
+                        (Math.abs(panel.x - 50) < 10 && Math.abs(panel.y - 50) < 10)
+            }));
+            
+            console.log('🚨 [PanelLayout] Default position analysis:', defaultPositionDetails);
+            
+            const allAtDefaultPositions = externalPanelsRef.every(panel => {
+              const isDefaultPosition = (panel.x === 50 && panel.y === 50) || 
+                                      (panel.x === 0 && panel.y === 0) ||
+                                      (Math.abs(panel.x - 50) < 10 && Math.abs(panel.y - 50) < 10);
+              return isDefaultPosition;
+            });
+            
+            console.log('🚨 [PanelLayout] allAtDefaultPositions:', allAtDefaultPositions);
+            
+            if (allAtDefaultPositions) {
+              console.log('🚨 [PanelLayout] 🚨🚨🚨 CRITICAL: Backend sent default positions, but localStorage has valid positions. IGNORING backend data. 🚨🚨🚨');
+              console.log('🚨 [PanelLayout] Keeping current localStorage positions to prevent panel stacking.');
+              console.log('🚨 [PanelLayout] === PANEL RE-RENDER DEBUG END (IGNORED) ===');
+              return; // Don't update panels, keep current localStorage positions
+            }
+            
+            // Even if not all default, check if we have more valid positions in localStorage
+            const localStoragePanelCount = Object.keys(positionMap).length;
+            const externalPanelCount = externalPanelsRef.length;
+            
+            console.log('🚨 [PanelLayout] Panel count comparison: localStorage vs external:', localStoragePanelCount, 'vs', externalPanelCount);
+            
+            if (localStoragePanelCount >= externalPanelCount) {
+              console.log('🚨 [PanelLayout] 🚨🚨🚨 localStorage has more/equal panels vs backend. Prioritizing localStorage. 🚨🚨🚨');
+              console.log('🚨 [PanelLayout] === PANEL RE-RENDER DEBUG END (IGNORED) ===');
+              return; // Don't update panels, localStorage has more complete data
+            }
+          }
+        } catch (error) {
+          console.warn('🚨 [PanelLayout] Error checking localStorage positions:', error);
+        }
+      } else {
+        console.log('🚨 [PanelLayout] No localStorage positions or no external panels');
+      }
+      
       if (externalPanelsRef.length > 0) {
+        console.log('🚨 [PanelLayout] === PANEL VALIDATION ===');
         const validExternalPanels = externalPanelsRef.filter(panel => {
           if (!isValidPanel(panel)) {
             const errors = getPanelValidationErrors(panel);
-            console.warn('[PanelLayout] Skipping invalid external panel:', { panel, errors });
+            console.warn('🚨 [PanelLayout] Skipping invalid external panel:', { panel, errors });
             return false;
           }
           return true;
         });
         
+        console.log('🚨 [PanelLayout] Valid external panels count:', validExternalPanels.length);
+        
         if (validExternalPanels.length > 0) {
-          // Try to restore panel positions from localStorage with validation
+          // CRITICAL DEBUG: Enhanced external panels processing with localStorage priority
+          console.log('🚨 [PanelLayout] === PANEL PROCESSING WITH localStorage ===');
           let panelsWithPositions = validExternalPanels;
           try {
             const savedPositions = localStorage.getItem('panelLayoutPositions');
+            console.log('🚨 [PanelLayout] Processing savedPositions:', savedPositions);
+            
             if (savedPositions) {
               const positionMap = JSON.parse(savedPositions);
+              console.log('🚨 [PanelLayout] Processing positionMap:', positionMap);
+              console.log(`🚨 [PanelLayout] Processing ${validExternalPanels.length} external panels with ${Object.keys(positionMap).length} localStorage positions`);
+              
               panelsWithPositions = validExternalPanels.map(panel => {
                 const saved = positionMap[panel.id];
                 if (saved && typeof saved.x === 'number' && typeof saved.y === 'number') {
-                  // Validate that restored positions are within reasonable bounds
-                  const maxCoordinate = 10000; // Maximum reasonable coordinate value
-                  const validX = Math.abs(saved.x) <= maxCoordinate ? saved.x : panel.x;
-                  const validY = Math.abs(saved.y) <= maxCoordinate ? saved.y : panel.y;
+                  // CRITICAL FIX #8: Relaxed validation - localStorage positions are trusted
+                  // Only reject completely invalid coordinates (NaN, Infinity, etc.)
+                  const isValidX = !isNaN(saved.x) && isFinite(saved.x);
+                  const isValidY = !isNaN(saved.y) && isFinite(saved.y);
                   
-                  // ALWAYS prioritize localStorage positions over backend defaults
-                  // This prevents panels from stacking when backend sends default positions
-                  const finalX = validX;
-                  const finalY = validY;
+                  if (isValidX && isValidY) {
+                    // localStorage positions ALWAYS win over backend defaults
+                    const finalX = saved.x;
+                    const finalY = saved.y;
+                    
+                    if (finalX !== panel.x || finalY !== panel.y) {
+                      console.log(`[PanelLayout] localStorage OVERRIDE: panel ${panel.id}: backend(${panel.x}, ${panel.y}) -> localStorage(${finalX}, ${finalY})`);
+                    }
+                    
+                    return { ...panel, x: finalX, y: finalY };
+                  } else {
+                    console.warn(`[PanelLayout] Invalid localStorage position for panel ${panel.id}: x=${saved.x}, y=${saved.y}`);
+                  }
+                }
+                
+                // If no localStorage position, check if this is a default stacking position
+                const isDefaultPosition = (panel.x === 50 && panel.y === 50) || 
+                                        (panel.x === 0 && panel.y === 0) ||
+                                        (Math.abs(panel.x - 50) < 10 && Math.abs(panel.y - 50) < 10);
+                
+                if (isDefaultPosition) {
+                  // Find a unique position that doesn't conflict with localStorage positions
+                  let uniqueX = panel.x;
+                  let uniqueY = panel.y;
+                  let attempts = 0;
                   
-                  if (finalX !== panel.x || finalY !== panel.y) {
-                    console.log(`[PanelLayout] Restored position for panel ${panel.id}: (${panel.x}, ${panel.y}) -> (${finalX}, ${finalY})`);
+                  while (attempts < 100) { // Prevent infinite loop
+                    const conflictingPanel = Object.values(positionMap).find((pos: any) => 
+                      Math.abs(pos.x - uniqueX) < 50 && Math.abs(pos.y - uniqueY) < 50
+                    );
+                    
+                    if (!conflictingPanel) break;
+                    
+                    uniqueX = Math.random() * 1000 + 100;
+                    uniqueY = Math.random() * 1000 + 100;
+                    attempts++;
                   }
                   
-                  return { ...panel, x: finalX, y: finalY };
+                  console.log(`[PanelLayout] Auto-spread panel ${panel.id} from default (${panel.x}, ${panel.y}) to unique (${uniqueX}, ${uniqueY})`);
+                  return { ...panel, x: uniqueX, y: uniqueY };
                 }
+                
                 return panel;
               });
-              console.log('[PanelLayout] Restored panel positions from localStorage');
+              console.log('[PanelLayout] Processed external panels with localStorage priority');
             } else {
               // If no localStorage data, spread out panels to prevent stacking
-              console.log('[PanelLayout] No localStorage positions found, spreading out panels');
+              console.log('[PanelLayout] No localStorage positions found, spreading out panels to prevent stacking');
               panelsWithPositions = validExternalPanels.map((panel, index) => {
                 // Check if panel has default stacking position (50,50 or similar)
                 const isDefaultPosition = (panel.x === 50 && panel.y === 50) || 
@@ -465,12 +611,22 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
               });
             }
           } catch (error) {
-            console.warn('[PanelLayout] Failed to restore panel positions:', error);
+            console.warn('[PanelLayout] Failed to process external panels with localStorage:', error);
           }
+          
+          // CRITICAL DEBUG: Final panel dispatch
+          console.log('🚨 [PanelLayout] === FINAL PANEL DISPATCH ===');
+          console.log('🚨 [PanelLayout] panelsWithPositions to be dispatched:', panelsWithPositions);
+          console.log('🚨 [PanelLayout] Panel positions after processing:');
+          panelsWithPositions.forEach((panel, index) => {
+            console.log(`🚨 [PanelLayout] Panel ${index}: id=${panel.id}, x=${panel.x}, y=${panel.y}`);
+          });
           
           // Set a flag to prevent the notification useEffect from running
           lastInternalPanels.current = externalPanelsString;
-          dispatch({ type: 'SET_PANELS', payload: panelsWithPositions })
+          console.log('🚨 [PanelLayout] Dispatching SET_PANELS action...');
+          dispatch({ type: 'SET_PANELS', payload: panelsWithPositions });
+          console.log('🚨 [PanelLayout] === PANEL RE-RENDER DEBUG END (PROCESSED) ===');
         }
       } else {
         // Only clear if internal panels are not already empty
@@ -1519,6 +1675,24 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
             />
             )}
 
+            {/* CRITICAL DEBUG OVERLAY */}
+            {DEBUG_POSITION_PERSISTENCE && (
+              <div className="absolute top-4 right-4 bg-red-600 text-white px-3 py-2 rounded text-sm font-mono pointer-events-none max-w-xs">
+                <div className="font-bold mb-1">🚨 DEBUG INFO</div>
+                <div className="text-xs space-y-1">
+                  <div>External Panels: {externalPanels?.length || 0}</div>
+                  <div>Internal Panels: {panels.panels.length}</div>
+                  <div>localStorage: {(() => {
+                    try {
+                      const saved = localStorage.getItem('panelLayoutPositions');
+                      return saved ? `${Object.keys(JSON.parse(saved)).length} saved` : 'None';
+                    } catch { return 'Error'; }
+                  })()}</div>
+                  <div>Last Update: {new Date().toLocaleTimeString()}</div>
+                </div>
+              </div>
+            )}
+            
             {/* Coordinate Display */}
             <div className="absolute top-4 left-4 bg-black bg-opacity-75 text-white px-3 py-2 rounded text-sm font-mono pointer-events-none">
               <div data-testid="text-world-coords">World: {Math.round(worldPos.x)}&apos;, {Math.round(worldPos.y)}&apos;</div>

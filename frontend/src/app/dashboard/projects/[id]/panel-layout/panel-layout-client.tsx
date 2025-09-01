@@ -125,29 +125,90 @@ export default function PanelLayoutClient({
     console.log('🔍 [CLIENT] ProjectId changed:', projectId);
   }, [projectId]);
 
-  // Fetch real data from backend when component mounts (client-side)
+  // CRITICAL DEBUG: Implement proper data source priority (localStorage > backend > SSR)
   useEffect(() => {
     const fetchRealData = async () => {
       try {
-        console.log('🔍 [CLIENT] Fetching real data from backend...');
+        console.log('🚨 [CLIENT] === DATA SOURCE PRIORITY: localStorage > backend > SSR ===');
+        console.log('🚨 [CLIENT] fetchRealData called at:', new Date().toISOString());
+        
+        // STEP 1: Check localStorage first (highest priority)
+        const savedPositions = localStorage.getItem('panelLayoutPositions');
+        const hasLocalStoragePositions = savedPositions && savedPositions !== '{}';
+        
+        console.log('🚨 [CLIENT] localStorage check:');
+        console.log('🚨 [CLIENT] - savedPositions exists:', !!savedPositions);
+        console.log('🚨 [CLIENT] - savedPositions content:', savedPositions);
+        console.log('🚨 [CLIENT] - hasLocalStoragePositions:', hasLocalStoragePositions);
+        
+        if (hasLocalStoragePositions) {
+          console.log('🚨 [CLIENT] 🚨🚨🚨 localStorage has saved positions - this takes priority 🚨🚨🚨');
+        }
+        
+        // STEP 2: Fetch backend data (but don't override localStorage positions)
+        console.log('🚨 [CLIENT] Fetching backend data...');
         
         // Fetch real project data
+        console.log('🚨 [CLIENT] Fetching project data from:', `${BACKEND_URL}/api/projects/ssr/${projectId}`);
         const projectResponse = await fetch(`${BACKEND_URL}/api/projects/ssr/${projectId}`);
         if (projectResponse.ok) {
           const realProject = await projectResponse.json();
-          console.log('🔍 [CLIENT] Real project data fetched:', realProject);
+          console.log('🚨 [CLIENT] Real project data fetched:', realProject);
           setProject(realProject);
         } else {
-          console.warn('🔍 [CLIENT] Failed to fetch real project data:', projectResponse.status);
+          console.warn('🚨 [CLIENT] Failed to fetch real project data:', projectResponse.status);
         }
         
         // Fetch real layout data
+        console.log('🚨 [CLIENT] Fetching layout data from:', `${BACKEND_URL}/api/panel-layout/ssr-layout/${projectId}`);
         const layoutResponse = await fetch(`${BACKEND_URL}/api/panel-layout/ssr-layout/${projectId}`);
         if (layoutResponse.ok) {
           const realLayout = await layoutResponse.json();
-          console.log('🔍 [CLIENT] Real layout data fetched:', realLayout);
+          console.log('🚨 [CLIENT] Real layout data fetched:', realLayout);
+          
+          if (realLayout.success && realLayout.layout && realLayout.layout.panels) {
+            console.log('🚨 [CLIENT] Backend panel positions:', realLayout.layout.panels.map(p => ({ id: p.id, x: p.x, y: p.y })));
+          }
+          
           if (realLayout.success && realLayout.layout) {
-            setLayout(realLayout.layout);
+            console.log('🚨 [CLIENT] === APPLYING DATA SOURCE PRIORITY ===');
+            // STEP 3: Apply data source priority logic
+            if (hasLocalStoragePositions) {
+              try {
+                const positionMap = JSON.parse(savedPositions);
+                console.log('🚨 [CLIENT] localStorage positions found:', Object.keys(positionMap).length, 'panels');
+                console.log('🚨 [CLIENT] localStorage positionMap:', positionMap);
+                
+                // Merge backend data with localStorage positions (localStorage wins)
+                console.log('🚨 [CLIENT] Merging backend data with localStorage positions...');
+                const panelsWithPreservedPositions = realLayout.layout.panels.map(panel => {
+                  const saved = positionMap[panel.id];
+                  if (saved && typeof saved.x === 'number' && typeof saved.y === 'number') {
+                    console.log(`🚨 [CLIENT] 🚨🚨🚨 localStorage OVERRIDE: panel ${panel.id}: backend(${panel.x}, ${panel.y}) -> localStorage(${saved.x}, ${saved.y}) 🚨🚨🚨`);
+                    return { ...panel, x: saved.x, y: saved.y };
+                  }
+                  console.log(`🚨 [CLIENT] No localStorage position for panel ${panel.id}, keeping backend position: (${panel.x}, ${panel.y})`);
+                  return panel;
+                });
+                
+                console.log('🚨 [CLIENT] Final merged panels:', panelsWithPreservedPositions);
+                
+                const layoutWithPreservedPositions = {
+                  ...realLayout.layout,
+                  panels: panelsWithPreservedPositions
+                };
+                
+                console.log('🚨 [CLIENT] 🚨🚨🚨 Setting layout with localStorage priority (localStorage > backend) 🚨🚨🚨');
+                console.log('🚨 [CLIENT] Layout to be set:', layoutWithPreservedPositions);
+                setLayout(layoutWithPreservedPositions);
+              } catch (error) {
+                console.warn('🚨 [CLIENT] Error processing localStorage positions, using backend data:', error);
+                setLayout(realLayout.layout);
+              }
+            } else {
+              console.log('🚨 [CLIENT] No localStorage positions found, using backend data as-is');
+              setLayout(realLayout.layout);
+            }
           }
         } else {
           console.warn('🔍 [CLIENT] Failed to fetch real layout data:', layoutResponse.status);
@@ -157,9 +218,21 @@ export default function PanelLayoutClient({
       }
     };
 
-    // Only fetch if we have fallback data (indicating SSR mode)
-    if (project.name === 'Project (SSR Mode)' || layout.id === 'ssr-fallback-layout') {
-      fetchRealData();
+    // CRITICAL FIX #11: Improved SSR fallback data handling
+    const isSSRMode = project.name === 'Project (SSR Mode)' || layout.id === 'ssr-fallback-layout';
+    const hasLocalStorageData = typeof window !== 'undefined' && localStorage.getItem('panelLayoutPositions');
+    
+    if (isSSRMode) {
+      if (hasLocalStorageData) {
+        console.log('🔍 [CLIENT] SSR mode detected but localStorage has data - prioritizing localStorage over backend fetch');
+        // Don't fetch from backend if we have localStorage data
+        return;
+      } else {
+        console.log('🔍 [CLIENT] SSR mode detected, no localStorage data - fetching from backend');
+        fetchRealData();
+      }
+    } else {
+      console.log('🔍 [CLIENT] Not in SSR mode, skipping backend fetch');
     }
   }, [projectId, project.name, layout.id]);
 
@@ -264,7 +337,7 @@ export default function PanelLayoutClient({
     }
   }, [layout, toastRef]);
   
-  // Handle panel updates
+  // CRITICAL FIX #10: Fix handlePanelUpdate localStorage coordination
   const handlePanelUpdate = useCallback(async (updatedPanels: Panel[]) => {
     console.log('[DEBUG] handlePanelUpdate called with panels:', updatedPanels);
     console.log('[DEBUG] Current layout state:', {
@@ -282,6 +355,18 @@ export default function PanelLayoutClient({
     }
     
     try {
+      // CRITICAL: Update localStorage positions when panels are updated
+      try {
+        const positionMap: Record<string, { x: number; y: number }> = {};
+        updatedPanels.forEach(panel => {
+          positionMap[panel.id] = { x: panel.x, y: panel.y };
+        });
+        localStorage.setItem('panelLayoutPositions', JSON.stringify(positionMap));
+        console.log('[DEBUG] Updated localStorage positions for', Object.keys(positionMap).length, 'panels');
+      } catch (localStorageError) {
+        console.warn('[DEBUG] Failed to update localStorage positions:', localStorageError);
+      }
+      
       const updatedLayout = {
         ...layout,
         panels: updatedPanels,
@@ -292,7 +377,7 @@ export default function PanelLayoutClient({
       setLayout(updatedLayout);
       setHasUnsavedChanges(true);
       
-      console.log('[DEBUG] Layout updated successfully');
+      console.log('[DEBUG] Layout updated successfully with localStorage sync');
     } catch (error) {
       console.error('[DEBUG] Error updating layout:', error);
     }
@@ -484,12 +569,13 @@ export default function PanelLayoutClient({
     };
   }, [project?.name, project?.location, project?.description]);
   
-  // Memoize mapped panels to prevent infinite re-renders
+  // CRITICAL DEBUG: Improve mapped panels memoization to preserve positions
   const lastMappedPanelsRef = useRef<string>('');
   
   const mappedPanels = useMemo(() => {
-    console.log('[DEBUG] mappedPanels recalculating with layout.panels:', layout?.panels);
-    console.log('[DEBUG] Layout state:', {
+    console.log('🚨 [CLIENT] === MAPPED PANELS MEMOIZATION DEBUG ===');
+    console.log('🚨 [CLIENT] mappedPanels recalculating with layout.panels:', layout?.panels);
+    console.log('🚨 [CLIENT] Layout state:', {
       hasLayout: !!layout,
       layoutType: typeof layout,
       hasPanels: !!layout?.panels,
@@ -504,14 +590,50 @@ export default function PanelLayoutClient({
     }
     
     try {
+      // CRITICAL DEBUG: Check localStorage first to preserve positions during mapping
+      console.log('🚨 [CLIENT] Checking localStorage for positions during mapping...');
+      const savedPositions = localStorage.getItem('panelLayoutPositions');
+      let positionMap = {};
+      
+      console.log('🚨 [CLIENT] localStorage savedPositions during mapping:', savedPositions);
+      
+      if (savedPositions) {
+        try {
+          positionMap = JSON.parse(savedPositions);
+          console.log('🚨 [CLIENT] Found localStorage positions for', Object.keys(positionMap).length, 'panels');
+          console.log('🚨 [CLIENT] localStorage positionMap during mapping:', positionMap);
+        } catch (error) {
+          console.warn('🚨 [CLIENT] Failed to parse localStorage positions:', error);
+        }
+      } else {
+        console.log('🚨 [CLIENT] No localStorage positions found during mapping');
+      }
+      
       const mapped = layout.panels.map((panel: any, idx: number) => {
         console.log(`[DEBUG] Mapping panel ${idx}:`, panel);
         
-        // Map backend field names to frontend field names
-        const width = Number(panel.width_feet || panel.width || 100);
-        const length = Number(panel.height_feet || panel.length || 100);
-        const x = Number(panel.x || 0);
-        const y = Number(panel.y || 0);
+        // CRITICAL FIX #7: Enhanced field name mapping with fallbacks
+        const width = Number(panel.width_feet || panel.width || panel.width_feet || 100);
+        const length = Number(panel.height_feet || panel.length || panel.height || 100);
+        
+        // CRITICAL: Preserve localStorage positions during mapping
+        let x = Number(panel.x || 0);
+        let y = Number(panel.y || 0);
+        
+        // CRITICAL DEBUG: Check if we have a saved position for this panel
+        if (positionMap[panel.id]) {
+          const saved = positionMap[panel.id];
+          if (typeof saved.x === 'number' && typeof saved.y === 'number') {
+            console.log(`🚨 [CLIENT] 🚨🚨🚨 localStorage OVERRIDE during mapping: panel ${panel.id}: layout(${x}, ${y}) -> localStorage(${saved.x}, ${saved.y}) 🚨🚨🚨`);
+            x = saved.x;
+            y = saved.y;
+          } else {
+            console.log(`🚨 [CLIENT] Invalid localStorage position for panel ${panel.id}:`, saved);
+          }
+        } else {
+          console.log(`🚨 [CLIENT] No localStorage position for panel ${panel.id}, using layout position: (${x}, ${y})`);
+        }
+        
         const shape = panel.type || panel.shape || 'rectangle';
         
         const mappedPanel = {
@@ -539,7 +661,7 @@ export default function PanelLayoutClient({
         return mappedPanel;
       });
       
-      console.log('[DEBUG] Mapped panels result:', mapped);
+      console.log('[DEBUG] Mapped panels result with localStorage preservation:', mapped);
       
       // Create a stable reference for comparison
       const mappedString = JSON.stringify(mapped);
@@ -614,22 +736,100 @@ export default function PanelLayoutClient({
     }
   }, [projectId]);
   
-  // WebSocket connection
+  // CRITICAL FIX #9: Coordinate WebSocket updates with localStorage (EXTRA CAREFUL)
   const { isConnected, isAuthenticated, sendMessage } = useWebSocket({
     userId: user?.id || null,
     onMessage: (message: any) => {
-      const projectId = message.data?.projectId ?? message.projectId;
-      if (message.type === 'PANEL_UPDATE' && projectId === projectId) {
-        setLayout((prev) => {
-          if (!prev) return prev;
-          const panels = message.data?.panels ?? message.panels ?? prev.panels;
-          const lastUpdated = message.data?.timestamp ?? message.timestamp ?? new Date().toISOString();
-          return {
-            ...prev,
-            panels,
-            lastUpdated
-          };
-        });
+      const messageProjectId = message.data?.projectId ?? message.projectId;
+      if (message.type === 'PANEL_UPDATE' && messageProjectId === projectId) {
+        console.log('[WebSocket] Panel update received:', message);
+        
+        // CRITICAL: Check if this update conflicts with localStorage positions
+        try {
+          const savedPositions = localStorage.getItem('panelLayoutPositions');
+          if (savedPositions) {
+            const positionMap = JSON.parse(savedPositions);
+            const hasLocalStoragePositions = Object.keys(positionMap).length > 0;
+            
+            if (hasLocalStoragePositions) {
+              const incomingPanels = message.data?.panels ?? message.panels ?? [];
+              
+              // Check if incoming panels have default positions that would override localStorage
+              const hasDefaultPositions = incomingPanels.some((panel: any) => {
+                const isDefaultPosition = (panel.x === 50 && panel.y === 50) || 
+                                        (panel.x === 0 && panel.y === 0) ||
+                                        (Math.abs(panel.x - 50) < 10 && Math.abs(panel.y - 50) < 10);
+                return isDefaultPosition;
+              });
+              
+              if (hasDefaultPositions) {
+                console.log('[WebSocket] CRITICAL: Incoming update has default positions, but localStorage has valid positions. IGNORING WebSocket update to prevent panel stacking.');
+                console.log('[WebSocket] localStorage positions:', Object.keys(positionMap).length, 'panels');
+                console.log('[WebSocket] Incoming panels with defaults:', incomingPanels.length);
+                return; // Don't process this WebSocket update
+              }
+              
+              // If no default positions, merge with localStorage positions
+              console.log('[WebSocket] Merging WebSocket update with localStorage positions');
+              const mergedPanels = incomingPanels.map((panel: any) => {
+                const saved = positionMap[panel.id];
+                if (saved && typeof saved.x === 'number' && typeof saved.y === 'number') {
+                  console.log(`[WebSocket] Preserving localStorage position for panel ${panel.id}: WebSocket(${panel.x}, ${panel.y}) -> localStorage(${saved.x}, ${saved.y})`);
+                  return { ...panel, x: saved.x, y: saved.y };
+                }
+                return panel;
+              });
+              
+              setLayout((prev) => {
+                if (!prev) return prev;
+                return {
+                  ...prev,
+                  panels: mergedPanels,
+                  lastUpdated: message.data?.timestamp ?? message.timestamp ?? new Date().toISOString()
+                };
+              });
+            } else {
+              // No localStorage positions, use WebSocket data as-is
+              console.log('[WebSocket] No localStorage positions, using WebSocket data as-is');
+              setLayout((prev) => {
+                if (!prev) return prev;
+                const panels = message.data?.panels ?? message.panels ?? prev.panels;
+                const lastUpdated = message.data?.timestamp ?? message.timestamp ?? new Date().toISOString();
+                return {
+                  ...prev,
+                  panels,
+                  lastUpdated
+                };
+              });
+            }
+          } else {
+            // No localStorage, use WebSocket data as-is
+            console.log('[WebSocket] No localStorage, using WebSocket data as-is');
+            setLayout((prev) => {
+              if (!prev) return prev;
+              const panels = message.data?.panels ?? message.panels ?? prev.panels;
+              const lastUpdated = message.data?.timestamp ?? message.timestamp ?? new Date().toISOString();
+              return {
+                ...prev,
+                panels,
+                lastUpdated
+              };
+            });
+          }
+        } catch (error) {
+          console.error('[WebSocket] Error processing panel update with localStorage:', error);
+          // Fallback to original behavior on error
+          setLayout((prev) => {
+            if (!prev) return prev;
+            const panels = message.data?.panels ?? message.panels ?? prev.panels;
+            const lastUpdated = message.data?.timestamp ?? message.timestamp ?? new Date().toISOString();
+            return {
+              ...prev,
+              panels,
+              lastUpdated
+            };
+          });
+        }
       }
     },
     onConnect: () => {
@@ -667,6 +867,66 @@ export default function PanelLayoutClient({
     }
   }, [layout, project, toastRef]);
   
+  // CRITICAL DEBUG: Check localStorage state
+  const handleDebugLocalStorage = useCallback(() => {
+    console.log('🚨 [DEBUG] === localStorage STATE CHECK ===');
+    try {
+      const savedPositions = localStorage.getItem('panelLayoutPositions');
+      console.log('🚨 [DEBUG] localStorage.getItem("panelLayoutPositions"):', savedPositions);
+      
+      if (savedPositions) {
+        const parsed = JSON.parse(savedPositions);
+        console.log('🚨 [DEBUG] Parsed localStorage positions:', parsed);
+        console.log('🚨 [DEBUG] Number of saved panels:', Object.keys(parsed).length);
+        
+        Object.entries(parsed).forEach(([id, pos]: [string, any]) => {
+          console.log(`🚨 [DEBUG] Panel ${id}: x=${pos.x}, y=${pos.y}`);
+        });
+      } else {
+        console.log('🚨 [DEBUG] No localStorage positions found');
+      }
+      
+      // Check other localStorage items
+      const zoomState = localStorage.getItem('panelLayoutZoomState');
+      console.log('🚨 [DEBUG] localStorage.getItem("panelLayoutZoomState"):', zoomState);
+      
+    } catch (error) {
+      console.error('🚨 [DEBUG] Error checking localStorage:', error);
+    }
+  }, []);
+  
+  // CRITICAL DEBUG: Force save current panel positions to localStorage
+  const handleForceSavePositions = useCallback(() => {
+    console.log('🚨 [DEBUG] === FORCE SAVE PANEL POSITIONS ===');
+    if (!layout?.panels) {
+      console.log('🚨 [DEBUG] No panels to save');
+      return;
+    }
+    
+    try {
+      const positionMap: Record<string, { x: number; y: number }> = {};
+      layout.panels.forEach(panel => {
+        positionMap[panel.id] = { x: panel.x, y: panel.y };
+      });
+      
+      localStorage.setItem('panelLayoutPositions', JSON.stringify(positionMap));
+      console.log('🚨 [DEBUG] Forced save of', Object.keys(positionMap).length, 'panel positions');
+      console.log('🚨 [DEBUG] Saved positions:', positionMap);
+      
+      toastRef.current({
+        title: 'Debug: Positions Saved',
+        description: `Saved ${Object.keys(positionMap).length} panel positions to localStorage`,
+      });
+    } catch (error) {
+      console.error('🚨 [DEBUG] Error forcing save:', error);
+      toastRef.current({
+        title: 'Debug: Save Failed',
+        description: 'Failed to save panel positions',
+        variant: 'destructive',
+      });
+    }
+  }, [layout?.panels, toastRef]);
+  
   // Set up toast ref
   useEffect(() => {
     if (toast) {
@@ -696,6 +956,13 @@ export default function PanelLayoutClient({
   
   return (
     <div className="min-h-screen bg-gray-50 p-4">
+      {/* CRITICAL DEBUG BANNER */}
+      {typeof window !== 'undefined' && (
+        <div className="fixed top-0 left-0 right-0 z-[99999] bg-red-600 text-white p-2 text-center font-bold">
+          🚨 DEBUG MODE: Panel Position Tracking Active - Check Console for Details 🚨
+        </div>
+      )}
+      
       {/* AI Execution Overlay */}
       {showAIExecutionOverlay && (() => {
         try {
@@ -729,6 +996,68 @@ export default function PanelLayoutClient({
 
       <Card className="w-full">
         <CardHeader>
+          {/* CRITICAL DEBUG PANEL */}
+          {typeof window !== 'undefined' && (
+            <div className="mb-4 p-4 bg-yellow-100 border border-yellow-400 rounded">
+              <h3 className="font-bold text-yellow-800 mb-2">🚨 DEBUG INFO</h3>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <strong>localStorage Positions:</strong>
+                  <div className="mt-1">
+                    {(() => {
+                      try {
+                        const saved = localStorage.getItem('panelLayoutPositions');
+                        if (saved) {
+                          const parsed = JSON.parse(saved);
+                          return `${Object.keys(parsed).length} panels saved`;
+                        }
+                        return 'None';
+                      } catch {
+                        return 'Error parsing';
+                      }
+                    })()}
+                  </div>
+                </div>
+                <div>
+                  <strong>Current Layout:</strong>
+                  <div className="mt-1">
+                    {layout?.panels?.length || 0} panels
+                  </div>
+                </div>
+                <div>
+                  <strong>Mapped Panels:</strong>
+                  <div className="mt-1">
+                    {mappedPanels?.length || 0} panels
+                  </div>
+                </div>
+                <div>
+                  <strong>Last Update:</strong>
+                  <div className="mt-1">
+                    {layout?.lastUpdated ? new Date(layout.lastUpdated).toLocaleTimeString() : 'Never'}
+                  </div>
+                </div>
+                <div className="col-span-2 space-y-2">
+                  <Button 
+                    onClick={handleDebugLocalStorage} 
+                    variant="outline" 
+                    size="sm"
+                    className="w-full"
+                  >
+                    🔍 Check localStorage
+                  </Button>
+                  <Button 
+                    onClick={handleForceSavePositions} 
+                    variant="outline" 
+                    size="sm"
+                    className="w-full"
+                  >
+                    💾 Force Save Positions
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+          
           {(() => {
             try {
               return (
