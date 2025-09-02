@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import Loading from './loading';
 import Error from './error';
-import PanelLayoutClient from './panel-layout-client';
+import PanelLayoutSimple from './panel-layout-simple';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -59,11 +59,7 @@ export default async function PanelLayoutPage({ params }: PageProps
     
     return (
       <Suspense fallback={<Loading />}>
-        <PanelLayoutClient
-          projectId={id}
-          initialProject={project}
-          initialLayout={layout}
-        />
+        <PanelLayoutSimple />
       </Suspense>
     );
   } catch (error) {
