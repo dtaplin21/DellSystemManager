@@ -220,17 +220,18 @@ export default function PanelLayoutClient({
 
     // CRITICAL FIX #11: Improved SSR fallback data handling
     const isSSRMode = project.name === 'Project (SSR Mode)' || layout.id === 'ssr-fallback-layout';
-    const hasLocalStorageData = typeof window !== 'undefined' && localStorage.getItem('panelLayoutPositions');
     
     if (isSSRMode) {
-      if (hasLocalStorageData) {
-        console.log('🔍 [CLIENT] SSR mode detected but localStorage has data - prioritizing localStorage over backend fetch');
-        // Don't fetch from backend if we have localStorage data
-        return;
-      } else {
-        console.log('🔍 [CLIENT] SSR mode detected, no localStorage data - fetching from backend');
-        fetchRealData();
-      }
+      console.log('🔍 [CLIENT] SSR mode detected - ALWAYS fetching from backend to get panel data');
+      console.log('🔍 [CLIENT] Current SSR layout state:', {
+        hasLayout: !!layout,
+        panelCount: layout?.panels?.length || 0,
+        layoutId: layout?.id,
+        projectName: project?.name
+      });
+      // CRITICAL FIX: Always fetch backend data in SSR mode to get panel data
+      // localStorage will only override positions, not prevent data fetching
+      fetchRealData();
     } else {
       console.log('🔍 [CLIENT] Not in SSR mode, skipping backend fetch');
     }
@@ -584,8 +585,9 @@ export default function PanelLayoutClient({
       panelCount: layout?.panels?.length || 0
     });
     
-    if (!layout?.panels || !Array.isArray(layout.panels)) {
-      console.log('[DEBUG] No layout panels, returning empty array');
+    // CRITICAL FIX: Don't process localStorage if backend data is empty or invalid
+    if (!layout?.panels || !Array.isArray(layout.panels) || layout.panels.length === 0) {
+      console.log('🚨 [CLIENT] No valid backend panels, returning empty array (localStorage will be ignored)');
       return [];
     }
     
@@ -898,20 +900,28 @@ export default function PanelLayoutClient({
   // CRITICAL DEBUG: Force save current panel positions to localStorage
   const handleForceSavePositions = useCallback(() => {
     console.log('🚨 [DEBUG] === FORCE SAVE PANEL POSITIONS ===');
-    if (!layout?.panels) {
+    console.log('🚨 [DEBUG] mappedPanels available:', mappedPanels?.length || 0);
+    console.log('🚨 [DEBUG] layout.panels available:', layout?.panels?.length || 0);
+    
+    // CRITICAL FIX: Use mappedPanels instead of layout.panels
+    // mappedPanels contains the actual positions being displayed (with localStorage overrides)
+    const panelsToSave = mappedPanels && mappedPanels.length > 0 ? mappedPanels : layout?.panels;
+    
+    if (!panelsToSave || panelsToSave.length === 0) {
       console.log('🚨 [DEBUG] No panels to save');
       return;
     }
     
     try {
       const positionMap: Record<string, { x: number; y: number }> = {};
-      layout.panels.forEach(panel => {
+      panelsToSave.forEach(panel => {
         positionMap[panel.id] = { x: panel.x, y: panel.y };
       });
       
       localStorage.setItem('panelLayoutPositions', JSON.stringify(positionMap));
       console.log('🚨 [DEBUG] Forced save of', Object.keys(positionMap).length, 'panel positions');
       console.log('🚨 [DEBUG] Saved positions:', positionMap);
+      console.log('🚨 [DEBUG] Source of positions:', mappedPanels && mappedPanels.length > 0 ? 'mappedPanels (displayed positions)' : 'layout.panels (backend positions)');
       
       toastRef.current({
         title: 'Debug: Positions Saved',
@@ -925,7 +935,7 @@ export default function PanelLayoutClient({
         variant: 'destructive',
       });
     }
-  }, [layout?.panels, toastRef]);
+  }, [mappedPanels, layout?.panels, toastRef]);
   
   // Set up toast ref
   useEffect(() => {
@@ -1072,6 +1082,63 @@ export default function PanelLayoutClient({
                   >
                     🧪 Test localStorage
                   </Button>
+                  <Button 
+                    onClick={() => {
+                      console.log('🚨 [DEBUG] === COMPARE PANEL SOURCES ===');
+                      console.log('🚨 [DEBUG] layout.panels (backend data):', layout?.panels);
+                      console.log('🚨 [DEBUG] mappedPanels (displayed data):', mappedPanels);
+                      console.log('🚨 [DEBUG] Position comparison:');
+                      if (layout?.panels && mappedPanels) {
+                        layout.panels.forEach((layoutPanel, idx) => {
+                          const mappedPanel = mappedPanels[idx];
+                          if (mappedPanel) {
+                            console.log(`🚨 [DEBUG] Panel ${idx} (${layoutPanel.id}):`);
+                            console.log(`🚨 [DEBUG]   layout.panels: x=${layoutPanel.x}, y=${layoutPanel.y}`);
+                            console.log(`🚨 [DEBUG]   mappedPanels: x=${mappedPanel.x}, y=${mappedPanel.y}`);
+                            console.log(`🚨 [DEBUG]   positions match: ${layoutPanel.x === mappedPanel.x && layoutPanel.y === mappedPanel.y}`);
+                          }
+                        });
+                      }
+                    }} 
+                    variant="outline" 
+                    size="sm"
+                    className="w-full"
+                  >
+                    🔍 Compare Sources
+                  </Button>
+                  <Button 
+                    onClick={createTestPanels} 
+                    variant="outline" 
+                    size="sm"
+                    className="w-full"
+                  >
+                    ➕ Add Test Panels
+                  </Button>
+                  <Button 
+                    onClick={async () => {
+                      console.log('🚨 [DEBUG] === FORCE BACKEND FETCH ===');
+                      try {
+                        const response = await fetch(`${BACKEND_URL}/api/panel-layout/ssr-layout/${projectId}`);
+                        if (response.ok) {
+                          const data = await response.json();
+                          console.log('🚨 [DEBUG] Backend fetch successful:', data);
+                          if (data.success && data.layout) {
+                            console.log('🚨 [DEBUG] Setting layout from backend:', data.layout);
+                            setLayout(data.layout);
+                          }
+                        } else {
+                          console.error('🚨 [DEBUG] Backend fetch failed:', response.status);
+                        }
+                      } catch (error) {
+                        console.error('🚨 [DEBUG] Backend fetch error:', error);
+                      }
+                    }} 
+                    variant="outline" 
+                    size="sm"
+                    className="w-full"
+                  >
+                    🔄 Force Backend Fetch
+                  </Button>
                 </div>
               </div>
             </div>
@@ -1119,7 +1186,19 @@ export default function PanelLayoutClient({
                 }
                 
                 // Check if any panels are visible (larger than 1 unit)
-                const visiblePanels = mappedPanels.filter(p => p.width > 1 && p.length > 1);
+                // TEMPORARILY DISABLED: Allow all panels to be visible for debugging
+                const visiblePanels = mappedPanels; // .filter(p => p.width > 1 && p.length > 1);
+                
+                // DEBUG: Log panel dimensions
+                console.log('🔍 [CLIENT] Panel visibility check:');
+                console.log('🔍 [CLIENT] mappedPanels.length:', mappedPanels.length);
+                console.log('🔍 [CLIENT] visiblePanels.length:', visiblePanels.length);
+                if (mappedPanels.length > 0) {
+                  console.log('🔍 [CLIENT] Panel dimensions:');
+                  mappedPanels.forEach((panel, idx) => {
+                    console.log(`🔍 [CLIENT] Panel ${idx}: width=${panel.width}, length=${panel.length}, x=${panel.x}, y=${panel.y}`);
+                  });
+                }
                 
                 if (visiblePanels.length === 0 && mappedPanels.length > 0) {
                   return (

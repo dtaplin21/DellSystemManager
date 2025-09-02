@@ -25,7 +25,7 @@ import { snapToGrid, clamp } from '../../lib/geometry'
 import PanelSidebar from '../panel-layout/panel-sidebar'
 
 // CRITICAL FIX #12: Comprehensive position persistence debugging
-const DEBUG_POSITION_PERSISTENCE = process.env.NODE_ENV === 'development';
+const DEBUG_POSITION_PERSISTENCE = false; // Temporarily disabled to restore panels
 
 interface PanelLayoutProps {
   mode: 'manual' | 'auto'
@@ -131,10 +131,11 @@ const GRID_MAJOR = 250 // feet
 const SNAP_SIZE = 25 // feet
 
 export default function PanelLayout({ mode, projectInfo, externalPanels, onPanelUpdate, projectId }: PanelLayoutProps) {
-  console.log('🚨 [PanelLayout] === COMPONENT RENDER START ===');
-  console.log('🚨 [PanelLayout] Rendering with props:', { mode, projectInfo, externalPanels, onPanelUpdate, projectId });
-  console.log('🚨 [PanelLayout] externalPanels received:', externalPanels);
-  console.log('🚨 [PanelLayout] externalPanels.length:', externalPanels?.length || 0);
+  // Temporarily disabled excessive logging to restore panels
+  // console.log('🚨 [PanelLayout] === COMPONENT RENDER START ===');
+  // console.log('🚨 [PanelLayout] Rendering with props:', { mode, projectInfo, externalPanels, onPanelUpdate, projectId });
+  // console.log('🚨 [PanelLayout] externalPanels received:', externalPanels);
+  // console.log('🚨 [PanelLayout] externalPanels.length:', externalPanels?.length || 0);
   
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -234,14 +235,15 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   
   // CRITICAL DEBUG: Track component lifecycle
   useEffect(() => {
-    console.log('🚨 [PanelLayout] === COMPONENT MOUNTED ===');
-    console.log('🚨 [PanelLayout] Initial externalPanels:', externalPanels);
-    console.log('🚨 [PanelLayout] Initial panels state:', panels);
+    // Temporarily disabled excessive logging
+    // console.log('🚨 [PanelLayout] === COMPONENT MOUNTED ===');
+    // console.log('🚨 [PanelLayout] Initial externalPanels:', externalPanels);
+    // console.log('🚨 [PanelLayout] Initial panels state:', panels);
     
     return () => {
-      console.log('🚨 [PanelLayout] === COMPONENT UNMOUNTING ===');
-      console.log('🚨 [PanelLayout] Final panels state:', panels);
-      console.log('🚨 [PanelLayout] Final externalPanels:', externalPanels);
+      // console.log('🚨 [PanelLayout] === COMPONENT UNMOUNTING ===');
+      // console.log('🚨 [PanelLayout] Final panels state:', panels);
+      // console.log('🚨 [PanelLayout] Final externalPanels:', externalPanels);
     };
   }, []);
   
@@ -434,37 +436,41 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   
   // CRITICAL DEBUG: Initialize panels from external source with position persistence
   useEffect(() => {
-    console.log('🚨 [PanelLayout] === PANEL RE-RENDER DEBUG START ===');
-    console.log('🚨 [PanelLayout] externalPanels changed, processing...');
-    console.log('🚨 [PanelLayout] externalPanels:', externalPanels);
-    console.log('🚨 [PanelLayout] externalPanels.length:', externalPanels?.length || 0);
+    // Temporarily disabled excessive logging to restore panels
+    // console.log('🚨 [PanelLayout] === PANEL RE-RENDER DEBUG START ===');
+    // console.log('🚨 [PanelLayout] externalPanels changed, processing...');
+    // console.log('🚨 [PanelLayout] externalPanels:', externalPanels);
+    // console.log('🚨 [PanelLayout] externalPanels.length:', externalPanels?.length || 0);
     
     const externalPanelsRef = externalPanels || [];
     const externalPanelsString = JSON.stringify(externalPanelsRef);
     
-    console.log('🚨 [PanelLayout] externalPanelsString:', externalPanelsString);
-    console.log('🚨 [PanelLayout] lastExternalPanels.current:', lastExternalPanels.current);
+    // Temporarily disabled excessive logging
+    // console.log('🚨 [PanelLayout] externalPanelsString:', externalPanelsString);
+    // console.log('🚨 [PanelLayout] lastExternalPanels.current:', lastExternalPanels.current);
     
     // Only process if external panels actually changed
     if (lastExternalPanels.current !== externalPanelsString) {
-      console.log('🚨 [PanelLayout] External panels changed, processing update...');
+      // console.log('🚨 [PanelLayout] External panels changed, processing update...');
       lastExternalPanels.current = externalPanelsString;
       
       // Check if internal panels are already the same
       const internalPanelsString = lastInternalPanels.current;
-      console.log('🚨 [PanelLayout] internalPanelsString:', internalPanelsString);
-      console.log('🚨 [PanelLayout] externalPanelsString === internalPanelsString:', externalPanelsString === internalPanelsString);
+      // console.log('🚨 [PanelLayout] internalPanelsString:', internalPanelsString);
+      // console.log('🚨 [PanelLayout] externalPanelsString === internalPanelsString:', externalPanelsString === internalPanelsString);
       
       if (externalPanelsString === internalPanelsString) {
-        console.log('🚨 [PanelLayout] No change detected, skipping update');
+        // console.log('🚨 [PanelLayout] No change detected, skipping update');
         return;
       }
       
       // CRITICAL DEBUG: localStorage position check with detailed logging
-      console.log('🚨 [PanelLayout] === localStorage POSITION CHECK ===');
+      // Temporarily disabled excessive logging
+      // console.log('🚨 [PanelLayout] === localStorage POSITION CHECK ===');
       const savedPositions = localStorage.getItem('panelLayoutPositions');
-      console.log('🚨 [PanelLayout] savedPositions from localStorage:', savedPositions);
+      // console.log('🚨 [PanelLayout] savedPositions from localStorage:', savedPositions);
       
+      // CRITICAL FIX: Only process localStorage if we have valid external panels
       if (savedPositions && externalPanelsRef.length > 0) {
         try {
           const positionMap = JSON.parse(savedPositions);
@@ -659,23 +665,25 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   
   useEffect(() => {
     // CRITICAL DEBUG: Track localStorage saving
-    console.log('🚨 [PanelLayout] === localStorage SAVING DEBUG ===');
-    console.log('🚨 [PanelLayout] panels.panels changed, checking if save needed...');
-    console.log('🚨 [PanelLayout] Current panels:', panels.panels);
-    console.log('🚨 [PanelLayout] panels.panels.length:', panels.panels.length);
+    // Temporarily disabled excessive logging
+    // console.log('🚨 [PanelLayout] === localStorage SAVING DEBUG ===');
+    // console.log('🚨 [PanelLayout] panels.panels changed, checking if save needed...');
+    // console.log('🚨 [PanelLayout] Current panels:', panels.panels);
+    // console.log('🚨 [PanelLayout] panels.panels.length:', panels.panels.length);
     
     // Only notify parent if panels actually changed
     const currentPanelsString = JSON.stringify(panels.panels);
-    console.log('🚨 [PanelLayout] currentPanelsString:', currentPanelsString);
-    console.log('🚨 [PanelLayout] lastInternalPanels.current:', lastInternalPanels.current);
+    // Temporarily disabled excessive logging
+    // console.log('🚨 [PanelLayout] currentPanelsString:', currentPanelsString);
+    // console.log('🚨 [PanelLayout] lastInternalPanels.current:', lastInternalPanels.current);
     
     // Skip if this change was triggered by external panels update
     if (currentPanelsString === lastInternalPanels.current) {
-      console.log('🚨 [PanelLayout] ⚠️ SKIPPING localStorage save - panels unchanged from external update');
+      // console.log('🚨 [PanelLayout] ⚠️ SKIPPING localStorage save - panels unchanged from external update');
       return;
     }
     
-    console.log('🚨 [PanelLayout] ✅ Proceeding with localStorage save...');
+    // console.log('🚨 [PanelLayout] ✅ Proceeding with localStorage save...');
     
     // Save panel positions to localStorage whenever they change
     try {
@@ -1087,11 +1095,12 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
       }
       
       // CRITICAL DEBUG: Track panel dragging
-      console.log('🚨 [PanelLayout] === PANEL DRAGGING ===');
-      console.log('🚨 [PanelLayout] Dragging panel:', selectedPanel.id);
-      console.log('🚨 [PanelLayout] Old position:', { x: selectedPanel.x, y: selectedPanel.y });
-      console.log('🚨 [PanelLayout] New position:', { x: finalX, y: finalY });
-      console.log('🚨 [PanelLayout] Dispatching UPDATE_PANEL action...');
+      // Temporarily disabled excessive logging
+      // console.log('🚨 [PanelLayout] === PANEL DRAGGING ===');
+      // console.log('🚨 [PanelLayout] Dragging panel:', selectedPanel.id);
+      // console.log('🚨 [PanelLayout] Old position:', { x: selectedPanel.x, y: selectedPanel.y });
+      // console.log('🚨 [PanelLayout] New position:', { x: finalX, y: finalY });
+      // console.log('🚨 [PanelLayout] Dispatching UPDATE_PANEL action...');
       
       dispatch({
         type: 'UPDATE_PANEL',
