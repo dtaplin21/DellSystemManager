@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Loader2, AlertCircle, Plus, Grid3X3 } from 'lucide-react';
+import { Loader2, AlertCircle, Plus, Grid } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -73,7 +73,7 @@ export function EmptyStateFallback({ onAddPanel, onImportLayout }: EmptyStateFal
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
-            <Grid3X3 className="h-6 w-6 text-gray-600" />
+            <Grid className="h-6 w-6 text-gray-600" />
           </div>
           <CardTitle className="text-lg">No Panels Found</CardTitle>
           <CardDescription>
@@ -107,7 +107,7 @@ export function HydrationFallback({ message = 'Initializing panel layout...' }: 
     <div className="flex items-center justify-center min-h-[400px] p-4">
       <div className="text-center">
         <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-blue-100">
-          <Grid3X3 className="h-6 w-6 text-blue-600" />
+          <Grid className="h-6 w-6 text-blue-600" />
         </div>
         <p className="text-sm text-gray-600">{message}</p>
       </div>

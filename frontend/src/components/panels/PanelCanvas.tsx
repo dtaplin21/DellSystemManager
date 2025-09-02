@@ -3,8 +3,8 @@
 import React from 'react';
 import { useCanvas } from '@/hooks/useCanvas';
 import { useMouseInteraction } from '@/hooks/useMouseInteraction';
-import { useCanvasState } from '@/hooks/useLocalStorage';
-import { useCanvasState as useCanvasContext, usePanelState } from '@/contexts/PanelContext';
+import { useCanvasState as useLocalCanvasState } from '@/hooks/useLocalStorage';
+import { useCanvasState, usePanelState } from '@/contexts/PanelContext';
 import { Panel } from '@/types/panel';
 
 interface PanelCanvasProps {
@@ -24,9 +24,9 @@ export function PanelCanvas({
   onPanelDoubleClick,
   enableDebugLogging = false 
 }: PanelCanvasProps) {
-  const { canvas: canvasContext, dispatchCanvas } = useCanvasContext();
+  const { canvas: canvasContext, dispatchCanvas } = useCanvasState();
   const { panels: panelState, dispatchPanels } = usePanelState();
-  const { canvasState: storedCanvasState, updateCanvasState } = useCanvasState();
+  const { canvasState: storedCanvasState, updateCanvasState } = useLocalCanvasState();
 
   // Canvas rendering hook
   const { canvasRef, render, getWorldCoordinates, getScreenCoordinates, resizeCanvas } = useCanvas({

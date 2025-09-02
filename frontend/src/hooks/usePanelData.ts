@@ -28,7 +28,7 @@ interface UsePanelDataReturn {
   clearLocalStorage: () => void;
 }
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003';
 
 export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptions): UsePanelDataReturn {
   const flags = { ...DEFAULT_FEATURE_FLAGS, ...featureFlags };
@@ -99,10 +99,33 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
       const data = await response.json();
       debugLog('Backend response', data);
 
-      if (validatePanelLayout(data)) {
-        return data;
+      // Map backend data structure to frontend interface
+      const mappedLayout = {
+        id: data.id || `layout-${projectId}`,
+        projectId: projectId,
+        panels: data.panels?.map((backendPanel: any) => ({
+          id: backendPanel.id || `panel-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          width: backendPanel.width_feet || backendPanel.width || 1,
+          height: backendPanel.height_feet || backendPanel.height || 1,
+          x: backendPanel.x || 0,
+          y: backendPanel.y || 0,
+          rotation: backendPanel.rotation || 0,
+          isValid: true,
+          shape: backendPanel.type === 'triangle' ? 'triangle' : 
+                 backendPanel.type === 'right-triangle' ? 'right-triangle' : 'rectangle',
+          type: backendPanel.type || 'panel',
+          model: backendPanel.model || 'Unknown',
+          manufacturer: backendPanel.manufacturer || 'Unknown',
+          power: backendPanel.power || 0,
+          efficiency: backendPanel.efficiency || 0,
+          panelNumber: backendPanel.panel_number || backendPanel.panelNumber || 'Unknown'
+        })) || []
+      };
+
+      if (validatePanelLayout(mappedLayout)) {
+        return mappedLayout;
       } else {
-        throw new Error('Invalid panel layout data from backend');
+        throw new Error('Invalid panel layout data from backend after mapping');
       }
     } catch (error) {
       debugLog('Error fetching backend data', error);

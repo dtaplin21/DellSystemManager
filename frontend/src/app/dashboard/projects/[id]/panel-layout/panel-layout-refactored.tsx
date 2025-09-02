@@ -10,13 +10,15 @@ import {
   EmptyStateFallback, 
   HydrationFallback 
 } from '@/components/panels/PanelLayoutFallbacks';
-import { PanelLayout } from '@/components/panels/PanelLayout';
+import { PanelLayoutRefactored as PanelLayoutComponent } from '@/components/panels/PanelLayoutRefactored';
 import { Panel } from '@/types/panel';
 
 // Progressive enhancement: Start simple, enhance on client
 export default function PanelLayoutRefactored() {
   const params = useParams();
   const projectId = params.id as string;
+  
+
   
   // Client-side hydration state
   const [isHydrated, setIsHydrated] = useState(false);
@@ -142,11 +144,14 @@ export default function PanelLayoutRefactored() {
             )}
             
             {/* Main panel layout component */}
-            <PanelLayout
+            <PanelLayoutComponent
               panels={panels}
-              onPanelPositionUpdate={handlePanelPositionUpdate}
-              onPanelAdd={addPanel}
-              onPanelRemove={removePanel}
+              onPanelClick={(panel) => console.log('Panel clicked:', panel.id)}
+              onPanelDoubleClick={(panel) => console.log('Panel double-clicked:', panel.id)}
+              onPanelUpdate={(updatedPanels) => console.log('Panels updated:', updatedPanels.length)}
+              onSave={() => console.log('Save clicked')}
+              onExport={() => console.log('Export clicked')}
+              onImport={() => console.log('Import clicked')}
               featureFlags={featureFlags}
             />
           </div>
