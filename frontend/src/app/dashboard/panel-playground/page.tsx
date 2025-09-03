@@ -151,7 +151,7 @@ export default function PanelPlaygroundPage() {
             let newX = p.x;
             let newY = p.y;
             let newWidth = p.width;
-            let newLength = p.length;
+            let newHeight = p.height;
 
             // Calculate new dimensions based on resize handle
             switch (dragInfo.resizeHandle) {
@@ -159,47 +159,47 @@ export default function PanelPlaygroundPage() {
                 newX = p.x + deltaX;
                 newY = p.y + deltaY;
                 newWidth = p.width - deltaX;
-                newLength = p.length - deltaY;
+                newHeight = p.height - deltaY;
                 break;
               case 'ne':
                 newY = p.y + deltaY;
                 newWidth = p.width + deltaX;
-                newLength = p.length - deltaY;
+                newHeight = p.height - deltaY;
                 break;
               case 'sw':
                 newX = p.x + deltaX;
                 newWidth = p.width - deltaX;
-                newLength = p.length + deltaY;
+                newHeight = p.height + deltaY;
                 break;
               case 'se':
                 newWidth = p.width + deltaX;
-                newLength = p.length + deltaY;
+                newHeight = p.height + deltaY;
                 break;
             }
 
             // Apply minimum size constraints
             newWidth = Math.max(1, newWidth);
-            newLength = Math.max(1, newLength);
+            newHeight = Math.max(1, newHeight);
 
             // Apply grid snapping if enabled
             if (settings.snapToGrid) {
               newX = snapToGrid(newX, settings.gridSize);
               newY = snapToGrid(newY, settings.gridSize);
               newWidth = snapToGrid(newWidth, settings.gridSize);
-              newLength = snapToGrid(newLength, settings.gridSize);
+              newHeight = snapToGrid(newHeight, settings.gridSize);
             }
 
             // Ensure panel stays within container bounds
             // Use actual panel dimensions for bounds checking (not scaled visual dimensions)
             newX = Math.max(0, Math.min(settings.containerWidth - newWidth, newX));
-            newY = Math.max(0, Math.min(settings.containerHeight - newLength, newY));
+            newY = Math.max(0, Math.min(settings.containerHeight - newHeight, newY));
 
             return {
               ...p,
               x: newX,
               y: newY,
               width: newWidth,
-              length: newLength
+              height: newHeight
             };
           }
           return p;
@@ -236,14 +236,14 @@ export default function PanelPlaygroundPage() {
               x: p.x,
               y: p.y,
               width: p.width,
-              height: p.length
+              height: p.height
             }));
 
             let snapResult;
             if (panel.shape === 'right-triangle') {
-              snapResult = applyPanelSnapping(newX, newY, panel.width, panel.length, otherPanels, 4, 'right-triangle');
+              snapResult = applyPanelSnapping(newX, newY, panel.width, panel.height, otherPanels, 4, 'right-triangle');
             } else {
-              snapResult = applyPanelSnapping(newX, newY, panel.width, panel.length, otherPanels, 4, 'rectangle');
+              snapResult = applyPanelSnapping(newX, newY, panel.width, panel.height, otherPanels, 4, 'rectangle');
             }
 
             // Use snapped position if available, otherwise use calculated position
@@ -253,7 +253,7 @@ export default function PanelPlaygroundPage() {
             // Ensure panel stays within container bounds during drag
             // Use actual panel dimensions for bounds checking
             newX = Math.max(0, Math.min(settings.containerWidth - panel.width, newX));
-            newY = Math.max(0, Math.min(settings.containerHeight - panel.length, newY));
+            newY = Math.max(0, Math.min(settings.containerHeight - panel.height, newY));
 
             return {
               ...panel,
@@ -277,7 +277,7 @@ export default function PanelPlaygroundPage() {
     for (let i = panels.length - 1; i >= 0; i--) {
       const panel = panels[i];
       const panelWidth = panel.width * 5;
-      const panelHeight = panel.length * 2;
+      const panelHeight = panel.height * 2;
       
       let isInside = false;
       
@@ -314,7 +314,7 @@ export default function PanelPlaygroundPage() {
       }
       
       if (isInside) {
-        const tooltipContent = `Panel: ${panel.panelNumber}\nRoll: ${panel.rollNumber}\nSize: ${panel.width}' × ${panel.length}'`;
+        const tooltipContent = `Panel: ${panel.panelNumber}\nRoll: ${panel.rollNumber}\nSize: ${panel.width}' × ${panel.height}'`;
         showTooltip(tooltipContent, e.clientX, e.clientY);
         return;
       }
@@ -378,7 +378,7 @@ export default function PanelPlaygroundPage() {
     panels.forEach(panel => {
       const isSelected = selectedPanel === panel.id;
       const panelWidth = panel.width * 5;
-      const panelHeight = panel.length * 2;
+      const panelHeight = panel.height * 2;
       
       // Panel shadow
       if (isSelected) {
@@ -475,7 +475,7 @@ export default function PanelPlaygroundPage() {
       }
       
       ctx.fillText(panel.panelNumber || 'N/A', textX, textY);
-      ctx.fillText(`${panel.width}' × ${panel.length}'`, textX, textY + 15 / scale);
+      ctx.fillText(`${panel.width}' × ${panel.height}'`, textX, textY + 15 / scale);
     });
 
     ctx.restore();
@@ -492,7 +492,7 @@ export default function PanelPlaygroundPage() {
       panelNumber,
       width: dimensions.width,
       height: dimensions.length, // height should match length for consistency
-      length: dimensions.length,
+      isValid: true,
       shape: selectedShape,
       x: 50 + (panels.length * 20),
       y: 50 + (panels.length * 15),
@@ -530,7 +530,7 @@ export default function PanelPlaygroundPage() {
       if (panel) {
         const handleSize = 8 / scale;
         const panelWidth = panel.width * 5;
-        const panelHeight = panel.length * 2;
+        const panelHeight = panel.height * 2;
         
         const handles = [
           { x: panel.x - handleSize/2, y: panel.y - handleSize/2, id: 'nw' },
@@ -552,7 +552,7 @@ export default function PanelPlaygroundPage() {
     // Check for panel selection with shape-specific hit detection
     const clickedPanel = panels.find(panel => {
       const panelWidth = panel.width * 5;
-      const panelHeight = panel.length * 2;
+      const panelHeight = panel.height * 2;
       
       if (panel.shape === 'right-triangle') {
         // Check if point is inside right triangle
@@ -761,7 +761,7 @@ export default function PanelPlaygroundPage() {
                     minX = Math.min(minX, panel.x);
                     minY = Math.min(minY, panel.y);
                     maxX = Math.max(maxX, panel.x + (panel.width || 0));
-                    maxY = Math.max(maxY, panel.y + (panel.length || 0));
+                    maxY = Math.max(maxY, panel.y + (panel.height || 0));
                   });
                   fitToContent({ x: minX, y: minY, width: maxX - minX, height: maxY - minY }, 40);
                 }} variant="outline" size="sm" className="w-full">Zoom to Fit</Button>
@@ -781,7 +781,7 @@ export default function PanelPlaygroundPage() {
                     onClick={() => setSelectedPanel(panel.id)}
                   >
                     <div className="font-medium">{panel.rollNumber} - {panel.panelNumber}</div>
-                    <div className="text-gray-600">{panel.width}&apos; × {panel.length}&apos;</div>
+                    <div className="text-gray-600">{panel.width}&apos; × {panel.height}&apos;</div>
                   </div>
                 ))}
               </div>

@@ -118,7 +118,8 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
           manufacturer: backendPanel.manufacturer || 'Unknown',
           power: backendPanel.power || 0,
           efficiency: backendPanel.efficiency || 0,
-          panelNumber: backendPanel.panel_number || backendPanel.panelNumber || 'Unknown'
+          panelNumber: backendPanel.panel_number || backendPanel.panelNumber || 'Unknown',
+          rollNumber: backendPanel.roll_number || backendPanel.rollNumber || 'Unknown'
         })) || []
       };
 

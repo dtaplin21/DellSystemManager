@@ -9,13 +9,25 @@ export interface Panel {
   y: number;
   rotation?: number;
   isValid: boolean;
-  shape?: 'rectangle' | 'triangle' | 'right-triangle';
+  shape?: 'rectangle' | 'triangle' | 'right-triangle' | 'circle';
   // Additional panel properties
   type?: string;
   model?: string;
   manufacturer?: string;
   power?: number;
   efficiency?: number;
+  panelNumber?: string;
+  rollNumber?: string;
+  color?: string;
+  fill?: string;
+  date?: string;
+  location?: string;
+  meta?: {
+    repairs?: any[];
+    airTest?: { result: string };
+  };
+  points?: any[];
+  radius?: number;
 }
 
 export interface PanelLayout {

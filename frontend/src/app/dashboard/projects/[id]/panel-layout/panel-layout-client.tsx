@@ -167,7 +167,7 @@ export default function PanelLayoutClient({
           console.log('🚨 [CLIENT] Real layout data fetched:', realLayout);
           
           if (realLayout.success && realLayout.layout && realLayout.layout.panels) {
-            console.log('🚨 [CLIENT] Backend panel positions:', realLayout.layout.panels.map(p => ({ id: p.id, x: p.x, y: p.y })));
+            console.log('🚨 [CLIENT] Backend panel positions:', realLayout.layout.panels.map((p: any) => ({ id: p.id, x: p.x, y: p.y })));
           }
           
           if (realLayout.success && realLayout.layout) {
@@ -181,7 +181,7 @@ export default function PanelLayoutClient({
                 
                 // Merge backend data with localStorage positions (localStorage wins)
                 console.log('🚨 [CLIENT] Merging backend data with localStorage positions...');
-                const panelsWithPreservedPositions = realLayout.layout.panels.map(panel => {
+                const panelsWithPreservedPositions = realLayout.layout.panels.map((panel: any) => {
                   const saved = positionMap[panel.id];
                   if (saved && typeof saved.x === 'number' && typeof saved.y === 'number') {
                     console.log(`🚨 [CLIENT] 🚨🚨🚨 localStorage OVERRIDE: panel ${panel.id}: backend(${panel.x}, ${panel.y}) -> localStorage(${saved.x}, ${saved.y}) 🚨🚨🚨`);
@@ -595,7 +595,7 @@ export default function PanelLayoutClient({
       // CRITICAL DEBUG: Check localStorage first to preserve positions during mapping
       console.log('🚨 [CLIENT] Checking localStorage for positions during mapping...');
       const savedPositions = localStorage.getItem('panelLayoutPositions');
-      let positionMap = {};
+      let positionMap: Record<string, { x: number; y: number }> = {};
       
       console.log('🚨 [CLIENT] localStorage savedPositions during mapping:', savedPositions);
       
@@ -645,7 +645,7 @@ export default function PanelLayoutClient({
           y: y,
           width: width,
           height: length,
-          length: length,
+          isValid: true,
           rotation: Number(panel.rotation || 0),
           fill: panel.fill || '#3b82f6',
           color: panel.color || panel.fill || '#3b82f6',
@@ -1196,7 +1196,7 @@ export default function PanelLayoutClient({
                 if (mappedPanels.length > 0) {
                   console.log('🔍 [CLIENT] Panel dimensions:');
                   mappedPanels.forEach((panel, idx) => {
-                    console.log(`🔍 [CLIENT] Panel ${idx}: width=${panel.width}, length=${panel.length}, x=${panel.x}, y=${panel.y}`);
+                    console.log(`🔍 [CLIENT] Panel ${idx}: width=${panel.width}, height=${panel.height}, x=${panel.x}, y=${panel.y}`);
                   });
                 }
                 

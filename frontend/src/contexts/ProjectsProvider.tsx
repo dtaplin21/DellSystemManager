@@ -73,7 +73,7 @@ function mapBackendPanelToFrontend(panel: any): CanonicalPanel | null {
     id: panel.id,
     date: panel.date || '',
     panelNumber: panel.panel_number || panel.panelNumber || '',
-    length: panel.length || panel.height || 0,
+    isValid: true,
     height: panel.height || panel.length || 0,
     width: panel.width || 0,
     rollNumber: panel.roll_number || panel.rollNumber || '',

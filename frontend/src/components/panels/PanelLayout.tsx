@@ -947,7 +947,8 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
         // Enhanced hit test based on panel shape
         let isHit = false;
         
-        switch (panel.shape) {
+        switch (panel.
+          shape) {
           case 'triangle':
             // Point-in-triangle test for equilateral triangle
             const centerX = panel.x + panel.width / 2;

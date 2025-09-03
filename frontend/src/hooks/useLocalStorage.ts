@@ -117,18 +117,15 @@ export function usePanelPositions() {
   );
 
   const updatePanelPosition = useCallback((panelId: string, position: { x: number; y: number; rotation?: number }) => {
-    setPositions(prev => ({
-      ...prev,
-      [panelId]: position
-    }));
-  }, [setPositions]);
+    const newPositions = { ...positions };
+    newPositions[panelId] = position;
+    setPositions(newPositions);
+  }, [positions, setPositions]);
 
   const removePanelPosition = useCallback((panelId: string) => {
-    setPositions(prev => {
-      const { [panelId]: removed, ...rest } = prev;
-      return rest;
-    });
-  }, [setPositions]);
+    const { [panelId]: removed, ...rest } = positions;
+    setPositions(rest);
+  }, [positions, setPositions]);
 
   const getPanelPosition = useCallback((panelId: string) => {
     return positions[panelId] || null;
@@ -162,8 +159,9 @@ export function useCanvasState() {
   );
 
   const updateCanvasState = useCallback((updates: Partial<typeof canvasState>) => {
-    setCanvasState(prev => ({ ...prev, ...updates }));
-  }, [setCanvasState]);
+    const newState = { ...canvasState, ...updates };
+    setCanvasState(newState);
+  }, [canvasState, setCanvasState]);
 
   return {
     canvasState,

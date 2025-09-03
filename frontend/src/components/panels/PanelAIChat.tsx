@@ -61,7 +61,7 @@ export default function PanelAIChat({ projectInfo, panels, setPanels }: PanelAIC
         panels: panels.map(panel => ({
           id: panel.id,
           panelNumber: panel.panelNumber,
-          length: panel.length,
+          height: panel.height,
           width: panel.width,
           location: panel.location,
           x: panel.x,
@@ -85,7 +85,7 @@ export default function PanelAIChat({ projectInfo, panels, setPanels }: PanelAIC
           id: Date.now().toString(),
           date: new Date().toISOString().slice(0, 10),
           panelNumber: `P${panels.length + 1}`,
-          length: 100,
+          isValid: true,
           height: 100, // height should match length for consistency
           width: 40,
           rollNumber: `R-${100 + panels.length + 1}`,
@@ -186,34 +186,34 @@ export default function PanelAIChat({ projectInfo, panels, setPanels }: PanelAIC
           )
           
           if (panelIndex >= 0) {
-            let newLength = panels[panelIndex].length
+            let newHeight = panels[panelIndex].height
             let newWidth = panels[panelIndex].width
             
             // Check for size adjustments
             if (/larger|bigger|increase/i.test(userMessage)) {
-              newLength *= 1.2
+              newHeight *= 1.2
               newWidth *= 1.2
             } else if (/smaller|reduce|decrease/i.test(userMessage)) {
-              newLength *= 0.8
+              newHeight *= 0.8
               newWidth *= 0.8
             }
             
             // Check for specific dimensions
             const dimensionMatch = userMessage.match(/(\d+(\.\d+)?)\s*(?:ft|feet|')\s*[xX]\s*(\d+(\.\d+)?)\s*(?:ft|feet|')/i)
             if (dimensionMatch) {
-              newLength = parseFloat(dimensionMatch[1])
+              newHeight = parseFloat(dimensionMatch[1])
               newWidth = parseFloat(dimensionMatch[3])
             }
             
             updatedPanels = panels.map((panel, i) => {
               if (i === panelIndex) {
-                return { ...panel, length: newLength, width: newWidth }
+                return { ...panel, height: newHeight, width: newWidth }
               }
               return panel
             })
             
             setPanels(updatedPanels)
-            responseMessage = `I've resized panel ${targetPanelNumber} to ${newLength.toFixed(1)} ft x ${newWidth.toFixed(1)} ft.`
+            responseMessage = `I've resized panel ${targetPanelNumber} to ${newHeight.toFixed(1)} ft x ${newWidth.toFixed(1)} ft.`
           } else {
             responseMessage = `I couldn't find panel ${targetPanelNumber}. Please check the panel number and try again.`
           }

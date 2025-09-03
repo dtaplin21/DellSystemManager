@@ -257,13 +257,13 @@ export function useMouseInteraction({
 
     // Add event listeners
     Object.entries(handlers).forEach(([event, handler]) => {
-      canvas.addEventListener(event, handler, { passive: false });
+      canvas.addEventListener(event, handler as EventListener, { passive: false });
     });
 
     // Cleanup
     return () => {
       Object.entries(handlers).forEach(([event, handler]) => {
-        canvas.removeEventListener(event, handler);
+        canvas.removeEventListener(event, handler as EventListener);
       });
     };
   }, [canvas, handleMouseDown, handleMouseMove, handleMouseUp, handleWheel, handleContextMenu]);

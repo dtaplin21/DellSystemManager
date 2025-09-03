@@ -9,7 +9,7 @@ import {
   Save, 
   Download, 
   Upload,
-  Grid3X3,
+  Grid,
   Maximize,
   Minimize
 } from 'lucide-react';
@@ -114,7 +114,7 @@ export function PanelToolbar({
         onClick={onToggleGrid}
         title="Toggle Grid"
       >
-        <Grid3X3 className="h-4 w-4" />
+        <Grid className="h-4 w-4" />
       </Button>
 
       <div className="w-px h-6 bg-gray-300" />

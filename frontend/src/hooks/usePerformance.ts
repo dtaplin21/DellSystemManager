@@ -113,7 +113,7 @@ export function useExpensiveCalculation<T, D extends readonly unknown[]>(
     // Cache the result
     cacheRef.current = {
       result,
-      deps: [...deps] as D,
+      deps: [...deps] as unknown as D,
       timestamp: now,
     };
 
