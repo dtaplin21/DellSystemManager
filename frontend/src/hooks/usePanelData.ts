@@ -104,8 +104,12 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
       }
 
       const data = await response.json();
-      console.log('🔍 [usePanelData] Backend response:', data);
+      console.log('🔍 [usePanelData] ===== BACKEND RESPONSE RECEIVED =====');
+      console.log('🔍 [usePanelData] Full response:', JSON.stringify(data, null, 2));
+      console.log('🔍 [usePanelData] Success:', data.success);
+      console.log('🔍 [usePanelData] Layout exists:', !!data.layout);
       console.log('🔍 [usePanelData] Panels count:', data.layout?.panels?.length || 0);
+      console.log('🔍 [usePanelData] First panel:', data.layout?.panels?.[0]);
 
       // Map backend data structure to frontend interface
       console.log('🔍 [usePanelData] Mapping backend data...');
