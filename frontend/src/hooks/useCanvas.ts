@@ -38,10 +38,19 @@ export function useCanvas({
   const animationFrameRef = useRef<number>();
   const lastRenderTimeRef = useRef<number>(0);
 
-  const log = useCallback((message: string, data?: any) => {
+  const logRef = useRef((message: string, data?: any) => {
     if (enableDebugLogging) {
       console.log(`[useCanvas] ${message}`, data);
     }
+  });
+  
+  // Update log function when enableDebugLogging changes
+  useEffect(() => {
+    logRef.current = (message: string, data?: any) => {
+      if (enableDebugLogging) {
+        console.log(`[useCanvas] ${message}`, data);
+      }
+    };
   }, [enableDebugLogging]);
 
   // Coordinate transformation functions
@@ -118,8 +127,8 @@ export function useCanvas({
     // Restore context state
     ctx.restore();
 
-    log('Canvas rendered', { panelCount: panels.length, worldScale: canvasState.worldScale });
-  }, [panels, canvasState, log]);
+    logRef.current('Canvas rendered', { panelCount: panels.length, worldScale: canvasState.worldScale });
+  }, [panels, canvasState]);
 
   // Grid drawing function
   const drawGrid = useCallback((ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, state: CanvasState) => {
@@ -209,8 +218,8 @@ export function useCanvas({
       ctx.scale(dpr, dpr);
     }
 
-    log('Canvas resized', { width: rect.width, height: rect.height, dpr });
-  }, [log]);
+    logRef.current('Canvas resized', { width: rect.width, height: rect.height, dpr });
+  }, []);
 
   // Mouse event handlers
   const handleCanvasClick = useCallback((event: MouseEvent) => {

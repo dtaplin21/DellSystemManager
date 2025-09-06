@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 
 interface UseLocalStorageOptions {
   enableLogging?: boolean;
@@ -158,9 +158,13 @@ export function useCanvasState() {
     { enableLogging: process.env.NODE_ENV === 'development' }
   );
 
+  // Use ref to avoid dependency on canvasState
+  const canvasStateRef = useRef(canvasState);
+  canvasStateRef.current = canvasState;
+
   const updateCanvasState = useCallback((updates: Partial<typeof canvasState>) => {
-    setCanvasState({ ...canvasState, ...updates });
-  }, [canvasState, setCanvasState]);
+    setCanvasState({ ...canvasStateRef.current, ...updates });
+  }, [setCanvasState]);
 
   return {
     canvasState,

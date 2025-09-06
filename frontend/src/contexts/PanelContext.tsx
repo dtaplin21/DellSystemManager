@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useReducer, ReactNode } from 'react';
+import React, { createContext, useContext, useReducer, ReactNode, useEffect } from 'react';
 import { Panel, PanelPositionMap, FeatureFlags } from '@/types/panel';
 
 // State interfaces
@@ -282,6 +282,14 @@ export function PanelProvider({ children, initialPanels = [], featureFlags = {} 
     panels: { ...initialPanelState, panels: initialPanels },
     featureFlags: { ...initialState.featureFlags, ...featureFlags },
   });
+
+  // Sync panels when initialPanels change
+  useEffect(() => {
+    if (initialPanels.length !== state.panels.panels.length || 
+        JSON.stringify(initialPanels) !== JSON.stringify(state.panels.panels)) {
+      dispatch({ type: 'PANELS', payload: { type: 'SET_PANELS', payload: initialPanels } });
+    }
+  }, [initialPanels, state.panels.panels]);
 
   // console.log('🔍 [PanelProvider] State after initialization:', state);
   // console.log('🔍 [PanelProvider] State panels count:', state.panels.panels.length);

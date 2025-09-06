@@ -36,7 +36,7 @@ export function PanelCanvas({
 
   // Canvas rendering hook
   const { canvasRef, render, getWorldCoordinates, getScreenCoordinates, resizeCanvas } = useCanvas({
-    panels,
+    panels: panelState.panels, // Use panels from context instead of props
     canvasState: {
       worldScale: canvasContext.worldScale,
       worldOffsetX: canvasContext.worldOffsetX,
@@ -50,7 +50,7 @@ export function PanelCanvas({
   // Mouse interaction hook
   const { mouseState, getWorldCoordinates: getMouseWorldCoords, getPanelAtPosition } = useMouseInteraction({
     canvas: canvasRef.current,
-    panels,
+    panels: panelState.panels, // Use panels from context instead of props
     worldScale: canvasContext.worldScale,
     worldOffsetX: canvasContext.worldOffsetX,
     worldOffsetY: canvasContext.worldOffsetY,
@@ -76,7 +76,7 @@ export function PanelCanvas({
     enableDebugLogging,
   });
 
-  // Load stored canvas state on mount
+  // Load stored canvas state on mount only
   React.useEffect(() => {
     if (storedCanvasState) {
       dispatchCanvas({ type: 'SET_WORLD_SCALE', payload: storedCanvasState.worldScale });
@@ -85,16 +85,22 @@ export function PanelCanvas({
         y: storedCanvasState.worldOffsetY 
       }});
     }
-  }, [storedCanvasState]); // Removed dispatchCanvas from dependencies
+  }, []); // Only run on mount
 
-  // Persist canvas state when it changes
+  // Persist canvas state when it changes (but not on initial load)
+  const isInitialMount = React.useRef(true);
   React.useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return; // Skip on initial mount
+    }
+    
     updateCanvasState({
       worldScale: canvasContext.worldScale,
       worldOffsetX: canvasContext.worldOffsetX,
       worldOffsetY: canvasContext.worldOffsetY,
     });
-  }, [canvasContext.worldScale, canvasContext.worldOffsetX, canvasContext.worldOffsetY]); // Removed updateCanvasState from dependencies
+  }, [canvasContext.worldScale, canvasContext.worldOffsetX, canvasContext.worldOffsetY, updateCanvasState]);
 
   return (
     <div className="relative w-full h-full overflow-hidden">

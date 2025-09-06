@@ -35,7 +35,7 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
   // console.log('🔍 [usePanelData] Project ID:', projectId);
   // console.log('🔍 [usePanelData] Feature flags:', featureFlags);
   
-  const flags = { ...DEFAULT_FEATURE_FLAGS, ...featureFlags };
+  const flags = useMemo(() => ({ ...DEFAULT_FEATURE_FLAGS, ...featureFlags }), [featureFlags]);
   
   const [dataState, setDataState] = useState<PanelDataState>({
     state: 'loading',
@@ -367,11 +367,19 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
     console.log('🔍 [usePanelData] isClient:', typeof window !== 'undefined');
     
     if (typeof window !== 'undefined') {
-      loadData();
+      loadData().catch(error => {
+        console.error('🔍 [usePanelData] loadData failed:', error);
+        setDataState({
+          state: 'error',
+          panels: [],
+          lastUpdated: Date.now(),
+          error: error.message
+        });
+      });
     } else {
       console.log('🔍 [usePanelData] Skipping loadData - not on client side');
     }
-  }, [loadData]);
+  }, [projectId]); // Only depend on projectId, not loadData
 
   // Computed values
   const isLoading = dataState.state === 'loading';

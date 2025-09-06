@@ -10,7 +10,7 @@ import {
   EmptyStateFallback, 
   HydrationFallback 
 } from '@/components/panels/PanelLayoutFallbacks';
-import { PanelLayoutRefactored as PanelLayoutComponent } from '@/components/panels/PanelLayoutRefactored';
+import PanelLayoutComponent from '@/components/panels/PanelLayoutRefactored';
 import { Panel } from '@/types/panel';
 
 // Progressive enhancement: Start simple, enhance on client
@@ -55,6 +55,11 @@ export default function PanelLayoutRefactored() {
     error,
     panelsCount: panels.length
   });
+  
+  // Add more detailed logging
+  console.log('🔍 [PanelLayoutRefactored] Full dataState:', dataState);
+  console.log('🔍 [PanelLayoutRefactored] Panels array:', panels);
+  console.log('🔍 [PanelLayoutRefactored] Error details:', error);
 
   // Handle client-side hydration
   useEffect(() => {
@@ -100,7 +105,16 @@ export default function PanelLayoutRefactored() {
     <PanelLayoutErrorBoundary>
       <div className="h-full w-full">
         {/* Loading state */}
-        {isLoading && <LoadingFallback />}
+        {isLoading && (
+          <div>
+            <div className="text-center p-4 bg-yellow-100">
+              <p>Debug: isLoading = {isLoading.toString()}</p>
+              <p>Debug: dataState.state = {dataState.state}</p>
+              <p>Debug: panels.length = {panels.length}</p>
+            </div>
+            <LoadingFallback />
+          </div>
+        )}
         
         {/* Error state */}
         {error && (
