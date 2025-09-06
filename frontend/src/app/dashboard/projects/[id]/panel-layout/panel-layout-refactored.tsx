@@ -15,9 +15,12 @@ import { Panel } from '@/types/panel';
 
 // Progressive enhancement: Start simple, enhance on client
 export default function PanelLayoutRefactored() {
+  console.log('🔍 [PanelLayoutRefactored] ===== COMPONENT RENDERED =====');
+  
   const params = useParams();
   const projectId = params.id as string;
   
+  console.log('🔍 [PanelLayoutRefactored] Project ID from params:', projectId);
 
   
   // Client-side hydration state
@@ -33,6 +36,7 @@ export default function PanelLayoutRefactored() {
   };
 
   // Use our custom hook for data management
+  console.log('🔍 [PanelLayoutRefactored] About to call usePanelData with:', { projectId, featureFlags });
   const {
     dataState,
     isLoading,
@@ -44,6 +48,13 @@ export default function PanelLayoutRefactored() {
     refreshData,
     clearLocalStorage
   } = usePanelData({ projectId, featureFlags });
+  
+  console.log('🔍 [PanelLayoutRefactored] Hook returned:', {
+    dataState: dataState.state,
+    isLoading,
+    error,
+    panelsCount: panels.length
+  });
 
   // Handle client-side hydration
   useEffect(() => {

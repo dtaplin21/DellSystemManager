@@ -2,6 +2,7 @@ import { Suspense } from 'react';
 import Loading from './loading';
 import Error from './error';
 import PanelLayoutRefactored from './panel-layout-refactored';
+import TestPanelData from './test-panel-data';
 
 interface PageProps {
   params: Promise<{ id: string }>;

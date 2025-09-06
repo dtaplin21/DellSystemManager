@@ -24,9 +24,15 @@ export function PanelCanvas({
   onPanelDoubleClick,
   enableDebugLogging = false 
 }: PanelCanvasProps) {
+  // console.log('🔍 [PanelCanvas] Component rendered with panels:', panels);
+  // console.log('🔍 [PanelCanvas] Panels count:', panels.length);
+  
   const { canvas: canvasContext, dispatchCanvas } = useCanvasState();
   const { panels: panelState, dispatchPanels } = usePanelState();
   const { canvasState: storedCanvasState, updateCanvasState } = useLocalCanvasState();
+  
+  // console.log('🔍 [PanelCanvas] Panel state from context:', panelState);
+  // console.log('🔍 [PanelCanvas] Panel state panels count:', panelState.panels.length);
 
   // Canvas rendering hook
   const { canvasRef, render, getWorldCoordinates, getScreenCoordinates, resizeCanvas } = useCanvas({
@@ -79,7 +85,7 @@ export function PanelCanvas({
         y: storedCanvasState.worldOffsetY 
       }});
     }
-  }, [storedCanvasState, dispatchCanvas]);
+  }, [storedCanvasState]); // Removed dispatchCanvas from dependencies
 
   // Persist canvas state when it changes
   React.useEffect(() => {
@@ -88,7 +94,7 @@ export function PanelCanvas({
       worldOffsetX: canvasContext.worldOffsetX,
       worldOffsetY: canvasContext.worldOffsetY,
     });
-  }, [canvasContext.worldScale, canvasContext.worldOffsetX, canvasContext.worldOffsetY, updateCanvasState]);
+  }, [canvasContext.worldScale, canvasContext.worldOffsetX, canvasContext.worldOffsetY]); // Removed updateCanvasState from dependencies
 
   return (
     <div className="relative w-full h-full overflow-hidden">

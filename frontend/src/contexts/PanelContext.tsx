@@ -274,11 +274,17 @@ interface PanelProviderProps {
 }
 
 export function PanelProvider({ children, initialPanels = [], featureFlags = {} }: PanelProviderProps) {
+  // console.log('🔍 [PanelProvider] Initializing with panels:', initialPanels);
+  // console.log('🔍 [PanelProvider] Initial panels count:', initialPanels.length);
+  
   const [state, dispatch] = useReducer(appReducer, {
     ...initialState,
     panels: { ...initialPanelState, panels: initialPanels },
     featureFlags: { ...initialState.featureFlags, ...featureFlags },
   });
+
+  // console.log('🔍 [PanelProvider] State after initialization:', state);
+  // console.log('🔍 [PanelProvider] State panels count:', state.panels.panels.length);
 
   return (
     <PanelContext.Provider value={{ state, dispatch }}>

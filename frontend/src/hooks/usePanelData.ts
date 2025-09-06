@@ -31,6 +31,10 @@ interface UsePanelDataReturn {
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003';
 
 export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptions): UsePanelDataReturn {
+  // console.log('🔍 [usePanelData] ===== HOOK INITIALIZED =====');
+  // console.log('🔍 [usePanelData] Project ID:', projectId);
+  // console.log('🔍 [usePanelData] Feature flags:', featureFlags);
+  
   const flags = { ...DEFAULT_FEATURE_FLAGS, ...featureFlags };
   
   const [dataState, setDataState] = useState<PanelDataState>({
@@ -89,39 +93,55 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
   // Fetch data from backend
   const fetchBackendData = useCallback(async (): Promise<PanelLayout | null> => {
     try {
-      debugLog('Fetching backend data for project', projectId);
+      console.log('🔍 [usePanelData] Fetching backend data for project', projectId);
+      console.log('🔍 [usePanelData] Backend URL:', `${BACKEND_URL}/api/panel-layout/ssr-layout/${projectId}`);
       
       const response = await fetch(`${BACKEND_URL}/api/panel-layout/ssr-layout/${projectId}`);
+      console.log('🔍 [usePanelData] Response status:', response.status, response.ok);
+      
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
       const data = await response.json();
-      debugLog('Backend response', data);
+      console.log('🔍 [usePanelData] Backend response:', data);
+      console.log('🔍 [usePanelData] Panels count:', data.layout?.panels?.length || 0);
 
       // Map backend data structure to frontend interface
+      console.log('🔍 [usePanelData] Mapping backend data...');
+      console.log('🔍 [usePanelData] data.layout:', data.layout);
+      console.log('🔍 [usePanelData] data.layout.panels:', data.layout?.panels);
+      
+      // CRITICAL FIX: The API returns { success: true, layout: { panels: [...] } }
+      // But we were trying to access data.panels instead of data.layout.panels
       const mappedLayout = {
-        id: data.id || `layout-${projectId}`,
+        id: data.layout?.id || `layout-${projectId}`,
         projectId: projectId,
-        panels: data.panels?.map((backendPanel: any) => ({
-          id: backendPanel.id || `panel-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          width: backendPanel.width_feet || backendPanel.width || 1,
-          height: backendPanel.height_feet || backendPanel.height || 1,
-          x: backendPanel.x || 0,
-          y: backendPanel.y || 0,
-          rotation: backendPanel.rotation || 0,
-          isValid: true,
-          shape: backendPanel.type === 'triangle' ? 'triangle' : 
-                 backendPanel.type === 'right-triangle' ? 'right-triangle' : 'rectangle',
-          type: backendPanel.type || 'panel',
-          model: backendPanel.model || 'Unknown',
-          manufacturer: backendPanel.manufacturer || 'Unknown',
-          power: backendPanel.power || 0,
-          efficiency: backendPanel.efficiency || 0,
-          panelNumber: backendPanel.panel_number || backendPanel.panelNumber || 'Unknown',
-          rollNumber: backendPanel.roll_number || backendPanel.rollNumber || 'Unknown'
-        })) || []
+        panels: data.layout?.panels?.map((backendPanel: any, index: number) => {
+          console.log('🔍 [usePanelData] Mapping panel:', backendPanel);
+          return {
+            id: backendPanel.id || `panel-${projectId}-${index}-${Date.now()}`,
+            width: backendPanel.width_feet || backendPanel.width || 1,
+            height: backendPanel.height_feet || backendPanel.height || 1,
+            x: backendPanel.x || 0,
+            y: backendPanel.y || 0,
+            rotation: backendPanel.rotation || 0,
+            isValid: true,
+            shape: backendPanel.type === 'triangle' ? 'triangle' : 
+                   backendPanel.type === 'right-triangle' ? 'right-triangle' : 'rectangle',
+            type: backendPanel.type || 'panel',
+            model: backendPanel.model || 'Unknown',
+            manufacturer: backendPanel.manufacturer || 'Unknown',
+            power: backendPanel.power || 0,
+            efficiency: backendPanel.efficiency || 0,
+            panelNumber: backendPanel.panel_number || backendPanel.panelNumber || 'Unknown',
+            rollNumber: backendPanel.roll_number || backendPanel.rollNumber || 'Unknown'
+          };
+        }) || []
       };
+      
+      console.log('🔍 [usePanelData] Mapped layout:', mappedLayout);
+      console.log('🔍 [usePanelData] Mapped panels count:', mappedLayout.panels.length);
 
       if (validatePanelLayout(mappedLayout)) {
         return mappedLayout;
@@ -162,17 +182,27 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
 
   // Main data loading function
   const loadData = useCallback(async () => {
+    console.log('🔍 [usePanelData] ===== STARTING LOAD DATA =====');
+    console.log('🔍 [usePanelData] Project ID:', projectId);
     setDataState(prev => ({ ...prev, state: 'loading' }));
 
     try {
       // Load localStorage positions first
       const localPositions = loadLocalStorageData();
+      console.log('🔍 [usePanelData] Local positions:', localPositions);
 
       // Fetch backend data
+      console.log('🔍 [usePanelData] About to call fetchBackendData...');
       const backendLayout = await fetchBackendData();
+      console.log('🔍 [usePanelData] Backend layout received:', backendLayout);
+      console.log('🔍 [usePanelData] Backend layout panels:', backendLayout?.panels);
+      console.log('🔍 [usePanelData] Backend layout panels length:', backendLayout?.panels?.length);
       
       if (!backendLayout || !backendLayout.panels || backendLayout.panels.length === 0) {
-        debugLog('No backend data available');
+        console.log('🔍 [usePanelData] ❌ No backend data available - setting empty state');
+        console.log('🔍 [usePanelData] backendLayout exists:', !!backendLayout);
+        console.log('🔍 [usePanelData] backendLayout.panels exists:', !!backendLayout?.panels);
+        console.log('🔍 [usePanelData] backendLayout.panels.length:', backendLayout?.panels?.length);
         setDataState({
           state: 'empty',
           panels: [],
@@ -182,13 +212,18 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
       }
 
       // Merge data
+      console.log('🔍 [usePanelData] About to merge data...');
       const mergedPanels = mergeDataWithLocalStorage(backendLayout.panels, localPositions);
+      console.log('🔍 [usePanelData] Merged panels:', mergedPanels);
+      console.log('🔍 [usePanelData] Merged panels length:', mergedPanels.length);
 
       setDataState({
         state: 'loaded',
         panels: mergedPanels,
         lastUpdated: Date.now()
       });
+      
+      console.log('🔍 [usePanelData] ✅ Data state set to loaded with', mergedPanels.length, 'panels');
 
       debugLog('Data loaded successfully', { 
         panelCount: mergedPanels.length,
@@ -197,7 +232,12 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      debugLog('Error loading data', error);
+      console.error('🔍 [usePanelData] ❌ ERROR loading panel data:', error);
+      console.error('🔍 [usePanelData] Error details:', {
+        message: errorMessage,
+        stack: error instanceof Error ? error.stack : 'No stack trace',
+        projectId
+      });
       
       setDataState({
         state: 'error',
@@ -316,9 +356,17 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
     }
   }, [debugLog]);
 
-  // Load data on mount
+  // Load data on mount - only on client side
   useEffect(() => {
-    loadData();
+    console.log('🔍 [usePanelData] useEffect triggered - calling loadData');
+    console.log('🔍 [usePanelData] typeof window:', typeof window);
+    console.log('🔍 [usePanelData] isClient:', typeof window !== 'undefined');
+    
+    if (typeof window !== 'undefined') {
+      loadData();
+    } else {
+      console.log('🔍 [usePanelData] Skipping loadData - not on client side');
+    }
   }, [loadData]);
 
   // Computed values

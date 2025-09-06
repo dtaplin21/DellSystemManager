@@ -159,8 +159,7 @@ export function useCanvasState() {
   );
 
   const updateCanvasState = useCallback((updates: Partial<typeof canvasState>) => {
-    const newState = { ...canvasState, ...updates };
-    setCanvasState(newState);
+    setCanvasState({ ...canvasState, ...updates });
   }, [canvasState, setCanvasState]);
 
   return {
