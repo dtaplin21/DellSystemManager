@@ -1,8 +1,7 @@
 'use client';
 
 import React from 'react';
-import { useCanvas } from '@/hooks/useCanvas';
-import { useMouseInteraction } from '@/hooks/useMouseInteraction';
+import { useUnifiedMouseInteraction } from '@/hooks/useUnifiedMouseInteraction';
 import { useCanvasState as useLocalCanvasState } from '@/hooks/useLocalStorage';
 import { useCanvasState, usePanelState } from '@/contexts/PanelContext';
 import { Panel } from '@/types/panel';
@@ -37,18 +36,8 @@ export function PanelCanvas({
   // Use panels from props, not context, to avoid mismatch
   const panelsToRender = panels || panelState.panels;
   
-  // Canvas rendering hook
-  const { canvasRef, render, getWorldCoordinates, getScreenCoordinates, resizeCanvas } = useCanvas({
-    panels: panelsToRender, // Use panels from props first, fallback to context
-    canvasState: {
-      worldScale: canvasContext.worldScale,
-      worldOffsetX: canvasContext.worldOffsetX,
-      worldOffsetY: canvasContext.worldOffsetY,
-    },
-    onPanelClick,
-    onPanelDoubleClick,
-    enableDebugLogging,
-  });
+  // Canvas ref for unified mouse interaction
+  const canvasRef = React.useRef<HTMLCanvasElement>(null);
 
   // Create stable callbacks using useRef to prevent infinite loops
   const onPanelUpdateRef = React.useRef((panelId: string, updates: Partial<Panel>) => {
@@ -106,13 +95,24 @@ export function PanelCanvas({
     dispatchCanvas({ type: 'END_DRAG' });
   };
 
-  // Mouse interaction hook
-  const { mouseState, getWorldCoordinates: getMouseWorldCoords, getPanelAtPosition } = useMouseInteraction({
+  // Unified mouse interaction hook - combines mouse handling and canvas rendering
+  const { 
+    mouseState, 
+    getWorldCoordinates, 
+    getScreenCoordinates, 
+    getPanelAtPosition, 
+    render, 
+    resizeCanvas 
+  } = useUnifiedMouseInteraction({
     canvas: canvasRef.current,
-    panels: panelsToRender, // Use same panels as canvas
-    worldScale: canvasContext.worldScale,
-    worldOffsetX: canvasContext.worldOffsetX,
-    worldOffsetY: canvasContext.worldOffsetY,
+    panels: panelsToRender,
+    canvasState: {
+      worldScale: canvasContext.worldScale,
+      worldOffsetX: canvasContext.worldOffsetX,
+      worldOffsetY: canvasContext.worldOffsetY,
+    },
+    onPanelClick,
+    onPanelDoubleClick,
     onPanelUpdate: (panelId, updates) => onPanelUpdateRef.current(panelId, updates),
     onCanvasPan: (deltaX, deltaY) => onCanvasPanRef.current(deltaX, deltaY),
     onPanelSelect: (panelId) => onPanelSelectRef.current(panelId),
@@ -150,24 +150,8 @@ export function PanelCanvas({
     });
   }, [canvasContext.worldScale, canvasContext.worldOffsetX, canvasContext.worldOffsetY]);
 
-  // Store render function in ref to avoid dependency issues
-  const renderRef = React.useRef(render);
-  renderRef.current = render;
-
-  // Trigger render when panels change
-  React.useEffect(() => {
-    renderRef.current();
-  }, [panelsToRender]);
-
-  // Trigger render when canvas state changes
-  React.useEffect(() => {
-    renderRef.current();
-  }, [canvasContext.worldScale, canvasContext.worldOffsetX, canvasContext.worldOffsetY]);
-
-  // Trigger render when mouse state changes (for visual feedback during dragging)
-  React.useEffect(() => {
-    renderRef.current();
-  }, [mouseState.isDragging, mouseState.selectedPanelId]);
+  // Render is now handled by the unified mouse interaction hook
+  // No need for separate render triggers
 
   return (
     <div className="relative w-full h-full overflow-hidden">

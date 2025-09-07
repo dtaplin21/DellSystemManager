@@ -6,6 +6,7 @@ import TestPanelData from './test-panel-data';
 import DebugData from './debug-data';
 import SimplePanelTest from './simple-panel-test';
 import MinimalTest from './minimal-test';
+import GridTest from './grid-test';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -16,7 +17,7 @@ export default async function PanelLayoutPage({ params }: PageProps) {
   
   return (
     <Suspense fallback={<Loading />}>
-      <PanelLayoutRefactored />
+      <GridTest />
     </Suspense>
   );
 }

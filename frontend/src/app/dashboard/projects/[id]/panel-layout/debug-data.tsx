@@ -21,7 +21,7 @@ export default function DebugData() {
           ✅ Backend is running and returning 3 real database panels
         </p>
         <p className="text-green-700">
-          ✅ API endpoint: /api/panel-layout/ssr-layout/{projectId}
+          ✅ API endpoint: /api/panel-layout/ssr-layout/{params.id}
         </p>
       </div>
 
