@@ -34,9 +34,12 @@ export function PanelCanvas({
   // console.log('🔍 [PanelCanvas] Panel state from context:', panelState);
   // console.log('🔍 [PanelCanvas] Panel state panels count:', panelState.panels.length);
 
+  // Use panels from props, not context, to avoid mismatch
+  const panelsToRender = panels || panelState.panels;
+  
   // Canvas rendering hook
   const { canvasRef, render, getWorldCoordinates, getScreenCoordinates, resizeCanvas } = useCanvas({
-    panels: panelState.panels, // Use panels from context instead of props
+    panels: panelsToRender, // Use panels from props first, fallback to context
     canvasState: {
       worldScale: canvasContext.worldScale,
       worldOffsetX: canvasContext.worldOffsetX,
@@ -47,38 +50,74 @@ export function PanelCanvas({
     enableDebugLogging,
   });
 
+  // Create stable callbacks using useRef to prevent infinite loops
+  const onPanelUpdateRef = React.useRef((panelId: string, updates: Partial<Panel>) => {
+    dispatchPanels({ type: 'UPDATE_PANEL', payload: { id: panelId, updates } });
+  });
+  onPanelUpdateRef.current = (panelId: string, updates: Partial<Panel>) => {
+    dispatchPanels({ type: 'UPDATE_PANEL', payload: { id: panelId, updates } });
+  };
+
+  const onCanvasPanRef = React.useRef((deltaX: number, deltaY: number) => {
+    const newOffsetX = canvasContext.worldOffsetX + deltaX;
+    const newOffsetY = canvasContext.worldOffsetY + deltaY;
+    
+    dispatchCanvas({ type: 'SET_WORLD_OFFSET', payload: { x: newOffsetX, y: newOffsetY } });
+    
+    // Persist canvas state
+    updateCanvasState({
+      worldOffsetX: newOffsetX,
+      worldOffsetY: newOffsetY,
+      worldScale: canvasContext.worldScale,
+    });
+  });
+  onCanvasPanRef.current = (deltaX: number, deltaY: number) => {
+    const newOffsetX = canvasContext.worldOffsetX + deltaX;
+    const newOffsetY = canvasContext.worldOffsetY + deltaY;
+    
+    dispatchCanvas({ type: 'SET_WORLD_OFFSET', payload: { x: newOffsetX, y: newOffsetY } });
+    
+    // Persist canvas state
+    updateCanvasState({
+      worldOffsetX: newOffsetX,
+      worldOffsetY: newOffsetY,
+      worldScale: canvasContext.worldScale,
+    });
+  };
+
+  const onPanelSelectRef = React.useRef((panelId: string | null) => {
+    dispatchCanvas({ type: 'SELECT_PANEL', payload: panelId });
+  });
+  onPanelSelectRef.current = (panelId: string | null) => {
+    dispatchCanvas({ type: 'SELECT_PANEL', payload: panelId });
+  };
+
+  const onDragStartRef = React.useRef((panelId: string, worldPos: { x: number; y: number }) => {
+    dispatchCanvas({ type: 'START_DRAG', payload: { panelId, x: worldPos.x, y: worldPos.y } });
+  });
+  onDragStartRef.current = (panelId: string, worldPos: { x: number; y: number }) => {
+    dispatchCanvas({ type: 'START_DRAG', payload: { panelId, x: worldPos.x, y: worldPos.y } });
+  };
+
+  const onDragEndRef = React.useRef(() => {
+    dispatchCanvas({ type: 'END_DRAG' });
+  });
+  onDragEndRef.current = () => {
+    dispatchCanvas({ type: 'END_DRAG' });
+  };
+
   // Mouse interaction hook
   const { mouseState, getWorldCoordinates: getMouseWorldCoords, getPanelAtPosition } = useMouseInteraction({
     canvas: canvasRef.current,
-    panels: panelState.panels, // Use panels from context instead of props
+    panels: panelsToRender, // Use same panels as canvas
     worldScale: canvasContext.worldScale,
     worldOffsetX: canvasContext.worldOffsetX,
     worldOffsetY: canvasContext.worldOffsetY,
-    onPanelUpdate: (panelId, updates) => {
-      dispatchPanels({ type: 'UPDATE_PANEL', payload: { id: panelId, updates } });
-    },
-    onCanvasPan: (deltaX, deltaY) => {
-      const newOffsetX = canvasContext.worldOffsetX + deltaX;
-      const newOffsetY = canvasContext.worldOffsetY + deltaY;
-      
-      dispatchCanvas({ type: 'SET_WORLD_OFFSET', payload: { x: newOffsetX, y: newOffsetY } });
-      
-      // Persist canvas state
-      updateCanvasState({
-        worldOffsetX: newOffsetX,
-        worldOffsetY: newOffsetY,
-        worldScale: canvasContext.worldScale,
-      });
-    },
-    onPanelSelect: (panelId) => {
-      dispatchCanvas({ type: 'SELECT_PANEL', payload: panelId });
-    },
-    onDragStart: (panelId, worldPos) => {
-      dispatchCanvas({ type: 'START_DRAG', payload: { panelId, x: worldPos.x, y: worldPos.y } });
-    },
-    onDragEnd: () => {
-      dispatchCanvas({ type: 'END_DRAG' });
-    },
+    onPanelUpdate: (panelId, updates) => onPanelUpdateRef.current(panelId, updates),
+    onCanvasPan: (deltaX, deltaY) => onCanvasPanRef.current(deltaX, deltaY),
+    onPanelSelect: (panelId) => onPanelSelectRef.current(panelId),
+    onDragStart: (panelId, worldPos) => onDragStartRef.current(panelId, worldPos),
+    onDragEnd: () => onDragEndRef.current(),
     enableDebugLogging,
   });
 
@@ -95,33 +134,40 @@ export function PanelCanvas({
 
   // Persist canvas state when it changes (but not on initial load)
   const isInitialMount = React.useRef(true);
+  const updateCanvasStateRef = React.useRef(updateCanvasState);
+  updateCanvasStateRef.current = updateCanvasState;
+  
   React.useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false;
       return; // Skip on initial mount
     }
     
-    updateCanvasState({
+    updateCanvasStateRef.current({
       worldScale: canvasContext.worldScale,
       worldOffsetX: canvasContext.worldOffsetX,
       worldOffsetY: canvasContext.worldOffsetY,
     });
-  }, [canvasContext.worldScale, canvasContext.worldOffsetX, canvasContext.worldOffsetY, updateCanvasState]);
+  }, [canvasContext.worldScale, canvasContext.worldOffsetX, canvasContext.worldOffsetY]);
+
+  // Store render function in ref to avoid dependency issues
+  const renderRef = React.useRef(render);
+  renderRef.current = render;
 
   // Trigger render when panels change
   React.useEffect(() => {
-    render();
-  }, [panelState.panels, render]);
+    renderRef.current();
+  }, [panelsToRender]);
 
   // Trigger render when canvas state changes
   React.useEffect(() => {
-    render();
-  }, [canvasContext.worldScale, canvasContext.worldOffsetX, canvasContext.worldOffsetY, render]);
+    renderRef.current();
+  }, [canvasContext.worldScale, canvasContext.worldOffsetX, canvasContext.worldOffsetY]);
 
   // Trigger render when mouse state changes (for visual feedback during dragging)
   React.useEffect(() => {
-    render();
-  }, [mouseState.isDragging, mouseState.selectedPanelId, render]);
+    renderRef.current();
+  }, [mouseState.isDragging, mouseState.selectedPanelId]);
 
   return (
     <div className="relative w-full h-full overflow-hidden">

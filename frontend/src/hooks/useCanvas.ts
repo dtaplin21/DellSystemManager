@@ -85,6 +85,13 @@ export function useCanvas({
     return null;
   }, [panels]);
 
+  // Memoize canvas state to prevent unnecessary recreations
+  const memoizedCanvasState = useMemo(() => ({
+    worldScale: canvasState.worldScale,
+    worldOffsetX: canvasState.worldOffsetX,
+    worldOffsetY: canvasState.worldOffsetY,
+  }), [canvasState.worldScale, canvasState.worldOffsetX, canvasState.worldOffsetY]);
+
   // Canvas rendering function
   const render = useCallback(() => {
     const canvas = canvasRef.current;
@@ -111,11 +118,11 @@ export function useCanvas({
     ctx.save();
 
     // Apply world transformation
-    ctx.scale(canvasState.worldScale, canvasState.worldScale);
-    ctx.translate(canvasState.worldOffsetX / canvasState.worldScale, canvasState.worldOffsetY / canvasState.worldScale);
+    ctx.scale(memoizedCanvasState.worldScale, memoizedCanvasState.worldScale);
+    ctx.translate(memoizedCanvasState.worldOffsetX / memoizedCanvasState.worldScale, memoizedCanvasState.worldOffsetY / memoizedCanvasState.worldScale);
 
     // Draw grid
-    drawGrid(ctx, canvas, canvasState);
+    drawGrid(ctx, canvas, memoizedCanvasState);
 
     // Draw panels
     panels.forEach(panel => {
@@ -127,8 +134,8 @@ export function useCanvas({
     // Restore context state
     ctx.restore();
 
-    logRef.current('Canvas rendered', { panelCount: panels.length, worldScale: canvasState.worldScale });
-  }, [panels, canvasState]);
+    logRef.current('Canvas rendered', { panelCount: panels.length, worldScale: memoizedCanvasState.worldScale });
+  }, [panels, memoizedCanvasState]);
 
   // Grid drawing function
   const drawGrid = useCallback((ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, state: CanvasState) => {
@@ -284,20 +291,23 @@ export function useCanvas({
     };
   }, [resizeCanvas]);
 
-  // Render when dependencies change
+  // Render when dependencies change - use ref to avoid dependency issues
+  const renderRef = useRef(render);
+  renderRef.current = render;
+
   useEffect(() => {
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
     }
     
-    animationFrameRef.current = requestAnimationFrame(render);
+    animationFrameRef.current = requestAnimationFrame(() => renderRef.current());
 
     return () => {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [render]);
+  }, [panels, memoizedCanvasState]);
 
   return {
     canvasRef,

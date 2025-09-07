@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useReducer, ReactNode, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, ReactNode, useEffect, useRef } from 'react';
 import { Panel, PanelPositionMap, FeatureFlags } from '@/types/panel';
 
 // State interfaces
@@ -283,13 +283,26 @@ export function PanelProvider({ children, initialPanels = [], featureFlags = {} 
     featureFlags: { ...initialState.featureFlags, ...featureFlags },
   });
 
-  // Sync panels when initialPanels change
+  // Sync panels when initialPanels change - use ref to prevent infinite loops
+  const initialPanelsRef = useRef(initialPanels);
+  const lastSyncedPanelsRef = useRef<Panel[]>([]);
+  
   useEffect(() => {
-    if (initialPanels.length !== state.panels.panels.length || 
-        JSON.stringify(initialPanels) !== JSON.stringify(state.panels.panels)) {
-      dispatch({ type: 'PANELS', payload: { type: 'SET_PANELS', payload: initialPanels } });
+    // Only sync if initialPanels actually changed
+    if (initialPanelsRef.current !== initialPanels) {
+      initialPanelsRef.current = initialPanels;
+      
+      // Only sync if the panels are actually different
+      const currentPanels = state.panels.panels;
+      if (currentPanels.length !== initialPanels.length || 
+          !currentPanels.every((panel, index) => 
+            initialPanels[index] && panel.id === initialPanels[index].id
+          )) {
+        lastSyncedPanelsRef.current = initialPanels;
+        dispatch({ type: 'PANELS', payload: { type: 'SET_PANELS', payload: initialPanels } });
+      }
     }
-  }, [initialPanels, state.panels.panels]);
+  }, [initialPanels]);
 
   // console.log('🔍 [PanelProvider] State after initialization:', state);
   // console.log('🔍 [PanelProvider] State panels count:', state.panels.panels.length);

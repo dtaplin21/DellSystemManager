@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { 
   Panel, 
   PanelLayout, 
@@ -43,12 +43,25 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
     lastUpdated: Date.now()
   });
 
-  // Debug logging helper
-  const debugLog = useCallback((message: string, data?: any) => {
+  // Debug logging helper - use ref to avoid dependency issues
+  const debugLogRef = useRef((message: string, data?: any) => {
     if (flags.ENABLE_DEBUG_LOGGING) {
       console.log(`[usePanelData] ${message}`, data);
     }
+  });
+  
+  // Update debug log function when flags change
+  useEffect(() => {
+    debugLogRef.current = (message: string, data?: any) => {
+      if (flags.ENABLE_DEBUG_LOGGING) {
+        console.log(`[usePanelData] ${message}`, data);
+      }
+    };
   }, [flags.ENABLE_DEBUG_LOGGING]);
+  
+  const debugLog = useCallback((message: string, data?: any) => {
+    debugLogRef.current(message, data);
+  }, []);
 
   // Load data from localStorage
   const loadLocalStorageData = useCallback((): PanelPositionMap => {
@@ -74,7 +87,7 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
       localStorage.removeItem('panelLayoutPositions');
       return {};
     }
-  }, [flags.ENABLE_LOCAL_STORAGE, debugLog]);
+  }, [flags.ENABLE_LOCAL_STORAGE]);
 
   // Save data to localStorage
   const saveToLocalStorage = useCallback((positionMap: PanelPositionMap) => {
@@ -88,7 +101,7 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
     } catch (error) {
       debugLog('Error saving to localStorage', error);
     }
-  }, [flags.ENABLE_LOCAL_STORAGE, debugLog]);
+  }, [flags.ENABLE_LOCAL_STORAGE]);
 
   // Fetch data from backend
   const fetchBackendData = useCallback(async (): Promise<PanelLayout | null> => {
@@ -156,7 +169,7 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
       debugLog('Error fetching backend data', error);
       throw error;
     }
-  }, [projectId, debugLog]);
+  }, [projectId]);
 
   // Merge backend data with localStorage positions
   const mergeDataWithLocalStorage = useCallback((
@@ -182,7 +195,7 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
       }
       return panel;
     });
-  }, [debugLog]);
+  }, []);
 
   // Main data loading function
   const loadData = useCallback(async () => {
@@ -250,7 +263,7 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
         lastUpdated: Date.now()
       });
     }
-  }, [projectId, loadLocalStorageData, fetchBackendData, mergeDataWithLocalStorage, debugLog]);
+  }, [projectId, loadLocalStorageData, fetchBackendData, mergeDataWithLocalStorage]);
 
   // Atomic panel position update
   const updatePanelPosition = useCallback((panelId: string, position: { x: number; y: number; rotation?: number }) => {
@@ -284,7 +297,7 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
         lastUpdated: Date.now()
       };
     });
-  }, [flags.ENABLE_PERSISTENCE, saveToLocalStorage, debugLog]);
+  }, [flags.ENABLE_PERSISTENCE, saveToLocalStorage]);
 
   // Add new panel
   const addPanel = useCallback((panelData: Omit<Panel, 'id'>) => {
@@ -320,7 +333,7 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
         lastUpdated: Date.now()
       };
     });
-  }, [flags.ENABLE_PERSISTENCE, saveToLocalStorage, debugLog]);
+  }, [flags.ENABLE_PERSISTENCE, saveToLocalStorage]);
 
   // Remove panel
   const removePanel = useCallback((panelId: string) => {
@@ -350,7 +363,7 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
         lastUpdated: Date.now()
       };
     });
-  }, [flags.ENABLE_PERSISTENCE, saveToLocalStorage, debugLog]);
+  }, [flags.ENABLE_PERSISTENCE, saveToLocalStorage]);
 
   // Clear localStorage
   const clearLocalStorage = useCallback(() => {
@@ -358,7 +371,7 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
       localStorage.removeItem('panelLayoutPositions');
       debugLog('Cleared localStorage');
     }
-  }, [debugLog]);
+  }, []);
 
   // Load data on mount - only on client side
   useEffect(() => {
