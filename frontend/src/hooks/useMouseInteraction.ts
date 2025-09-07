@@ -20,6 +20,8 @@ interface UseMouseInteractionOptions {
   onPanelUpdate: (panelId: string, updates: Partial<Panel>) => void;
   onCanvasPan: (deltaX: number, deltaY: number) => void;
   onPanelSelect: (panelId: string | null) => void;
+  onDragStart?: (panelId: string, worldPos: { x: number; y: number }) => void;
+  onDragEnd?: () => void;
   enableDebugLogging?: boolean;
 }
 
@@ -52,6 +54,8 @@ export function useMouseInteraction({
   onPanelUpdate,
   onCanvasPan,
   onPanelSelect,
+  onDragStart,
+  onDragEnd,
   enableDebugLogging = false,
 }: UseMouseInteractionOptions): UseMouseInteractionReturn {
   const mouseStateRef = useRef<MouseState>(initialMouseState);
@@ -106,18 +110,19 @@ export function useMouseInteraction({
     const clickedPanel = getPanelAtPosition(worldPos.x, worldPos.y);
 
     if (clickedPanel) {
-      // Start dragging panel
+      // Start dragging panel - store offset from panel's top-left corner
       mouseStateRef.current = {
         isDragging: true,
         isPanning: false,
         selectedPanelId: clickedPanel.id,
-        dragStartX: worldPos.x,
-        dragStartY: worldPos.y,
+        dragStartX: worldPos.x - clickedPanel.x, // Offset from panel's left edge
+        dragStartY: worldPos.y - clickedPanel.y, // Offset from panel's top edge
         lastMouseX: screenX,
         lastMouseY: screenY,
       };
       
       onPanelSelect(clickedPanel.id);
+      onDragStart?.(clickedPanel.id, worldPos);
       log('Started dragging panel', { panelId: clickedPanel.id, worldPos });
     } else {
       // Start panning canvas
@@ -149,20 +154,16 @@ export function useMouseInteraction({
     const currentState = mouseStateRef.current;
 
     if (currentState.isDragging && currentState.selectedPanelId) {
-      // Update panel position
-      const deltaX = worldPos.x - currentState.dragStartX;
-      const deltaY = worldPos.y - currentState.dragStartY;
-
+      // Update panel position - maintain the offset from where the user clicked
       onPanelUpdate(currentState.selectedPanelId, {
-        x: currentState.dragStartX + deltaX,
-        y: currentState.dragStartY + deltaY,
+        x: worldPos.x - currentState.dragStartX,
+        y: worldPos.y - currentState.dragStartY,
       });
 
       log('Dragging panel', { 
         panelId: currentState.selectedPanelId, 
-        deltaX, 
-        deltaY,
-        newPos: { x: currentState.dragStartX + deltaX, y: currentState.dragStartY + deltaY }
+        worldPos: { x: worldPos.x, y: worldPos.y },
+        dragStart: { x: currentState.dragStartX, y: currentState.dragStartY }
       });
     } else if (currentState.isPanning) {
       // Update canvas pan
@@ -192,6 +193,7 @@ export function useMouseInteraction({
     const clickDuration = Date.now() - mouseDownTimeRef.current;
 
     if (currentState.isDragging) {
+      onDragEnd?.();
       log('Finished dragging panel', { 
         panelId: currentState.selectedPanelId,
         duration: clickDuration 

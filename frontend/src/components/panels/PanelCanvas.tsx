@@ -73,6 +73,12 @@ export function PanelCanvas({
     onPanelSelect: (panelId) => {
       dispatchCanvas({ type: 'SELECT_PANEL', payload: panelId });
     },
+    onDragStart: (panelId, worldPos) => {
+      dispatchCanvas({ type: 'START_DRAG', payload: { panelId, x: worldPos.x, y: worldPos.y } });
+    },
+    onDragEnd: () => {
+      dispatchCanvas({ type: 'END_DRAG' });
+    },
     enableDebugLogging,
   });
 
@@ -101,6 +107,21 @@ export function PanelCanvas({
       worldOffsetY: canvasContext.worldOffsetY,
     });
   }, [canvasContext.worldScale, canvasContext.worldOffsetX, canvasContext.worldOffsetY, updateCanvasState]);
+
+  // Trigger render when panels change
+  React.useEffect(() => {
+    render();
+  }, [panelState.panels, render]);
+
+  // Trigger render when canvas state changes
+  React.useEffect(() => {
+    render();
+  }, [canvasContext.worldScale, canvasContext.worldOffsetX, canvasContext.worldOffsetY, render]);
+
+  // Trigger render when mouse state changes (for visual feedback during dragging)
+  React.useEffect(() => {
+    render();
+  }, [mouseState.isDragging, mouseState.selectedPanelId, render]);
 
   return (
     <div className="relative w-full h-full overflow-hidden">
