@@ -185,6 +185,15 @@ export function useUnifiedMouseInteraction({
     const majorGridColor = '#d1d5db';
     const majorGridInterval = 5; // Every 5 grid lines
 
+    console.log('🔍 [drawGrid] Canvas dimensions:', {
+      canvasWidth: canvas.width,
+      canvasHeight: canvas.height,
+      displayWidth: canvas.offsetWidth,
+      displayHeight: canvas.offsetHeight,
+      styleWidth: canvas.style.width,
+      styleHeight: canvas.style.height
+    });
+
     ctx.strokeStyle = gridColor;
     ctx.lineWidth = 1;
 
@@ -255,6 +264,9 @@ export function useUnifiedMouseInteraction({
     const rect = container.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
 
+    console.log('🔍 [resizeCanvas] Container rect:', rect);
+    console.log('🔍 [resizeCanvas] DPR:', dpr);
+
     // Set display size
     canvas.style.width = `${rect.width}px`;
     canvas.style.height = `${rect.height}px`;
@@ -262,6 +274,15 @@ export function useUnifiedMouseInteraction({
     // Set actual size
     canvas.width = rect.width * dpr;
     canvas.height = rect.height * dpr;
+
+    console.log('🔍 [resizeCanvas] Canvas dimensions:', {
+      styleWidth: canvas.style.width,
+      styleHeight: canvas.style.height,
+      actualWidth: canvas.width,
+      actualHeight: canvas.height,
+      displayWidth: canvas.offsetWidth,
+      displayHeight: canvas.offsetHeight
+    });
 
     // Scale context for HiDPI
     const ctx = canvas.getContext('2d');
