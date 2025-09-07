@@ -178,41 +178,31 @@ export function useUnifiedMouseInteraction({
     });
   }, [panels, canvasState]);
 
-  // Grid drawing function - draws in screen coordinates
+  // Grid drawing function - draws in screen coordinates (like the working test)
   const drawGrid = useCallback((ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, state: CanvasState) => {
-    const gridSize = 1; // 1 foot grid
+    const gridSize = 20; // 20px grid (like the working test)
     const gridColor = '#e5e7eb';
     const majorGridColor = '#d1d5db';
-    const majorGridInterval = 5; // Every 5 feet
+    const majorGridInterval = 5; // Every 5 grid lines
 
     ctx.strokeStyle = gridColor;
     ctx.lineWidth = 1;
 
-    // Calculate grid size in screen pixels
-    const screenGridSize = gridSize * state.worldScale;
-    const screenMajorInterval = majorGridInterval * state.worldScale;
-
-    // Calculate visible grid bounds in screen coordinates
-    const left = Math.floor(-state.worldOffsetX / screenGridSize) * screenGridSize;
-    const right = Math.ceil((canvas.width - state.worldOffsetX) / screenGridSize) * screenGridSize;
-    const top = Math.floor(-state.worldOffsetY / screenGridSize) * screenGridSize;
-    const bottom = Math.ceil((canvas.height - state.worldOffsetY) / screenGridSize) * screenGridSize;
-
     // Draw vertical lines
-    for (let x = left; x <= right; x += screenGridSize) {
-      ctx.strokeStyle = x % screenMajorInterval === 0 ? majorGridColor : gridColor;
+    for (let x = 0; x <= canvas.width; x += gridSize) {
+      ctx.strokeStyle = x % (gridSize * majorGridInterval) === 0 ? majorGridColor : gridColor;
       ctx.beginPath();
-      ctx.moveTo(x, top);
-      ctx.lineTo(x, bottom);
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, canvas.height);
       ctx.stroke();
     }
 
     // Draw horizontal lines
-    for (let y = top; y <= bottom; y += screenGridSize) {
-      ctx.strokeStyle = y % screenMajorInterval === 0 ? majorGridColor : gridColor;
+    for (let y = 0; y <= canvas.height; y += gridSize) {
+      ctx.strokeStyle = y % (gridSize * majorGridInterval) === 0 ? majorGridColor : gridColor;
       ctx.beginPath();
-      ctx.moveTo(left, y);
-      ctx.lineTo(right, y);
+      ctx.moveTo(0, y);
+      ctx.lineTo(canvas.width, y);
       ctx.stroke();
     }
 
@@ -220,12 +210,9 @@ export function useUnifiedMouseInteraction({
     logRef.current('Grid drawn', {
       gridSize,
       majorGridInterval,
-      screenGridSize,
-      screenMajorInterval,
-      screenBounds: { left, right, top, bottom },
+      canvasSize: { width: canvas.width, height: canvas.height },
       worldOffset: { x: state.worldOffsetX, y: state.worldOffsetY },
-      worldScale: state.worldScale,
-      screenSize: { width: canvas.width, height: canvas.height }
+      worldScale: state.worldScale
     });
   }, []);
 

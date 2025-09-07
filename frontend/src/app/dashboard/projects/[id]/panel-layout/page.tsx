@@ -17,7 +17,7 @@ export default async function PanelLayoutPage({ params }: PageProps) {
   
   return (
     <Suspense fallback={<Loading />}>
-      <GridTest />
+      <PanelLayoutRefactored />
     </Suspense>
   );
 }

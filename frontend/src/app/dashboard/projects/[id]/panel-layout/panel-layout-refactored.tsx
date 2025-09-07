@@ -103,7 +103,7 @@ export default function PanelLayoutRefactored() {
   // Error boundary wrapper
   return (
     <PanelLayoutErrorBoundary>
-      <div className="h-full w-full">
+      <div className="h-full w-full flex flex-col">
         {/* Loading state */}
         {isLoading && (
           <div>
@@ -135,7 +135,7 @@ export default function PanelLayoutRefactored() {
         
         {/* Loaded state with panels */}
         {dataState.state === 'loaded' && panels.length > 0 && (
-          <div className="h-full w-full relative">
+          <div className="flex-1 w-full relative">
             {/* Debug panel for development */}
             {featureFlags.ENABLE_DEBUG_LOGGING && (
               <div className="absolute top-4 right-4 z-50 bg-yellow-100 border border-yellow-300 rounded-lg p-3 max-w-xs">

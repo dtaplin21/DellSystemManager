@@ -69,9 +69,9 @@ export default function DashboardLayout({
 
   console.log('Dashboard Layout - Rendering authenticated content for user:', user.email);
   return (
-    <div className="min-h-screen overflow-x-hidden">
+    <div className="h-screen overflow-x-hidden flex flex-col">
       <Navbar />
-      <div className="flex">
+      <div className="flex flex-1">
         <Sidebar />
         <main className="flex-1 overflow-x-hidden">
           {children}
