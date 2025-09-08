@@ -144,7 +144,7 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
           const yFeet = backendPanel.y || 0;
           
           // Convert to pixels (assuming backend stores coordinates in feet)
-          const PIXELS_PER_FOOT = 2; // From unified coordinates
+          const PIXELS_PER_FOOT = 0.5; // From unified coordinates (supports 200x7 panel layout)
           const widthPixels = widthFeet * PIXELS_PER_FOOT;
           const heightPixels = heightFeet * PIXELS_PER_FOOT;
           const xPixels = xFeet * PIXELS_PER_FOOT;

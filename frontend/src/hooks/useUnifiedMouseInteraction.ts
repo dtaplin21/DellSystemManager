@@ -167,10 +167,10 @@ export function useUnifiedMouseInteraction({
 
   // Grid drawing function - uses unified coordinate system
   const drawGrid = useCallback((ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, state: CanvasState) => {
-    const gridSize = 20; // 20px = 10 feet (unified coordinate system)
+    const gridSize = 0.5; // 0.5px = 1 foot (unified coordinate system: 0.5 pixels per foot)
     const gridColor = '#e5e7eb';
     const majorGridColor = '#d1d5db';
-    const majorGridInterval = 5; // Every 5 grid lines = 50 feet
+    const majorGridInterval = 10; // Every 10 grid lines = 10 feet
 
     console.log('🔍 [drawGrid] Canvas dimensions:', {
       canvasWidth: canvas.width,
