@@ -21,7 +21,7 @@ export default function DebugData() {
           ✅ Backend is running and returning 3 real database panels
         </p>
         <p className="text-green-700">
-          ✅ API endpoint: /api/panel-layout/ssr-layout/{params.id}
+          ✅ API endpoint: /api/panel-layout/ssr-layout/69fc302b-166d-4543-9990-89c4b1e0ed59
         </p>
       </div>
 
@@ -31,7 +31,7 @@ export default function DebugData() {
           The issue is that the main PanelLayoutRefactored component is not transitioning from loading to loaded state.
         </p>
         <p className="text-yellow-700 mt-2">
-          This suggests there's an issue in the usePanelData hook or the data mapping process.
+          This suggests there&apos;s an issue in the usePanelData hook or the data mapping process.
         </p>
       </div>
     </div>

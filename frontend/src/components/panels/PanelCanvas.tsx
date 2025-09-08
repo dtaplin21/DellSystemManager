@@ -154,7 +154,7 @@ export function PanelCanvas({
   // No need for separate render triggers
 
   return (
-    <div className="relative w-full h-full overflow-hidden">
+    <div className="relative w-full h-full overflow-hidden canvas-container">
       <canvas
         ref={canvasRef}
         className="absolute inset-0 cursor-crosshair"

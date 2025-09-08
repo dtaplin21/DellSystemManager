@@ -240,17 +240,39 @@ export function useUnifiedMouseInteraction({
     ctx.restore();
   }, []);
 
-  // Canvas resize handler - simplified without DPR scaling
+  // Canvas resize handler - enhanced with proper container detection
   const resizeCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const container = canvas.parentElement;
-    if (!container) return;
+    // Try to find the proper container - look for the canvas container div
+    let container = canvas.parentElement;
+    
+    // If the immediate parent is not the right container, look for a container with specific classes
+    while (container && !container.classList.contains('canvas-container') && !container.classList.contains('flex-1')) {
+      container = container.parentElement;
+    }
+    
+    // Fallback to immediate parent if no specific container found
+    if (!container) {
+      container = canvas.parentElement;
+    }
+
+    if (!container) {
+      console.warn('🔍 [resizeCanvas] No container found for canvas');
+      return;
+    }
 
     const rect = container.getBoundingClientRect();
 
     console.log('🔍 [resizeCanvas] Container rect:', rect);
+    console.log('🔍 [resizeCanvas] Container classes:', container.className);
+
+    // Ensure we have valid dimensions
+    if (rect.width <= 0 || rect.height <= 0) {
+      console.warn('🔍 [resizeCanvas] Invalid container dimensions:', rect);
+      return;
+    }
 
     // Direct sizing (no DPR complications) - like the working test grid
     canvas.width = rect.width;
@@ -258,17 +280,22 @@ export function useUnifiedMouseInteraction({
     canvas.style.width = `${rect.width}px`;
     canvas.style.height = `${rect.height}px`;
 
-    console.log('🔍 [resizeCanvas] Canvas dimensions:', {
+    console.log('🔍 [resizeCanvas] Canvas dimensions after resize:', {
       styleWidth: canvas.style.width,
       styleHeight: canvas.style.height,
       actualWidth: canvas.width,
       actualHeight: canvas.height,
       displayWidth: canvas.offsetWidth,
-      displayHeight: canvas.offsetHeight
+      displayHeight: canvas.offsetHeight,
+      containerWidth: rect.width,
+      containerHeight: rect.height
     });
 
+    // Trigger a render after resize
+    render();
+
     logRef.current('Canvas resized', { width: rect.width, height: rect.height });
-  }, []);
+  }, [render]);
 
   // Mouse down handler - simplified for unified coordinates
   const handleMouseDown = useCallback((event: MouseEvent) => {
@@ -470,6 +497,44 @@ export function useUnifiedMouseInteraction({
       });
     };
   }, [canvas, handleMouseDown, handleMouseMove, handleMouseUp, handleWheel, handleContextMenu, handleCanvasClick, handleCanvasDoubleClick]);
+
+  // Setup resize handling - ResizeObserver + window resize
+  useEffect(() => {
+    if (!canvas) return;
+
+    // Initial resize
+    resizeCanvas();
+
+    // ResizeObserver for container size changes
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        console.log('🔍 [ResizeObserver] Container size changed:', {
+          width: entry.contentRect.width,
+          height: entry.contentRect.height
+        });
+        resizeCanvas();
+      }
+    });
+
+    // Observe the canvas container
+    const container = canvas.parentElement;
+    if (container) {
+      resizeObserver.observe(container);
+    }
+
+    // Window resize handler as fallback
+    const handleWindowResize = () => {
+      console.log('🔍 [WindowResize] Window resized');
+      resizeCanvas();
+    };
+
+    window.addEventListener('resize', handleWindowResize);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', handleWindowResize);
+    };
+  }, [canvas, resizeCanvas]);
 
   // Global mouse up handler (in case mouse leaves canvas)
   useEffect(() => {

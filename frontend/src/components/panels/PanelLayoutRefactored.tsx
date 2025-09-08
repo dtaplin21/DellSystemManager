@@ -63,7 +63,7 @@ export function PanelLayoutRefactored({
           />
           
           {/* Main Canvas Area */}
-          <div className="flex-1 relative">
+          <div className="flex-1 relative canvas-container">
             <PanelCanvas
               panels={panels}
               onPanelClick={onPanelClick}
