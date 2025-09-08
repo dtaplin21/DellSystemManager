@@ -163,7 +163,17 @@ export function useUnifiedMouseInteraction({
       canvasWidth: canvas.width,
       canvasHeight: canvas.height
     });
-  }, [panels, canvasState]);
+  }, []); // Remove dependencies to prevent circular dependency
+
+  // Trigger render when panels or canvasState change
+  useEffect(() => {
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
+    animationFrameRef.current = requestAnimationFrame(() => {
+      render();
+    });
+  }, [panels, canvasState, render]);
 
   // Grid drawing function - uses unified coordinate system
   const drawGrid = useCallback((ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, state: CanvasState) => {
@@ -291,11 +301,16 @@ export function useUnifiedMouseInteraction({
       containerHeight: rect.height
     });
 
-    // Trigger a render after resize
-    render();
+    // Trigger a render after resize - use ref to avoid circular dependency
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
+    animationFrameRef.current = requestAnimationFrame(() => {
+      render();
+    });
 
     logRef.current('Canvas resized', { width: rect.width, height: rect.height });
-  }, [render]);
+  }, []); // Remove render dependency to break circular dependency
 
   // Mouse down handler - simplified for unified coordinates
   const handleMouseDown = useCallback((event: MouseEvent) => {
