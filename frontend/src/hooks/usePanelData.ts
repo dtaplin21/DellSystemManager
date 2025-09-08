@@ -136,12 +136,26 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
         projectId: projectId,
         panels: data.layout?.panels?.map((backendPanel: any, index: number) => {
           console.log('🔍 [usePanelData] Mapping panel:', backendPanel);
+          
+          // Convert feet to pixels for unified coordinate system
+          const widthFeet = backendPanel.width_feet || backendPanel.width || 1;
+          const heightFeet = backendPanel.height_feet || backendPanel.height || 1;
+          const xFeet = backendPanel.x || 0;
+          const yFeet = backendPanel.y || 0;
+          
+          // Convert to pixels (assuming backend stores coordinates in feet)
+          const PIXELS_PER_FOOT = 2; // From unified coordinates
+          const widthPixels = widthFeet * PIXELS_PER_FOOT;
+          const heightPixels = heightFeet * PIXELS_PER_FOOT;
+          const xPixels = xFeet * PIXELS_PER_FOOT;
+          const yPixels = yFeet * PIXELS_PER_FOOT;
+          
           return {
             id: backendPanel.id || `panel-${projectId}-${index}-${Date.now()}`,
-            width: backendPanel.width_feet || backendPanel.width || 1,
-            height: backendPanel.height_feet || backendPanel.height || 1,
-            x: backendPanel.x || 0,
-            y: backendPanel.y || 0,
+            width: widthPixels, // Store in pixels (unified coordinate system)
+            height: heightPixels, // Store in pixels (unified coordinate system)
+            x: xPixels, // Store in pixels (unified coordinate system)
+            y: yPixels, // Store in pixels (unified coordinate system)
             rotation: backendPanel.rotation || 0,
             isValid: true,
             shape: backendPanel.type === 'triangle' ? 'triangle' : 

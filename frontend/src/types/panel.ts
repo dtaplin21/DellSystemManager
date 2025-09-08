@@ -3,10 +3,10 @@
 
 export interface Panel {
   id: string;
-  width: number;
-  height: number;
-  x: number;
-  y: number;
+  width: number; // Pixels (unified coordinate system)
+  height: number; // Pixels (unified coordinate system)
+  x: number; // Pixels (unified coordinate system)
+  y: number; // Pixels (unified coordinate system)
   rotation?: number;
   isValid: boolean;
   shape?: 'rectangle' | 'triangle' | 'right-triangle' | 'circle';

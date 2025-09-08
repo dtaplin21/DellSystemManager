@@ -94,18 +94,18 @@ export function useUnifiedMouseInteraction({
     };
   }, [enableDebugLogging]);
 
-  // Coordinate transformation functions
+  // Coordinate transformation functions - simplified for unified coordinates
   const getWorldCoordinates = useCallback((screenX: number, screenY: number) => {
-    const x = (screenX - canvasState.worldOffsetX) / canvasState.worldScale;
-    const y = (screenY - canvasState.worldOffsetY) / canvasState.worldScale;
-    return { x, y };
-  }, [canvasState.worldOffsetX, canvasState.worldOffsetY, canvasState.worldScale]);
+    // In unified coordinates, screen coordinates are the same as world coordinates
+    // No transformation needed - direct pixel mapping
+    return { x: screenX, y: screenY };
+  }, []);
 
   const getScreenCoordinates = useCallback((worldX: number, worldY: number) => {
-    const x = worldX * canvasState.worldScale + canvasState.worldOffsetX;
-    const y = worldY * canvasState.worldScale + canvasState.worldOffsetY;
-    return { x, y };
-  }, [canvasState.worldOffsetX, canvasState.worldOffsetY, canvasState.worldScale]);
+    // In unified coordinates, world coordinates are the same as screen coordinates
+    // No transformation needed - direct pixel mapping
+    return { x: worldX, y: worldY };
+  }, []);
 
   // Panel hit detection
   const getPanelAtPosition = useCallback((worldX: number, worldY: number): Panel | null => {
@@ -126,7 +126,7 @@ export function useUnifiedMouseInteraction({
     return null;
   }, [panels]);
 
-  // Canvas rendering function
+  // Canvas rendering function - simplified for unified coordinates
   const render = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -148,42 +148,29 @@ export function useUnifiedMouseInteraction({
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Draw grid first (in screen coordinates, no transformation)
+    // Draw grid first (in unified coordinates)
     drawGrid(ctx, canvas, canvasState);
 
-    // Save context state for world transformation
-    ctx.save();
-
-    // Apply world transformation for panels only
-    ctx.scale(canvasState.worldScale, canvasState.worldScale);
-    ctx.translate(canvasState.worldOffsetX / canvasState.worldScale, canvasState.worldOffsetY / canvasState.worldScale);
-
-    // Draw panels
+    // Draw panels directly in unified coordinates (no transformations needed)
     panels.forEach(panel => {
       if (panel.isValid) {
         drawPanel(ctx, panel);
       }
     });
 
-    // Restore context state
-    ctx.restore();
-
     logRef.current('Canvas rendered', { 
       panelCount: panels.length, 
-      worldScale: canvasState.worldScale,
-      worldOffsetX: canvasState.worldOffsetX,
-      worldOffsetY: canvasState.worldOffsetY,
       canvasWidth: canvas.width,
       canvasHeight: canvas.height
     });
   }, [panels, canvasState]);
 
-  // Grid drawing function - draws in screen coordinates (like the working test)
+  // Grid drawing function - uses unified coordinate system
   const drawGrid = useCallback((ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, state: CanvasState) => {
-    const gridSize = 20; // 20px grid (like the working test)
+    const gridSize = 20; // 20px = 10 feet (unified coordinate system)
     const gridColor = '#e5e7eb';
     const majorGridColor = '#d1d5db';
-    const majorGridInterval = 5; // Every 5 grid lines
+    const majorGridInterval = 5; // Every 5 grid lines = 50 feet
 
     console.log('🔍 [drawGrid] Canvas dimensions:', {
       canvasWidth: canvas.width,
@@ -225,7 +212,7 @@ export function useUnifiedMouseInteraction({
     });
   }, []);
 
-  // Panel drawing function
+  // Panel drawing function - uses unified coordinate system (pixels)
   const drawPanel = useCallback((ctx: CanvasRenderingContext2D, panel: Panel) => {
     const { x, y, width, height, rotation = 0 } = panel;
 
@@ -240,12 +227,12 @@ export function useUnifiedMouseInteraction({
 
     // Panel border
     ctx.strokeStyle = '#1e40af';
-    ctx.lineWidth = 0.1;
+    ctx.lineWidth = 1; // Fixed line width for unified coordinates
     ctx.strokeRect(0, 0, width, height);
 
     // Panel label
     ctx.fillStyle = 'white';
-    ctx.font = `${Math.max(0.5, Math.min(width, height) * 0.3)}px Arial`;
+    ctx.font = `${Math.max(8, Math.min(width, height) * 0.3)}px Arial`; // Better font sizing
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(panel.id, width / 2, height / 2);
@@ -253,7 +240,7 @@ export function useUnifiedMouseInteraction({
     ctx.restore();
   }, []);
 
-  // Canvas resize handler
+  // Canvas resize handler - simplified without DPR scaling
   const resizeCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -262,18 +249,14 @@ export function useUnifiedMouseInteraction({
     if (!container) return;
 
     const rect = container.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
 
     console.log('🔍 [resizeCanvas] Container rect:', rect);
-    console.log('🔍 [resizeCanvas] DPR:', dpr);
 
-    // Set display size
+    // Direct sizing (no DPR complications) - like the working test grid
+    canvas.width = rect.width;
+    canvas.height = rect.height;
     canvas.style.width = `${rect.width}px`;
     canvas.style.height = `${rect.height}px`;
-
-    // Set actual size
-    canvas.width = rect.width * dpr;
-    canvas.height = rect.height * dpr;
 
     console.log('🔍 [resizeCanvas] Canvas dimensions:', {
       styleWidth: canvas.style.width,
@@ -284,16 +267,10 @@ export function useUnifiedMouseInteraction({
       displayHeight: canvas.offsetHeight
     });
 
-    // Scale context for HiDPI
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.scale(dpr, dpr);
-    }
-
-    logRef.current('Canvas resized', { width: rect.width, height: rect.height, dpr });
+    logRef.current('Canvas resized', { width: rect.width, height: rect.height });
   }, []);
 
-  // Mouse down handler
+  // Mouse down handler - simplified for unified coordinates
   const handleMouseDown = useCallback((event: MouseEvent) => {
     if (!canvas) return;
 
@@ -304,8 +281,9 @@ export function useUnifiedMouseInteraction({
     const rect = canvas.getBoundingClientRect();
     const screenX = event.clientX - rect.left;
     const screenY = event.clientY - rect.top;
-    const worldPos = getWorldCoordinates(screenX, screenY);
-
+    
+    // In unified coordinates, screen coordinates are world coordinates
+    const worldPos = { x: screenX, y: screenY };
     const clickedPanel = getPanelAtPosition(worldPos.x, worldPos.y);
 
     if (clickedPanel) {
@@ -338,9 +316,9 @@ export function useUnifiedMouseInteraction({
       onPanelSelect(null);
       logRef.current('Started panning canvas', { screenX, screenY });
     }
-  }, [canvas, getWorldCoordinates, getPanelAtPosition, onPanelSelect, onDragStart]);
+  }, [canvas, getPanelAtPosition, onPanelSelect, onDragStart]);
 
-  // Mouse move handler
+  // Mouse move handler - simplified for unified coordinates
   const handleMouseMove = useCallback((event: MouseEvent) => {
     if (!canvas || !isMouseDownRef.current) return;
 
@@ -348,8 +326,9 @@ export function useUnifiedMouseInteraction({
     const rect = canvas.getBoundingClientRect();
     const screenX = event.clientX - rect.left;
     const screenY = event.clientY - rect.top;
-    const worldPos = getWorldCoordinates(screenX, screenY);
-
+    
+    // In unified coordinates, screen coordinates are world coordinates
+    const worldPos = { x: screenX, y: screenY };
     const currentState = mouseStateRef.current;
 
     if (currentState.isDragging && currentState.selectedPanelId) {
@@ -379,7 +358,7 @@ export function useUnifiedMouseInteraction({
 
       logRef.current('Panning canvas', { deltaX, deltaY });
     }
-  }, [canvas, getWorldCoordinates, onPanelUpdate, onCanvasPan]);
+  }, [canvas, onPanelUpdate, onCanvasPan]);
 
   // Mouse up handler
   const handleMouseUp = useCallback((event: MouseEvent) => {
@@ -405,46 +384,34 @@ export function useUnifiedMouseInteraction({
     mouseStateRef.current = initialMouseState;
   }, [canvas, onDragEnd]);
 
-  // Mouse wheel handler for zooming
+  // Mouse wheel handler for zooming - simplified for unified coordinates
   const handleWheel = useCallback((event: WheelEvent) => {
     if (!canvas) return;
 
     event.preventDefault();
     
-    // Zoom in/out based on wheel direction
-    const zoomFactor = event.deltaY > 0 ? 0.9 : 1.1;
+    // For unified coordinates, we can implement simple zoom by scaling the canvas
+    // This is a simplified approach - in a full implementation, you might want to
+    // implement zoom by changing the PIXELS_PER_FOOT ratio
+    
+    // For now, we'll just log the zoom event
     const rect = canvas.getBoundingClientRect();
     const mouseX = event.clientX - rect.left;
     const mouseY = event.clientY - rect.top;
 
-    // Get world coordinates before zoom
-    const worldPos = getWorldCoordinates(mouseX, mouseY);
-
-    // Apply zoom
-    const newScale = Math.max(0.1, Math.min(10, canvasState.worldScale * zoomFactor));
-    const scaleChange = newScale / canvasState.worldScale;
-
-    // Adjust offset to zoom towards mouse position
-    const newOffsetX = mouseX - worldPos.x * newScale;
-    const newOffsetY = mouseY - worldPos.y * newScale;
-
-    onCanvasPan(newOffsetX - canvasState.worldOffsetX, newOffsetY - canvasState.worldOffsetY);
-
-    logRef.current('Zoomed canvas', { 
-      oldScale: canvasState.worldScale, 
-      newScale, 
-      scaleChange,
+    logRef.current('Zoom attempted', { 
       mousePos: { x: mouseX, y: mouseY },
-      worldPos 
+      deltaY: event.deltaY,
+      note: 'Zoom functionality simplified for unified coordinates'
     });
-  }, [canvas, canvasState.worldScale, canvasState.worldOffsetX, canvasState.worldOffsetY, getWorldCoordinates, onCanvasPan]);
+  }, [canvas]);
 
   // Context menu handler
   const handleContextMenu = useCallback((event: MouseEvent) => {
     event.preventDefault();
   }, []);
 
-  // Click handlers for panel interactions
+  // Click handlers for panel interactions - simplified for unified coordinates
   const handleCanvasClick = useCallback((event: MouseEvent) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -452,13 +419,14 @@ export function useUnifiedMouseInteraction({
     const rect = canvas.getBoundingClientRect();
     const screenX = event.clientX - rect.left;
     const screenY = event.clientY - rect.top;
-    const worldPos = getWorldCoordinates(screenX, screenY);
     
+    // In unified coordinates, screen coordinates are world coordinates
+    const worldPos = { x: screenX, y: screenY };
     const clickedPanel = getPanelAtPosition(worldPos.x, worldPos.y);
     if (clickedPanel && onPanelClick) {
       onPanelClick(clickedPanel);
     }
-  }, [getWorldCoordinates, getPanelAtPosition, onPanelClick]);
+  }, [getPanelAtPosition, onPanelClick]);
 
   const handleCanvasDoubleClick = useCallback((event: MouseEvent) => {
     const canvas = canvasRef.current;
@@ -467,13 +435,14 @@ export function useUnifiedMouseInteraction({
     const rect = canvas.getBoundingClientRect();
     const screenX = event.clientX - rect.left;
     const screenY = event.clientY - rect.top;
-    const worldPos = getWorldCoordinates(screenX, screenY);
     
+    // In unified coordinates, screen coordinates are world coordinates
+    const worldPos = { x: screenX, y: screenY };
     const clickedPanel = getPanelAtPosition(worldPos.x, worldPos.y);
     if (clickedPanel && onPanelDoubleClick) {
       onPanelDoubleClick(clickedPanel);
     }
-  }, [getWorldCoordinates, getPanelAtPosition, onPanelDoubleClick]);
+  }, [getPanelAtPosition, onPanelDoubleClick]);
 
   // Setup event listeners - SINGLE UNIFIED SETUP
   useEffect(() => {

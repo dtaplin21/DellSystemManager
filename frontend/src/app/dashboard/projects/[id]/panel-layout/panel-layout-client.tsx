@@ -614,19 +614,27 @@ export default function PanelLayoutClient({
       const mapped = layout.panels.map((panel: any, idx: number) => {
         console.log(`[DEBUG] Mapping panel ${idx}:`, panel);
         
-        // CRITICAL FIX #7: Enhanced field name mapping with fallbacks
-        const width = Number(panel.width_feet || panel.width || panel.width_feet || 100);
-        const length = Number(panel.height_feet || panel.length || panel.height || 100);
+        // CRITICAL FIX #7: Enhanced field name mapping with fallbacks - convert to unified coordinates
+        const widthFeet = Number(panel.width_feet || panel.width || panel.width_feet || 100);
+        const lengthFeet = Number(panel.height_feet || panel.length || panel.height || 100);
         
-        // CRITICAL: Preserve localStorage positions during mapping
-        let x = Number(panel.x || 0);
-        let y = Number(panel.y || 0);
+        // Convert feet to pixels for unified coordinate system
+        const PIXELS_PER_FOOT = 2; // From unified coordinates
+        const width = widthFeet * PIXELS_PER_FOOT;
+        const length = lengthFeet * PIXELS_PER_FOOT;
+        
+        // CRITICAL: Preserve localStorage positions during mapping - convert to unified coordinates
+        const xFeet = Number(panel.x || 0);
+        const yFeet = Number(panel.y || 0);
+        let x = xFeet * PIXELS_PER_FOOT; // Convert to pixels
+        let y = yFeet * PIXELS_PER_FOOT; // Convert to pixels
         
         // CRITICAL DEBUG: Check if we have a saved position for this panel
         if (positionMap[panel.id]) {
           const saved = positionMap[panel.id];
           if (typeof saved.x === 'number' && typeof saved.y === 'number') {
             console.log(`🚨 [CLIENT] 🚨🚨🚨 localStorage OVERRIDE during mapping: panel ${panel.id}: layout(${x}, ${y}) -> localStorage(${saved.x}, ${saved.y}) 🚨🚨🚨`);
+            // localStorage positions are already in pixels (unified coordinates)
             x = saved.x;
             y = saved.y;
           } else {
