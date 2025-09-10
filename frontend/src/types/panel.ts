@@ -3,10 +3,10 @@
 
 export interface Panel {
   id: string;
-  width: number; // Pixels (unified coordinate system)
-  height: number; // Pixels (unified coordinate system)
-  x: number; // Pixels (unified coordinate system)
-  y: number; // Pixels (unified coordinate system)
+  width: number; // World units (feet) - real measurements
+  height: number; // World units (feet) - real measurements
+  x: number; // World units (feet) - real measurements
+  y: number; // World units (feet) - real measurements
   rotation?: number;
   isValid: boolean;
   shape?: 'rectangle' | 'triangle' | 'right-triangle' | 'circle';
@@ -96,7 +96,9 @@ export function validatePanel(panel: any): panel is Panel {
     typeof panel.x === 'number' &&
     typeof panel.y === 'number' &&
     panel.width > 0 &&
-    panel.height > 0
+    panel.height > 0 &&
+    panel.x >= 0 &&
+    panel.y >= 0
   );
 }
 
