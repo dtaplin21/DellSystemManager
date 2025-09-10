@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useReducer, ReactNode, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useReducer, ReactNode, useEffect, useRef, useCallback } from 'react';
 import { Panel, PanelPositionMap, FeatureFlags } from '@/types/panel';
 
 // State interfaces
@@ -325,25 +325,40 @@ export function usePanelContext() {
 
 export function useCanvasState() {
   const { state, dispatch } = usePanelContext();
+  
+  const dispatchCanvas = useCallback((action: CanvasAction) => {
+    dispatch({ type: 'CANVAS', payload: action });
+  }, [dispatch]);
+  
   return {
     canvas: state.canvas,
-    dispatchCanvas: (action: CanvasAction) => dispatch({ type: 'CANVAS', payload: action }),
+    dispatchCanvas,
   };
 }
 
 export function usePanelState() {
   const { state, dispatch } = usePanelContext();
+  
+  const dispatchPanels = useCallback((action: PanelAction) => {
+    dispatch({ type: 'PANELS', payload: action });
+  }, [dispatch]);
+  
   return {
     panels: state.panels,
-    dispatchPanels: (action: PanelAction) => dispatch({ type: 'PANELS', payload: action }),
+    dispatchPanels,
   };
 }
 
 export function useFullscreenState() {
   const { state, dispatch } = usePanelContext();
+  
+  const dispatchFullscreen = useCallback((action: FullscreenAction) => {
+    dispatch({ type: 'FULLSCREEN', payload: action });
+  }, [dispatch]);
+  
   return {
     fullscreen: state.fullscreen,
-    dispatchFullscreen: (action: FullscreenAction) => dispatch({ type: 'FULLSCREEN', payload: action }),
+    dispatchFullscreen,
   };
 }
 
