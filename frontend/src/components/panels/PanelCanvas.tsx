@@ -95,6 +95,27 @@ export function PanelCanvas({
     dispatchCanvas({ type: 'END_DRAG' });
   };
 
+  const onCanvasZoomRef = React.useRef((newScale: number) => {
+    dispatchCanvas({ type: 'SET_WORLD_SCALE', payload: newScale });
+    
+    // Persist canvas state
+    updateCanvasState({
+      worldOffsetX: canvasContext.worldOffsetX,
+      worldOffsetY: canvasContext.worldOffsetY,
+      worldScale: newScale,
+    });
+  });
+  onCanvasZoomRef.current = (newScale: number) => {
+    dispatchCanvas({ type: 'SET_WORLD_SCALE', payload: newScale });
+    
+    // Persist canvas state
+    updateCanvasState({
+      worldOffsetX: canvasContext.worldOffsetX,
+      worldOffsetY: canvasContext.worldOffsetY,
+      worldScale: newScale,
+    });
+  };
+
   // Unified mouse interaction hook - combines mouse handling and canvas rendering
   const { 
     mouseState, 
@@ -115,6 +136,7 @@ export function PanelCanvas({
     onPanelDoubleClick,
     onPanelUpdate: (panelId, updates) => onPanelUpdateRef.current(panelId, updates),
     onCanvasPan: (deltaX, deltaY) => onCanvasPanRef.current(deltaX, deltaY),
+    onCanvasZoom: (newScale) => onCanvasZoomRef.current(newScale),
     onPanelSelect: (panelId) => onPanelSelectRef.current(panelId),
     onDragStart: (panelId, worldPos) => onDragStartRef.current(panelId, worldPos),
     onDragEnd: () => onDragEndRef.current(),
