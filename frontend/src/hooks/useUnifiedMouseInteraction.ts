@@ -113,28 +113,25 @@ export function useUnifiedMouseInteraction({
     return { x: screenX, y: screenY };
   }, [canvasState.worldOffsetX, canvasState.worldOffsetY, canvasState.worldScale]);
 
-  // Panel hit detection - convert world coordinates to screen coordinates for comparison
-  const getPanelAtPosition = useCallback((worldX: number, worldY: number): Panel | null => {
-    // Convert world coordinates to screen coordinates for hit detection
-    const screenPos = getScreenCoordinates(worldX, worldY);
-    
+  // Panel hit detection - use unified coordinates directly (no conversion needed)
+  const getPanelAtPosition = useCallback((screenX: number, screenY: number): Panel | null => {
     // Check panels in reverse order (top to bottom)
     for (let i = panels.length - 1; i >= 0; i--) {
       const panel = panels[i];
       if (!panel.isValid) continue;
 
-      // Panels are stored in screen coordinates, so compare with screen coordinates
+      // Panels are stored in unified coordinates (pixels), so compare directly
       const left = panel.x;
       const right = panel.x + panel.width;
       const top = panel.y;
       const bottom = panel.y + panel.height;
 
-      if (screenPos.x >= left && screenPos.x <= right && screenPos.y >= top && screenPos.y <= bottom) {
+      if (screenX >= left && screenX <= right && screenY >= top && screenY <= bottom) {
         return panel;
       }
     }
     return null;
-  }, [panels, getScreenCoordinates]);
+  }, [panels]);
 
   // Canvas rendering function - simplified for unified coordinates
   const render = useCallback(() => {
@@ -352,7 +349,7 @@ export function useUnifiedMouseInteraction({
     logRef.current('Canvas resized', { width: rect.width, height: rect.height });
   }, []); // Remove render dependency to break circular dependency
 
-  // Mouse down handler - proper coordinate transformation
+  // Mouse down handler - use screen coordinates directly
   const handleMouseDown = useCallback((event: MouseEvent) => {
     if (!canvas) return;
 
@@ -364,9 +361,8 @@ export function useUnifiedMouseInteraction({
     const screenX = event.clientX - rect.left;
     const screenY = event.clientY - rect.top;
     
-    // Convert screen coordinates to world coordinates
-    const worldPos = getWorldCoordinates(screenX, screenY);
-    const clickedPanel = getPanelAtPosition(worldPos.x, worldPos.y);
+    // Use screen coordinates directly (panels are stored in screen coordinates)
+    const clickedPanel = getPanelAtPosition(screenX, screenY);
 
     if (clickedPanel) {
       // Start dragging panel - store offset from panel's top-left corner
@@ -374,15 +370,15 @@ export function useUnifiedMouseInteraction({
         isDragging: true,
         isPanning: false,
         selectedPanelId: clickedPanel.id,
-        dragStartX: worldPos.x - clickedPanel.x, // Offset from panel's left edge
-        dragStartY: worldPos.y - clickedPanel.y, // Offset from panel's top edge
+        dragStartX: screenX - clickedPanel.x, // Offset from panel's left edge (screen coords)
+        dragStartY: screenY - clickedPanel.y, // Offset from panel's top edge (screen coords)
         lastMouseX: screenX,
         lastMouseY: screenY,
       };
       
       onPanelSelect(clickedPanel.id);
-      onDragStart?.(clickedPanel.id, worldPos);
-      logRef.current('Started dragging panel', { panelId: clickedPanel.id, worldPos });
+      onDragStart?.(clickedPanel.id, { x: screenX, y: screenY });
+      logRef.current('Started dragging panel', { panelId: clickedPanel.id, screenPos: { x: screenX, y: screenY } });
     } else {
       // Start panning canvas
       mouseStateRef.current = {
@@ -398,9 +394,9 @@ export function useUnifiedMouseInteraction({
       onPanelSelect(null);
       logRef.current('Started panning canvas', { screenX, screenY });
     }
-  }, [canvas, getWorldCoordinates, getPanelAtPosition, onPanelSelect, onDragStart]);
+  }, [canvas, getPanelAtPosition, onPanelSelect, onDragStart]);
 
-  // Mouse move handler - proper coordinate transformation
+  // Mouse move handler - use unified coordinates directly
   const handleMouseMove = useCallback((event: MouseEvent) => {
     if (!canvas || !isMouseDownRef.current) return;
 
@@ -409,20 +405,19 @@ export function useUnifiedMouseInteraction({
     const screenX = event.clientX - rect.left;
     const screenY = event.clientY - rect.top;
     
-    // Convert screen coordinates to world coordinates
-    const worldPos = getWorldCoordinates(screenX, screenY);
     const currentState = mouseStateRef.current;
 
     if (currentState.isDragging && currentState.selectedPanelId) {
       // Update panel position - maintain the offset from where the user clicked
+      // Use screen coordinates directly (panels are stored in unified pixels)
       onPanelUpdate(currentState.selectedPanelId, {
-        x: worldPos.x - currentState.dragStartX,
-        y: worldPos.y - currentState.dragStartY,
+        x: screenX - currentState.dragStartX,
+        y: screenY - currentState.dragStartY,
       });
 
       logRef.current('Dragging panel', { 
         panelId: currentState.selectedPanelId, 
-        worldPos: { x: worldPos.x, y: worldPos.y },
+        screenPos: { x: screenX, y: screenY },
         dragStart: { x: currentState.dragStartX, y: currentState.dragStartY }
       });
     } else if (currentState.isPanning) {
@@ -440,7 +435,7 @@ export function useUnifiedMouseInteraction({
 
       logRef.current('Panning canvas', { deltaX, deltaY });
     }
-  }, [canvas, getWorldCoordinates, onPanelUpdate, onCanvasPan]);
+  }, [canvas, onPanelUpdate, onCanvasPan]);
 
   // Mouse up handler
   const handleMouseUp = useCallback((event: MouseEvent) => {
@@ -516,7 +511,7 @@ export function useUnifiedMouseInteraction({
     event.preventDefault();
   }, []);
 
-  // Click handlers for panel interactions - proper coordinate transformation
+  // Click handlers for panel interactions - use unified coordinates directly
   const handleCanvasClick = useCallback((event: MouseEvent) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -525,13 +520,12 @@ export function useUnifiedMouseInteraction({
     const screenX = event.clientX - rect.left;
     const screenY = event.clientY - rect.top;
     
-    // Convert screen coordinates to world coordinates
-    const worldPos = getWorldCoordinates(screenX, screenY);
-    const clickedPanel = getPanelAtPosition(worldPos.x, worldPos.y);
+    // Use screen coordinates directly (panels are stored in unified pixels)
+    const clickedPanel = getPanelAtPosition(screenX, screenY);
     if (clickedPanel && onPanelClick) {
       onPanelClick(clickedPanel);
     }
-  }, [getWorldCoordinates, getPanelAtPosition, onPanelClick]);
+  }, [getPanelAtPosition, onPanelClick]);
 
   const handleCanvasDoubleClick = useCallback((event: MouseEvent) => {
     const canvas = canvasRef.current;
@@ -541,13 +535,12 @@ export function useUnifiedMouseInteraction({
     const screenX = event.clientX - rect.left;
     const screenY = event.clientY - rect.top;
     
-    // Convert screen coordinates to world coordinates
-    const worldPos = getWorldCoordinates(screenX, screenY);
-    const clickedPanel = getPanelAtPosition(worldPos.x, worldPos.y);
+    // Use screen coordinates directly (panels are stored in unified pixels)
+    const clickedPanel = getPanelAtPosition(screenX, screenY);
     if (clickedPanel && onPanelDoubleClick) {
       onPanelDoubleClick(clickedPanel);
     }
-  }, [getWorldCoordinates, getPanelAtPosition, onPanelDoubleClick]);
+  }, [getPanelAtPosition, onPanelDoubleClick]);
 
   // Setup event listeners - SINGLE UNIFIED SETUP
   useEffect(() => {
