@@ -135,7 +135,7 @@ export function useCanvas({
     ctx.restore();
 
     logRef.current('Canvas rendered', { panelCount: panels.length, worldScale: memoizedCanvasState.worldScale });
-  }, [panels, memoizedCanvasState]);
+  }, [panels, memoizedCanvasState]); // Remove drawGrid and drawPanel to avoid circular dependency
 
   // Grid drawing function
   const drawGrid = useCallback((ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, state: CanvasState) => {

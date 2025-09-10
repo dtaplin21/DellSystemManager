@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -148,7 +149,7 @@ export default function DocumentViewer({ document, isOpen, onClose }: DocumentVi
       case 'jpeg':
       case 'gif':
         return (
-          <img
+          <Image
             src={fileUrl}
             alt={document.name}
             className="w-full h-full object-contain"

@@ -152,7 +152,7 @@ export function PanelCanvas({
         y: storedCanvasState.worldOffsetY 
       }});
     }
-  }, []); // Only run on mount
+  }, [dispatchCanvas, storedCanvasState]); // Include dependencies
 
   // Persist canvas state when it changes (but not on initial load)
   const isInitialMount = React.useRef(true);

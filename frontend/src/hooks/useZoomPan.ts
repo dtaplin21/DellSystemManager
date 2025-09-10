@@ -1,292 +1,300 @@
 'use client';
 
-import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import { 
-  WORLD_CONSTANTS, 
-  toWorldCoordinates, 
-  toScreenCoordinates, 
-  calculateVisibleWorldRect,
-  calculateGridLines,
-  WorldTransform,
-  ViewportRect
-} from '@/lib/world-coordinates';
-import { usePerformanceMonitoring } from './usePerformanceMonitoring';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { WORLD_CONSTANTS, snapToGrid } from '@/lib/world-coordinates';
+import { debounce } from 'lodash';
+
+interface Point {
+  x: number;
+  y: number;
+}
+
+interface Viewport {
+  width: number;
+  height: number;
+}
 
 interface UseZoomPanOptions {
   worldWidth: number;
   worldHeight: number;
   viewportWidth: number;
   viewportHeight: number;
-  initialFit?: 'extent' | 'center' | 'none';
+  initialFit?: 'extent' | 'none';
   enablePerformanceMonitoring?: boolean;
-  onTransformChange?: (transform: WorldTransform) => void;
+  onTransformChange?: (transform: { x: number; y: number; scale: number }) => void;
 }
 
-interface UseZoomPanReturn {
-  // Transform state
-  transform: WorldTransform;
-  
-  // Coordinate conversion functions
-  toWorld: (screenPos: { x: number; y: number }) => { x: number; y: number };
-  toScreen: (worldPos: { x: number; y: number }) => { x: number; y: number };
-  
-  // Viewport information
-  visibleWorldRect: ViewportRect;
-  gridLines: Array<{ type: 'vertical' | 'horizontal'; x?: number; y?: number; startX?: number; startY?: number; endX?: number; endY?: number }>;
-  
-  // Event handlers
+interface ViewTransform {
+  x: number;
+  y: number;
+  scale: number;
+  toWorld: (screenPoint: Point) => Point;
+  toScreen: (worldPoint: Point) => Point;
+  fitToExtent: () => void;
+  setViewportSize: (width: number, height: number) => void;
+  visibleWorldRect: { x: number; y: number; width: number; height: number };
+  gridLines: Array<{
+    type: 'vertical' | 'horizontal';
+    x?: number;
+    y?: number;
+    startX?: number;
+    startY?: number;
+    endX?: number;
+    endY?: number;
+    isMajor?: boolean;
+  }>;
   onWheel: (event: WheelEvent) => void;
   onDragStart: (event: MouseEvent) => void;
   onDragMove: (event: MouseEvent) => void;
   onDragEnd: (event: MouseEvent) => void;
-  
-  // View control functions
-  fitToExtent: () => void;
-  setViewportSize: (width: number, height: number) => void;
-  zoomToPoint: (worldX: number, worldY: number, scale: number) => void;
-  panTo: (worldX: number, worldY: number) => void;
-  
-  // Performance monitoring
-  performanceMetrics: ReturnType<typeof usePerformanceMonitoring>['metrics'];
+  performanceMetrics: {
+    renderTime: number;
+    frameCount: number;
+    isLowPerf: boolean;
+  };
 }
 
-/**
- * Hook for managing zoom and pan transformations
- * Provides cursor-centered zoom, bounded panning, and performance monitoring
- */
-export function useZoomPan(options: UseZoomPanOptions): UseZoomPanReturn {
-  const {
-    worldWidth,
-    worldHeight,
-    viewportWidth,
-    viewportHeight,
-    initialFit = 'extent',
-    enablePerformanceMonitoring = true,
-    onTransformChange
-  } = options;
-
-  // Performance monitoring
-  const { metrics: performanceMetrics, recordRenderTime } = usePerformanceMonitoring({
-    enabled: enablePerformanceMonitoring,
-    onPerformanceIssue: (metrics) => {
-      console.warn('Performance issue detected in useZoomPan:', metrics);
-    }
+export function useZoomPan({
+  worldWidth,
+  worldHeight,
+  viewportWidth,
+  viewportHeight,
+  initialFit = 'extent',
+  enablePerformanceMonitoring = false,
+  onTransformChange
+}: UseZoomPanOptions): ViewTransform {
+  
+  const [scale, setScale] = useState(1);
+  const [x, setX] = useState(0);
+  const [y, setY] = useState(0);
+  
+  const viewportSizeRef = useRef({ width: viewportWidth, height: viewportHeight });
+  const performanceMetricsRef = useRef({
+    renderTime: 0,
+    frameCount: 0,
+    isLowPerf: false
   });
 
-  // Transform state
-  const [transform, setTransform] = useState<WorldTransform>(() => {
-    // Calculate initial transform based on fit mode
-    if (initialFit === 'extent') {
-      const margin = 0.06; // 6% breathing room
-      const fitW = viewportWidth / (worldWidth * (1 + margin * 2));
-      const fitH = viewportHeight / (worldHeight * (1 + margin * 2));
-      const scale = Math.min(fitW, fitH);
-      
-      const worldPxW = worldWidth * scale;
-      const worldPxH = worldHeight * scale;
-      const x = (viewportWidth - worldPxW) / 2;
-      const y = (viewportHeight - worldPxH) / 2;
-      
-      return { x, y, scale };
-    } else if (initialFit === 'center') {
-      return {
-        x: viewportWidth / 2 - worldWidth / 2,
-        y: viewportHeight / 2 - worldHeight / 2,
-        scale: 1
-      };
-    } else {
-      return { x: 0, y: 0, scale: 1 };
-    }
-  });
+  // Update viewport size if props change
+  useEffect(() => {
+    viewportSizeRef.current = { width: viewportWidth, height: viewportHeight };
+  }, [viewportWidth, viewportHeight]);
 
-  // Refs for drag state
-  const isDraggingRef = useRef(false);
-  const lastMousePosRef = useRef({ x: 0, y: 0 });
-  const dragStartTransformRef = useRef<WorldTransform>({ x: 0, y: 0, scale: 1 });
-
-  // Calculate minimum scale to fit world
+  // Calculate minScale to fit the entire world
   const minScale = useMemo(() => {
     const margin = 0.06; // 6% breathing room
-    const fitW = viewportWidth / (worldWidth * (1 + margin * 2));
-    const fitH = viewportHeight / (worldHeight * (1 + margin * 2));
+    const fitW = viewportSizeRef.current.width / (worldWidth * (1 + margin * 2));
+    const fitH = viewportSizeRef.current.height / (worldHeight * (1 + margin * 2));
     return Math.min(fitW, fitH);
-  }, [viewportWidth, viewportHeight, worldWidth, worldHeight]);
+  }, [worldWidth, worldHeight]);
 
-  // Calculate maximum scale (10x zoom)
-  const maxScale = useMemo(() => {
-    return Math.min(WORLD_CONSTANTS.MAX_SCALE, minScale * 10);
-  }, [minScale]);
+  // Clamp pan offsets to prevent world from being lost
+  const clampPan = useCallback((newX: number, newY: number, currentScale: number) => {
+    const scaledWorldWidth = worldWidth * currentScale;
+    const scaledWorldHeight = worldHeight * currentScale;
 
-  // Coordinate conversion functions
-  const toWorld = useCallback((screenPos: { x: number; y: number }) => {
-    return toWorldCoordinates(screenPos.x, screenPos.y, transform);
-  }, [transform]);
+    const maxX = Math.max(0, viewportSizeRef.current.width - scaledWorldWidth);
+    const maxY = Math.max(0, viewportSizeRef.current.height - scaledWorldHeight);
 
-  const toScreen = useCallback((worldPos: { x: number; y: number }) => {
-    return toScreenCoordinates(worldPos.x, worldPos.y, transform);
-  }, [transform]);
+    const clampedX = Math.max(maxX, Math.min(0, newX));
+    const clampedY = Math.max(maxY, Math.min(0, newY));
+    return { x: clampedX, y: clampedY };
+  }, [worldWidth, worldHeight]);
 
-  // Calculate visible world rectangle
-  const visibleWorldRect = useMemo(() => {
-    return calculateVisibleWorldRect(viewportWidth, viewportHeight, transform);
-  }, [viewportWidth, viewportHeight, transform]);
+  // Fit the entire world to the viewport
+  const fitToExtent = useCallback(() => {
+    const s = minScale;
+    const scaledWorldWidth = worldWidth * s;
+    const scaledWorldHeight = worldHeight * s;
+    const nx = (viewportSizeRef.current.width - scaledWorldWidth) / 2;
+    const ny = (viewportSizeRef.current.height - scaledWorldHeight) / 2;
 
-  // Calculate grid lines for visible area
-  const gridLines = useMemo(() => {
-    const start = performance.now();
-    const lines = calculateGridLines(visibleWorldRect);
-    const duration = performance.now() - start;
+    setScale(s);
+    setX(nx);
+    setY(ny);
+  }, [minScale, worldWidth, worldHeight]);
+
+  // Initial fit
+  useEffect(() => {
+    if (initialFit === 'extent') {
+      fitToExtent();
+    }
+  }, [initialFit, fitToExtent]);
+
+  // Coordinate conversion helpers
+  const toWorld = useCallback((screenPoint: Point): Point => {
+    if (scale <= WORLD_CONSTANTS.EPSILON) return { x: 0, y: 0 };
+    return {
+      x: (screenPoint.x - x) / scale,
+      y: (screenPoint.y - y) / scale,
+    };
+  }, [x, y, scale]);
+
+  const toScreen = useCallback((worldPoint: Point): Point => {
+    return {
+      x: worldPoint.x * scale + x,
+      y: worldPoint.y * scale + y,
+    };
+  }, [x, y, scale]);
+
+  // Debounced transform change callback
+  const debouncedTransformChange = useMemo(
+    () => debounce((transform: { x: number; y: number; scale: number }) => {
+      onTransformChange?.(transform);
+    }, 16),
+    [onTransformChange]
+  );
+
+  // Update transform and notify
+  const updateTransform = useCallback((newX: number, newY: number, newScale: number) => {
+    setX(newX);
+    setY(newY);
+    setScale(newScale);
     
-    recordRenderTime(duration);
-    
-    return lines;
-  }, [visibleWorldRect, recordRenderTime]);
+    const transform = { x: newX, y: newY, scale: newScale };
+    debouncedTransformChange(transform);
+  }, [debouncedTransformChange]);
 
-  // Safe transform update with bounds checking
-  const updateTransform = useCallback((newTransform: Partial<WorldTransform>) => {
-    setTransform(prev => {
-      const updated = { ...prev, ...newTransform };
-      
-      // Clamp scale to valid range
-      updated.scale = Math.max(minScale, Math.min(maxScale, updated.scale));
-      
-      // Clamp pan to keep world visible
-      const maxX = viewportWidth - worldWidth * updated.scale;
-      const maxY = viewportHeight - worldHeight * updated.scale;
-      
-      updated.x = Math.max(maxX, Math.min(0, updated.x));
-      updated.y = Math.max(maxY, Math.min(0, updated.y));
-      
-      // Notify parent of transform change
-      onTransformChange?.(updated);
-      
-      return updated;
-    });
-  }, [minScale, maxScale, viewportWidth, viewportHeight, worldWidth, worldHeight, onTransformChange]);
-
-  // Wheel event handler (cursor-centered zoom)
+  // Zoom handler (cursor-centered)
   const onWheel = useCallback((event: WheelEvent) => {
     event.preventDefault();
-    
-    const rect = (event.target as HTMLElement).getBoundingClientRect();
-    const mouseX = event.clientX - rect.left;
-    const mouseY = event.clientY - rect.top;
-    
-    // Convert mouse position to world coordinates
-    const worldPos = toWorld({ x: mouseX, y: mouseY });
-    
-    // Calculate zoom factor
-    const zoomFactor = event.deltaY > 0 ? 0.9 : 1.1;
-    const newScale = transform.scale * zoomFactor;
-    
-    // Clamp scale
-    const clampedScale = Math.max(minScale, Math.min(maxScale, newScale));
-    
-    // Calculate new offset to keep world point under cursor
-    const newX = mouseX - worldPos.x * clampedScale;
-    const newY = mouseY - worldPos.y * clampedScale;
-    
-    updateTransform({ x: newX, y: newY, scale: clampedScale });
-  }, [transform.scale, minScale, maxScale, toWorld, updateTransform]);
 
-  // Drag event handlers
+    const stageRect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    const mouseX = event.clientX - stageRect.left;
+    const mouseY = event.clientY - stageRect.top;
+
+    const oldWorldPoint = toWorld({ x: mouseX, y: mouseY });
+
+    const zoomFactor = event.deltaY > 0 ? 1 / 1.1 : 1.1;
+    let newScale = scale * zoomFactor;
+    newScale = Math.max(WORLD_CONSTANTS.MIN_SCALE, Math.min(WORLD_CONSTANTS.MAX_SCALE, newScale));
+    newScale = parseFloat(newScale.toFixed(3));
+
+    const newX = mouseX - oldWorldPoint.x * newScale;
+    const newY = mouseY - oldWorldPoint.y * newScale;
+
+    const clamped = clampPan(newX, newY, newScale);
+    updateTransform(clamped.x, clamped.y, newScale);
+  }, [scale, toWorld, clampPan, updateTransform]);
+
+  // Pan handlers
+  const isPanningRef = useRef(false);
+  const lastPanPointRef = useRef<Point>({ x: 0, y: 0 });
+
   const onDragStart = useCallback((event: MouseEvent) => {
-    event.preventDefault();
-    isDraggingRef.current = true;
-    lastMousePosRef.current = { x: event.clientX, y: event.clientY };
-    dragStartTransformRef.current = { ...transform };
-  }, [transform]);
+    isPanningRef.current = true;
+    lastPanPointRef.current = { x: event.clientX, y: event.clientY };
+  }, []);
 
   const onDragMove = useCallback((event: MouseEvent) => {
-    if (!isDraggingRef.current) return;
-    
-    event.preventDefault();
-    
-    const deltaX = event.clientX - lastMousePosRef.current.x;
-    const deltaY = event.clientY - lastMousePosRef.current.y;
-    
-    const newX = dragStartTransformRef.current.x + deltaX;
-    const newY = dragStartTransformRef.current.y + deltaY;
-    
-    updateTransform({ x: newX, y: newY });
-  }, [updateTransform]);
+    if (!isPanningRef.current) return;
 
-  const onDragEnd = useCallback((event: MouseEvent) => {
-    isDraggingRef.current = false;
+    const deltaX = event.clientX - lastPanPointRef.current.x;
+    const deltaY = event.clientY - lastPanPointRef.current.y;
+
+    lastPanPointRef.current = { x: event.clientX, y: event.clientY };
+
+    const newX = x + deltaX;
+    const newY = y + deltaY;
+
+    const clamped = clampPan(newX, newY, scale);
+    updateTransform(clamped.x, clamped.y, scale);
+  }, [x, y, scale, clampPan, updateTransform]);
+
+  const onDragEnd = useCallback(() => {
+    isPanningRef.current = false;
   }, []);
 
-  // View control functions
-  const fitToExtent = useCallback(() => {
-    const margin = 0.06; // 6% breathing room
-    const fitW = viewportWidth / (worldWidth * (1 + margin * 2));
-    const fitH = viewportHeight / (worldHeight * (1 + margin * 2));
-    const scale = Math.min(fitW, fitH);
+  // Visible world rectangle (for grid culling and logic)
+  const visibleWorldRect = useMemo(() => ({
+    x: -x / scale,
+    y: -y / scale,
+    width: viewportSizeRef.current.width / scale,
+    height: viewportSizeRef.current.height / scale,
+  }), [x, y, scale]);
+
+  // Grid lines calculation with viewport culling
+  const gridLines = useMemo(() => {
+    const { x: viewX, y: viewY, width: viewWidth, height: viewHeight } = visibleWorldRect;
+    const buffer = WORLD_CONSTANTS.GRID_CELL_SIZE_FT * 10;
     
-    const worldPxW = worldWidth * scale;
-    const worldPxH = worldHeight * scale;
-    const x = (viewportWidth - worldPxW) / 2;
-    const y = (viewportHeight - worldPxH) / 2;
+    const startX = Math.max(0, Math.floor((viewX - buffer) / WORLD_CONSTANTS.GRID_CELL_SIZE_FT) * WORLD_CONSTANTS.GRID_CELL_SIZE_FT);
+    const endX = Math.min(worldWidth, Math.ceil((viewX + viewWidth + buffer) / WORLD_CONSTANTS.GRID_CELL_SIZE_FT) * WORLD_CONSTANTS.GRID_CELL_SIZE_FT);
+    const startY = Math.max(0, Math.floor((viewY - buffer) / WORLD_CONSTANTS.GRID_CELL_SIZE_FT) * WORLD_CONSTANTS.GRID_CELL_SIZE_FT);
+    const endY = Math.min(worldHeight, Math.ceil((viewY + viewHeight + buffer) / WORLD_CONSTANTS.GRID_CELL_SIZE_FT) * WORLD_CONSTANTS.GRID_CELL_SIZE_FT);
     
-    updateTransform({ x, y, scale });
-  }, [viewportWidth, viewportHeight, worldWidth, worldHeight, updateTransform]);
+    const lines: Array<{
+      type: 'vertical' | 'horizontal';
+      x?: number;
+      y?: number;
+      startX?: number;
+      startY?: number;
+      endX?: number;
+      endY?: number;
+      isMajor?: boolean;
+    }> = [];
+    
+    // Vertical lines
+    for (let gx = startX; gx <= endX; gx += WORLD_CONSTANTS.GRID_CELL_SIZE_FT) {
+      const isMajor = gx % (WORLD_CONSTANTS.GRID_CELL_SIZE_FT * 10) === 0;
+      lines.push({
+        type: 'vertical',
+        x: gx,
+        startY,
+        endY,
+        isMajor
+      });
+    }
+    
+    // Horizontal lines
+    for (let gy = startY; gy <= endY; gy += WORLD_CONSTANTS.GRID_CELL_SIZE_FT) {
+      const isMajor = gy % (WORLD_CONSTANTS.GRID_CELL_SIZE_FT * 10) === 0;
+      lines.push({
+        type: 'horizontal',
+        y: gy,
+        startX,
+        endX,
+        isMajor
+      });
+    }
+    
+    return lines;
+  }, [visibleWorldRect, worldWidth, worldHeight]);
 
   const setViewportSize = useCallback((width: number, height: number) => {
-    // Recalculate min scale with new viewport size
-    const margin = 0.06;
-    const fitW = width / (worldWidth * (1 + margin * 2));
-    const fitH = height / (worldHeight * (1 + margin * 2));
-    const newMinScale = Math.min(fitW, fitH);
-    
-    // Adjust current scale if it's below new minimum
-    const newScale = Math.max(newMinScale, transform.scale);
-    
-    updateTransform({ scale: newScale });
-  }, [worldWidth, worldHeight, transform.scale, updateTransform]);
-
-  const zoomToPoint = useCallback((worldX: number, worldY: number, scale: number) => {
-    const clampedScale = Math.max(minScale, Math.min(maxScale, scale));
-    const screenPos = toScreen({ x: worldX, y: worldY });
-    
-    const newX = screenPos.x - worldX * clampedScale;
-    const newY = screenPos.y - worldY * clampedScale;
-    
-    updateTransform({ x: newX, y: newY, scale: clampedScale });
-  }, [minScale, maxScale, toScreen, updateTransform]);
-
-  const panTo = useCallback((worldX: number, worldY: number) => {
-    const screenPos = toScreen({ x: worldX, y: worldY });
-    const centerX = viewportWidth / 2;
-    const centerY = viewportHeight / 2;
-    
-    const newX = transform.x + (centerX - screenPos.x);
-    const newY = transform.y + (centerY - screenPos.y);
-    
-    updateTransform({ x: newX, y: newY });
-  }, [viewportWidth, viewportHeight, transform.x, transform.y, toScreen, updateTransform]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      isDraggingRef.current = false;
-    };
+    viewportSizeRef.current = { width, height };
   }, []);
 
-  return {
-    transform,
+  // Performance monitoring
+  const performanceMetrics = useMemo(() => {
+    if (enablePerformanceMonitoring) {
+      return performanceMetricsRef.current;
+    }
+    return {
+      renderTime: 0,
+      frameCount: 0,
+      isLowPerf: false
+    };
+  }, [enablePerformanceMonitoring]);
+
+  const transform: ViewTransform = useMemo(() => ({
+    x,
+    y,
+    scale,
     toWorld,
     toScreen,
+    fitToExtent,
+    setViewportSize,
     visibleWorldRect,
     gridLines,
     onWheel,
     onDragStart,
     onDragMove,
     onDragEnd,
-    fitToExtent,
-    setViewportSize,
-    zoomToPoint,
-    panTo,
     performanceMetrics
-  };
+  }), [x, y, scale, toWorld, toScreen, fitToExtent, setViewportSize, visibleWorldRect, gridLines, onWheel, onDragStart, onDragMove, onDragEnd, performanceMetrics]);
+
+  return transform;
 }
 
 export default useZoomPan;

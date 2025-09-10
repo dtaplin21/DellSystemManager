@@ -180,7 +180,7 @@ export function useUnifiedMouseInteraction({
       worldOffset: { x: canvasState.worldOffsetX, y: canvasState.worldOffsetY },
       worldScale: canvasState.worldScale
     });
-  }, []); // Remove dependencies to prevent circular dependency
+  }, [canvasState, panels]); // Remove drawGrid and drawPanel to avoid circular dependency
 
   // Trigger render when panels or canvasState change
   useEffect(() => {
@@ -347,7 +347,7 @@ export function useUnifiedMouseInteraction({
     });
 
     logRef.current('Canvas resized', { width: rect.width, height: rect.height });
-  }, []); // Remove render dependency to break circular dependency
+  }, [render]); // Include render dependency
 
   // Mouse down handler - use screen coordinates directly
   const handleMouseDown = useCallback((event: MouseEvent) => {

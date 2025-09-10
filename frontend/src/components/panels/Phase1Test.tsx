@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useZoomPan } from '@/hooks/useZoomPan';
 import { usePerformanceMonitoring } from '@/hooks/usePerformanceMonitoring';
 import TransformErrorBoundary from './TransformErrorBoundary';
@@ -23,7 +23,9 @@ export function Phase1Test() {
 
   // Zoom/Pan hook
   const {
-    transform,
+    x,
+    y,
+    scale,
     toWorld,
     toScreen,
     visibleWorldRect,
@@ -46,8 +48,11 @@ export function Phase1Test() {
     }
   });
 
+  // Create transform object
+  const transform = { x, y, scale };
+
   // Test coordinate conversion
-  const testCoordinateConversion = () => {
+  const testCoordinateConversion = useCallback(() => {
     const testScreenPos = { x: 400, y: 300 };
     const worldPos = toWorld(testScreenPos);
     const backToScreen = toScreen(worldPos);
@@ -61,20 +66,20 @@ export function Phase1Test() {
         y: Math.abs(testScreenPos.y - backToScreen.y)
       }
     });
-  };
+  }, [toWorld, toScreen]);
 
   // Test grid calculation
-  const testGridCalculation = () => {
+  const testGridCalculation = useCallback(() => {
     console.log('Grid calculation test:', {
       visibleRect: visibleWorldRect,
       gridLinesCount: gridLines.length,
       verticalLines: gridLines.filter(l => l.type === 'vertical').length,
       horizontalLines: gridLines.filter(l => l.type === 'horizontal').length
     });
-  };
+  }, [visibleWorldRect, gridLines]);
 
   // Render test
-  const render = () => {
+  const render = useCallback(() => {
     const start = performance.now();
     
     const canvas = canvasRef.current;
@@ -118,12 +123,12 @@ export function Phase1Test() {
     
     const duration = performance.now() - start;
     recordRenderTime(duration);
-  };
+  }, [transform, gridLines, recordRenderTime]);
 
   // Render on transform change
   useEffect(() => {
     render();
-  }, [transform, gridLines, recordRenderTime]);
+  }, [render]);
 
   // Handle canvas events
   const handleCanvasMouseDown = (e: React.MouseEvent) => {

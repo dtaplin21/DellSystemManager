@@ -81,21 +81,6 @@ export default function AIPage() {
     }
   }, [isAuthenticated, loading, router]);
 
-  // Load projects only when authenticated and not already attempted
-  useEffect(() => {
-    if (isAuthenticated && !loading && !projectsLoading && !hasAttemptedLoad) {
-      setHasAttemptedLoad(true);
-      loadProjects();
-    }
-  }, [isAuthenticated, loading, projectsLoading, hasAttemptedLoad]);
-
-  useEffect(() => {
-    if (selectedProject) {
-      loadDocuments();
-      loadRequirements();
-    }
-  }, [selectedProject]);
-
   const loadProjects = async () => {
     // Prevent multiple simultaneous calls
     if (projectsLoading) return;
@@ -165,6 +150,21 @@ export default function AIPage() {
       console.error('Error loading requirements:', error);
     }
   };
+
+  // Load projects only when authenticated and not already attempted
+  useEffect(() => {
+    if (isAuthenticated && !loading && !projectsLoading && !hasAttemptedLoad) {
+      setHasAttemptedLoad(true);
+      loadProjects();
+    }
+  }, [isAuthenticated, loading, projectsLoading, hasAttemptedLoad, loadProjects]);
+
+  useEffect(() => {
+    if (selectedProject) {
+      loadDocuments();
+      loadRequirements();
+    }
+  }, [selectedProject, loadDocuments, loadRequirements]);
 
   const handleDownloadDocument = async (documentId: string, filename: string) => {
     try {

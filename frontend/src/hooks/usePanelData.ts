@@ -87,7 +87,7 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
       localStorage.removeItem('panelLayoutPositions');
       return {};
     }
-  }, [flags.ENABLE_LOCAL_STORAGE]);
+  }, [flags.ENABLE_LOCAL_STORAGE, debugLog]);
 
   // Save data to localStorage
   const saveToLocalStorage = useCallback((positionMap: PanelPositionMap) => {
@@ -101,7 +101,7 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
     } catch (error) {
       debugLog('Error saving to localStorage', error);
     }
-  }, [flags.ENABLE_LOCAL_STORAGE]);
+  }, [flags.ENABLE_LOCAL_STORAGE, debugLog]);
 
   // Fetch data from backend
   const fetchBackendData = useCallback(async (): Promise<PanelLayout | null> => {
@@ -183,7 +183,7 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
       debugLog('Error fetching backend data', error);
       throw error;
     }
-  }, [projectId]);
+  }, [projectId, debugLog]);
 
   // Merge backend data with localStorage positions
   const mergeDataWithLocalStorage = useCallback((
@@ -209,7 +209,7 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
       }
       return panel;
     });
-  }, []);
+  }, [debugLog]);
 
   // Main data loading function
   const loadData = useCallback(async () => {
@@ -277,7 +277,7 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
         lastUpdated: Date.now()
       });
     }
-  }, [projectId, loadLocalStorageData, fetchBackendData, mergeDataWithLocalStorage]);
+  }, [projectId, loadLocalStorageData, fetchBackendData, mergeDataWithLocalStorage, debugLog]);
 
   // Atomic panel position update
   const updatePanelPosition = useCallback((panelId: string, position: { x: number; y: number; rotation?: number }) => {
@@ -311,7 +311,7 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
         lastUpdated: Date.now()
       };
     });
-  }, [flags.ENABLE_PERSISTENCE, saveToLocalStorage]);
+  }, [flags.ENABLE_PERSISTENCE, saveToLocalStorage, debugLog]);
 
   // Add new panel
   const addPanel = useCallback((panelData: Omit<Panel, 'id'>) => {
@@ -347,7 +347,7 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
         lastUpdated: Date.now()
       };
     });
-  }, [flags.ENABLE_PERSISTENCE, saveToLocalStorage]);
+  }, [flags.ENABLE_PERSISTENCE, saveToLocalStorage, debugLog]);
 
   // Remove panel
   const removePanel = useCallback((panelId: string) => {
@@ -377,7 +377,7 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
         lastUpdated: Date.now()
       };
     });
-  }, [flags.ENABLE_PERSISTENCE, saveToLocalStorage]);
+  }, [flags.ENABLE_PERSISTENCE, saveToLocalStorage, debugLog]);
 
   // Clear localStorage
   const clearLocalStorage = useCallback(() => {
@@ -385,7 +385,7 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
       localStorage.removeItem('panelLayoutPositions');
       debugLog('Cleared localStorage');
     }
-  }, []);
+  }, [debugLog]);
 
   // Load data on mount - only on client side
   useEffect(() => {
@@ -406,7 +406,7 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
     } else {
       console.log('🔍 [usePanelData] Skipping loadData - not on client side');
     }
-  }, [projectId]); // Only depend on projectId, not loadData
+  }, [projectId, loadData]); // Include loadData in dependencies
 
   // Computed values
   const isLoading = dataState.state === 'loading';

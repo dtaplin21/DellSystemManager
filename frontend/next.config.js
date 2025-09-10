@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Set the correct workspace root to silence the warning
+  outputFileTracingRoot: __dirname,
   // Remove deprecated experimental.appDir option
   async rewrites() {
     return [

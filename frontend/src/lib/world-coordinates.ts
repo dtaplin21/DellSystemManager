@@ -14,6 +14,7 @@ export const WORLD_CONSTANTS = {
   
   // Grid system
   GRID_CELL_SIZE_FT: 1,
+  MAJOR_GRID_INTERVAL: 10, // Major grid every 10 cells
   MAJOR_GRID_INTERVAL_FT: 10,
   
   // Snapping

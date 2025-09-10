@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { PanelProvider, useCanvasState, usePanelState, useSelectedPanel } from '@/contexts/PanelContextV2';
 import { usePanelData } from '@/hooks/usePanelDataV2';
 import { useZoomPan } from '@/hooks/useZoomPan';
@@ -40,7 +40,9 @@ function Phase2TestContent() {
 
   // Zoom/Pan hook
   const {
-    transform,
+    x,
+    y,
+    scale,
     toWorld,
     toScreen,
     visibleWorldRect,
@@ -62,6 +64,9 @@ function Phase2TestContent() {
       console.log('Transform changed:', transform);
     }
   });
+
+  // Create transform object
+  const transform = { x, y, scale };
 
   // Test world coordinate conversion
   const testCoordinateConversion = () => {
@@ -122,7 +127,7 @@ function Phase2TestContent() {
   };
 
   // Render function
-  const render = () => {
+  const render = useCallback(() => {
     const start = performance.now();
     
     const canvas = canvasRef.current;
@@ -186,12 +191,12 @@ function Phase2TestContent() {
     
     const duration = performance.now() - start;
     recordRenderTime(duration);
-  };
+  }, [transform, gridLines, dataState.panels, selectedPanel, recordRenderTime]);
 
   // Render on changes
   useEffect(() => {
     render();
-  }, [transform, gridLines, dataState.panels, selectedPanel, recordRenderTime]);
+  }, [render]);
 
   // Handle canvas events
   const handleCanvasMouseDown = (e: React.MouseEvent) => {

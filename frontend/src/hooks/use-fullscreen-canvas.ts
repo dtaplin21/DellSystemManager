@@ -312,7 +312,7 @@ export const useFullscreenCanvas = (options: UseFullscreenCanvasOptions): UseFul
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isFullscreen, sidebarOpen, canvasWidth, canvasHeight]); // Depend on values, not functions
+  }, [isFullscreen, sidebarOpen, canvasWidth, canvasHeight, hideMiniSidebar, miniSidebarExpanded, miniSidebarVisible]); // Include all dependencies
 
   // Debug logging for state changes (only in development)
   useEffect(() => {

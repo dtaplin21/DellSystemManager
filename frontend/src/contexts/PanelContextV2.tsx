@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useReducer, ReactNode, useCallback, useMemo, useRef } from 'react';
+import React, { createContext, useContext, useReducer, ReactNode, useCallback, useMemo, useRef, useEffect } from 'react';
 import { Panel, PanelLayout, FeatureFlags } from '@/types/panel';
 import { validatePanel, WORLD_CONSTANTS } from '@/lib/world-coordinates';
 import { debounce } from 'lodash';

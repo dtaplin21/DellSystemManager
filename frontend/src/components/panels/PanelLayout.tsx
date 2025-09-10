@@ -653,7 +653,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
         }
       }
     }
-  }, [externalPanels]) // Only depend on externalPanels
+  }, [externalPanels, getPanelValidationErrors, isValidPanel]) // Include all dependencies
   
   // Notify parent of panel updates and save positions to localStorage
   const onPanelUpdateRef = useRef(onPanelUpdate);
