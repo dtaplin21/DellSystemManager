@@ -1,10 +1,13 @@
-import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Create Supabase client dynamically to avoid bundling issues
+const getSupabaseClient = () => {
+  const { createClient } = require('@supabase/supabase-js');
+  return createClient(
+    process.env.SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+};
 
 export async function GET(request: NextRequest) {
   try {
@@ -17,6 +20,7 @@ export async function GET(request: NextRequest) {
     const token = authHeader.split(' ')[1];
     
     // Verify the token and get user
+    const supabase = getSupabaseClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
@@ -60,6 +64,7 @@ export async function POST(request: NextRequest) {
     const token = authHeader.split(' ')[1];
     
     // Verify the token and get user
+    const supabase = getSupabaseClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });

@@ -59,6 +59,7 @@ export function useSupabaseAuth() {
   }, []);
 
   const getSession = async () => {
+    console.log('🔍 [useSupabaseAuth] getSession called');
     try {
       // Add timeout protection
       const timeoutPromise = new Promise<null>((_, reject) => {
@@ -67,21 +68,27 @@ export function useSupabaseAuth() {
         }, 10000); // 10 second timeout
       });
       
+      console.log('🔍 [useSupabaseAuth] Calling getCurrentSession...');
       // Race between session retrieval and timeout
       const session = await Promise.race([
         getCurrentSession(),
         timeoutPromise
       ]);
       
+      console.log('🔍 [useSupabaseAuth] Session result:', session ? 'session found' : 'no session');
       setSession(session);
       
       if (session?.user) {
+        console.log('🔍 [useSupabaseAuth] Loading user profile...');
         await loadUserProfile(session.user);
+      } else {
+        console.log('🔍 [useSupabaseAuth] No user in session');
       }
     } catch (error) {
-      console.error('Error getting session:', error);
+      console.error('🔍 [useSupabaseAuth] Error getting session:', error);
       // Set loading to false even on error to prevent infinite loading
     } finally {
+      console.log('🔍 [useSupabaseAuth] Setting loading to false');
       setLoading(false);
     }
   };

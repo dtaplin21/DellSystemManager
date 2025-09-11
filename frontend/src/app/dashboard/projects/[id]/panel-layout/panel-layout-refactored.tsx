@@ -100,10 +100,29 @@ export default function PanelLayoutRefactored() {
     return <HydrationFallback />;
   }
 
+  // Debug information
+  console.log('🔍 [PanelLayoutRefactored] RENDER DEBUG:', {
+    isHydrated,
+    isLoading,
+    dataState: dataState.state,
+    panelsCount: panels.length,
+    error
+  });
+
   // Error boundary wrapper
   return (
     <PanelLayoutErrorBoundary>
       <div className="h-full w-full flex flex-col">
+        {/* Debug info */}
+        <div className="bg-yellow-100 p-4 mb-4">
+          <h3 className="font-bold">Debug Info:</h3>
+          <p>isHydrated: {isHydrated ? 'true' : 'false'}</p>
+          <p>isLoading: {isLoading ? 'true' : 'false'}</p>
+          <p>dataState: {dataState.state}</p>
+          <p>panelsCount: {panels.length}</p>
+          <p>error: {error || 'none'}</p>
+        </div>
+        
         {/* Loading state */}
         {isLoading && (
           <div>

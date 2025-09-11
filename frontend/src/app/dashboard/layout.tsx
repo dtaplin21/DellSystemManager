@@ -58,8 +58,24 @@ export default function DashboardLayout({
   }, [loading, isAuthenticated, user, refreshSession, clearSessionAndRedirect, router]);
 
   if (loading || isRefreshing.current) {
-    console.log('Dashboard Layout - Loading state');
-    return <div>Loading...</div>;
+    console.log('Dashboard Layout - Loading state', {
+      loading,
+      isRefreshing: isRefreshing.current,
+      user,
+      isAuthenticated
+    });
+    return (
+      <div className="p-4">
+        <div className="bg-yellow-100 p-4 rounded">
+          <h3 className="font-bold">Debug Loading State:</h3>
+          <p>loading: {loading ? 'true' : 'false'}</p>
+          <p>isRefreshing: {isRefreshing.current ? 'true' : 'false'}</p>
+          <p>user: {user ? 'present' : 'null'}</p>
+          <p>isAuthenticated: {isAuthenticated ? 'true' : 'false'}</p>
+        </div>
+        <div className="mt-4">Loading...</div>
+      </div>
+    );
   }
 
   if (!isAuthenticated || !user) {

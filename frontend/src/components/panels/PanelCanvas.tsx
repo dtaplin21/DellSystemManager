@@ -144,15 +144,17 @@ export function PanelCanvas({
   });
 
   // Load stored canvas state on mount only
+  const hasLoadedInitialState = React.useRef(false);
   React.useEffect(() => {
-    if (storedCanvasState) {
+    if (storedCanvasState && !hasLoadedInitialState.current) {
+      hasLoadedInitialState.current = true;
       dispatchCanvas({ type: 'SET_WORLD_SCALE', payload: storedCanvasState.worldScale });
       dispatchCanvas({ type: 'SET_WORLD_OFFSET', payload: { 
         x: storedCanvasState.worldOffsetX, 
         y: storedCanvasState.worldOffsetY 
       }});
     }
-  }, [dispatchCanvas, storedCanvasState]); // Include dependencies
+  }, [storedCanvasState]); // Only depend on storedCanvasState, not dispatchCanvas
 
   // Persist canvas state when it changes (but not on initial load)
   const isInitialMount = React.useRef(true);
