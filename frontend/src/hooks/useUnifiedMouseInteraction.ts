@@ -138,6 +138,87 @@ export function useUnifiedMouseInteraction({
     return null;
   }, [panels, getWorldCoordinates]);
 
+  // Grid drawing function - uses unified coordinate system
+  const drawGrid = useCallback((ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, state: CanvasState) => {
+    const gridSize = 0.5; // 0.5px = 1 foot (unified coordinate system: 0.5 pixels per foot)
+    const gridColor = '#e5e7eb';
+    const majorGridColor = '#d1d5db';
+    const majorGridInterval = 10; // Every 10 grid lines = 10 feet
+
+    // Calculate visible grid area
+    const visibleLeft = -state.worldOffsetX / state.worldScale;
+    const visibleTop = -state.worldOffsetY / state.worldScale;
+    const visibleRight = visibleLeft + canvas.width / state.worldScale;
+    const visibleBottom = visibleTop + canvas.height / state.worldScale;
+
+    // Draw vertical grid lines
+    const startX = Math.floor(visibleLeft / gridSize) * gridSize;
+    const endX = Math.ceil(visibleRight / gridSize) * gridSize;
+    
+    for (let x = startX; x <= endX; x += gridSize) {
+      const isMajor = Math.abs(x % (gridSize * majorGridInterval)) < 0.001;
+      ctx.strokeStyle = isMajor ? majorGridColor : gridColor;
+      ctx.lineWidth = isMajor ? 1.5 : 0.5;
+      
+      ctx.beginPath();
+      ctx.moveTo(x, visibleTop);
+      ctx.lineTo(x, visibleBottom);
+      ctx.stroke();
+    }
+
+    // Draw horizontal grid lines
+    const startY = Math.floor(visibleTop / gridSize) * gridSize;
+    const endY = Math.ceil(visibleBottom / gridSize) * gridSize;
+    
+    for (let y = startY; y <= endY; y += gridSize) {
+      const isMajor = Math.abs(y % (gridSize * majorGridInterval)) < 0.001;
+      ctx.strokeStyle = isMajor ? majorGridColor : gridColor;
+      ctx.lineWidth = isMajor ? 1.5 : 0.5;
+      
+      ctx.beginPath();
+      ctx.moveTo(visibleLeft, y);
+      ctx.lineTo(visibleRight, y);
+      ctx.stroke();
+    }
+  }, []);
+
+  // Panel drawing function - uses unified coordinate system
+  const drawPanel = useCallback((ctx: CanvasRenderingContext2D, panel: Panel) => {
+    // Get current mouse state for drag feedback
+    const currentState = mouseStateRef.current;
+    
+    // Use drag position if currently dragging this panel
+    let drawX = panel.x;
+    let drawY = panel.y;
+    if (currentState.isDragging && currentState.selectedPanelId === panel.id &&
+        currentState.dragCurrentX !== undefined && currentState.dragCurrentY !== undefined) {
+      drawX = currentState.dragCurrentX;
+      drawY = currentState.dragCurrentY;
+    }
+
+    // Convert world coordinates to screen coordinates for rendering
+    const screenPos = getScreenCoordinates(drawX, drawY);
+    const screenWidth = panel.width * canvasState.worldScale;
+    const screenHeight = panel.height * canvasState.worldScale;
+
+    // Draw panel rectangle
+    ctx.fillStyle = panel.fill || '#3b82f6';
+    ctx.strokeStyle = '#1e40af';
+    ctx.lineWidth = 2;
+    
+    ctx.fillRect(screenPos.x, screenPos.y, screenWidth, screenHeight);
+    ctx.strokeRect(screenPos.x, screenPos.y, screenWidth, screenHeight);
+
+    // Draw panel number
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '12px Arial';
+    ctx.textAlign = 'left';
+    ctx.fillText(panel.panelNumber || panel.id, screenPos.x + 5, screenPos.y + 15);
+  }, [canvasState.worldScale, getScreenCoordinates]);
+
+  // Create render ref first to avoid circular dependency
+  const renderRef = useRef<() => void>();
+
   // Canvas rendering function - simplified for unified coordinates
   const render = useCallback(() => {
     const canvas = canvasRef.current;
@@ -151,7 +232,11 @@ export function useUnifiedMouseInteraction({
     
     // Throttle rendering to 60fps
     if (deltaTime < 16.67) {
-      animationFrameRef.current = requestAnimationFrame(() => renderRef.current());
+      animationFrameRef.current = requestAnimationFrame(() => {
+        if (renderRef.current) {
+          renderRef.current();
+        }
+      });
       return;
     }
     
@@ -187,8 +272,7 @@ export function useUnifiedMouseInteraction({
     });
   }, [canvasState, panels, drawGrid, drawPanel]); // Include dependencies
 
-  // Store render function in ref to avoid circular dependencies
-  const renderRef = useRef(render);
+  // Update render ref after render function is defined
   renderRef.current = render;
 
   // Trigger render when panels or canvasState change
@@ -201,116 +285,6 @@ export function useUnifiedMouseInteraction({
     });
   }, [panels, canvasState, render]);
 
-  // Grid drawing function - uses unified coordinate system
-  const drawGrid = useCallback((ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, state: CanvasState) => {
-    const gridSize = 0.5; // 0.5px = 1 foot (unified coordinate system: 0.5 pixels per foot)
-    const gridColor = '#e5e7eb';
-    const majorGridColor = '#d1d5db';
-    const majorGridInterval = 10; // Every 10 grid lines = 10 feet
-
-    // Calculate the visible area in world coordinates
-    // Since we're already in transformed space, we need to calculate the visible bounds
-    const visibleWidth = canvas.width / state.worldScale;
-    const visibleHeight = canvas.height / state.worldScale;
-    const startX = -state.worldOffsetX / state.worldScale;
-    const startY = -state.worldOffsetY / state.worldScale;
-
-    console.log('🔍 [drawGrid] Canvas dimensions:', {
-      canvasWidth: canvas.width,
-      canvasHeight: canvas.height,
-      displayWidth: canvas.offsetWidth,
-      displayHeight: canvas.offsetHeight,
-      styleWidth: canvas.style.width,
-      styleHeight: canvas.style.height,
-      visibleWidth,
-      visibleHeight,
-      startX,
-      startY,
-      worldOffset: { x: state.worldOffsetX, y: state.worldOffsetY },
-      worldScale: state.worldScale
-    });
-
-    ctx.strokeStyle = gridColor;
-    ctx.lineWidth = 1 / state.worldScale; // Scale line width inversely with zoom
-
-    // Draw vertical lines - calculate range based on visible area
-    const gridStartX = Math.floor(startX / gridSize) * gridSize;
-    const gridEndX = Math.ceil((startX + visibleWidth) / gridSize) * gridSize;
-    
-    for (let x = gridStartX; x <= gridEndX; x += gridSize) {
-      ctx.strokeStyle = x % (gridSize * majorGridInterval) === 0 ? majorGridColor : gridColor;
-      ctx.beginPath();
-      ctx.moveTo(x, startY);
-      ctx.lineTo(x, startY + visibleHeight);
-      ctx.stroke();
-    }
-
-    // Draw horizontal lines - calculate range based on visible area
-    const gridStartY = Math.floor(startY / gridSize) * gridSize;
-    const gridEndY = Math.ceil((startY + visibleHeight) / gridSize) * gridSize;
-    
-    for (let y = gridStartY; y <= gridEndY; y += gridSize) {
-      ctx.strokeStyle = y % (gridSize * majorGridInterval) === 0 ? majorGridColor : gridColor;
-      ctx.beginPath();
-      ctx.moveTo(startX, y);
-      ctx.lineTo(startX + visibleWidth, y);
-      ctx.stroke();
-    }
-
-    // Debug logging
-    logRef.current('Grid drawn', {
-      gridSize,
-      majorGridInterval,
-      canvasSize: { width: canvas.width, height: canvas.height },
-      visibleArea: { width: visibleWidth, height: visibleHeight, startX, startY },
-      worldOffset: { x: state.worldOffsetX, y: state.worldOffsetY },
-      worldScale: state.worldScale
-    });
-  }, []);
-
-  // Panel drawing function - convert world coordinates to screen coordinates for rendering
-  const drawPanel = useCallback((ctx: CanvasRenderingContext2D, panel: Panel) => {
-    const { x, y, width, height, rotation = 0 } = panel;
-    
-    // Check if this panel is currently being dragged and use temporary position
-    const currentState = mouseStateRef.current;
-    let drawX = x;
-    let drawY = y;
-    
-    if (currentState.isDragging && currentState.selectedPanelId === panel.id && 
-        currentState.dragCurrentX !== undefined && currentState.dragCurrentY !== undefined) {
-      drawX = currentState.dragCurrentX;
-      drawY = currentState.dragCurrentY;
-    }
-
-    // Convert world coordinates to screen coordinates
-    const screenPos = getScreenCoordinates(drawX, drawY);
-    const screenWidth = width * canvasState.worldScale;
-    const screenHeight = height * canvasState.worldScale;
-
-    ctx.save();
-    ctx.translate(screenPos.x + screenWidth / 2, screenPos.y + screenHeight / 2);
-    ctx.rotate((rotation * Math.PI) / 180);
-    ctx.translate(-screenWidth / 2, -screenHeight / 2);
-
-    // Panel background
-    ctx.fillStyle = '#3b82f6';
-    ctx.fillRect(0, 0, screenWidth, screenHeight);
-
-    // Panel border
-    ctx.strokeStyle = '#1e40af';
-    ctx.lineWidth = 1; // Fixed line width for screen coordinates
-    ctx.strokeRect(0, 0, screenWidth, screenHeight);
-
-    // Panel label
-    ctx.fillStyle = 'white';
-    ctx.font = `${Math.max(8, Math.min(screenWidth, screenHeight) * 0.3)}px Arial`; // Better font sizing
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(panel.id, screenWidth / 2, screenHeight / 2);
-
-    ctx.restore();
-  }, [canvasState.worldScale, getScreenCoordinates]);
 
   // Canvas resize handler - enhanced with proper container detection
   const resizeCanvas = useCallback(() => {
@@ -459,7 +433,9 @@ export function useUnifiedMouseInteraction({
         cancelAnimationFrame(animationFrameRef.current);
       }
       animationFrameRef.current = requestAnimationFrame(() => {
-        renderRef.current();
+        if (renderRef.current) {
+          renderRef.current();
+        }
       });
 
       logRef.current('Dragging panel (visual only)', { 
@@ -707,7 +683,11 @@ export function useUnifiedMouseInteraction({
       cancelAnimationFrame(animationFrameRef.current);
     }
     
-    animationFrameRef.current = requestAnimationFrame(() => renderRef.current());
+    animationFrameRef.current = requestAnimationFrame(() => {
+      if (renderRef.current) {
+        renderRef.current();
+      }
+    });
 
     return () => {
       if (animationFrameRef.current) {

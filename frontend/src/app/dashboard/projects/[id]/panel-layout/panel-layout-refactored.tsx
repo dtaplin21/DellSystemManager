@@ -49,6 +49,16 @@ export default function PanelLayoutRefactored() {
     clearLocalStorage
   } = usePanelData({ projectId, featureFlags });
   
+  // Prevent server-side rendering issues
+  useEffect(() => {
+    setIsHydrated(true);
+  }, []);
+  
+  // Don't render anything on server side to prevent SSR issues
+  if (!isHydrated) {
+    return <HydrationFallback />;
+  }
+  
   console.log('🔍 [PanelLayoutRefactored] Hook returned:', {
     dataState: dataState.state,
     isLoading,
@@ -61,10 +71,6 @@ export default function PanelLayoutRefactored() {
   console.log('🔍 [PanelLayoutRefactored] Panels array:', panels);
   console.log('🔍 [PanelLayoutRefactored] Error details:', error);
 
-  // Handle client-side hydration
-  useEffect(() => {
-    setIsHydrated(true);
-  }, []);
 
   // Handle panel position updates
   const handlePanelPositionUpdate = (panelId: string, position: { x: number; y: number; rotation?: number }) => {
