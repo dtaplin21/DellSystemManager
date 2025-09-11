@@ -7,6 +7,8 @@ interface MouseState {
   selectedPanelId: string | null;
   dragStartX: number;
   dragStartY: number;
+  dragCurrentX?: number; // Current drag position for visual feedback
+  dragCurrentY?: number; // Current drag position for visual feedback
   lastMouseX: number;
   lastMouseY: number;
 }
@@ -149,7 +151,7 @@ export function useUnifiedMouseInteraction({
     
     // Throttle rendering to 60fps
     if (deltaTime < 16.67) {
-      animationFrameRef.current = requestAnimationFrame(render);
+      animationFrameRef.current = requestAnimationFrame(() => renderRef.current());
       return;
     }
     
@@ -183,7 +185,11 @@ export function useUnifiedMouseInteraction({
       worldOffset: { x: canvasState.worldOffsetX, y: canvasState.worldOffsetY },
       worldScale: canvasState.worldScale
     });
-  }, [canvasState, panels]); // Remove drawGrid and drawPanel to avoid circular dependency
+  }, [canvasState, panels, drawGrid, drawPanel]); // Include dependencies
+
+  // Store render function in ref to avoid circular dependencies
+  const renderRef = useRef(render);
+  renderRef.current = render;
 
   // Trigger render when panels or canvasState change
   useEffect(() => {
@@ -265,9 +271,20 @@ export function useUnifiedMouseInteraction({
   // Panel drawing function - convert world coordinates to screen coordinates for rendering
   const drawPanel = useCallback((ctx: CanvasRenderingContext2D, panel: Panel) => {
     const { x, y, width, height, rotation = 0 } = panel;
+    
+    // Check if this panel is currently being dragged and use temporary position
+    const currentState = mouseStateRef.current;
+    let drawX = x;
+    let drawY = y;
+    
+    if (currentState.isDragging && currentState.selectedPanelId === panel.id && 
+        currentState.dragCurrentX !== undefined && currentState.dragCurrentY !== undefined) {
+      drawX = currentState.dragCurrentX;
+      drawY = currentState.dragCurrentY;
+    }
 
     // Convert world coordinates to screen coordinates
-    const screenPos = getScreenCoordinates(x, y);
+    const screenPos = getScreenCoordinates(drawX, drawY);
     const screenWidth = width * canvasState.worldScale;
     const screenHeight = height * canvasState.worldScale;
 
@@ -427,17 +444,29 @@ export function useUnifiedMouseInteraction({
       // Convert screen coordinates to world coordinates for panel position
       const worldPos = getWorldCoordinates(screenX, screenY);
       
-      // Update panel position - maintain the offset from where the user clicked
-      // dragStartX and dragStartY are in world coordinates
-      onPanelUpdate(currentState.selectedPanelId, {
-        x: worldPos.x - currentState.dragStartX,
-        y: worldPos.y - currentState.dragStartY,
+      // Calculate new position but don't update state yet - just update the visual position
+      const newX = worldPos.x - currentState.dragStartX;
+      const newY = worldPos.y - currentState.dragStartY;
+      
+      // Store the new position for visual feedback without triggering state updates
+      // This prevents continuous re-renders during dragging
+      currentState.dragCurrentX = newX;
+      currentState.dragCurrentY = newY;
+      
+      // Only update the actual panel state on mouse up to prevent render loops
+      // For now, just trigger a render to show the visual feedback
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+      animationFrameRef.current = requestAnimationFrame(() => {
+        renderRef.current();
       });
 
-      logRef.current('Dragging panel', { 
+      logRef.current('Dragging panel (visual only)', { 
         panelId: currentState.selectedPanelId, 
         screenPos: { x: screenX, y: screenY },
         worldPos: { x: worldPos.x, y: worldPos.y },
+        newPos: { x: newX, y: newY },
         dragStart: { x: currentState.dragStartX, y: currentState.dragStartY }
       });
     } else if (currentState.isPanning) {
@@ -455,7 +484,7 @@ export function useUnifiedMouseInteraction({
 
       logRef.current('Panning canvas', { deltaX, deltaY });
     }
-  }, [canvas, onPanelUpdate, onCanvasPan, getWorldCoordinates]);
+  }, [canvas, onCanvasPan, getWorldCoordinates]);
 
   // Mouse up handler
   const handleMouseUp = useCallback((event: MouseEvent) => {
@@ -467,7 +496,20 @@ export function useUnifiedMouseInteraction({
     const currentState = mouseStateRef.current;
     const clickDuration = Date.now() - mouseDownTimeRef.current;
 
-    if (currentState.isDragging) {
+    if (currentState.isDragging && currentState.selectedPanelId) {
+      // Now commit the final panel position change
+      if (currentState.dragCurrentX !== undefined && currentState.dragCurrentY !== undefined) {
+        onPanelUpdate(currentState.selectedPanelId, {
+          x: currentState.dragCurrentX,
+          y: currentState.dragCurrentY,
+        });
+        
+        logRef.current('Committed panel position', { 
+          panelId: currentState.selectedPanelId,
+          finalPos: { x: currentState.dragCurrentX, y: currentState.dragCurrentY }
+        });
+      }
+      
       onDragEnd?.();
       logRef.current('Finished dragging panel', { 
         panelId: currentState.selectedPanelId,
@@ -479,7 +521,7 @@ export function useUnifiedMouseInteraction({
 
     // Reset mouse state
     mouseStateRef.current = initialMouseState;
-  }, [canvas, onDragEnd]);
+  }, [canvas, onDragEnd, onPanelUpdate]);
 
   // Mouse wheel handler for zooming - proper zoom implementation
   const handleWheel = useCallback((event: WheelEvent) => {
@@ -659,8 +701,6 @@ export function useUnifiedMouseInteraction({
   }, [resizeCanvas]);
 
   // Render when dependencies change - use ref to avoid dependency issues
-  const renderRef = useRef(render);
-  renderRef.current = render;
 
   useEffect(() => {
     if (animationFrameRef.current) {
