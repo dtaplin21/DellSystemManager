@@ -117,13 +117,31 @@ export function useUnifiedMouseInteraction({
 
   // Panel hit detection - convert screen coordinates to world coordinates for comparison
   const getPanelAtPosition = useCallback((screenX: number, screenY: number): Panel | null => {
+    console.log('🎯 [HIT DEBUG] ===== PANEL HIT DETECTION =====');
+    console.log('🎯 [HIT DEBUG] Screen coordinates:', { screenX, screenY });
+    
     // Convert screen coordinates to world coordinates
     const worldPos = getWorldCoordinates(screenX, screenY);
+    console.log('🎯 [HIT DEBUG] World coordinates:', worldPos);
+    
+    console.log('🎯 [HIT DEBUG] Checking panels:', panels.length);
     
     // Check panels in reverse order (top to bottom)
     for (let i = panels.length - 1; i >= 0; i--) {
       const panel = panels[i];
-      if (!panel.isValid) continue;
+      console.log(`🎯 [HIT DEBUG] Checking panel ${i}:`, {
+        id: panel.id,
+        isValid: panel.isValid,
+        x: panel.x,
+        y: panel.y,
+        width: panel.width,
+        height: panel.height
+      });
+      
+      if (!panel.isValid) {
+        console.log(`🎯 [HIT DEBUG] Panel ${i} is invalid, skipping`);
+        continue;
+      }
 
       // Panels are stored in world coordinates (feet), so compare with world coordinates
       const left = panel.x;
@@ -131,10 +149,24 @@ export function useUnifiedMouseInteraction({
       const top = panel.y;
       const bottom = panel.y + panel.height;
 
+      console.log(`🎯 [HIT DEBUG] Panel ${i} bounds:`, {
+        left, right, top, bottom,
+        worldPos,
+        hitTest: {
+          xInRange: worldPos.x >= left && worldPos.x <= right,
+          yInRange: worldPos.y >= top && worldPos.y <= bottom
+        }
+      });
+
       if (worldPos.x >= left && worldPos.x <= right && worldPos.y >= top && worldPos.y <= bottom) {
+        console.log(`🎯 [HIT DEBUG] ✅ HIT! Panel ${i} (${panel.id})`);
         return panel;
+      } else {
+        console.log(`🎯 [HIT DEBUG] ❌ Miss panel ${i} (${panel.id})`);
       }
     }
+    
+    console.log('🎯 [HIT DEBUG] No panel hit');
     return null;
   }, [panels, getWorldCoordinates]);
 
@@ -216,31 +248,36 @@ export function useUnifiedMouseInteraction({
     ctx.fillText(panel.panelNumber || panel.id, screenPos.x + 5, screenPos.y + 15);
   }, [canvasState.worldScale, getScreenCoordinates]);
 
-  // Create render ref first to avoid circular dependency
-  const renderRef = useRef<() => void>();
-
   // Canvas rendering function - simplified for unified coordinates
   const render = useCallback(() => {
+    console.log('🎯 [RENDER DEBUG] ===== RENDER CALLED =====');
+    
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas) {
+      console.log('🎯 [RENDER DEBUG] ❌ No canvas, returning');
+      return;
+    }
 
     const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    if (!ctx) {
+      console.log('🎯 [RENDER DEBUG] ❌ No context, returning');
+      return;
+    }
 
     const now = performance.now();
     const deltaTime = now - lastRenderTimeRef.current;
     
+    console.log('🎯 [RENDER DEBUG] Render timing:', { deltaTime, throttled: deltaTime < 16.67 });
+    
     // Throttle rendering to 60fps
     if (deltaTime < 16.67) {
-      animationFrameRef.current = requestAnimationFrame(() => {
-        if (renderRef.current) {
-          renderRef.current();
-        }
-      });
+      console.log('🎯 [RENDER DEBUG] Throttling render, scheduling next frame');
+      animationFrameRef.current = requestAnimationFrame(render);
       return;
     }
     
     lastRenderTimeRef.current = now;
+    console.log('🎯 [RENDER DEBUG] Proceeding with render');
 
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -272,8 +309,7 @@ export function useUnifiedMouseInteraction({
     });
   }, [canvasState, panels, drawGrid, drawPanel]); // Include dependencies
 
-  // Update render ref after render function is defined
-  renderRef.current = render;
+  // Render function is now self-contained without circular dependencies
 
   // Trigger render when panels or canvasState change
   useEffect(() => {
@@ -352,6 +388,11 @@ export function useUnifiedMouseInteraction({
   const handleMouseDown = useCallback((event: MouseEvent) => {
     if (!canvas) return;
 
+    console.log('🎯 [DRAG DEBUG] ===== MOUSE DOWN EVENT =====');
+    console.log('🎯 [DRAG DEBUG] Event type:', event.type);
+    console.log('🎯 [DRAG DEBUG] Event target:', event.target);
+    console.log('🎯 [DRAG DEBUG] Canvas element:', canvas);
+
     event.preventDefault();
     isMouseDownRef.current = true;
     mouseDownTimeRef.current = Date.now();
@@ -360,12 +401,28 @@ export function useUnifiedMouseInteraction({
     const screenX = event.clientX - rect.left;
     const screenY = event.clientY - rect.top;
     
+    console.log('🎯 [DRAG DEBUG] Screen coordinates:', { screenX, screenY });
+    console.log('🎯 [DRAG DEBUG] Canvas rect:', rect);
+    console.log('🎯 [DRAG DEBUG] Event details:', { clientX: event.clientX, clientY: event.clientY });
+    
     // Convert screen coordinates to world coordinates for panel detection
+    console.log('🎯 [DRAG DEBUG] Starting panel hit detection...');
+    console.log('🎯 [DRAG DEBUG] Available panels:', panels.map(p => ({ id: p.id, x: p.x, y: p.y, width: p.width, height: p.height, isValid: p.isValid })));
+    
     const clickedPanel = getPanelAtPosition(screenX, screenY);
+    console.log('🎯 [DRAG DEBUG] Panel hit detection result:', clickedPanel);
 
     if (clickedPanel) {
+      console.log('🎯 [DRAG DEBUG] ✅ PANEL CLICKED!', {
+        id: clickedPanel.id,
+        position: { x: clickedPanel.x, y: clickedPanel.y },
+        size: { width: clickedPanel.width, height: clickedPanel.height },
+        isValid: clickedPanel.isValid
+      });
+
       // Convert screen coordinates to world coordinates for drag calculation
       const worldPos = getWorldCoordinates(screenX, screenY);
+      console.log('🎯 [DRAG DEBUG] World coordinates:', worldPos);
       
       // Start dragging panel - store offset from panel's top-left corner in world coordinates
       mouseStateRef.current = {
@@ -378,6 +435,14 @@ export function useUnifiedMouseInteraction({
         lastMouseY: screenY,
       };
       
+      console.log('🎯 [DRAG DEBUG] Started dragging panel:', {
+        panelId: clickedPanel.id,
+        dragStartOffset: { x: worldPos.x - clickedPanel.x, y: worldPos.y - clickedPanel.y },
+        worldPos: worldPos,
+        panelPos: { x: clickedPanel.x, y: clickedPanel.y },
+        mouseState: mouseStateRef.current
+      });
+      
       onPanelSelect(clickedPanel.id);
       onDragStart?.(clickedPanel.id, worldPos);
       logRef.current('Started dragging panel', { 
@@ -387,6 +452,8 @@ export function useUnifiedMouseInteraction({
         panelPos: { x: clickedPanel.x, y: clickedPanel.y }
       });
     } else {
+      console.log('🎯 [DRAG DEBUG] ❌ No panel clicked, starting canvas pan');
+      
       // Start panning canvas
       mouseStateRef.current = {
         isDragging: false,
@@ -398,34 +465,61 @@ export function useUnifiedMouseInteraction({
         lastMouseY: screenY,
       };
       
+      console.log('🎯 [DRAG DEBUG] Started canvas panning:', {
+        lastMousePos: { x: screenX, y: screenY },
+        mouseState: mouseStateRef.current
+      });
+      
       onPanelSelect(null);
       logRef.current('Started panning canvas', { screenX, screenY });
     }
-  }, [canvas, getPanelAtPosition, onPanelSelect, onDragStart, getWorldCoordinates]);
+  }, [canvas, getPanelAtPosition, onPanelSelect, onDragStart, getWorldCoordinates, panels]);
 
   // Mouse move handler - convert coordinates properly for world coordinate system
   const handleMouseMove = useCallback((event: MouseEvent) => {
     if (!canvas || !isMouseDownRef.current) return;
+
+    console.log('🎯 [DRAG DEBUG] ===== MOUSE MOVE EVENT =====');
+    console.log('🎯 [DRAG DEBUG] Event type:', event.type);
+    console.log('🎯 [DRAG DEBUG] isMouseDown:', isMouseDownRef.current);
 
     event.preventDefault();
     const rect = canvas.getBoundingClientRect();
     const screenX = event.clientX - rect.left;
     const screenY = event.clientY - rect.top;
     
+    console.log('🎯 [DRAG DEBUG] Screen coordinates:', { screenX, screenY });
+    console.log('🎯 [DRAG DEBUG] Canvas rect:', rect);
+    
     const currentState = mouseStateRef.current;
+    console.log('🎯 [DRAG DEBUG] Current mouse state:', currentState);
 
     if (currentState.isDragging && currentState.selectedPanelId) {
+      console.log('🎯 [DRAG DEBUG] 🔄 DRAGGING PANEL');
+      
       // Convert screen coordinates to world coordinates for panel position
       const worldPos = getWorldCoordinates(screenX, screenY);
+      console.log('🎯 [DRAG DEBUG] World coordinates:', worldPos);
       
       // Calculate new position but don't update state yet - just update the visual position
       const newX = worldPos.x - currentState.dragStartX;
       const newY = worldPos.y - currentState.dragStartY;
       
+      console.log('🎯 [DRAG DEBUG] Calculated new position:', {
+        newX, newY,
+        worldPos,
+        dragStartOffset: { x: currentState.dragStartX, y: currentState.dragStartY }
+      });
+      
       // Store the new position for visual feedback without triggering state updates
       // This prevents continuous re-renders during dragging
       currentState.dragCurrentX = newX;
       currentState.dragCurrentY = newY;
+      
+      console.log('🎯 [DRAG DEBUG] Updated drag current position:', {
+        dragCurrentX: currentState.dragCurrentX,
+        dragCurrentY: currentState.dragCurrentY
+      });
       
       // Only update the actual panel state on mouse up to prevent render loops
       // For now, just trigger a render to show the visual feedback
@@ -433,9 +527,8 @@ export function useUnifiedMouseInteraction({
         cancelAnimationFrame(animationFrameRef.current);
       }
       animationFrameRef.current = requestAnimationFrame(() => {
-        if (renderRef.current) {
-          renderRef.current();
-        }
+        console.log('🎯 [DRAG DEBUG] Triggering render for visual feedback');
+        render();
       });
 
       logRef.current('Dragging panel (visual only)', { 
@@ -446,9 +539,15 @@ export function useUnifiedMouseInteraction({
         dragStart: { x: currentState.dragStartX, y: currentState.dragStartY }
       });
     } else if (currentState.isPanning) {
+      console.log('🎯 [DRAG DEBUG] 🔄 PANNING CANVAS');
+      
       // Update canvas pan
       const deltaX = screenX - currentState.lastMouseX;
       const deltaY = screenY - currentState.lastMouseY;
+
+      console.log('🎯 [DRAG DEBUG] Pan delta:', { deltaX, deltaY });
+      console.log('🎯 [DRAG DEBUG] Last mouse pos:', { x: currentState.lastMouseX, y: currentState.lastMouseY });
+      console.log('🎯 [DRAG DEBUG] Current mouse pos:', { x: screenX, y: screenY });
 
       onCanvasPan(deltaX, deltaY);
 
@@ -466,15 +565,28 @@ export function useUnifiedMouseInteraction({
   const handleMouseUp = useCallback((event: MouseEvent) => {
     if (!canvas) return;
 
+    console.log('🎯 [DRAG DEBUG] ===== MOUSE UP EVENT =====');
+    console.log('🎯 [DRAG DEBUG] Event type:', event.type);
+
     event.preventDefault();
     isMouseDownRef.current = false;
 
     const currentState = mouseStateRef.current;
     const clickDuration = Date.now() - mouseDownTimeRef.current;
 
+    console.log('🎯 [DRAG DEBUG] Current mouse state:', currentState);
+    console.log('🎯 [DRAG DEBUG] Click duration:', clickDuration);
+
     if (currentState.isDragging && currentState.selectedPanelId) {
+      console.log('🎯 [DRAG DEBUG] ✅ FINISHING PANEL DRAG');
+      
       // Now commit the final panel position change
       if (currentState.dragCurrentX !== undefined && currentState.dragCurrentY !== undefined) {
+        console.log('🎯 [DRAG DEBUG] Committing panel position:', {
+          panelId: currentState.selectedPanelId,
+          finalPos: { x: currentState.dragCurrentX, y: currentState.dragCurrentY }
+        });
+        
         onPanelUpdate(currentState.selectedPanelId, {
           x: currentState.dragCurrentX,
           y: currentState.dragCurrentY,
@@ -484,6 +596,8 @@ export function useUnifiedMouseInteraction({
           panelId: currentState.selectedPanelId,
           finalPos: { x: currentState.dragCurrentX, y: currentState.dragCurrentY }
         });
+      } else {
+        console.log('🎯 [DRAG DEBUG] ❌ No drag current position to commit');
       }
       
       onDragEnd?.();
@@ -492,10 +606,14 @@ export function useUnifiedMouseInteraction({
         duration: clickDuration 
       });
     } else if (currentState.isPanning) {
+      console.log('🎯 [DRAG DEBUG] ✅ FINISHING CANVAS PAN');
       logRef.current('Finished panning canvas', { duration: clickDuration });
+    } else {
+      console.log('🎯 [DRAG DEBUG] ❌ No active drag or pan operation');
     }
 
     // Reset mouse state
+    console.log('🎯 [DRAG DEBUG] Resetting mouse state to initial state');
     mouseStateRef.current = initialMouseState;
   }, [canvas, onDragEnd, onPanelUpdate]);
 
@@ -683,11 +801,7 @@ export function useUnifiedMouseInteraction({
       cancelAnimationFrame(animationFrameRef.current);
     }
     
-    animationFrameRef.current = requestAnimationFrame(() => {
-      if (renderRef.current) {
-        renderRef.current();
-      }
-    });
+    animationFrameRef.current = requestAnimationFrame(render);
 
     return () => {
       if (animationFrameRef.current) {
