@@ -11,7 +11,7 @@ interface PanelLayoutRefactoredProps {
   panels: Panel[];
   onPanelClick?: (panel: Panel) => void;
   onPanelDoubleClick?: (panel: Panel) => void;
-  onPanelUpdate?: (panels: Panel[]) => void;
+  onPanelUpdate?: (panelId: string, updates: Partial<Panel>) => void;
   onSave?: () => void;
   onExport?: () => void;
   onImport?: () => void;
@@ -68,6 +68,7 @@ export function PanelLayoutRefactored({
               panels={panels}
               onPanelClick={onPanelClick}
               onPanelDoubleClick={onPanelDoubleClick}
+              onPanelUpdate={onPanelUpdate}
               enableDebugLogging={featureFlags.ENABLE_DEBUG_LOGGING}
             />
           </div>

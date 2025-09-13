@@ -73,7 +73,13 @@ export default function PanelLayoutRefactored() {
 
 
   // Handle panel position updates
-  const handlePanelPositionUpdate = (panelId: string, position: { x: number; y: number; rotation?: number }) => {
+  const handlePanelPositionUpdate = (panelId: string, updates: Partial<Panel>) => {
+    // Extract position data from updates
+    const position = {
+      x: updates.x!,
+      y: updates.y!,
+      rotation: updates.rotation
+    };
     updatePanelPosition(panelId, position);
   };
 
@@ -198,7 +204,7 @@ export default function PanelLayoutRefactored() {
               panels={panels}
               onPanelClick={(panel) => console.log('Panel clicked:', panel.id)}
               onPanelDoubleClick={(panel) => console.log('Panel double-clicked:', panel.id)}
-              onPanelUpdate={(updatedPanels) => console.log('Panels updated:', updatedPanels.length)}
+              onPanelUpdate={handlePanelPositionUpdate}
               onSave={() => console.log('Save clicked')}
               onExport={() => console.log('Export clicked')}
               onImport={() => console.log('Import clicked')}

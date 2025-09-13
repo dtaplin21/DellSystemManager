@@ -104,6 +104,16 @@ export function useUnifiedMouseInteraction({
     // Account for world offset and scale
     const worldX = (screenX - canvasState.worldOffsetX) / canvasState.worldScale;
     const worldY = (screenY - canvasState.worldOffsetY) / canvasState.worldScale;
+    
+    console.log('🎯 [COORD DEBUG] Screen to World conversion:', {
+      screenX, screenY,
+      worldOffsetX: canvasState.worldOffsetX,
+      worldOffsetY: canvasState.worldOffsetY,
+      worldScale: canvasState.worldScale,
+      calculatedWorldX: worldX,
+      calculatedWorldY: worldY
+    });
+    
     return { x: worldX, y: worldY };
   }, [canvasState.worldOffsetX, canvasState.worldOffsetY, canvasState.worldScale]);
 
@@ -155,6 +165,12 @@ export function useUnifiedMouseInteraction({
         hitTest: {
           xInRange: worldPos.x >= left && worldPos.x <= right,
           yInRange: worldPos.y >= top && worldPos.y <= bottom
+        },
+        rawPanelData: {
+          x: panel.x,
+          y: panel.y,
+          width: panel.width,
+          height: panel.height
         }
       });
 
@@ -228,25 +244,25 @@ export function useUnifiedMouseInteraction({
       drawY = currentState.dragCurrentY;
     }
 
-    // Convert world coordinates to screen coordinates for rendering
-    const screenPos = getScreenCoordinates(drawX, drawY);
-    const screenWidth = panel.width * canvasState.worldScale;
-    const screenHeight = panel.height * canvasState.worldScale;
+    // Draw panel directly in world coordinates (canvas is already transformed)
+    // No need to convert to screen coordinates since ctx.translate/scale is applied
+    const worldWidth = panel.width;
+    const worldHeight = panel.height;
 
     // Draw panel rectangle
     ctx.fillStyle = panel.fill || '#3b82f6';
     ctx.strokeStyle = '#1e40af';
     ctx.lineWidth = 2;
     
-    ctx.fillRect(screenPos.x, screenPos.y, screenWidth, screenHeight);
-    ctx.strokeRect(screenPos.x, screenPos.y, screenWidth, screenHeight);
+    ctx.fillRect(drawX, drawY, worldWidth, worldHeight);
+    ctx.strokeRect(drawX, drawY, worldWidth, worldHeight);
 
     // Draw panel number
     ctx.fillStyle = '#ffffff';
     ctx.font = '12px Arial';
     ctx.textAlign = 'left';
-    ctx.fillText(panel.panelNumber || panel.id, screenPos.x + 5, screenPos.y + 15);
-  }, [canvasState.worldScale, getScreenCoordinates]);
+    ctx.fillText(panel.panelNumber || panel.id, drawX + 5, drawY + 15);
+  }, []);
 
   // Canvas rendering function - simplified for unified coordinates
   const render = useCallback(() => {

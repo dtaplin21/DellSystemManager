@@ -10,6 +10,7 @@ interface PanelCanvasProps {
   panels: Panel[];
   onPanelClick?: (panel: Panel) => void;
   onPanelDoubleClick?: (panel: Panel) => void;
+  onPanelUpdate?: (panelId: string, updates: Partial<Panel>) => void;
   enableDebugLogging?: boolean;
 }
 
@@ -21,6 +22,7 @@ export function PanelCanvas({
   panels, 
   onPanelClick, 
   onPanelDoubleClick,
+  onPanelUpdate,
   enableDebugLogging = false 
 }: PanelCanvasProps) {
   // console.log('🔍 [PanelCanvas] Component rendered with panels:', panels);
@@ -33,18 +35,28 @@ export function PanelCanvas({
   // console.log('🔍 [PanelCanvas] Panel state from context:', panelState);
   // console.log('🔍 [PanelCanvas] Panel state panels count:', panelState.panels.length);
 
-  // Use panels from props, not context, to avoid mismatch
-  const panelsToRender = panels || panelState.panels;
+  // Use panels from props (usePanelData) as the single source of truth
+  const panelsToRender = panels;
   
   // Canvas ref for unified mouse interaction
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
 
   // Create stable callbacks using useRef to prevent infinite loops
   const onPanelUpdateRef = React.useRef((panelId: string, updates: Partial<Panel>) => {
-    dispatchPanels({ type: 'UPDATE_PANEL', payload: { id: panelId, updates } });
+    if (onPanelUpdate) {
+      onPanelUpdate(panelId, updates);
+    } else {
+      // Fallback to context if no callback provided
+      dispatchPanels({ type: 'UPDATE_PANEL', payload: { id: panelId, updates } });
+    }
   });
   onPanelUpdateRef.current = (panelId: string, updates: Partial<Panel>) => {
-    dispatchPanels({ type: 'UPDATE_PANEL', payload: { id: panelId, updates } });
+    if (onPanelUpdate) {
+      onPanelUpdate(panelId, updates);
+    } else {
+      // Fallback to context if no callback provided
+      dispatchPanels({ type: 'UPDATE_PANEL', payload: { id: panelId, updates } });
+    }
   };
 
   const onCanvasPanRef = React.useRef((deltaX: number, deltaY: number) => {
