@@ -71,6 +71,9 @@ export function useUnifiedMouseInteraction({
   onDragEnd,
   enableDebugLogging = false,
 }: UseUnifiedMouseInteractionOptions): UseUnifiedMouseInteractionReturn {
+  // SSR Guard: Return empty functions if running on server
+  const isSSR = typeof window === 'undefined';
+  
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const mouseStateRef = useRef<MouseState>(initialMouseState);
   const isMouseDownRef = useRef(false);
@@ -223,6 +226,9 @@ export function useUnifiedMouseInteraction({
 
   // Canvas rendering function - simplified for unified coordinates
   const render = useCallback(() => {
+    // SSR Guard: Don't render on server
+    if (isSSR) return;
+    
     const canvas = canvasRef.current;
     if (!canvas) {
       return;
@@ -238,7 +244,9 @@ export function useUnifiedMouseInteraction({
     
     // Throttle rendering to 60fps
     if (deltaTime < 16.67) {
-      animationFrameRef.current = requestAnimationFrame(render);
+      if (typeof requestAnimationFrame !== 'undefined') {
+        animationFrameRef.current = requestAnimationFrame(render);
+      }
       return;
     }
     
@@ -272,23 +280,31 @@ export function useUnifiedMouseInteraction({
       worldOffset: { x: canvasState.worldOffsetX, y: canvasState.worldOffsetY },
       worldScale: canvasState.worldScale
     });
-  }, []); // Remove dependencies to prevent re-creation
+  }, [canvasState, panels, isSSR]); // Include actual dependencies
 
   // Render function is now self-contained without circular dependencies
 
   // Trigger render when panels or canvasState change
   useEffect(() => {
-    if (animationFrameRef.current) {
+    // SSR Guard: Don't run on server
+    if (isSSR) return;
+    
+    if (animationFrameRef.current && typeof cancelAnimationFrame !== 'undefined') {
       cancelAnimationFrame(animationFrameRef.current);
     }
-    animationFrameRef.current = requestAnimationFrame(() => {
-      render();
-    });
-  }, [panels, canvasState, render]);
+    if (typeof requestAnimationFrame !== 'undefined') {
+      animationFrameRef.current = requestAnimationFrame(() => {
+        render();
+      });
+    }
+  }, [panels, canvasState, isSSR]);
 
 
   // Canvas resize handler - enhanced with proper container detection
   const resizeCanvas = useCallback(() => {
+    // SSR Guard: Don't run on server
+    if (isSSR) return;
+    
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -351,6 +367,8 @@ export function useUnifiedMouseInteraction({
 
   // Mouse down handler - convert coordinates properly for world coordinate system
   const handleMouseDown = useCallback((event: MouseEvent) => {
+    // SSR Guard: Don't run on server
+    if (isSSR) return;
     if (!canvas) return;
 
     console.log('🎯 [DRAG DEBUG] ===== MOUSE DOWN EVENT =====');
@@ -442,6 +460,8 @@ export function useUnifiedMouseInteraction({
 
   // Mouse move handler - convert coordinates properly for world coordinate system
   const handleMouseMove = useCallback((event: MouseEvent) => {
+    // SSR Guard: Don't run on server
+    if (isSSR) return;
     if (!canvas || !isMouseDownRef.current) return;
 
     console.log('🎯 [DRAG DEBUG] ===== MOUSE MOVE EVENT =====');
@@ -528,6 +548,8 @@ export function useUnifiedMouseInteraction({
 
   // Mouse up handler
   const handleMouseUp = useCallback((event: MouseEvent) => {
+    // SSR Guard: Don't run on server
+    if (isSSR) return;
     if (!canvas) return;
 
     console.log('🎯 [DRAG DEBUG] ===== MOUSE UP EVENT =====');
@@ -589,6 +611,8 @@ export function useUnifiedMouseInteraction({
 
   // Mouse wheel handler for zooming - throttled to prevent excessive updates
   const handleWheel = useCallback((event: WheelEvent) => {
+    // SSR Guard: Don't run on server
+    if (isSSR) return;
     if (!canvas) return;
 
     event.preventDefault();
@@ -652,11 +676,15 @@ export function useUnifiedMouseInteraction({
 
   // Context menu handler
   const handleContextMenu = useCallback((event: MouseEvent) => {
+    // SSR Guard: Don't run on server
+    if (isSSR) return;
     event.preventDefault();
-  }, []);
+  }, [isSSR]);
 
   // Click handlers for panel interactions - use unified coordinates directly
   const handleCanvasClick = useCallback((event: MouseEvent) => {
+    // SSR Guard: Don't run on server
+    if (isSSR) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -672,6 +700,8 @@ export function useUnifiedMouseInteraction({
   }, [getPanelAtPosition, onPanelClick]);
 
   const handleCanvasDoubleClick = useCallback((event: MouseEvent) => {
+    // SSR Guard: Don't run on server
+    if (isSSR) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -688,6 +718,8 @@ export function useUnifiedMouseInteraction({
 
   // Setup event listeners - SINGLE UNIFIED SETUP
   useEffect(() => {
+    // SSR Guard: Don't run on server
+    if (isSSR) return;
     if (!canvas) return;
 
     const handlers = {
@@ -715,6 +747,8 @@ export function useUnifiedMouseInteraction({
 
   // Setup resize handling - ResizeObserver + window resize
   useEffect(() => {
+    // SSR Guard: Don't run on server
+    if (isSSR) return;
     if (!canvas) return;
 
     // Initial resize
@@ -753,6 +787,9 @@ export function useUnifiedMouseInteraction({
 
   // Global mouse up handler (in case mouse leaves canvas)
   useEffect(() => {
+    // SSR Guard: Don't run on server
+    if (isSSR) return;
+    
     const handleGlobalMouseUp = () => {
       if (isMouseDownRef.current) {
         isMouseDownRef.current = false;
@@ -763,11 +800,23 @@ export function useUnifiedMouseInteraction({
 
     document.addEventListener('mouseup', handleGlobalMouseUp);
     return () => document.removeEventListener('mouseup', handleGlobalMouseUp);
-  }, []);
+  }, [isSSR]);
 
   // Resize observer is handled in the main resize effect above
 
   // Render when dependencies change - handled by the main render trigger above
+
+  // SSR Fallback: Return empty functions if running on server
+  if (isSSR) {
+    return {
+      mouseState: initialMouseState,
+      getWorldCoordinates: () => ({ x: 0, y: 0 }),
+      getScreenCoordinates: () => ({ x: 0, y: 0 }),
+      getPanelAtPosition: () => null,
+      render: () => {},
+      resizeCanvas: () => {},
+    };
+  }
 
   return {
     mouseState: mouseStateRef.current,
