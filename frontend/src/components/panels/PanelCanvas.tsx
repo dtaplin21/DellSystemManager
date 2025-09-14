@@ -168,9 +168,10 @@ export function PanelCanvas({
     }
   }, [storedCanvasState]); // Only depend on storedCanvasState, not dispatchCanvas
 
-  // Persist canvas state when it changes (but not on initial load)
+  // Persist canvas state when it changes (but not on initial load) - throttled
   const isInitialMount = React.useRef(true);
   const updateCanvasStateRef = React.useRef(updateCanvasState);
+  const persistenceThrottleRef = React.useRef<number>();
   updateCanvasStateRef.current = updateCanvasState;
   
   React.useEffect(() => {
@@ -179,10 +180,17 @@ export function PanelCanvas({
       return; // Skip on initial mount
     }
     
-    updateCanvasStateRef.current({
-      worldScale: canvasContext.worldScale,
-      worldOffsetX: canvasContext.worldOffsetX,
-      worldOffsetY: canvasContext.worldOffsetY,
+    // Throttle persistence updates to prevent excessive localStorage writes
+    if (persistenceThrottleRef.current) {
+      cancelAnimationFrame(persistenceThrottleRef.current);
+    }
+    
+    persistenceThrottleRef.current = requestAnimationFrame(() => {
+      updateCanvasStateRef.current({
+        worldScale: canvasContext.worldScale,
+        worldOffsetX: canvasContext.worldOffsetX,
+        worldOffsetY: canvasContext.worldOffsetY,
+      });
     });
   }, [canvasContext.worldScale, canvasContext.worldOffsetX, canvasContext.worldOffsetY]);
 

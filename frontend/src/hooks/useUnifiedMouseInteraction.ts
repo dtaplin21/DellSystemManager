@@ -105,15 +105,6 @@ export function useUnifiedMouseInteraction({
     const worldX = (screenX - canvasState.worldOffsetX) / canvasState.worldScale;
     const worldY = (screenY - canvasState.worldOffsetY) / canvasState.worldScale;
     
-    console.log('🎯 [COORD DEBUG] Screen to World conversion:', {
-      screenX, screenY,
-      worldOffsetX: canvasState.worldOffsetX,
-      worldOffsetY: canvasState.worldOffsetY,
-      worldScale: canvasState.worldScale,
-      calculatedWorldX: worldX,
-      calculatedWorldY: worldY
-    });
-    
     return { x: worldX, y: worldY };
   }, [canvasState.worldOffsetX, canvasState.worldOffsetY, canvasState.worldScale]);
 
@@ -127,29 +118,14 @@ export function useUnifiedMouseInteraction({
 
   // Panel hit detection - convert screen coordinates to world coordinates for comparison
   const getPanelAtPosition = useCallback((screenX: number, screenY: number): Panel | null => {
-    console.log('🎯 [HIT DEBUG] ===== PANEL HIT DETECTION =====');
-    console.log('🎯 [HIT DEBUG] Screen coordinates:', { screenX, screenY });
-    
     // Convert screen coordinates to world coordinates
     const worldPos = getWorldCoordinates(screenX, screenY);
-    console.log('🎯 [HIT DEBUG] World coordinates:', worldPos);
-    
-    console.log('🎯 [HIT DEBUG] Checking panels:', panels.length);
     
     // Check panels in reverse order (top to bottom)
     for (let i = panels.length - 1; i >= 0; i--) {
       const panel = panels[i];
-      console.log(`🎯 [HIT DEBUG] Checking panel ${i}:`, {
-        id: panel.id,
-        isValid: panel.isValid,
-        x: panel.x,
-        y: panel.y,
-        width: panel.width,
-        height: panel.height
-      });
       
       if (!panel.isValid) {
-        console.log(`🎯 [HIT DEBUG] Panel ${i} is invalid, skipping`);
         continue;
       }
 
@@ -159,30 +135,11 @@ export function useUnifiedMouseInteraction({
       const top = panel.y;
       const bottom = panel.y + panel.height;
 
-      console.log(`🎯 [HIT DEBUG] Panel ${i} bounds:`, {
-        left, right, top, bottom,
-        worldPos,
-        hitTest: {
-          xInRange: worldPos.x >= left && worldPos.x <= right,
-          yInRange: worldPos.y >= top && worldPos.y <= bottom
-        },
-        rawPanelData: {
-          x: panel.x,
-          y: panel.y,
-          width: panel.width,
-          height: panel.height
-        }
-      });
-
       if (worldPos.x >= left && worldPos.x <= right && worldPos.y >= top && worldPos.y <= bottom) {
-        console.log(`🎯 [HIT DEBUG] ✅ HIT! Panel ${i} (${panel.id})`);
         return panel;
-      } else {
-        console.log(`🎯 [HIT DEBUG] ❌ Miss panel ${i} (${panel.id})`);
       }
     }
     
-    console.log('🎯 [HIT DEBUG] No panel hit');
     return null;
   }, [panels, getWorldCoordinates]);
 
@@ -266,34 +223,26 @@ export function useUnifiedMouseInteraction({
 
   // Canvas rendering function - simplified for unified coordinates
   const render = useCallback(() => {
-    console.log('🎯 [RENDER DEBUG] ===== RENDER CALLED =====');
-    
     const canvas = canvasRef.current;
     if (!canvas) {
-      console.log('🎯 [RENDER DEBUG] ❌ No canvas, returning');
       return;
     }
 
     const ctx = canvas.getContext('2d');
     if (!ctx) {
-      console.log('🎯 [RENDER DEBUG] ❌ No context, returning');
       return;
     }
 
     const now = performance.now();
     const deltaTime = now - lastRenderTimeRef.current;
     
-    console.log('🎯 [RENDER DEBUG] Render timing:', { deltaTime, throttled: deltaTime < 16.67 });
-    
     // Throttle rendering to 60fps
     if (deltaTime < 16.67) {
-      console.log('🎯 [RENDER DEBUG] Throttling render, scheduling next frame');
       animationFrameRef.current = requestAnimationFrame(render);
       return;
     }
     
     lastRenderTimeRef.current = now;
-    console.log('🎯 [RENDER DEBUG] Proceeding with render');
 
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -323,7 +272,7 @@ export function useUnifiedMouseInteraction({
       worldOffset: { x: canvasState.worldOffsetX, y: canvasState.worldOffsetY },
       worldScale: canvasState.worldScale
     });
-  }, [canvasState, panels, drawGrid, drawPanel]); // Include dependencies
+  }, []); // Remove dependencies to prevent re-creation
 
   // Render function is now self-contained without circular dependencies
 
@@ -633,11 +582,22 @@ export function useUnifiedMouseInteraction({
     mouseStateRef.current = initialMouseState;
   }, [canvas, onDragEnd, onPanelUpdate]);
 
-  // Mouse wheel handler for zooming - proper zoom implementation
+  // Throttle zoom updates to prevent excessive state changes
+  const zoomThrottleRef = useRef<number>();
+  const lastZoomTimeRef = useRef<number>(0);
+  const ZOOM_THROTTLE_MS = 16; // ~60fps
+
+  // Mouse wheel handler for zooming - throttled to prevent excessive updates
   const handleWheel = useCallback((event: WheelEvent) => {
     if (!canvas) return;
 
     event.preventDefault();
+    
+    const now = performance.now();
+    if (now - lastZoomTimeRef.current < ZOOM_THROTTLE_MS) {
+      return; // Skip this zoom event
+    }
+    lastZoomTimeRef.current = now;
     
     const rect = canvas.getBoundingClientRect();
     const mouseX = event.clientX - rect.left;
@@ -650,23 +610,35 @@ export function useUnifiedMouseInteraction({
     const zoomFactor = event.deltaY > 0 ? 0.9 : 1.1;
     const newScale = Math.max(0.1, Math.min(10, canvasState.worldScale * zoomFactor));
     
+    // Only update if scale actually changed significantly
+    if (Math.abs(newScale - canvasState.worldScale) < 0.001) {
+      return;
+    }
+    
     // Calculate new offset to zoom towards mouse position
-    const scaleChange = newScale / canvasState.worldScale;
     const newOffsetX = mouseX - worldPos.x * newScale;
     const newOffsetY = mouseY - worldPos.y * newScale;
     
-    // Update canvas state through callbacks
-    if (onCanvasPan) {
-      // Calculate delta offset
-      const deltaX = newOffsetX - canvasState.worldOffsetX;
-      const deltaY = newOffsetY - canvasState.worldOffsetY;
-      onCanvasPan(deltaX, deltaY);
+    // Clear any pending zoom updates
+    if (zoomThrottleRef.current) {
+      cancelAnimationFrame(zoomThrottleRef.current);
     }
     
-    // Update scale
-    if (onCanvasZoom) {
-      onCanvasZoom(newScale);
-    }
+    // Throttle the actual state updates
+    zoomThrottleRef.current = requestAnimationFrame(() => {
+      // Update canvas state through callbacks
+      if (onCanvasPan) {
+        // Calculate delta offset
+        const deltaX = newOffsetX - canvasState.worldOffsetX;
+        const deltaY = newOffsetY - canvasState.worldOffsetY;
+        onCanvasPan(deltaX, deltaY);
+      }
+      
+      // Update scale
+      if (onCanvasZoom) {
+        onCanvasZoom(newScale);
+      }
+    });
     
     logRef.current('Zoom attempted', { 
       mousePos: { x: mouseX, y: mouseY },
@@ -793,38 +765,9 @@ export function useUnifiedMouseInteraction({
     return () => document.removeEventListener('mouseup', handleGlobalMouseUp);
   }, []);
 
-  // Setup resize observer
-  useEffect(() => {
-    if (!canvas) return;
+  // Resize observer is handled in the main resize effect above
 
-    resizeCanvas();
-
-    const resizeObserver = new ResizeObserver(() => {
-      resizeCanvas();
-    });
-
-    resizeObserver.observe(canvas.parentElement || canvas);
-
-    return () => {
-      resizeObserver.disconnect();
-    };
-  }, [resizeCanvas]);
-
-  // Render when dependencies change - use ref to avoid dependency issues
-
-  useEffect(() => {
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-    }
-    
-    animationFrameRef.current = requestAnimationFrame(render);
-
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-    };
-  }, [panels, canvasState]);
+  // Render when dependencies change - handled by the main render trigger above
 
   return {
     mouseState: mouseStateRef.current,
