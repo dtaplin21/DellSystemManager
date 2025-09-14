@@ -22,6 +22,7 @@ interface PanelToolbarProps {
   onSave?: () => void;
   onExport?: () => void;
   onImport?: () => void;
+  onAddPanel?: () => void;
   onToggleGrid?: () => void;
   onToggleFullscreen?: () => void;
   hasUnsavedChanges?: boolean;
@@ -40,6 +41,7 @@ export function PanelToolbar({
   onSave,
   onExport,
   onImport,
+  onAddPanel,
   onToggleGrid,
   onToggleFullscreen,
   hasUnsavedChanges = false,
@@ -147,6 +149,20 @@ export function PanelToolbar({
         title="Import Layout"
       >
         <Upload className="h-4 w-4" />
+      </Button>
+
+      <div className="w-px h-6 bg-gray-300" />
+
+      {/* Panel Creation */}
+      <Button
+        variant="default"
+        size="sm"
+        onClick={onAddPanel}
+        title="Add New Panel"
+        className="bg-blue-600 hover:bg-blue-700 text-white"
+      >
+        <span className="mr-1">+</span>
+        Add Panel
       </Button>
 
       {/* Fullscreen Toggle */}

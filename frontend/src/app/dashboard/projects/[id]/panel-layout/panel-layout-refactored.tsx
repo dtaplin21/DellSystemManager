@@ -11,6 +11,7 @@ import {
   HydrationFallback 
 } from '@/components/panels/PanelLayoutFallbacks';
 import PanelLayoutComponent from '@/components/panels/PanelLayoutRefactored';
+import CreatePanelModal from '@/components/panels/CreatePanelModal';
 import { Panel } from '@/types/panel';
 
 // Progressive enhancement: Start simple, enhance on client
@@ -25,6 +26,9 @@ export default function PanelLayoutRefactored() {
   
   // Client-side hydration state
   const [isHydrated, setIsHydrated] = useState(false);
+  
+  // Modal state
+  const [showCreatePanelModal, setShowCreatePanelModal] = useState(false);
   
   // Feature flags for debugging/development
   const featureFlags = {
@@ -83,7 +87,38 @@ export default function PanelLayoutRefactored() {
     updatePanelPosition(panelId, position);
   };
 
-  // Handle adding test panels
+  // Panel creation handlers
+  const handleAddPanel = () => {
+    setShowCreatePanelModal(true);
+  };
+
+  const handleCreatePanel = (panelData: any) => {
+    console.log('🔍 [PanelLayoutRefactored] Creating panel with data:', panelData);
+    const newPanel: Omit<Panel, 'id'> = {
+      shape: panelData.shape || 'rectangle',
+      x: 100 + (panels.length * 50),
+      y: 100 + (panels.length * 30),
+      width: panelData.width || 100,
+      height: panelData.length || 50,
+      rotation: 0,
+      fill: '#3b82f6',
+      color: '#3b82f6',
+      rollNumber: panelData.rollNumber || `ROLL-${panels.length + 1}`,
+      panelNumber: panelData.panelNumber || `P${panels.length + 1}`,
+      date: panelData.date || new Date().toISOString().slice(0, 10),
+      location: panelData.location || '',
+      isValid: true,
+      meta: {
+        repairs: [],
+        airTest: { result: 'pending' }
+      }
+    };
+    
+    addPanel(newPanel);
+    setShowCreatePanelModal(false);
+  };
+
+  // Handle adding test panels (for empty state)
   const handleAddTestPanel = () => {
     const testPanel: Omit<Panel, 'id'> = {
       width: 2,
@@ -125,15 +160,6 @@ export default function PanelLayoutRefactored() {
   return (
     <PanelLayoutErrorBoundary>
       <div className="h-full w-full flex flex-col">
-        {/* Debug info */}
-        <div className="bg-yellow-100 p-4 mb-4">
-          <h3 className="font-bold">Debug Info:</h3>
-          <p>isHydrated: {isHydrated ? 'true' : 'false'}</p>
-          <p>isLoading: {isLoading ? 'true' : 'false'}</p>
-          <p>dataState: {dataState.state}</p>
-          <p>panelsCount: {panels.length}</p>
-          <p>error: {error || 'none'}</p>
-        </div>
         
         {/* Loading state */}
         {isLoading && (
@@ -167,38 +193,6 @@ export default function PanelLayoutRefactored() {
         {/* Loaded state with panels */}
         {dataState.state === 'loaded' && panels.length > 0 && (
           <div className="flex-1 w-full relative">
-            {/* Debug panel for development */}
-            {featureFlags.ENABLE_DEBUG_LOGGING && (
-              <div className="absolute top-4 right-4 z-50 bg-yellow-100 border border-yellow-300 rounded-lg p-3 max-w-xs">
-                <h3 className="font-semibold text-yellow-800 mb-2">Debug Info</h3>
-                <div className="text-xs text-yellow-700 space-y-1">
-                  <div>State: {dataState.state}</div>
-                  <div>Panels: {panels.length}</div>
-                  <div>Last Updated: {new Date(dataState.lastUpdated || 0).toLocaleTimeString()}</div>
-                </div>
-                <div className="mt-2 space-y-1">
-                  <button
-                    onClick={handleAddTestPanel}
-                    className="w-full px-2 py-1 bg-yellow-200 hover:bg-yellow-300 rounded text-xs"
-                  >
-                    Add Test Panel
-                  </button>
-                  <button
-                    onClick={refreshData}
-                    className="w-full px-2 py-1 bg-yellow-200 hover:bg-yellow-300 rounded text-xs"
-                  >
-                    Refresh Data
-                  </button>
-                  <button
-                    onClick={clearLocalStorage}
-                    className="w-full px-2 py-1 bg-red-200 hover:bg-red-300 rounded text-xs"
-                  >
-                    Clear Storage
-                  </button>
-                </div>
-              </div>
-            )}
-            
             {/* Main panel layout component */}
             <PanelLayoutComponent
               panels={panels}
@@ -208,6 +202,7 @@ export default function PanelLayoutRefactored() {
               onSave={() => console.log('Save clicked')}
               onExport={() => console.log('Export clicked')}
               onImport={() => console.log('Import clicked')}
+              onAddPanel={handleAddPanel}
               featureFlags={featureFlags}
             />
           </div>
@@ -218,6 +213,14 @@ export default function PanelLayoutRefactored() {
           <EmptyStateFallback 
             onAddPanel={handleAddTestPanel}
             onImportLayout={() => console.log('Import layout clicked')}
+          />
+        )}
+        
+        {/* Create Panel Modal */}
+        {showCreatePanelModal && (
+          <CreatePanelModal
+            onClose={() => setShowCreatePanelModal(false)}
+            onCreatePanel={handleCreatePanel}
           />
         )}
       </div>

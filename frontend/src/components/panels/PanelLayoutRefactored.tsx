@@ -15,6 +15,7 @@ interface PanelLayoutRefactoredProps {
   onSave?: () => void;
   onExport?: () => void;
   onImport?: () => void;
+  onAddPanel?: () => void;
   featureFlags?: {
     ENABLE_PERSISTENCE?: boolean;
     ENABLE_DRAGGING?: boolean;
@@ -43,6 +44,7 @@ export function PanelLayoutRefactored({
   onSave,
   onExport,
   onImport,
+  onAddPanel,
   featureFlags = {},
 }: PanelLayoutRefactoredProps) {
   return (
@@ -57,6 +59,7 @@ export function PanelLayoutRefactored({
             onSave={onSave}
             onExport={onExport}
             onImport={onImport}
+            onAddPanel={onAddPanel}
             hasUnsavedChanges={false} // This would come from context
             isFullscreen={false} // This would come from context
             showFullscreenToggle={true}
