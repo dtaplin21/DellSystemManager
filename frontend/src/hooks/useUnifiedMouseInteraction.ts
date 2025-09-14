@@ -80,6 +80,7 @@ export function useUnifiedMouseInteraction({
   const mouseDownTimeRef = useRef(0);
   const animationFrameRef = useRef<number>();
   const lastRenderTimeRef = useRef<number>(0);
+  const lastCanvasStateRef = useRef({ ...canvasState });
 
   // Set canvas ref
   useEffect(() => {
@@ -284,7 +285,7 @@ export function useUnifiedMouseInteraction({
 
   // Render function is now self-contained without circular dependencies
 
-  // Trigger render when panels or canvasState change
+  // Trigger render when panels change (not on every canvasState change)
   useEffect(() => {
     // SSR Guard: Don't run on server
     if (isSSR) return;
@@ -297,7 +298,31 @@ export function useUnifiedMouseInteraction({
         render();
       });
     }
-  }, [panels, canvasState, isSSR]);
+  }, [panels, isSSR]); // Removed canvasState from dependencies
+
+  // Separate effect for canvas state changes - only re-render if significant change
+  useEffect(() => {
+    // SSR Guard: Don't run on server
+    if (isSSR) return;
+    
+    // Only re-render if there's a significant change in scale or offset
+    const scaleChanged = Math.abs(canvasState.worldScale - lastCanvasStateRef.current.worldScale) > 0.001;
+    const offsetChanged = Math.abs(canvasState.worldOffsetX - lastCanvasStateRef.current.worldOffsetX) > 1 ||
+                         Math.abs(canvasState.worldOffsetY - lastCanvasStateRef.current.worldOffsetY) > 1;
+    
+    if (scaleChanged || offsetChanged) {
+      lastCanvasStateRef.current = { ...canvasState };
+      
+      if (animationFrameRef.current && typeof cancelAnimationFrame !== 'undefined') {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+      if (typeof requestAnimationFrame !== 'undefined') {
+        animationFrameRef.current = requestAnimationFrame(() => {
+          render();
+        });
+      }
+    }
+  }, [canvasState.worldScale, canvasState.worldOffsetX, canvasState.worldOffsetY, isSSR]);
 
 
   // Canvas resize handler - enhanced with proper container detection
