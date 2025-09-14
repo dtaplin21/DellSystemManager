@@ -277,7 +277,7 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
         lastUpdated: Date.now()
       });
     }
-  }, [projectId, loadLocalStorageData, fetchBackendData, mergeDataWithLocalStorage, debugLog]);
+  }, [projectId]); // Only depend on projectId - other functions are stable
 
   // Atomic panel position update
   const updatePanelPosition = useCallback((panelId: string, position: { x: number; y: number; rotation?: number }) => {
@@ -406,7 +406,7 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
     } else {
       console.log('🔍 [usePanelData] Skipping loadData - not on client side');
     }
-  }, [projectId, loadData]); // Include loadData in dependencies
+  }, [projectId]); // Only depend on projectId - loadData is stable
 
   // Computed values
   const isLoading = dataState.state === 'loading';

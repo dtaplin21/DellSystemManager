@@ -741,20 +741,41 @@ export function useUnifiedMouseInteraction({
     }
   }, [getPanelAtPosition, onPanelDoubleClick]);
 
+  // Handler refs to avoid recreating event listeners when handlers change
+  const handleMouseDownRef = useRef(handleMouseDown);
+  const handleMouseMoveRef = useRef(handleMouseMove);
+  const handleMouseUpRef = useRef(handleMouseUp);
+  const handleWheelRef = useRef(handleWheel);
+  const handleContextMenuRef = useRef(handleContextMenu);
+  const handleCanvasClickRef = useRef(handleCanvasClick);
+  const handleCanvasDoubleClickRef = useRef(handleCanvasDoubleClick);
+
+  // Update handler refs when handlers change
+  useEffect(() => {
+    handleMouseDownRef.current = handleMouseDown;
+    handleMouseMoveRef.current = handleMouseMove;
+    handleMouseUpRef.current = handleMouseUp;
+    handleWheelRef.current = handleWheel;
+    handleContextMenuRef.current = handleContextMenu;
+    handleCanvasClickRef.current = handleCanvasClick;
+    handleCanvasDoubleClickRef.current = handleCanvasDoubleClick;
+  }, [handleMouseDown, handleMouseMove, handleMouseUp, handleWheel, handleContextMenu, handleCanvasClick, handleCanvasDoubleClick]);
+
   // Setup event listeners - SINGLE UNIFIED SETUP
   useEffect(() => {
     // SSR Guard: Don't run on server
     if (isSSR) return;
     if (!canvas) return;
 
+    // Use refs to avoid recreating event listeners when handlers change
     const handlers = {
-      mousedown: handleMouseDown,
-      mousemove: handleMouseMove,
-      mouseup: handleMouseUp,
-      wheel: handleWheel,
-      contextmenu: handleContextMenu,
-      click: handleCanvasClick,
-      dblclick: handleCanvasDoubleClick,
+      mousedown: (e: MouseEvent) => handleMouseDownRef.current(e),
+      mousemove: (e: MouseEvent) => handleMouseMoveRef.current(e),
+      mouseup: (e: MouseEvent) => handleMouseUpRef.current(e),
+      wheel: (e: WheelEvent) => handleWheelRef.current(e),
+      contextmenu: (e: MouseEvent) => handleContextMenuRef.current(e),
+      click: (e: MouseEvent) => handleCanvasClickRef.current(e),
+      dblclick: (e: MouseEvent) => handleCanvasDoubleClickRef.current(e),
     };
 
     // Add event listeners
@@ -768,7 +789,7 @@ export function useUnifiedMouseInteraction({
         canvas.removeEventListener(event, handler as EventListener);
       });
     };
-  }, [canvas, handleMouseDown, handleMouseMove, handleMouseUp, handleWheel, handleContextMenu, handleCanvasClick, handleCanvasDoubleClick]);
+  }, [canvas, isSSR]); // Only depend on canvas and SSR - handlers are stable via refs
 
   // Setup resize handling - ResizeObserver + window resize
   useEffect(() => {
@@ -808,7 +829,7 @@ export function useUnifiedMouseInteraction({
       resizeObserver.disconnect();
       window.removeEventListener('resize', handleWindowResize);
     };
-  }, [canvas, resizeCanvas]);
+  }, [canvas, isSSR]); // Remove resizeCanvas dependency - it's stable
 
   // Global mouse up handler (in case mouse leaves canvas)
   useEffect(() => {

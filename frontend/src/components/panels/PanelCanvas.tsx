@@ -172,6 +172,11 @@ export function PanelCanvas({
   const isInitialMount = React.useRef(true);
   const updateCanvasStateRef = React.useRef(updateCanvasState);
   const persistenceThrottleRef = React.useRef<number>();
+  const lastPersistedStateRef = React.useRef({
+    worldScale: canvasContext.worldScale,
+    worldOffsetX: canvasContext.worldOffsetX,
+    worldOffsetY: canvasContext.worldOffsetY,
+  });
   updateCanvasStateRef.current = updateCanvasState;
   
   React.useEffect(() => {
@@ -180,18 +185,27 @@ export function PanelCanvas({
       return; // Skip on initial mount
     }
     
-    // Throttle persistence updates to prevent excessive localStorage writes
-    if (persistenceThrottleRef.current) {
-      cancelAnimationFrame(persistenceThrottleRef.current);
-    }
+    // Only persist if there's a significant change to prevent excessive writes during zoom
+    const scaleChanged = Math.abs(canvasContext.worldScale - lastPersistedStateRef.current.worldScale) > 0.01;
+    const offsetChanged = Math.abs(canvasContext.worldOffsetX - lastPersistedStateRef.current.worldOffsetX) > 5 ||
+                         Math.abs(canvasContext.worldOffsetY - lastPersistedStateRef.current.worldOffsetY) > 5;
     
-    persistenceThrottleRef.current = requestAnimationFrame(() => {
-      updateCanvasStateRef.current({
+    if (scaleChanged || offsetChanged) {
+      lastPersistedStateRef.current = {
         worldScale: canvasContext.worldScale,
         worldOffsetX: canvasContext.worldOffsetX,
         worldOffsetY: canvasContext.worldOffsetY,
+      };
+      
+      // Throttle persistence updates to prevent excessive localStorage writes
+      if (persistenceThrottleRef.current) {
+        cancelAnimationFrame(persistenceThrottleRef.current);
+      }
+      
+      persistenceThrottleRef.current = requestAnimationFrame(() => {
+        updateCanvasStateRef.current(lastPersistedStateRef.current);
       });
-    });
+    }
   }, [canvasContext.worldScale, canvasContext.worldOffsetX, canvasContext.worldOffsetY]);
 
   // Render is now handled by the unified mouse interaction hook
