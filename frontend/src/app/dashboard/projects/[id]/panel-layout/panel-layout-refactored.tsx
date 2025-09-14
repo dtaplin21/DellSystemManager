@@ -12,6 +12,8 @@ import {
 } from '@/components/panels/PanelLayoutFallbacks';
 import PanelLayoutComponent from '@/components/panels/PanelLayoutRefactored';
 import CreatePanelModal from '@/components/panels/CreatePanelModal';
+import FullscreenLayout from '@/components/panels/FullscreenLayout';
+import { useFullscreenState } from '@/contexts/PanelContext';
 import { Panel } from '@/types/panel';
 
 // Progressive enhancement: Start simple, enhance on client
@@ -29,6 +31,9 @@ export default function PanelLayoutRefactored() {
   
   // Modal state
   const [showCreatePanelModal, setShowCreatePanelModal] = useState(false);
+  
+  // Fullscreen state
+  const { fullscreen, dispatchFullscreen } = useFullscreenState();
   
   // Feature flags for debugging/development
   const featureFlags = {
@@ -142,6 +147,26 @@ export default function PanelLayoutRefactored() {
     await refreshData();
   };
 
+  // Fullscreen handlers
+  const handleToggleFullscreen = () => {
+    dispatchFullscreen({ type: 'SET_FULLSCREEN', payload: !fullscreen.isFullscreen });
+  };
+
+  const handleFullscreenPanelClick = (panel: Panel) => {
+    console.log('🔍 [PanelLayoutRefactored] Panel clicked in fullscreen:', panel.id);
+    // The fullscreen layout will handle panel selection
+  };
+
+  const handleFullscreenPanelDoubleClick = (panel: Panel) => {
+    console.log('🔍 [PanelLayoutRefactored] Panel double-clicked in fullscreen:', panel.id);
+    // The fullscreen layout will handle panel interactions
+  };
+
+  const handleFullscreenPanelUpdate = (panelId: string, updates: Partial<Panel>) => {
+    console.log('🔍 [PanelLayoutRefactored] Panel updated in fullscreen:', panelId, updates);
+    handlePanelPositionUpdate(panelId, updates);
+  };
+
   // Server-side rendering: Show loading state
   if (!isHydrated) {
     return <HydrationFallback />;
@@ -203,6 +228,7 @@ export default function PanelLayoutRefactored() {
               onExport={() => console.log('Export clicked')}
               onImport={() => console.log('Import clicked')}
               onAddPanel={handleAddPanel}
+              onToggleFullscreen={handleToggleFullscreen}
               featureFlags={featureFlags}
             />
           </div>
@@ -223,6 +249,15 @@ export default function PanelLayoutRefactored() {
             onCreatePanel={handleCreatePanel}
           />
         )}
+        
+        {/* Fullscreen Layout */}
+        <FullscreenLayout
+          panels={panels}
+          onPanelClick={handleFullscreenPanelClick}
+          onPanelDoubleClick={handleFullscreenPanelDoubleClick}
+          onPanelUpdate={handleFullscreenPanelUpdate}
+          enableDebugLogging={featureFlags.ENABLE_DEBUG_LOGGING}
+        />
       </div>
     </PanelLayoutErrorBoundary>
   );

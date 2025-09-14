@@ -49,8 +49,18 @@ export function PanelToolbar({
   showFullscreenToggle = true,
 }: PanelToolbarProps) {
   const { canvas } = useCanvasState();
-  const { fullscreen } = useFullscreenState();
+  const { fullscreen, dispatchFullscreen } = useFullscreenState();
   const featureFlags = useFeatureFlags();
+
+  // Handle fullscreen toggle
+  const handleToggleFullscreen = () => {
+    if (onToggleFullscreen) {
+      onToggleFullscreen();
+    } else {
+      // Fallback to context dispatch
+      dispatchFullscreen({ type: 'SET_FULLSCREEN', payload: !fullscreen.isFullscreen });
+    }
+  };
 
   const handleZoomIn = () => {
     const newScale = Math.min(10, canvas.worldScale * 1.2);
@@ -172,10 +182,10 @@ export function PanelToolbar({
           <Button
             variant="outline"
             size="sm"
-            onClick={onToggleFullscreen}
-            title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+            onClick={handleToggleFullscreen}
+            title={fullscreen.isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
           >
-            {isFullscreen ? (
+            {fullscreen.isFullscreen ? (
               <Minimize className="h-4 w-4" />
             ) : (
               <Maximize className="h-4 w-4" />
