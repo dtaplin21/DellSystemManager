@@ -6,9 +6,11 @@ import { Button } from '@/components/ui/button';
 import { useFullscreenState, useCanvasState } from '@/contexts/PanelContext';
 import { Panel } from '@/types/panel';
 import { PanelCanvas } from './PanelCanvas';
+import LazyFullSidebar from './LazyFullSidebar';
 
 interface FullscreenLayoutProps {
   panels: Panel[];
+  projectId: string;
   onPanelClick?: (panel: Panel) => void;
   onPanelDoubleClick?: (panel: Panel) => void;
   onPanelUpdate?: (panelId: string, updates: Partial<Panel>) => void;
@@ -21,6 +23,7 @@ interface FullscreenLayoutProps {
  */
 export function FullscreenLayout({
   panels,
+  projectId,
   onPanelClick,
   onPanelDoubleClick,
   onPanelUpdate,
@@ -51,6 +54,14 @@ export function FullscreenLayout({
         } else if (event.key === 'f' || event.key === 'F') {
           event.preventDefault();
           handleFitToScreen();
+        } else if (event.key === 'd' || event.key === 'D') {
+          event.preventDefault();
+          if (fullscreen.selectedPanel) {
+            dispatchFullscreen({ 
+              type: 'TOGGLE_FULL_SIDEBAR', 
+              payload: { panelId: fullscreen.selectedPanel.id } 
+            });
+          }
         }
       }
     };
@@ -303,37 +314,53 @@ export function FullscreenLayout({
 
               {/* Actions */}
               <div className="pt-2 border-t border-gray-200">
-                <div className="flex space-x-2">
+                <div className="space-y-2">
+                  <div className="flex space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 text-xs transition-all duration-150 ease-in-out hover:scale-105 hover:bg-blue-50 hover:border-blue-300"
+                      onClick={() => {
+                        // Center view on this panel
+                        const centerX = fullscreen.selectedPanel!.x + fullscreen.selectedPanel!.width / 2;
+                        const centerY = fullscreen.selectedPanel!.y + fullscreen.selectedPanel!.height / 2;
+                        dispatchCanvas({ 
+                          type: 'SET_WORLD_OFFSET', 
+                          payload: { 
+                            x: -centerX * canvas.worldScale + window.innerWidth / 2, 
+                            y: -centerY * canvas.worldScale + window.innerHeight / 2 
+                          } 
+                        });
+                      }}
+                    >
+                      Center View
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 text-xs transition-all duration-150 ease-in-out hover:scale-105 hover:bg-green-50 hover:border-green-300"
+                      onClick={() => {
+                        // Zoom to fit this panel
+                        const scale = Math.min(2, Math.min(window.innerWidth / fullscreen.selectedPanel!.width, window.innerHeight / fullscreen.selectedPanel!.height));
+                        dispatchCanvas({ type: 'SET_WORLD_SCALE', payload: scale });
+                      }}
+                    >
+                      Zoom to Fit
+                    </Button>
+                  </div>
+                  
                   <Button
-                    variant="outline"
+                    variant="default"
                     size="sm"
-                    className="flex-1 text-xs transition-all duration-150 ease-in-out hover:scale-105 hover:bg-blue-50 hover:border-blue-300"
+                    className="w-full text-xs bg-blue-600 hover:bg-blue-700 text-white transition-all duration-150 ease-in-out hover:scale-105"
                     onClick={() => {
-                      // Center view on this panel
-                      const centerX = fullscreen.selectedPanel!.x + fullscreen.selectedPanel!.width / 2;
-                      const centerY = fullscreen.selectedPanel!.y + fullscreen.selectedPanel!.height / 2;
-                      dispatchCanvas({ 
-                        type: 'SET_WORLD_OFFSET', 
-                        payload: { 
-                          x: -centerX * canvas.worldScale + window.innerWidth / 2, 
-                          y: -centerY * canvas.worldScale + window.innerHeight / 2 
-                        } 
+                      dispatchFullscreen({ 
+                        type: 'TOGGLE_FULL_SIDEBAR', 
+                        payload: { panelId: fullscreen.selectedPanel?.id } 
                       });
                     }}
                   >
-                    Center View
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex-1 text-xs transition-all duration-150 ease-in-out hover:scale-105 hover:bg-green-50 hover:border-green-300"
-                    onClick={() => {
-                      // Zoom to fit this panel
-                      const scale = Math.min(2, Math.min(window.innerWidth / fullscreen.selectedPanel!.width, window.innerHeight / fullscreen.selectedPanel!.height));
-                      dispatchCanvas({ type: 'SET_WORLD_SCALE', payload: scale });
-                    }}
-                  >
-                    Zoom to Fit
+                    View Full Details
                   </Button>
                 </div>
               </div>
@@ -351,6 +378,7 @@ export function FullscreenLayout({
           <div><kbd className="bg-gray-700 px-1 rounded">-</kbd> Zoom out</div>
           <div><kbd className="bg-gray-700 px-1 rounded">0</kbd> Reset zoom</div>
           <div><kbd className="bg-gray-700 px-1 rounded">F</kbd> Fit to screen</div>
+          <div><kbd className="bg-gray-700 px-1 rounded">D</kbd> View full details</div>
         </div>
       </div>
 
@@ -359,10 +387,22 @@ export function FullscreenLayout({
         <div className="absolute bottom-4 right-4 bg-black bg-opacity-75 text-white p-2 rounded text-xs max-w-sm">
           <div>Fullscreen: {fullscreen.isFullscreen ? 'Yes' : 'No'}</div>
           <div>Mini Sidebar: {fullscreen.miniSidebarVisible ? 'Visible' : 'Hidden'}</div>
+          <div>Full Sidebar: {fullscreen.fullSidebarVisible ? 'Visible' : 'Hidden'}</div>
           <div>Selected Panel: {fullscreen.selectedPanel?.id || 'None'}</div>
           <div>Zoom: {zoomLevel}%</div>
         </div>
       )}
+
+      {/* Full Sidebar */}
+      <LazyFullSidebar
+        projectId={projectId}
+        onClose={() => {
+          dispatchFullscreen({ type: 'SET_FULL_SIDEBAR', payload: false });
+        }}
+        onError={(error) => {
+          console.error('Full sidebar error:', error);
+        }}
+      />
     </div>
   );
 }

@@ -19,10 +19,9 @@ function Phase4FoundationTestContent() {
   const [testResults, setTestResults] = useState<Record<string, boolean>>({});
   
   // Performance monitoring
-  const { metrics, recordRenderTime } = usePerformanceMonitoring({
-    onPerformanceIssue: (metrics) => {
-      console.warn('Performance issue detected:', metrics);
-    }
+  const { metrics, startRenderTiming, endRenderTiming } = usePerformanceMonitoring({
+    enabled: true,
+    samplingRate: 0.1,
   });
 
   // Panel data (world units)
@@ -99,7 +98,7 @@ function Phase4FoundationTestContent() {
     try {
       // Test usePerformanceMonitoring hook
       results.usePerformanceMonitoring = typeof metrics === 'object' && 
-                                        typeof recordRenderTime === 'function';
+                                        typeof startRenderTiming === 'function';
     } catch (error) {
       results.usePerformanceMonitoring = false;
       console.error('usePerformanceMonitoring test failed:', error);
@@ -142,7 +141,7 @@ function Phase4FoundationTestContent() {
     
     setTestResults(results);
     console.log('Phase 4 Foundation Test Results:', results);
-  }, [transform, toWorld, toScreen, metrics, recordRenderTime, canvas, selectPanel, dataState]);
+  }, [transform, toWorld, toScreen, metrics, startRenderTiming, canvas, selectPanel, dataState]);
 
   const testCoordinateConversion = useCallback(() => {
     const testScreenPos = { x: 400, y: 300 };
@@ -213,13 +212,13 @@ function Phase4FoundationTestContent() {
     }
     
     const duration = performance.now() - start;
-    recordRenderTime(duration);
+    // Performance tracking handled by usePerformanceMonitoring hook
     
     console.log('Rendering test completed:', {
       renderTime: `${duration.toFixed(2)}ms`,
       isFast: duration < 16
     });
-  }, [recordRenderTime]);
+  }, []);
 
   const testErrorBoundary = () => {
     // This will trigger the error boundary
@@ -335,10 +334,7 @@ function Phase4FoundationTestContent() {
         </div>
         
         {/* Performance Metrics */}
-        <div className="grid grid-cols-4 gap-4 text-sm">
-          <div>
-            <strong>FPS:</strong> {metrics.fps.toFixed(1)}
-          </div>
+        <div className="grid grid-cols-3 gap-4 text-sm">
           <div>
             <strong>Render Time:</strong> {metrics.renderTime.toFixed(2)}ms
           </div>
@@ -348,12 +344,12 @@ function Phase4FoundationTestContent() {
           <div>
             <strong>Status:</strong> 
             <span className={`ml-1 ${
-              metrics.isLowPerf ? 'text-red-600' : 
-              metrics.isSlowRender ? 'text-yellow-600' : 
+              metrics.renderTime > 16 ? 'text-red-600' : 
+              metrics.renderTime > 8 ? 'text-yellow-600' : 
               'text-green-600'
             }`}>
-              {metrics.isLowPerf ? 'Low FPS' : 
-               metrics.isSlowRender ? 'Slow Render' : 
+              {metrics.renderTime > 16 ? 'Low Performance' : 
+               metrics.renderTime > 8 ? 'Slow Render' : 
                'Good'}
             </span>
           </div>

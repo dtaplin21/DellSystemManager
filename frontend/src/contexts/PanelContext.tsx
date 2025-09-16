@@ -29,6 +29,10 @@ interface FullscreenState {
   miniSidebarVisible: boolean;
   miniSidebarExpanded: boolean;
   selectedPanel: Panel | null;
+  fullSidebarVisible: boolean;
+  sidebarPanel: Panel | null;
+  sidebarLoading: boolean;
+  sidebarError: string | null;
 }
 
 interface AppState {
@@ -63,7 +67,12 @@ type FullscreenAction =
   | { type: 'SET_FULLSCREEN'; payload: boolean }
   | { type: 'TOGGLE_MINI_SIDEBAR' }
   | { type: 'SET_MINI_SIDEBAR_EXPANDED'; payload: boolean }
-  | { type: 'SET_SELECTED_PANEL'; payload: Panel | null };
+  | { type: 'SET_SELECTED_PANEL'; payload: Panel | null }
+  | { type: 'TOGGLE_FULL_SIDEBAR'; payload: { panelId?: string; force?: boolean } }
+  | { type: 'SET_FULL_SIDEBAR'; payload: boolean }
+  | { type: 'SET_SIDEBAR_PANEL'; payload: Panel | null }
+  | { type: 'SET_SIDEBAR_LOADING'; payload: boolean }
+  | { type: 'SET_SIDEBAR_ERROR'; payload: string | null };
 
 type AppAction = 
   | { type: 'CANVAS'; payload: CanvasAction }
@@ -96,6 +105,10 @@ const initialFullscreenState: FullscreenState = {
   miniSidebarVisible: false,
   miniSidebarExpanded: false,
   selectedPanel: null,
+  fullSidebarVisible: false,
+  sidebarPanel: null,
+  sidebarLoading: false,
+  sidebarError: null,
 };
 
 const initialState: AppState = {
@@ -224,7 +237,13 @@ function panelReducer(state: PanelState, action: PanelAction): PanelState {
 function fullscreenReducer(state: FullscreenState, action: FullscreenAction): FullscreenState {
   switch (action.type) {
     case 'SET_FULLSCREEN':
-      return { ...state, isFullscreen: action.payload };
+      return { 
+        ...state, 
+        isFullscreen: action.payload,
+        // Close sidebars when exiting fullscreen
+        fullSidebarVisible: action.payload ? state.fullSidebarVisible : false,
+        miniSidebarVisible: action.payload ? state.miniSidebarVisible : false,
+      };
     
     case 'TOGGLE_MINI_SIDEBAR':
       return { ...state, miniSidebarVisible: !state.miniSidebarVisible };
@@ -237,7 +256,45 @@ function fullscreenReducer(state: FullscreenState, action: FullscreenAction): Fu
         ...state, 
         selectedPanel: action.payload,
         miniSidebarVisible: !!action.payload,
+        // Close full sidebar when panel changes
+        fullSidebarVisible: false,
+        sidebarPanel: null,
+        sidebarError: null,
       };
+    
+    case 'TOGGLE_FULL_SIDEBAR':
+      const { panelId, force } = action.payload;
+      const shouldShow = force !== undefined ? force : !state.fullSidebarVisible;
+      
+      return {
+        ...state,
+        fullSidebarVisible: shouldShow,
+        sidebarPanel: shouldShow && panelId ? 
+          state.selectedPanel : 
+          state.sidebarPanel,
+        sidebarError: shouldShow ? null : state.sidebarError,
+      };
+    
+    case 'SET_FULL_SIDEBAR':
+      return { 
+        ...state, 
+        fullSidebarVisible: action.payload,
+        sidebarError: action.payload ? null : state.sidebarError,
+      };
+    
+    case 'SET_SIDEBAR_PANEL':
+      return { 
+        ...state, 
+        sidebarPanel: action.payload,
+        fullSidebarVisible: !!action.payload,
+        sidebarError: null,
+      };
+    
+    case 'SET_SIDEBAR_LOADING':
+      return { ...state, sidebarLoading: action.payload };
+    
+    case 'SET_SIDEBAR_ERROR':
+      return { ...state, sidebarError: action.payload };
     
     default:
       return state;

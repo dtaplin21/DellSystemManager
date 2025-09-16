@@ -15,10 +15,9 @@ export function Phase1Test() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
   // Performance monitoring
-  const { metrics, recordRenderTime } = usePerformanceMonitoring({
-    onPerformanceIssue: (metrics) => {
-      console.warn('Performance issue in Phase1Test:', metrics);
-    }
+  const { metrics, startRenderTiming, endRenderTiming } = usePerformanceMonitoring({
+    enabled: true,
+    samplingRate: 0.1,
   });
 
   // Zoom/Pan hook
@@ -122,8 +121,8 @@ export function Phase1Test() {
     ctx.restore();
     
     const duration = performance.now() - start;
-    recordRenderTime(duration);
-  }, [transform, gridLines, recordRenderTime]);
+    // Performance tracking handled by usePerformanceMonitoring hook
+  }, [transform, gridLines]);
 
   // Render on transform change
   useEffect(() => {
@@ -178,10 +177,7 @@ export function Phase1Test() {
           </div>
           
           {/* Performance Metrics */}
-          <div className="grid grid-cols-4 gap-4 text-sm">
-            <div>
-              <strong>FPS:</strong> {metrics.fps.toFixed(1)}
-            </div>
+          <div className="grid grid-cols-3 gap-4 text-sm">
             <div>
               <strong>Render Time:</strong> {metrics.renderTime.toFixed(2)}ms
             </div>
@@ -191,12 +187,12 @@ export function Phase1Test() {
             <div>
               <strong>Status:</strong> 
               <span className={`ml-1 ${
-                metrics.isLowPerf ? 'text-red-600' : 
-                metrics.isSlowRender ? 'text-yellow-600' : 
+                metrics.renderTime > 16 ? 'text-red-600' : 
+                metrics.renderTime > 8 ? 'text-yellow-600' : 
                 'text-green-600'
               }`}>
-                {metrics.isLowPerf ? 'Low FPS' : 
-                 metrics.isSlowRender ? 'Slow Render' : 
+                {metrics.renderTime > 16 ? 'Low Performance' : 
+                 metrics.renderTime > 8 ? 'Slow Render' : 
                  'Good'}
               </span>
             </div>

@@ -10,6 +10,7 @@ import { Panel } from '@/types/panel';
 
 interface PanelLayoutRefactoredProps {
   panels: Panel[];
+  projectId: string;
   onPanelClick?: (panel: Panel) => void;
   onPanelDoubleClick?: (panel: Panel) => void;
   onPanelUpdate?: (panelId: string, updates: Partial<Panel>) => void;
@@ -40,6 +41,7 @@ interface PanelLayoutRefactoredProps {
 // Internal component that uses the fullscreen state
 function PanelLayoutContent({
   panels,
+  projectId,
   onPanelClick,
   onPanelDoubleClick,
   onPanelUpdate,
@@ -78,19 +80,21 @@ function PanelLayoutContent({
       </div>
 
       {/* Fullscreen Layout */}
-      <FullscreenLayout
-        panels={panels}
-        onPanelClick={onPanelClick}
-        onPanelDoubleClick={onPanelDoubleClick}
-        onPanelUpdate={onPanelUpdate}
-        enableDebugLogging={featureFlags.ENABLE_DEBUG_LOGGING}
-      />
+              <FullscreenLayout
+                panels={panels}
+                projectId={projectId}
+                onPanelClick={onPanelClick}
+                onPanelDoubleClick={onPanelDoubleClick}
+                onPanelUpdate={onPanelUpdate}
+                enableDebugLogging={featureFlags.ENABLE_DEBUG_LOGGING}
+              />
     </>
   );
 }
 
 export function PanelLayoutRefactored({
   panels,
+  projectId,
   onPanelClick,
   onPanelDoubleClick,
   onPanelUpdate,
@@ -108,6 +112,7 @@ export function PanelLayoutRefactored({
       >
         <PanelLayoutContent
           panels={panels}
+          projectId={projectId}
           onPanelClick={onPanelClick}
           onPanelDoubleClick={onPanelDoubleClick}
           onPanelUpdate={onPanelUpdate}

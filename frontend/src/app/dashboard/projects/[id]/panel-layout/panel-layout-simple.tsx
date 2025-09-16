@@ -87,6 +87,7 @@ export default function PanelLayoutSimple() {
         {dataState.state === 'loaded' && panels.length > 0 && (
           <PanelLayoutRefactored
             panels={panels}
+            projectId={Array.isArray(params.id) ? params.id[0] || 'unknown' : params.id || 'unknown'}
             onPanelClick={(panel) => console.log('Panel clicked:', panel.id)}
             onPanelDoubleClick={(panel) => console.log('Panel double-clicked:', panel.id)}
             onPanelUpdate={(updatedPanels) => console.log('Panels updated:', updatedPanels.length)}

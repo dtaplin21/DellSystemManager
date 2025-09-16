@@ -86,6 +86,7 @@ export default function PanelsPage() {
         <TabsContent value="manual">
           <PanelLayoutRefactored
             panels={[]}
+            projectId="demo-project"
             onPanelClick={(panel) => console.log('Panel clicked:', panel.id)}
             onPanelDoubleClick={(panel) => console.log('Panel double-clicked:', panel.id)}
             onPanelUpdate={(updatedPanels) => console.log('Panels updated:', updatedPanels.length)}
@@ -104,6 +105,7 @@ export default function PanelsPage() {
         <TabsContent value="auto">
           <PanelLayoutRefactored
             panels={[]}
+            projectId="demo-project"
             onPanelClick={(panel) => console.log('Panel clicked:', panel.id)}
             onPanelDoubleClick={(panel) => console.log('Panel double-clicked:', panel.id)}
             onPanelUpdate={(updatedPanels) => console.log('Panels updated:', updatedPanels.length)}
