@@ -17,7 +17,6 @@ interface PanelLayoutRefactoredProps {
   onExport?: () => void;
   onImport?: () => void;
   onAddPanel?: () => void;
-  onToggleFullscreen?: () => void;
   featureFlags?: {
     ENABLE_PERSISTENCE?: boolean;
     ENABLE_DRAGGING?: boolean;
@@ -48,7 +47,6 @@ function PanelLayoutContent({
   onExport,
   onImport,
   onAddPanel,
-  onToggleFullscreen,
   featureFlags = {},
 }: PanelLayoutRefactoredProps) {
   const { fullscreen } = useFullscreenState();
@@ -62,7 +60,6 @@ function PanelLayoutContent({
           onExport={onExport}
           onImport={onImport}
           onAddPanel={onAddPanel}
-          onToggleFullscreen={onToggleFullscreen}
           hasUnsavedChanges={false} // This would come from context
           isFullscreen={fullscreen.isFullscreen}
           showFullscreenToggle={true}
@@ -101,7 +98,6 @@ export function PanelLayoutRefactored({
   onExport,
   onImport,
   onAddPanel,
-  onToggleFullscreen,
   featureFlags = {},
 }: PanelLayoutRefactoredProps) {
   return (
@@ -119,7 +115,6 @@ export function PanelLayoutRefactored({
           onExport={onExport}
           onImport={onImport}
           onAddPanel={onAddPanel}
-          onToggleFullscreen={onToggleFullscreen}
           featureFlags={featureFlags}
         />
       </PanelProvider>

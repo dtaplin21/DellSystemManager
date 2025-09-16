@@ -10,7 +10,7 @@ import {
   EmptyStateFallback, 
   HydrationFallback 
 } from '@/components/panels/PanelLayoutFallbacks';
-import PanelLayoutComponent from '@/components/panels/PanelLayoutRefactored';
+import { PanelLayoutRefactored as PanelLayoutComponent } from '@/components/panels/PanelLayoutRefactored';
 import CreatePanelModal from '@/components/panels/CreatePanelModal';
 // FullscreenLayout is now handled inside PanelLayoutComponent
 // Removed useFullscreenState import - will be handled inside PanelLayoutComponent
@@ -226,7 +226,6 @@ export default function PanelLayoutRefactored() {
               onExport={() => console.log('Export clicked')}
               onImport={() => console.log('Import clicked')}
               onAddPanel={handleAddPanel}
-              onToggleFullscreen={handleToggleFullscreen}
               featureFlags={featureFlags}
             />
           </div>
