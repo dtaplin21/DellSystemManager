@@ -48,12 +48,9 @@ export function useOptimizedRendering({
 }: UseOptimizedRenderingOptions): UseOptimizedRenderingReturn {
   
   // Performance monitoring
-  const { metrics, recordRenderTime } = usePerformanceMonitoring({
-    onPerformanceIssue: (metrics) => {
-      if (enableDebugLogging) {
-        console.warn('Rendering performance issue:', metrics);
-      }
-    }
+  const { metrics, startRenderTiming, endRenderTiming } = usePerformanceMonitoring({
+    enabled: enableDebugLogging,
+    samplingRate: 0.1,
   });
 
   // Refs for stable values
@@ -250,12 +247,12 @@ export function useOptimizedRendering({
     frameCountRef.current++;
     lastRenderTimeRef.current = duration;
     
-    recordRenderTime(duration);
+    // Performance monitoring is handled by the hook internally
     
     if (enableDebugLogging && frameCountRef.current % 60 === 0) {
       console.log(`Render performance: ${duration.toFixed(2)}ms, FPS: ${(1000 / duration).toFixed(1)}`);
     }
-  }, [canvas, viewTransform, drawGrid, visiblePanels, drawPanel, recordRenderTime, enableDebugLogging]);
+  }, [canvas, viewTransform, drawGrid, visiblePanels, drawPanel, enableDebugLogging]);
 
   // Resize canvas function
   const resizeCanvas = useCallback((width: number, height: number) => {
@@ -296,8 +293,8 @@ export function useOptimizedRendering({
   const performanceMetrics = useMemo(() => ({
     renderTime: renderTimeRef.current,
     frameCount: frameCountRef.current,
-    isLowPerf: metrics.isLowPerf
-  }), [metrics.isLowPerf]);
+    isLowPerf: renderTimeRef.current > 16 // Custom logic based on render time
+  }), [renderTimeRef.current]);
 
   return {
     render,
