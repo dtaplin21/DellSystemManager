@@ -1,10 +1,11 @@
 'use client';
 
 import React from 'react';
-import { PanelProvider } from '@/contexts/PanelContext';
+import { PanelProvider, useFullscreenState } from '@/contexts/PanelContext';
 import { PanelCanvas } from './PanelCanvas';
 import { PanelToolbar } from './PanelToolbar';
 import { PanelLayoutErrorBoundary } from './PanelLayoutErrorBoundary';
+import FullscreenLayout from './FullscreenLayout';
 import { Panel } from '@/types/panel';
 
 interface PanelLayoutRefactoredProps {
@@ -37,6 +38,60 @@ interface PanelLayoutRefactoredProps {
  * - Type safety: Full TypeScript coverage with validation
  * - Performance: Debounced operations and optimized rendering
  */
+// Internal component that uses the fullscreen state
+function PanelLayoutContent({
+  panels,
+  onPanelClick,
+  onPanelDoubleClick,
+  onPanelUpdate,
+  onSave,
+  onExport,
+  onImport,
+  onAddPanel,
+  onToggleFullscreen,
+  featureFlags = {},
+}: PanelLayoutRefactoredProps) {
+  const { fullscreen } = useFullscreenState();
+
+  return (
+    <>
+      <div className="flex flex-col h-full w-full">
+        {/* Toolbar */}
+        <PanelToolbar
+          onSave={onSave}
+          onExport={onExport}
+          onImport={onImport}
+          onAddPanel={onAddPanel}
+          onToggleFullscreen={onToggleFullscreen}
+          hasUnsavedChanges={false} // This would come from context
+          isFullscreen={fullscreen.isFullscreen}
+          showFullscreenToggle={true}
+        />
+        
+        {/* Main Canvas Area */}
+        <div className="flex-1 relative canvas-container">
+          <PanelCanvas
+            panels={panels}
+            onPanelClick={onPanelClick}
+            onPanelDoubleClick={onPanelDoubleClick}
+            onPanelUpdate={onPanelUpdate}
+            enableDebugLogging={featureFlags.ENABLE_DEBUG_LOGGING}
+          />
+        </div>
+      </div>
+
+      {/* Fullscreen Layout */}
+      <FullscreenLayout
+        panels={panels}
+        onPanelClick={onPanelClick}
+        onPanelDoubleClick={onPanelDoubleClick}
+        onPanelUpdate={onPanelUpdate}
+        enableDebugLogging={featureFlags.ENABLE_DEBUG_LOGGING}
+      />
+    </>
+  );
+}
+
 export function PanelLayoutRefactored({
   panels,
   onPanelClick,
@@ -55,30 +110,18 @@ export function PanelLayoutRefactored({
         initialPanels={panels} 
         featureFlags={featureFlags}
       >
-        <div className="flex flex-col h-full w-full">
-          {/* Toolbar */}
-          <PanelToolbar
-            onSave={onSave}
-            onExport={onExport}
-            onImport={onImport}
-            onAddPanel={onAddPanel}
-            onToggleFullscreen={onToggleFullscreen}
-            hasUnsavedChanges={false} // This would come from context
-            isFullscreen={false} // This would come from context
-            showFullscreenToggle={true}
-          />
-          
-          {/* Main Canvas Area */}
-          <div className="flex-1 relative canvas-container">
-            <PanelCanvas
-              panels={panels}
-              onPanelClick={onPanelClick}
-              onPanelDoubleClick={onPanelDoubleClick}
-              onPanelUpdate={onPanelUpdate}
-              enableDebugLogging={featureFlags.ENABLE_DEBUG_LOGGING}
-            />
-          </div>
-        </div>
+        <PanelLayoutContent
+          panels={panels}
+          onPanelClick={onPanelClick}
+          onPanelDoubleClick={onPanelDoubleClick}
+          onPanelUpdate={onPanelUpdate}
+          onSave={onSave}
+          onExport={onExport}
+          onImport={onImport}
+          onAddPanel={onAddPanel}
+          onToggleFullscreen={onToggleFullscreen}
+          featureFlags={featureFlags}
+        />
       </PanelProvider>
     </PanelLayoutErrorBoundary>
   );

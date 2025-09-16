@@ -12,8 +12,8 @@ import {
 } from '@/components/panels/PanelLayoutFallbacks';
 import PanelLayoutComponent from '@/components/panels/PanelLayoutRefactored';
 import CreatePanelModal from '@/components/panels/CreatePanelModal';
-import FullscreenLayout from '@/components/panels/FullscreenLayout';
-import { useFullscreenState } from '@/contexts/PanelContext';
+// FullscreenLayout is now handled inside PanelLayoutComponent
+// Removed useFullscreenState import - will be handled inside PanelLayoutComponent
 import { Panel } from '@/types/panel';
 
 // Progressive enhancement: Start simple, enhance on client
@@ -31,9 +31,6 @@ export default function PanelLayoutRefactored() {
   
   // Modal state
   const [showCreatePanelModal, setShowCreatePanelModal] = useState(false);
-  
-  // Fullscreen state
-  const { fullscreen, dispatchFullscreen } = useFullscreenState();
   
   // Feature flags for debugging/development
   const featureFlags = {
@@ -147,9 +144,10 @@ export default function PanelLayoutRefactored() {
     await refreshData();
   };
 
-  // Fullscreen handlers
+  // Fullscreen handlers - will be handled by PanelLayoutComponent
   const handleToggleFullscreen = () => {
-    dispatchFullscreen({ type: 'SET_FULLSCREEN', payload: !fullscreen.isFullscreen });
+    console.log('🔍 [PanelLayoutRefactored] Toggle fullscreen requested');
+    // This will be handled by the PanelLayoutComponent
   };
 
   const handleFullscreenPanelClick = (panel: Panel) => {
@@ -250,14 +248,7 @@ export default function PanelLayoutRefactored() {
           />
         )}
         
-        {/* Fullscreen Layout */}
-        <FullscreenLayout
-          panels={panels}
-          onPanelClick={handleFullscreenPanelClick}
-          onPanelDoubleClick={handleFullscreenPanelDoubleClick}
-          onPanelUpdate={handleFullscreenPanelUpdate}
-          enableDebugLogging={featureFlags.ENABLE_DEBUG_LOGGING}
-        />
+        {/* Fullscreen Layout is now handled inside PanelLayoutComponent */}
       </div>
     </PanelLayoutErrorBoundary>
   );

@@ -27,7 +27,7 @@ export function FullscreenLayout({
   enableDebugLogging = false,
 }: FullscreenLayoutProps) {
   const { fullscreen, dispatchFullscreen } = useFullscreenState();
-  const { canvasState, dispatchCanvas } = useCanvasState();
+  const { canvas, dispatchCanvas } = useCanvasState();
   const containerRef = useRef<HTMLDivElement>(null);
   const [zoomLevel, setZoomLevel] = useState(100);
 
@@ -61,9 +61,9 @@ export function FullscreenLayout({
 
   // Update zoom level display when canvas state changes
   useEffect(() => {
-    const newZoomLevel = Math.round(canvasState.worldScale * 100);
+    const newZoomLevel = Math.round(canvas.worldScale * 100);
     setZoomLevel(newZoomLevel);
-  }, [canvasState.worldScale]);
+  }, [canvas.worldScale]);
 
   // Memoize panel bounds calculation for performance
   const panelBounds = useMemo(() => {
@@ -84,18 +84,18 @@ export function FullscreenLayout({
 
   // Optimized zoom handlers with useCallback
   const handleZoomIn = useCallback(() => {
-    const newScale = Math.min(5, canvasState.worldScale * 1.2);
-    dispatchCanvas({ type: 'SET_SCALE', payload: newScale });
-  }, [canvasState.worldScale, dispatchCanvas]);
+    const newScale = Math.min(5, canvas.worldScale * 1.2);
+    dispatchCanvas({ type: 'SET_WORLD_SCALE', payload: newScale });
+  }, [canvas.worldScale, dispatchCanvas]);
 
   const handleZoomOut = useCallback(() => {
-    const newScale = Math.max(0.1, canvasState.worldScale * 0.8);
-    dispatchCanvas({ type: 'SET_SCALE', payload: newScale });
-  }, [canvasState.worldScale, dispatchCanvas]);
+    const newScale = Math.max(0.1, canvas.worldScale * 0.8);
+    dispatchCanvas({ type: 'SET_WORLD_SCALE', payload: newScale });
+  }, [canvas.worldScale, dispatchCanvas]);
 
   const handleResetZoom = useCallback(() => {
-    dispatchCanvas({ type: 'SET_SCALE', payload: 1 });
-    dispatchCanvas({ type: 'SET_OFFSET', payload: { x: 0, y: 0 } });
+    dispatchCanvas({ type: 'SET_WORLD_SCALE', payload: 1 });
+    dispatchCanvas({ type: 'SET_WORLD_OFFSET', payload: { x: 0, y: 0 } });
   }, [dispatchCanvas]);
 
   const handleFitToScreen = useCallback(() => {
@@ -114,12 +114,12 @@ export function FullscreenLayout({
     const scaleY = (containerRect.height * 0.9) / panelHeight;
     const scale = Math.min(scaleX, scaleY, 2); // Cap at 2x zoom
 
-    dispatchCanvas({ type: 'SET_SCALE', payload: scale });
+    dispatchCanvas({ type: 'SET_WORLD_SCALE', payload: scale });
     
     // Center the panels
     const centerX = (containerRect.width - panelWidth * scale) / 2;
     const centerY = (containerRect.height - panelHeight * scale) / 2;
-    dispatchCanvas({ type: 'SET_OFFSET', payload: { x: centerX, y: centerY } });
+    dispatchCanvas({ type: 'SET_WORLD_OFFSET', payload: { x: centerX, y: centerY } });
   }, [panelBounds, dispatchCanvas]);
 
   const handleExitFullscreen = () => {
@@ -236,15 +236,13 @@ export function FullscreenLayout({
         <PanelCanvas
           panels={panels}
           onPanelClick={(panel) => {
-            // Set selected panel for mini-sidebar
+            // Set selected panel for mini-sidebar (automatically shows mini-sidebar)
             dispatchFullscreen({ type: 'SET_SELECTED_PANEL', payload: panel });
-            dispatchFullscreen({ type: 'SET_MINI_SIDEBAR_VISIBLE', payload: true });
             onPanelClick?.(panel);
           }}
           onPanelDoubleClick={onPanelDoubleClick}
           onPanelUpdate={onPanelUpdate}
           enableDebugLogging={enableDebugLogging}
-          selectedPanelId={fullscreen.selectedPanel?.id}
         />
         
         {/* Enhanced Mini Sidebar */}
@@ -315,10 +313,10 @@ export function FullscreenLayout({
                       const centerX = fullscreen.selectedPanel!.x + fullscreen.selectedPanel!.width / 2;
                       const centerY = fullscreen.selectedPanel!.y + fullscreen.selectedPanel!.height / 2;
                       dispatchCanvas({ 
-                        type: 'SET_OFFSET', 
+                        type: 'SET_WORLD_OFFSET', 
                         payload: { 
-                          x: -centerX * canvasState.worldScale + window.innerWidth / 2, 
-                          y: -centerY * canvasState.worldScale + window.innerHeight / 2 
+                          x: -centerX * canvas.worldScale + window.innerWidth / 2, 
+                          y: -centerY * canvas.worldScale + window.innerHeight / 2 
                         } 
                       });
                     }}
@@ -332,7 +330,7 @@ export function FullscreenLayout({
                     onClick={() => {
                       // Zoom to fit this panel
                       const scale = Math.min(2, Math.min(window.innerWidth / fullscreen.selectedPanel!.width, window.innerHeight / fullscreen.selectedPanel!.height));
-                      dispatchCanvas({ type: 'SET_SCALE', payload: scale });
+                      dispatchCanvas({ type: 'SET_WORLD_SCALE', payload: scale });
                     }}
                   >
                     Zoom to Fit
