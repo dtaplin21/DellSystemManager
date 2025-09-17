@@ -15,7 +15,10 @@ export function SimplePanelLayout({ projectId }: SimplePanelLayoutProps) {
     error,
     updatePanel,
     updateCanvas,
-    selectPanel
+    selectPanel,
+    panels,
+    canvas,
+    selectedPanelId
   } = usePanelSystem(projectId);
   
   if (isLoading) return <div>Loading...</div>;
@@ -24,9 +27,9 @@ export function SimplePanelLayout({ projectId }: SimplePanelLayoutProps) {
   return (
     <div style={{ width: '100%', height: '100vh' }}>
       <SimpleCanvas
-        panels={state.panels}
-        canvasState={state.canvas}
-        selectedPanelId={state.selectedPanelId}
+        panels={panels}
+        canvasState={canvas}
+        selectedPanelId={selectedPanelId}
         onPanelUpdate={updatePanel}
         onCanvasUpdate={updateCanvas}
         onPanelSelect={selectPanel}

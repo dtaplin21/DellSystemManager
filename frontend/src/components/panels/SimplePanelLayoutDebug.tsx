@@ -15,7 +15,10 @@ export function SimplePanelLayoutDebug({ projectId }: SimplePanelLayoutDebugProp
     error,
     updatePanel,
     updateCanvas,
-    selectPanel
+    selectPanel,
+    panels,
+    canvas,
+    selectedPanelId
   } = usePanelSystem(projectId);
   
   const [showDebug, setShowDebug] = useState(false);
@@ -55,26 +58,26 @@ export function SimplePanelLayoutDebug({ projectId }: SimplePanelLayoutDebugProp
           
           <div className="space-y-2 text-xs">
             <div>
-              <strong>Panels:</strong> {state.panels.length}
+              <strong>Panels:</strong> {panels.length}
             </div>
             <div>
-              <strong>Selected:</strong> {state.selectedPanelId || 'None'}
+              <strong>Selected:</strong> {selectedPanelId || 'None'}
             </div>
             <div>
-              <strong>Canvas Scale:</strong> {state.canvas.scale.toFixed(2)}
+              <strong>Canvas Scale:</strong> {canvas.scale.toFixed(2)}
             </div>
             <div>
-              <strong>Canvas Offset:</strong> ({state.canvas.offsetX.toFixed(0)}, {state.canvas.offsetY.toFixed(0)})
+              <strong>Canvas Offset:</strong> ({canvas.offsetX.toFixed(0)}, {canvas.offsetY.toFixed(0)})
             </div>
             <div>
               <strong>Dirty:</strong> {state.isDirty ? 'Yes' : 'No'}
             </div>
             
-            {state.panels.length > 0 && (
+            {panels.length > 0 && (
               <div className="mt-2">
                 <strong>Panel Details:</strong>
                 <div className="max-h-32 overflow-y-auto">
-                  {state.panels.map(panel => (
+                  {panels.map(panel => (
                     <div key={panel.id} className="text-xs p-1 bg-gray-50 rounded mb-1">
                       <div>ID: {panel.id}</div>
                       <div>Pos: ({panel.x.toFixed(0)}, {panel.y.toFixed(0)})</div>
@@ -97,14 +100,14 @@ export function SimplePanelLayoutDebug({ projectId }: SimplePanelLayoutDebugProp
       </button>
       
       {/* Canvas */}
-      <SimpleCanvas
-        panels={state.panels}
-        canvasState={state.canvas}
-        selectedPanelId={state.selectedPanelId}
-        onPanelUpdate={updatePanel}
-        onCanvasUpdate={updateCanvas}
-        onPanelSelect={selectPanel}
-      />
+        <SimpleCanvas
+          panels={panels}
+          canvasState={canvas}
+          selectedPanelId={selectedPanelId}
+          onPanelUpdate={updatePanel}
+          onCanvasUpdate={updateCanvas}
+          onPanelSelect={selectPanel}
+        />
     </div>
   );
 }
