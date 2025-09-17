@@ -79,14 +79,14 @@ export default function PanelLayoutRefactored() {
 
 
   // Handle panel position updates
-  const handlePanelPositionUpdate = (panelId: string, updates: Partial<Panel>) => {
+  const handlePanelPositionUpdate = async (panelId: string, updates: Partial<Panel>) => {
     // Extract position data from updates
     const position = {
       x: updates.x!,
       y: updates.y!,
       rotation: updates.rotation
     };
-    updatePanelPosition(panelId, position);
+    await updatePanelPosition(panelId, position);
   };
 
   // Panel creation handlers

@@ -21,7 +21,7 @@ interface UsePanelDataReturn {
   isLoading: boolean;
   error: string | null;
   panels: Panel[];
-  updatePanelPosition: (panelId: string, position: { x: number; y: number; rotation?: number }) => void;
+  updatePanelPosition: (panelId: string, position: { x: number; y: number; rotation?: number }) => Promise<void>;
   addPanel: (panel: Omit<Panel, 'id'>) => void;
   removePanel: (panelId: string) => void;
   refreshData: () => Promise<void>;
@@ -280,7 +280,8 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
   }, [projectId]); // Only depend on projectId - other functions are stable
 
   // Atomic panel position update
-  const updatePanelPosition = useCallback((panelId: string, position: { x: number; y: number; rotation?: number }) => {
+  const updatePanelPosition = useCallback(async (panelId: string, position: { x: number; y: number; rotation?: number }) => {
+    // Update local state immediately for responsive UI
     setDataState(prev => {
       if (prev.state !== 'loaded') return prev;
 
@@ -303,7 +304,7 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
         saveToLocalStorage(positionMap);
       }
 
-      debugLog(`Updated panel ${panelId} position`, position);
+      debugLog(`Updated panel ${panelId} position locally`, position);
 
       return {
         ...prev,
@@ -311,7 +312,37 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
         lastUpdated: Date.now()
       };
     });
-  }, [flags.ENABLE_PERSISTENCE, saveToLocalStorage, debugLog]);
+
+    // Send update to backend
+    try {
+      debugLog(`Sending panel ${panelId} position update to backend`, position);
+      
+      const response = await fetch(`${BACKEND_URL}/api/panel-layout/move-panel`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('supabase.auth.token')}`
+        },
+        body: JSON.stringify({
+          projectId,
+          panelId,
+          newPosition: position
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Backend update failed: ${response.status} ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      debugLog(`Backend panel update successful`, result);
+      
+    } catch (error) {
+      console.error('Failed to update panel position in backend:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      debugLog(`Backend panel update failed: ${errorMessage}`, { panelId, position });
+    }
+  }, [projectId, flags.ENABLE_PERSISTENCE, saveToLocalStorage, debugLog]);
 
   // Add new panel
   const addPanel = useCallback((panelData: Omit<Panel, 'id'>) => {

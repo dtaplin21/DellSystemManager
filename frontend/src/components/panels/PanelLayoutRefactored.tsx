@@ -11,7 +11,7 @@ import { Panel } from '@/types/panel';
 interface PanelLayoutRefactoredProps {
   panels: Panel[];
   projectId: string;
-  onPanelUpdate?: (panelId: string, updates: Partial<Panel>) => void;
+  onPanelUpdate?: (panelId: string, updates: Partial<Panel>) => Promise<void>;
   featureFlags?: {
     ENABLE_PERSISTENCE?: boolean;
     ENABLE_DRAGGING?: boolean;
@@ -48,9 +48,9 @@ function PanelLayoutContent({
     console.log('Panel double-clicked:', panel.id);
   };
 
-  const handlePanelUpdate = (panelId: string, updates: Partial<Panel>) => {
+  const handlePanelUpdate = async (panelId: string, updates: Partial<Panel>) => {
     console.log('Panel updated:', panelId, updates);
-    onPanelUpdate?.(panelId, updates);
+    await onPanelUpdate?.(panelId, updates);
   };
 
   const handleSave = () => {
