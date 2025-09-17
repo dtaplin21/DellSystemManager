@@ -1,103 +1,9 @@
 'use client';
 
-import { useState, useCallback, useRef, useEffect } from 'react';
-
-interface LinerRoll {
-  id: string;
-  x: number;           // World coordinates in FEET
-  y: number;           // World coordinates in FEET  
-  width: number;       // Roll width in FEET (typically 15-25 feet)
-  length: number;      // Roll length in FEET (varies widely)
-  rotation?: number;   // Rotation in degrees
-  rollNumber?: string; // Roll identification number
-  panelNumber?: string; // Panel/section number (keeping your existing terminology)
-  material?: string;   // Liner material type
-  thickness?: number;  // Material thickness in mils
-}
-
-interface ViewportState {
-  // Viewport transforms - handles all scaling
-  scale: number;        // Pixels per foot (dynamic)
-  centerX: number;      // World X coordinate at viewport center (feet)
-  centerY: number;      // World Y coordinate at viewport center (feet)
-  canvasWidth: number;  // Canvas pixel dimensions
-  canvasHeight: number;
-}
-
-interface LinerSystemState {
-  rolls: LinerRoll[];
-  viewport: ViewportState;
-  selectedRollId: string | null;
-  isDirty: boolean;
-}
-
-// SITE CONFIGURATION FOR GEOSYNTHETIC LINERS
-const SITE_CONFIG = {
-  // Typical liner roll dimensions (feet)
-  TYPICAL_ROLL_WIDTH: 20,    // 20 feet wide rolls are common
-  TYPICAL_ROLL_LENGTH: 100,  // Variable length, 100ft example
-  
-  // Site dimensions for 200 rolls east-west, 50 north-south
-  SITE_WIDTH: 4000,   // 200 rolls × 20ft width
-  SITE_HEIGHT: 5000,  // 50 rolls × 100ft length
-  
-  // Viewport limits
-  MIN_SCALE: 0.02,    // Very zoomed out to see entire large site
-  MAX_SCALE: 10,      // Zoomed in for detail work
-  
-  // Grid settings (feet)
-  GRID_SIZE: 10,      // 10-foot grid lines
-  MAJOR_GRID: 50,     // 50-foot major grid lines
-  
-  // Roll spacing
-  MIN_OVERLAP: 1,     // Minimum 1-foot overlap between rolls
-  SEAM_WIDTH: 2       // 2-foot seam allowance
-};
-
-// VIEWPORT UTILITIES
-class ViewportTransform {
-  constructor(private viewport: ViewportState) {}
-  
-  // Convert world coordinates (feet) to screen coordinates (pixels)
-  worldToScreen(worldX: number, worldY: number): { x: number; y: number } {
-    const screenX = (worldX - this.viewport.centerX) * this.viewport.scale + this.viewport.canvasWidth / 2;
-    const screenY = (worldY - this.viewport.centerY) * this.viewport.scale + this.viewport.canvasHeight / 2;
-    return { x: screenX, y: screenY };
-  }
-  
-  // Convert screen coordinates (pixels) to world coordinates (feet)
-  screenToWorld(screenX: number, screenY: number): { x: number; y: number } {
-    const worldX = (screenX - this.viewport.canvasWidth / 2) / this.viewport.scale + this.viewport.centerX;
-    const worldY = (screenY - this.viewport.canvasHeight / 2) / this.viewport.scale + this.viewport.centerY;
-    return { x: worldX, y: worldY };
-  }
-  
-  // Get visible world bounds
-  getVisibleBounds(): { left: number; top: number; right: number; bottom: number } {
-    const halfWidth = this.viewport.canvasWidth / (2 * this.viewport.scale);
-    const halfHeight = this.viewport.canvasHeight / (2 * this.viewport.scale);
-    
-    return {
-      left: this.viewport.centerX - halfWidth,
-      right: this.viewport.centerX + halfWidth,
-      top: this.viewport.centerY - halfHeight,
-      bottom: this.viewport.centerY + halfHeight
-    };
-  }
-  
-  // Zoom to fit entire site
-  fitToSite(): Partial<ViewportState> {
-    const scaleX = this.viewport.canvasWidth / SITE_CONFIG.SITE_WIDTH;
-    const scaleY = this.viewport.canvasHeight / SITE_CONFIG.SITE_HEIGHT;
-    const scale = Math.min(scaleX, scaleY) * 0.9; // 90% to add padding
-    
-    return {
-      scale: Math.max(SITE_CONFIG.MIN_SCALE, Math.min(SITE_CONFIG.MAX_SCALE, scale)),
-      centerX: SITE_CONFIG.SITE_WIDTH / 2,
-      centerY: SITE_CONFIG.SITE_HEIGHT / 2
-    };
-  }
-}
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { SITE_CONFIG, DEFAULT_ROLL } from '@/lib/geosynthetic-config';
+import { ViewportTransform, ViewportState } from '@/lib/viewport-transform';
+import { LinerRoll, LinerSystemState, Panel, CanvasState } from '@/lib/geosynthetic-types';
 
 // GEOSYNTHETIC LINER SYSTEM HOOK - Single source of truth
 export function useLinerSystem(projectId: string) {
@@ -180,7 +86,6 @@ export function useLinerSystem(projectId: string) {
   const generateRollLayout = useCallback((rollCount: number): LinerRoll[] => {
     const rolls: LinerRoll[] = [];
     const rollsPerRow = 200; // Your requirement: 200 east-west
-    const rowsCount = 50;    // Your requirement: 50 north-south
     
     for (let i = 0; i < rollCount; i++) {
       const row = Math.floor(i / rollsPerRow);
@@ -196,11 +101,11 @@ export function useLinerSystem(projectId: string) {
         y,
         width: SITE_CONFIG.TYPICAL_ROLL_WIDTH,
         length: SITE_CONFIG.TYPICAL_ROLL_LENGTH,
-        rotation: 0,
+        rotation: DEFAULT_ROLL.rotation,
         rollNumber: `R${i + 1}`,
         panelNumber: `P${Math.floor(i / 20) + 1}`, // Group into panels of 20 rolls
-        material: 'HDPE',
-        thickness: 60  // 60 mil typical
+        material: DEFAULT_ROLL.material,
+        thickness: DEFAULT_ROLL.thickness
       });
     }
     
@@ -209,7 +114,12 @@ export function useLinerSystem(projectId: string) {
   
   const fitToSite = useCallback(() => {
     const transform = new ViewportTransform(state.viewport);
-    const updates = transform.fitToSite();
+    const updates = transform.fitToSite(
+      SITE_CONFIG.SITE_WIDTH, 
+      SITE_CONFIG.SITE_HEIGHT, 
+      SITE_CONFIG.MIN_SCALE, 
+      SITE_CONFIG.MAX_SCALE
+    );
     updateViewport(updates);
   }, [state.viewport, updateViewport]);
   
@@ -273,7 +183,37 @@ export function useLinerSystem(projectId: string) {
     
     loadData();
   }, [projectId, generateRollLayout]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, []);
   
+  // Memoized backward compatibility mappings to prevent unnecessary re-renders
+  const panels = useMemo(() => 
+    state.rolls.map(roll => ({
+      id: roll.id,
+      x: roll.x,
+      y: roll.y,
+      width: roll.width,
+      height: roll.length, // Map length to height for compatibility
+      rotation: roll.rotation,
+      panelNumber: roll.panelNumber,
+      rollNumber: roll.rollNumber
+    })), 
+    [state.rolls]
+  );
+
+  const canvas = useMemo(() => ({
+    scale: state.viewport.scale,
+    offsetX: state.viewport.centerX,
+    offsetY: state.viewport.centerY
+  }), [state.viewport.scale, state.viewport.centerX, state.viewport.centerY]);
+
   return {
     state,
     isLoading,
@@ -287,22 +227,9 @@ export function useLinerSystem(projectId: string) {
     updatePanel: updateRoll,
     updateCanvas: updateViewport,
     selectPanel: selectRoll,
-    // Backward compatibility state aliases
-    panels: state.rolls.map(roll => ({
-      id: roll.id,
-      x: roll.x,
-      y: roll.y,
-      width: roll.width,
-      height: roll.length, // Map length to height for compatibility
-      rotation: roll.rotation,
-      panelNumber: roll.panelNumber,
-      rollNumber: roll.rollNumber
-    })),
-    canvas: {
-      scale: state.viewport.scale,
-      offsetX: state.viewport.centerX,
-      offsetY: state.viewport.centerY
-    },
+    // Memoized backward compatibility state aliases
+    panels,
+    canvas,
     selectedPanelId: state.selectedRollId
   };
 }

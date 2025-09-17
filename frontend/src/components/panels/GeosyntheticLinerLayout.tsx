@@ -1,23 +1,13 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useLinerSystem } from '@/hooks/usePanelSystem';
 import { LinerCanvas } from './LinerCanvas';
+import { SITE_CONFIG } from '@/lib/geosynthetic-config';
 
 interface GeosyntheticLinerLayoutProps {
   projectId: string;
 }
-
-// SITE CONFIGURATION FOR GEOSYNTHETIC LINERS
-const SITE_CONFIG = {
-  // Typical liner roll dimensions (feet)
-  TYPICAL_ROLL_WIDTH: 20,    // 20 feet wide rolls are common
-  TYPICAL_ROLL_LENGTH: 100,  // Variable length, 100ft example
-  
-  // Site dimensions for 200 rolls east-west, 50 north-south
-  SITE_WIDTH: 4000,   // 200 rolls × 20ft width
-  SITE_HEIGHT: 5000,  // 50 rolls × 100ft length
-};
 
 export function GeosyntheticLinerLayout({ projectId }: GeosyntheticLinerLayoutProps) {
   const {
@@ -30,11 +20,15 @@ export function GeosyntheticLinerLayout({ projectId }: GeosyntheticLinerLayoutPr
     fitToSite
   } = useLinerSystem(projectId);
   
+  // Memoized coverage calculation (moved before early returns)
+  const coverageInfo = useMemo(() => {
+    const totalCoverage = state.rolls.length * SITE_CONFIG.TYPICAL_ROLL_WIDTH * SITE_CONFIG.TYPICAL_ROLL_LENGTH;
+    const acres = totalCoverage / 43560; // Convert sq ft to acres
+    return { totalCoverage, acres };
+  }, [state.rolls.length]);
+
   if (isLoading) return <div className="flex items-center justify-center h-full">Loading geosynthetic liner layout...</div>;
   if (error) return <div className="flex items-center justify-center h-full text-red-600">Error: {error}</div>;
-  
-  const totalCoverage = state.rolls.length * SITE_CONFIG.TYPICAL_ROLL_WIDTH * SITE_CONFIG.TYPICAL_ROLL_LENGTH;
-  const acres = totalCoverage / 43560; // Convert sq ft to acres
   
   return (
     <div className="flex flex-col h-full">
@@ -47,7 +41,7 @@ export function GeosyntheticLinerLayout({ projectId }: GeosyntheticLinerLayoutPr
           Fit to Site
         </button>
         <div className="text-sm text-gray-600 flex items-center">
-          {state.rolls.length} rolls • {acres.toFixed(1)} acres • {SITE_CONFIG.SITE_WIDTH}&apos; × {SITE_CONFIG.SITE_HEIGHT}&apos; site
+          {state.rolls.length} rolls • {coverageInfo.acres.toFixed(1)} acres • {SITE_CONFIG.SITE_WIDTH}&apos; × {SITE_CONFIG.SITE_HEIGHT}&apos; site
         </div>
         {state.isDirty && (
           <div className="text-sm text-orange-600 flex items-center">

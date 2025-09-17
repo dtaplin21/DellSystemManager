@@ -1,83 +1,9 @@
 'use client';
 
-import React, { useRef, useCallback, useEffect } from 'react';
-
-interface LinerRoll {
-  id: string;
-  x: number;           // World coordinates in FEET
-  y: number;           // World coordinates in FEET  
-  width: number;       // Roll width in FEET (typically 15-25 feet)
-  length: number;      // Roll length in FEET (varies widely)
-  rotation?: number;   // Rotation in degrees
-  rollNumber?: string; // Roll identification number
-  panelNumber?: string; // Panel/section number (keeping your existing terminology)
-  material?: string;   // Liner material type
-  thickness?: number;  // Material thickness in mils
-}
-
-interface ViewportState {
-  // Viewport transforms - handles all scaling
-  scale: number;        // Pixels per foot (dynamic)
-  centerX: number;      // World X coordinate at viewport center (feet)
-  centerY: number;      // World Y coordinate at viewport center (feet)
-  canvasWidth: number;  // Canvas pixel dimensions
-  canvasHeight: number;
-}
-
-// SITE CONFIGURATION FOR GEOSYNTHETIC LINERS
-const SITE_CONFIG = {
-  // Typical liner roll dimensions (feet)
-  TYPICAL_ROLL_WIDTH: 20,    // 20 feet wide rolls are common
-  TYPICAL_ROLL_LENGTH: 100,  // Variable length, 100ft example
-  
-  // Site dimensions for 200 rolls east-west, 50 north-south
-  SITE_WIDTH: 4000,   // 200 rolls × 20ft width
-  SITE_HEIGHT: 5000,  // 50 rolls × 100ft length
-  
-  // Viewport limits
-  MIN_SCALE: 0.02,    // Very zoomed out to see entire large site
-  MAX_SCALE: 10,      // Zoomed in for detail work
-  
-  // Grid settings (feet)
-  GRID_SIZE: 10,      // 10-foot grid lines
-  MAJOR_GRID: 50,     // 50-foot major grid lines
-  
-  // Roll spacing
-  MIN_OVERLAP: 1,     // Minimum 1-foot overlap between rolls
-  SEAM_WIDTH: 2       // 2-foot seam allowance
-};
-
-// VIEWPORT UTILITIES
-class ViewportTransform {
-  constructor(private viewport: ViewportState) {}
-  
-  // Convert world coordinates (feet) to screen coordinates (pixels)
-  worldToScreen(worldX: number, worldY: number): { x: number; y: number } {
-    const screenX = (worldX - this.viewport.centerX) * this.viewport.scale + this.viewport.canvasWidth / 2;
-    const screenY = (worldY - this.viewport.centerY) * this.viewport.scale + this.viewport.canvasHeight / 2;
-    return { x: screenX, y: screenY };
-  }
-  
-  // Convert screen coordinates (pixels) to world coordinates (feet)
-  screenToWorld(screenX: number, screenY: number): { x: number; y: number } {
-    const worldX = (screenX - this.viewport.canvasWidth / 2) / this.viewport.scale + this.viewport.centerX;
-    const worldY = (screenY - this.viewport.canvasHeight / 2) / this.viewport.scale + this.viewport.centerY;
-    return { x: worldX, y: worldY };
-  }
-  
-  // Get visible world bounds
-  getVisibleBounds(): { left: number; top: number; right: number; bottom: number } {
-    const halfWidth = this.viewport.canvasWidth / (2 * this.viewport.scale);
-    const halfHeight = this.viewport.canvasHeight / (2 * this.viewport.scale);
-    
-    return {
-      left: this.viewport.centerX - halfWidth,
-      right: this.viewport.centerX + halfWidth,
-      top: this.viewport.centerY - halfHeight,
-      bottom: this.viewport.centerY + halfHeight
-    };
-  }
-}
+import React, { useRef, useCallback, useEffect, useMemo } from 'react';
+import { SITE_CONFIG, MATERIAL_COLORS } from '@/lib/geosynthetic-config';
+import { ViewportTransform, ViewportState } from '@/lib/viewport-transform';
+import { LinerRoll } from '@/lib/geosynthetic-types';
 
 interface LinerCanvasProps {
   rolls: LinerRoll[];
@@ -122,6 +48,17 @@ export function LinerCanvas({
     return null;
   }, [rolls]);
   
+  // Memoized visible rolls for performance
+  const visibleRolls = useMemo(() => {
+    const bounds = transform.current.getVisibleBounds();
+    return rolls.filter(roll => 
+      roll.x + roll.width >= bounds.left &&
+      roll.x <= bounds.right &&
+      roll.y + roll.length >= bounds.top &&
+      roll.y <= bounds.bottom
+    );
+  }, [rolls]);
+
   // Optimized rendering with viewport culling
   const render = useCallback(() => {
     const canvas = canvasRef.current;
@@ -142,28 +79,21 @@ export function LinerCanvas({
     ctx.scale(viewport.scale, viewport.scale);
     ctx.translate(-viewport.centerX, -viewport.centerY);
     
-    // Draw grid (only visible portion)
+    // Draw grid (simplified)
     drawGrid(ctx, bounds, viewport.scale);
     
     // Draw rolls (only visible ones)
-    const visibleRolls = rolls.filter(roll => 
-      roll.x + roll.width >= bounds.left &&
-      roll.x <= bounds.right &&
-      roll.y + roll.length >= bounds.top &&
-      roll.y <= bounds.bottom
-    );
-    
     visibleRolls.forEach(roll => {
       drawRoll(ctx, roll, roll.id === selectedRollId, viewport.scale);
     });
     
     ctx.restore();
     
-    // Draw UI overlay (in screen coordinates)
+    // Draw UI overlay (simplified)
     drawUIOverlay(ctx, canvas, viewport, rolls.length, visibleRolls.length);
-  }, [rolls, viewport, selectedRollId]);
+  }, [visibleRolls, viewport, selectedRollId, rolls.length]);
   
-  // Grid drawing function
+  // Simplified grid drawing function
   function drawGrid(ctx: CanvasRenderingContext2D, bounds: any, scale: number) {
     const lineWidth = Math.max(0.5, 1 / scale);
     
@@ -226,15 +156,9 @@ export function LinerCanvas({
   function drawRoll(ctx: CanvasRenderingContext2D, roll: LinerRoll, isSelected: boolean, scale: number) {
     const lineWidth = Math.max(0.5, 2 / scale);
     
-    // Roll fill - different colors for different materials
-    const materialColors = {
-      'HDPE': isSelected ? '#2563eb' : '#3b82f6',
-      'LLDPE': isSelected ? '#059669' : '#10b981',
-      'PVC': isSelected ? '#dc2626' : '#ef4444',
-      'EPDM': isSelected ? '#7c2d12' : '#a3472a'
-    };
-    
-    ctx.fillStyle = materialColors[roll.material as keyof typeof materialColors] || '#6b7280';
+    // Roll fill - use shared material colors
+    const materialColor = MATERIAL_COLORS[roll.material as keyof typeof MATERIAL_COLORS];
+    ctx.fillStyle = materialColor ? (isSelected ? materialColor.selected : materialColor.normal) : '#6b7280';
     ctx.fillRect(roll.x, roll.y, roll.width, roll.length);
     
     // Roll border
@@ -276,10 +200,10 @@ export function LinerCanvas({
     }
   }
   
-  // UI overlay drawing
+  // Simplified UI overlay drawing
   function drawUIOverlay(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, viewport: ViewportState, totalRolls: number, visibleRolls: number) {
     ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-    ctx.fillRect(10, 10, 220, 100);
+    ctx.fillRect(10, 10, 200, 80);
     
     ctx.fillStyle = '#ffffff';
     ctx.font = '12px Arial';
@@ -288,7 +212,6 @@ export function LinerCanvas({
     ctx.fillText(`Center: ${viewport.centerX.toFixed(0)}, ${viewport.centerY.toFixed(0)} ft`, 20, 45);
     ctx.fillText(`Rolls: ${visibleRolls}/${totalRolls}`, 20, 60);
     ctx.fillText(`Site: ${SITE_CONFIG.SITE_WIDTH} × ${SITE_CONFIG.SITE_HEIGHT} ft`, 20, 75);
-    ctx.fillText(`Coverage: ${(totalRolls * SITE_CONFIG.TYPICAL_ROLL_WIDTH * SITE_CONFIG.TYPICAL_ROLL_LENGTH / 43560).toFixed(1)} acres`, 20, 90);
   }
   
   // Event handlers
