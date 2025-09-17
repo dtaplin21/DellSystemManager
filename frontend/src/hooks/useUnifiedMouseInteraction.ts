@@ -125,25 +125,47 @@ export function useUnifiedMouseInteraction({
     // Convert screen coordinates to world coordinates
     const worldPos = getWorldCoordinates(screenX, screenY);
     
+    console.log('🎯 [HIT DETECTION] Screen coords:', { screenX, screenY });
+    console.log('🎯 [HIT DETECTION] World coords:', worldPos);
+    console.log('🎯 [HIT DETECTION] Available panels:', panels.map(p => ({ 
+      id: p.id, 
+      x: p.x, 
+      y: p.y, 
+      width: p.width, 
+      height: p.height, 
+      isValid: p.isValid,
+      panelNumber: p.panelNumber 
+    })));
+    
     // Check panels in reverse order (top to bottom)
     for (let i = panels.length - 1; i >= 0; i--) {
       const panel = panels[i];
       
       if (!panel.isValid) {
+        console.log('🎯 [HIT DETECTION] Skipping invalid panel:', panel.id);
         continue;
       }
 
-      // Panels are stored in world coordinates (feet), so compare with world coordinates
+      // Panels are stored in world coordinates (pixels), so compare with world coordinates
       const left = panel.x;
       const right = panel.x + panel.width;
       const top = panel.y;
       const bottom = panel.y + panel.height;
 
+      console.log('🎯 [HIT DETECTION] Checking panel:', {
+        id: panel.id,
+        panelNumber: panel.panelNumber,
+        bounds: { left, right, top, bottom },
+        worldPos
+      });
+
       if (worldPos.x >= left && worldPos.x <= right && worldPos.y >= top && worldPos.y <= bottom) {
+        console.log('🎯 [HIT DETECTION] ✅ HIT! Panel:', panel.id, panel.panelNumber);
         return panel;
       }
     }
     
+    console.log('🎯 [HIT DETECTION] ❌ No panel hit');
     return null;
   }, [panels, getWorldCoordinates]);
 

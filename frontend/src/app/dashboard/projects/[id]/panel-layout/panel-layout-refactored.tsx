@@ -220,6 +220,7 @@ export default function PanelLayoutRefactored() {
             <PanelLayoutComponent
               panels={panels}
               projectId={Array.isArray(params.id) ? params.id[0] || 'unknown' : params.id || 'unknown'}
+              onPanelUpdate={handlePanelPositionUpdate}
               featureFlags={featureFlags}
             />
           </div>
