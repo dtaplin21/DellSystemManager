@@ -11,13 +11,6 @@ import { Panel } from '@/types/panel';
 interface PanelLayoutRefactoredProps {
   panels: Panel[];
   projectId: string;
-  onPanelClick?: (panel: Panel) => void;
-  onPanelDoubleClick?: (panel: Panel) => void;
-  onPanelUpdate?: (panelId: string, updates: Partial<Panel>) => void;
-  onSave?: () => void;
-  onExport?: () => void;
-  onImport?: () => void;
-  onAddPanel?: () => void;
   featureFlags?: {
     ENABLE_PERSISTENCE?: boolean;
     ENABLE_DRAGGING?: boolean;
@@ -42,15 +35,36 @@ interface PanelLayoutRefactoredProps {
 function PanelLayoutContent({
   panels,
   projectId,
-  onPanelClick,
-  onPanelDoubleClick,
-  onPanelUpdate,
-  onSave,
-  onExport,
-  onImport,
-  onAddPanel,
   featureFlags = {},
 }: PanelLayoutRefactoredProps) {
+  // Internal event handlers
+  const handlePanelClick = (panel: Panel) => {
+    console.log('Panel clicked:', panel.id);
+  };
+
+  const handlePanelDoubleClick = (panel: Panel) => {
+    console.log('Panel double-clicked:', panel.id);
+  };
+
+  const handlePanelUpdate = (panelId: string, updates: Partial<Panel>) => {
+    console.log('Panel updated:', panelId, updates);
+  };
+
+  const handleSave = () => {
+    console.log('Save clicked');
+  };
+
+  const handleExport = () => {
+    console.log('Export clicked');
+  };
+
+  const handleImport = () => {
+    console.log('Import clicked');
+  };
+
+  const handleAddPanel = () => {
+    console.log('Add panel clicked');
+  };
   const { fullscreen } = useFullscreenState();
 
   return (
@@ -58,10 +72,10 @@ function PanelLayoutContent({
       <div className="flex flex-col h-full w-full">
         {/* Toolbar */}
         <PanelToolbar
-          onSave={onSave}
-          onExport={onExport}
-          onImport={onImport}
-          onAddPanel={onAddPanel}
+          onSave={handleSave}
+          onExport={handleExport}
+          onImport={handleImport}
+          onAddPanel={handleAddPanel}
           hasUnsavedChanges={false} // This would come from context
           isFullscreen={fullscreen.isFullscreen}
           showFullscreenToggle={true}
@@ -71,9 +85,9 @@ function PanelLayoutContent({
         <div className="flex-1 relative canvas-container">
           <PanelCanvas
             panels={panels}
-            onPanelClick={onPanelClick}
-            onPanelDoubleClick={onPanelDoubleClick}
-            onPanelUpdate={onPanelUpdate}
+            onPanelClick={handlePanelClick}
+            onPanelDoubleClick={handlePanelDoubleClick}
+            onPanelUpdate={handlePanelUpdate}
             enableDebugLogging={featureFlags.ENABLE_DEBUG_LOGGING}
           />
         </div>
@@ -83,9 +97,9 @@ function PanelLayoutContent({
               <FullscreenLayout
                 panels={panels}
                 projectId={projectId}
-                onPanelClick={onPanelClick}
-                onPanelDoubleClick={onPanelDoubleClick}
-                onPanelUpdate={onPanelUpdate}
+                onPanelClick={handlePanelClick}
+                onPanelDoubleClick={handlePanelDoubleClick}
+                onPanelUpdate={handlePanelUpdate}
                 enableDebugLogging={featureFlags.ENABLE_DEBUG_LOGGING}
               />
     </>
@@ -95,13 +109,6 @@ function PanelLayoutContent({
 export function PanelLayoutRefactored({
   panels,
   projectId,
-  onPanelClick,
-  onPanelDoubleClick,
-  onPanelUpdate,
-  onSave,
-  onExport,
-  onImport,
-  onAddPanel,
   featureFlags = {},
 }: PanelLayoutRefactoredProps) {
   return (
@@ -113,13 +120,6 @@ export function PanelLayoutRefactored({
         <PanelLayoutContent
           panels={panels}
           projectId={projectId}
-          onPanelClick={onPanelClick}
-          onPanelDoubleClick={onPanelDoubleClick}
-          onPanelUpdate={onPanelUpdate}
-          onSave={onSave}
-          onExport={onExport}
-          onImport={onImport}
-          onAddPanel={onAddPanel}
           featureFlags={featureFlags}
         />
       </PanelProvider>

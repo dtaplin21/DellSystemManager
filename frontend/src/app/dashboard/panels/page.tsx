@@ -87,12 +87,6 @@ export default function PanelsPage() {
           <PanelLayoutRefactored
             panels={[]}
             projectId="demo-project"
-            onPanelClick={(panel) => console.log('Panel clicked:', panel.id)}
-            onPanelDoubleClick={(panel) => console.log('Panel double-clicked:', panel.id)}
-            onPanelUpdate={(updatedPanels) => console.log('Panels updated:', updatedPanels.length)}
-            onSave={() => console.log('Save clicked')}
-            onExport={() => console.log('Export clicked')}
-            onImport={() => console.log('Import clicked')}
             featureFlags={{
               ENABLE_PERSISTENCE: true,
               ENABLE_DRAGGING: true,
@@ -106,12 +100,6 @@ export default function PanelsPage() {
           <PanelLayoutRefactored
             panels={[]}
             projectId="demo-project"
-            onPanelClick={(panel) => console.log('Panel clicked:', panel.id)}
-            onPanelDoubleClick={(panel) => console.log('Panel double-clicked:', panel.id)}
-            onPanelUpdate={(updatedPanels) => console.log('Panels updated:', updatedPanels.length)}
-            onSave={() => console.log('Save clicked')}
-            onExport={() => console.log('Export clicked')}
-            onImport={() => console.log('Import clicked')}
             featureFlags={{
               ENABLE_PERSISTENCE: true,
               ENABLE_DRAGGING: true,

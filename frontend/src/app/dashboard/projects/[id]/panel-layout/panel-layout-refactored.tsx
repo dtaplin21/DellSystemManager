@@ -220,13 +220,6 @@ export default function PanelLayoutRefactored() {
             <PanelLayoutComponent
               panels={panels}
               projectId={Array.isArray(params.id) ? params.id[0] || 'unknown' : params.id || 'unknown'}
-              onPanelClick={(panel) => console.log('Panel clicked:', panel.id)}
-              onPanelDoubleClick={(panel) => console.log('Panel double-clicked:', panel.id)}
-              onPanelUpdate={handlePanelPositionUpdate}
-              onSave={() => console.log('Save clicked')}
-              onExport={() => console.log('Export clicked')}
-              onImport={() => console.log('Import clicked')}
-              onAddPanel={handleAddPanel}
               featureFlags={featureFlags}
             />
           </div>
