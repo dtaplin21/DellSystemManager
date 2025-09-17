@@ -171,7 +171,7 @@ export function useUnifiedMouseInteraction({
 
   // Grid drawing function - uses unified coordinate system
   const drawGrid = useCallback((ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, state: CanvasState) => {
-    const gridSize = 0.5; // 0.5px = 1 foot (unified coordinate system: 0.5 pixels per foot)
+    const gridSize = 10; // 10px = 1 foot (unified coordinate system: 10 pixels per foot)
     const gridColor = '#e5e7eb';
     const majorGridColor = '#d1d5db';
     const majorGridInterval = 10; // Every 10 grid lines = 10 feet
@@ -793,7 +793,7 @@ export function useUnifiedMouseInteraction({
     const handlers = {
       mousedown: (e: MouseEvent) => handleMouseDownRef.current(e),
       mousemove: (e: MouseEvent) => handleMouseMoveRef.current(e),
-      mouseup: (e: MouseEvent) => handleMouseUpRef.current(e),
+      mouseup: async (e: MouseEvent) => await handleMouseUpRef.current(e),
       wheel: (e: WheelEvent) => handleWheelRef.current(e),
       contextmenu: (e: MouseEvent) => handleContextMenuRef.current(e),
       click: (e: MouseEvent) => handleCanvasClickRef.current(e),

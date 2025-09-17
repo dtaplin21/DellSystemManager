@@ -7,13 +7,13 @@
  */
 
 // Core configuration
-export const PIXELS_PER_FOOT = 0.5; // 0.5 pixels = 1 foot (supports 200x7 panel layout)
-export const GRID_SIZE_PIXELS = 0.5; // 0.5px = 1 foot (grid every foot)
+export const PIXELS_PER_FOOT = 10; // 10 pixels = 1 foot (significantly larger for better visibility)
+export const GRID_SIZE_PIXELS = 10; // 10px = 1 foot (grid every foot)
 export const MAJOR_GRID_INTERVAL = 10; // Every 10 grid lines = 10 feet
 
 // Grid configuration
 export const GRID_CONFIG = {
-  minorSpacing: GRID_SIZE_PIXELS, // 0.5px = 1 foot
+  minorSpacing: GRID_SIZE_PIXELS, // 10px = 1 foot
   majorSpacing: GRID_SIZE_PIXELS * MAJOR_GRID_INTERVAL, // 5px = 10 feet
   minorColor: '#e5e7eb',
   majorColor: '#d1d5db',

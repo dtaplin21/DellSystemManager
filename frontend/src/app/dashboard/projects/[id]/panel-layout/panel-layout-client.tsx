@@ -619,7 +619,7 @@ export default function PanelLayoutClient({
         const lengthFeet = Number(panel.height_feet || panel.length || panel.height || 100);
         
         // Convert feet to pixels for unified coordinate system
-        const PIXELS_PER_FOOT = 0.5; // From unified coordinates (supports 200x7 panel layout)
+        const PIXELS_PER_FOOT = 10; // From unified coordinates (significantly larger for better visibility)
         const width = widthFeet * PIXELS_PER_FOOT;
         const length = lengthFeet * PIXELS_PER_FOOT;
         
