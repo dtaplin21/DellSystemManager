@@ -25,7 +25,7 @@ interface UseUnifiedMouseInteractionOptions {
   canvasState: CanvasState;
   onPanelClick?: (panel: Panel) => void;
   onPanelDoubleClick?: (panel: Panel) => void;
-  onPanelUpdate: (panelId: string, updates: Partial<Panel>) => void;
+  onPanelUpdate: (panelId: string, updates: Partial<Panel>) => Promise<void>;
   onCanvasPan: (deltaX: number, deltaY: number) => void;
   onCanvasZoom?: (newScale: number) => void;
   onPanelSelect: (panelId: string | null) => void;
@@ -594,7 +594,7 @@ export function useUnifiedMouseInteraction({
   }, [canvas, onCanvasPan, getWorldCoordinates]);
 
   // Mouse up handler
-  const handleMouseUp = useCallback((event: MouseEvent) => {
+  const handleMouseUp = useCallback(async (event: MouseEvent) => {
     // SSR Guard: Don't run on server
     if (isSSR) return;
     if (!canvas) return;
@@ -621,7 +621,7 @@ export function useUnifiedMouseInteraction({
           finalPos: { x: currentState.dragCurrentX, y: currentState.dragCurrentY }
         });
         
-        onPanelUpdate(currentState.selectedPanelId, {
+        await onPanelUpdate(currentState.selectedPanelId, {
           x: currentState.dragCurrentX,
           y: currentState.dragCurrentY,
         });

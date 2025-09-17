@@ -146,7 +146,7 @@ export function PanelCanvas({
     },
     onPanelClick,
     onPanelDoubleClick,
-    onPanelUpdate: (panelId, updates) => onPanelUpdateRef.current(panelId, updates),
+    onPanelUpdate: async (panelId, updates) => await onPanelUpdateRef.current(panelId, updates),
     onCanvasPan: (deltaX, deltaY) => onCanvasPanRef.current(deltaX, deltaY),
     onCanvasZoom: (newScale) => onCanvasZoomRef.current(newScale),
     onPanelSelect: (panelId) => onPanelSelectRef.current(panelId),
