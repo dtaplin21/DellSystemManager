@@ -1,9 +1,7 @@
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseClient } from './supabase';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+// Use the same Supabase client instance as the rest of the app
+const getSupabase = () => getSupabaseClient();
 
 export interface AuthState {
   isAuthenticated: boolean;
@@ -26,7 +24,7 @@ class AuthManager {
 
   constructor() {
     // Listen for auth state changes
-    supabase.auth.onAuthStateChange((event, session) => {
+    getSupabase().auth.onAuthStateChange((event, session) => {
       console.log('Auth state changed:', event, session?.user?.email);
       this.notifyAuthStateChange();
     });
@@ -35,7 +33,7 @@ class AuthManager {
   // Get current authentication state
   async getAuthState(): Promise<AuthState> {
     try {
-      const { data: { session }, error } = await supabase.auth.getSession();
+      const { data: { session }, error } = await getSupabase().auth.getSession();
       
       if (error) {
         return {
@@ -65,7 +63,7 @@ class AuthManager {
   // Get valid token with automatic refresh
   async getValidToken(): Promise<string> {
     try {
-      const { data: { session }, error } = await supabase.auth.getSession();
+      const { data: { session }, error } = await getSupabase().auth.getSession();
       
       if (error || !session) {
         throw new Error('No valid session. Please log in.');
@@ -110,7 +108,7 @@ class AuthManager {
   }
 
   private async performTokenRefresh(): Promise<string> {
-    const { data: { session }, error } = await supabase.auth.refreshSession();
+    const { data: { session }, error } = await getSupabase().auth.refreshSession();
     
     if (error || !session) {
       throw new Error('Failed to refresh session. Please log in again.');
@@ -142,7 +140,7 @@ class AuthManager {
 
   // Sign out
   async signOut(): Promise<void> {
-    await supabase.auth.signOut();
+    await getSupabase().auth.signOut();
   }
 }
 

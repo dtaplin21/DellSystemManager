@@ -286,7 +286,10 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
 
   // Auth state monitoring
   useEffect(() => {
+    console.log('[usePanelData] Setting up auth state monitoring...');
+    
     const unsubscribe = authManager.onAuthStateChange((state: AuthState) => {
+      console.log('[usePanelData] Auth state changed:', state);
       setAuthState({
         isAuthenticated: state.isAuthenticated,
         error: state.error
@@ -295,6 +298,7 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
 
     // Initial check
     authManager.getAuthState().then(state => {
+      console.log('[usePanelData] Initial auth state:', state);
       setAuthState({
         isAuthenticated: state.isAuthenticated,
         error: state.error
@@ -339,6 +343,11 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
     });
 
     // Only attempt backend save if authenticated
+    console.log('[usePanelData] Auth state check:', { 
+      isAuthenticated: authState.isAuthenticated, 
+      error: authState.error 
+    });
+    
     if (!authState.isAuthenticated) {
       debugLog('Not authenticated, skipping backend save', { panelId, position });
       return;
