@@ -51,12 +51,35 @@ export function LinerCanvas({
   // Memoized visible rolls for performance
   const visibleRolls = useMemo(() => {
     const bounds = transform.current.getVisibleBounds();
-    return rolls.filter(roll => 
-      roll.x + roll.width >= bounds.left &&
-      roll.x <= bounds.right &&
-      roll.y + roll.length >= bounds.top &&
-      roll.y <= bounds.bottom
-    );
+    
+    console.log('🔍 [LinerCanvas] Viewport culling:', {
+      bounds,
+      totalRolls: rolls.length
+    });
+    
+    const filtered = rolls.filter(roll => {
+      const isVisible = roll.x + roll.width >= bounds.left &&
+        roll.x <= bounds.right &&
+        roll.y + roll.length >= bounds.top &&
+        roll.y <= bounds.bottom;
+      
+      console.log(`🔍 [LinerCanvas] Roll ${roll.id} visibility check:`, {
+        roll: { x: roll.x, y: roll.y, width: roll.width, length: roll.length },
+        bounds,
+        isVisible,
+        checks: {
+          rightEdge: roll.x + roll.width >= bounds.left,
+          leftEdge: roll.x <= bounds.right,
+          bottomEdge: roll.y + roll.length >= bounds.top,
+          topEdge: roll.y <= bounds.bottom
+        }
+      });
+      
+      return isVisible;
+    });
+    
+    console.log('🔍 [LinerCanvas] Visible rolls after filtering:', filtered.length);
+    return filtered;
   }, [rolls]);
 
   // Optimized rendering with viewport culling
@@ -82,6 +105,28 @@ export function LinerCanvas({
     // Draw grid (simplified)
     drawGrid(ctx, bounds, viewport.scale);
     
+    // Debug: Log all rolls and their positions
+    console.log('🎨 [LinerCanvas] Rendering rolls:', {
+      totalRolls: rolls.length,
+      visibleRolls: visibleRolls.length,
+      viewport: {
+        centerX: viewport.centerX,
+        centerY: viewport.centerY,
+        scale: viewport.scale
+      }
+    });
+    
+    rolls.forEach((roll, index) => {
+      console.log(`🎨 [LinerCanvas] Roll ${index + 1}:`, {
+        id: roll.id,
+        x: roll.x,
+        y: roll.y,
+        width: roll.width,
+        length: roll.length,
+        isVisible: visibleRolls.includes(roll)
+      });
+    });
+
     // Draw rolls (only visible ones)
     visibleRolls.forEach(roll => {
       drawRoll(ctx, roll, roll.id === selectedRollId, viewport.scale);

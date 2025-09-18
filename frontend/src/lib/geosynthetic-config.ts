@@ -6,9 +6,9 @@ export const SITE_CONFIG = {
   TYPICAL_ROLL_WIDTH: 20,    // 20 feet wide rolls are common
   TYPICAL_ROLL_LENGTH: 100,  // Variable length, 100ft example
   
-  // Site dimensions for 200 rolls east-west, 50 north-south
-  SITE_WIDTH: 4000,   // 200 rolls × 20ft width
-  SITE_HEIGHT: 5000,  // 50 rolls × 100ft length
+  // Site dimensions - match backend configuration
+  SITE_WIDTH: 15000,   // Backend site width
+  SITE_HEIGHT: 15000,  // Backend site height
   
   // Viewport limits
   MIN_SCALE: 0.02,    // Very zoomed out to see entire large site
