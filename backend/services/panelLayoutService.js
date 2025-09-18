@@ -120,14 +120,21 @@ class PanelLayoutService {
         console.error('Error parsing panels in movePanel:', error);
         currentPanels = [];
       }
-      // Find panel by ID - prioritize roll_number and panel_number since they're more stable
-      const panelIndex = currentPanels.findIndex(p => 
-        p.roll_number === panelId ||
-        p.panel_number === panelId ||
-        p.id === panelId || 
-        p.panel_id === panelId || 
-        p.panelId === panelId
-      );
+      // Find panel by ID - check multiple possible ID fields
+      const panelIndex = currentPanels.findIndex(p => {
+        // Check exact matches first
+        if (p.id === panelId || p.roll_number === panelId || p.panel_number === panelId) {
+          return true;
+        }
+        
+        // Check generated ID pattern: panel-{projectId}-{x}-{y}-{width}-{height}
+        const generatedId = `panel-${projectId}-${p.x}-${p.y}-${p.width_feet}-${p.height_feet}`;
+        if (generatedId === panelId) {
+          return true;
+        }
+        
+        return false;
+      });
 
       if (panelIndex === -1) {
         throw new Error('Panel not found');
@@ -261,9 +268,9 @@ class PanelLayoutService {
 
       return {
         panels: currentPanels,
-        width: layout.width,
-        height: layout.height,
-        scale: layout.scale,
+        width: parseFloat(layout.width) || 15000,
+        height: parseFloat(layout.height) || 15000,
+        scale: parseFloat(layout.scale) || 1.0,
         lastUpdated: layout.lastUpdated
       };
     } catch (error) {

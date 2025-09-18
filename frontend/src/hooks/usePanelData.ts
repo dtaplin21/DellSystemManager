@@ -152,7 +152,10 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
           const yFeet = Number(backendPanel.y || 0);
           
           return {
-            id: backendPanel.id || backendPanel.roll_number || backendPanel.panel_number || `panel-${projectId}-${index}-${Date.now()}`,
+            id: backendPanel.id || 
+                backendPanel.roll_number || 
+                backendPanel.panel_number || 
+                `panel-${projectId}-${backendPanel.x}-${backendPanel.y}-${backendPanel.width_feet}-${backendPanel.height_feet}`,
             width: widthFeet, // Keep in world units (feet)
             height: heightFeet, // Keep in world units (feet)
             x: xFeet, // Keep in world units (feet)
@@ -166,8 +169,8 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
             manufacturer: backendPanel.manufacturer || 'Unknown',
             power: backendPanel.power || 0,
             efficiency: backendPanel.efficiency || 0,
-            panelNumber: backendPanel.panel_number || backendPanel.panelNumber || 'Unknown',
-            rollNumber: backendPanel.roll_number || backendPanel.rollNumber || 'Unknown',
+            panelNumber: backendPanel.panel_number || backendPanel.panelNumber || `P${index + 1}`,
+            rollNumber: backendPanel.roll_number || backendPanel.rollNumber || `R${index + 1}`,
             color: backendPanel.color || '#3b82f6',
             fill: backendPanel.fill || '#3b82f6',
             date: backendPanel.date || new Date().toISOString().split('T')[0],
