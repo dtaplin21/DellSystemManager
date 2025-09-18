@@ -168,6 +168,51 @@ export function PanelCanvas({
     }
   }, [storedCanvasState]); // Only depend on storedCanvasState, not dispatchCanvas
 
+  // Auto-fit viewport when panels are first loaded
+  const hasAutoFitted = React.useRef(false);
+  React.useEffect(() => {
+    if (panelsToRender.length > 0 && !hasAutoFitted.current) {
+      hasAutoFitted.current = true;
+      
+      // Calculate bounds of all panels
+      const bounds = panelsToRender.reduce((acc, panel) => {
+        return {
+          minX: Math.min(acc.minX, panel.x),
+          maxX: Math.max(acc.maxX, panel.x + panel.width),
+          minY: Math.min(acc.minY, panel.y),
+          maxY: Math.max(acc.maxY, panel.y + panel.height),
+        };
+      }, {
+        minX: Infinity,
+        maxX: -Infinity,
+        minY: Infinity,
+        maxY: -Infinity,
+      });
+
+      if (bounds.minX !== Infinity) {
+        // Center the viewport on the panels
+        const centerX = (bounds.minX + bounds.maxX) / 2;
+        const centerY = (bounds.minY + bounds.maxY) / 2;
+        const panelWidth = bounds.maxX - bounds.minX;
+        const panelHeight = bounds.maxY - bounds.minY;
+        
+        // Set a reasonable scale to fit panels with some padding
+        const canvas = canvasRef.current;
+        if (canvas) {
+          const scaleX = (canvas.width * 0.8) / panelWidth;
+          const scaleY = (canvas.height * 0.8) / panelHeight;
+          const scale = Math.min(scaleX, scaleY, 1); // Don't zoom in too much
+          
+          dispatchCanvas({ type: 'SET_WORLD_SCALE', payload: Math.max(0.1, scale) });
+          dispatchCanvas({ type: 'SET_WORLD_OFFSET', payload: { 
+            x: canvas.width / 2 - centerX * scale,
+            y: canvas.height / 2 - centerY * scale
+          }});
+        }
+      }
+    }
+  }, [panelsToRender.length]); // Only run when panel count changes
+
   // Persist canvas state when it changes (but not on initial load) - throttled
   const isInitialMount = React.useRef(true);
   const updateCanvasStateRef = React.useRef(updateCanvasState);
