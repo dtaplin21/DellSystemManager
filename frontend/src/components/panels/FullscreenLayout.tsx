@@ -13,7 +13,7 @@ interface FullscreenLayoutProps {
   projectId: string;
   onPanelClick?: (panel: Panel) => void;
   onPanelDoubleClick?: (panel: Panel) => void;
-  onPanelUpdate?: (panelId: string, updates: Partial<Panel>) => void;
+  onPanelUpdate?: (panelId: string, updates: Partial<Panel>) => Promise<void>;
   enableDebugLogging?: boolean;
 }
 

@@ -134,12 +134,12 @@ export function PanelCanvas({
     },
     onPanelClick,
     onPanelDoubleClick,
-    onPanelUpdate: async (panelId, updates) => await onPanelUpdateRef.current(panelId, updates),
-    onCanvasPan: (deltaX, deltaY) => onCanvasPanRef.current(deltaX, deltaY),
-    onCanvasZoom: (newScale) => onCanvasZoomRef.current(newScale),
-    onPanelSelect: (panelId) => onPanelSelectRef.current(panelId),
-    onDragStart: (panelId, worldPos) => onDragStartRef.current(panelId, worldPos),
-    onDragEnd: () => onDragEndRef.current(),
+    onPanelUpdate: async (panelId, updates) => onPanelUpdateRef.current?.(panelId, updates),
+    onCanvasPan: (deltaX, deltaY) => onCanvasPanRef.current?.(deltaX, deltaY),
+    onCanvasZoom: (newScale) => onCanvasZoomRef.current?.(newScale),
+    onPanelSelect: (panelId) => onPanelSelectRef.current?.(panelId),
+    onDragStart: (panelId, worldPos) => onDragStartRef.current?.(panelId, worldPos),
+    onDragEnd: () => onDragEndRef.current?.(),
     enableDebugLogging,
   });
 

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { getCurrentSession } from '@/lib/supabase';
 import { 
   Panel, 
   PanelLayout, 
@@ -314,11 +315,17 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
     try {
       debugLog(`Sending panel ${panelId} position update to backend`, position);
       
+      // Get auth token from Supabase session
+      const session = await getCurrentSession();
+      if (!session?.access_token) {
+        throw new Error('No authentication token found. Please log in.');
+      }
+
       const response = await fetch(`${BACKEND_URL}/api/panel-layout/move-panel`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('supabase.auth.token')}`
+          'Authorization': `Bearer ${session.access_token}`
         },
         body: JSON.stringify({
           projectId,
