@@ -4,6 +4,7 @@ import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { SITE_CONFIG, DEFAULT_ROLL } from '@/lib/geosynthetic-config';
 import { ViewportTransform, ViewportState } from '@/lib/viewport-transform';
 import { LinerRoll, LinerSystemState, Panel, CanvasState } from '@/lib/geosynthetic-types';
+import { apiClient } from '@/lib/apiClient';
 
 // GEOSYNTHETIC LINER SYSTEM HOOK - Single source of truth
 export function useLinerSystem(projectId: string) {
@@ -82,20 +83,75 @@ export function useLinerSystem(projectId: string) {
     setState(prev => ({ ...prev, selectedRollId: rollId }));
   }, []);
 
-  const addRoll = useCallback((rollData: Omit<LinerRoll, 'id'>) => {
-    const newRoll: LinerRoll = {
-      ...rollData,
-      id: `roll-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-    };
-    
-    setState(prev => ({
-      ...prev,
-      rolls: [...prev.rolls, newRoll],
-      isDirty: true
-    }));
-    
-    console.log('🎯 [useLinerSystem] Added new roll:', newRoll);
-  }, []);
+  const addRoll = useCallback(async (rollData: Omit<LinerRoll, 'id'>) => {
+    try {
+      console.log('🎯 [useLinerSystem] Adding new roll:', rollData);
+      
+      // Call backend to create panel using authenticated API client
+      const result = await apiClient.request('/panel-layout/create-panel', {
+        method: 'POST',
+        body: {
+          projectId,
+          panelData: {
+            x: rollData.x,
+            y: rollData.y,
+            width_feet: rollData.width,
+            height_feet: rollData.length,
+            rotation: rollData.rotation || 0,
+            type: 'rectangle', // Default to rectangle for geosynthetic rolls
+            roll_number: rollData.rollNumber || '',
+            panel_number: rollData.panelNumber || '',
+            material: rollData.material || 'HDPE',
+            thickness: rollData.thickness || 60
+          }
+        },
+        requireAuth: true
+      });
+
+      console.log('🎯 [useLinerSystem] Backend response:', result);
+
+      const apiResult = result as { success: boolean; panel: any; error?: string };
+      
+      if (apiResult.success) {
+        // Convert backend panel to LinerRoll format
+        const newRoll: LinerRoll = {
+          id: apiResult.panel.id || `roll-${Date.now()}`,
+          x: apiResult.panel.x || rollData.x,
+          y: apiResult.panel.y || rollData.y,
+          width: apiResult.panel.width_feet || rollData.width,
+          length: apiResult.panel.height_feet || rollData.length,
+          rotation: apiResult.panel.rotation || rollData.rotation || 0,
+          rollNumber: apiResult.panel.roll_number || rollData.rollNumber,
+          panelNumber: apiResult.panel.panel_number || rollData.panelNumber,
+          material: apiResult.panel.material || rollData.material,
+          thickness: apiResult.panel.thickness || rollData.thickness
+        };
+
+        setState(prev => ({
+          ...prev,
+          rolls: [...prev.rolls, newRoll],
+          isDirty: false // Backend saved it, so not dirty
+        }));
+
+        console.log('🎯 [useLinerSystem] Successfully added roll:', newRoll);
+      } else {
+        throw new Error(apiResult.error || 'Failed to create panel');
+      }
+    } catch (error) {
+      console.error('❌ [useLinerSystem] Error adding roll:', error);
+      // Still add to local state as fallback
+      const fallbackRoll: LinerRoll = {
+        ...rollData,
+        id: `roll-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+      };
+      
+      setState(prev => ({
+        ...prev,
+        rolls: [...prev.rolls, fallbackRoll],
+        isDirty: true
+      }));
+    }
+  }, [projectId]);
   
   // Generate automatic roll layout (for when no positions exist)
   const generateRollLayout = useCallback((rollCount: number): LinerRoll[] => {
