@@ -17,6 +17,7 @@ export function GeosyntheticLinerLayout({ projectId }: GeosyntheticLinerLayoutPr
     updateRoll,
     updateViewport,
     selectRoll,
+    addRoll,
     fitToSite
   } = useLinerSystem(projectId);
   
@@ -39,6 +40,21 @@ export function GeosyntheticLinerLayout({ projectId }: GeosyntheticLinerLayoutPr
           className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
         >
           Fit to Site
+        </button>
+        <button
+          onClick={() => addRoll({
+            x: state.viewport.centerX,
+            y: state.viewport.centerY,
+            width: SITE_CONFIG.TYPICAL_ROLL_WIDTH,
+            length: SITE_CONFIG.TYPICAL_ROLL_LENGTH,
+            material: 'HDPE',
+            thickness: 60,
+            rollNumber: `R${state.rolls.length + 1}`,
+            panelNumber: `P${state.rolls.length + 1}`
+          })}
+          className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700"
+        >
+          + Add Roll
         </button>
         <div className="text-sm text-gray-600 flex items-center">
           {state.rolls.length} rolls • {coverageInfo.acres.toFixed(1)} acres • {SITE_CONFIG.SITE_WIDTH}&apos; × {SITE_CONFIG.SITE_HEIGHT}&apos; site

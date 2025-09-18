@@ -81,6 +81,21 @@ export function useLinerSystem(projectId: string) {
   const selectRoll = useCallback((rollId: string | null) => {
     setState(prev => ({ ...prev, selectedRollId: rollId }));
   }, []);
+
+  const addRoll = useCallback((rollData: Omit<LinerRoll, 'id'>) => {
+    const newRoll: LinerRoll = {
+      ...rollData,
+      id: `roll-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    };
+    
+    setState(prev => ({
+      ...prev,
+      rolls: [...prev.rolls, newRoll],
+      isDirty: true
+    }));
+    
+    console.log('🎯 [useLinerSystem] Added new roll:', newRoll);
+  }, []);
   
   // Generate automatic roll layout (for when no positions exist)
   const generateRollLayout = useCallback((rollCount: number): LinerRoll[] => {
@@ -221,12 +236,14 @@ export function useLinerSystem(projectId: string) {
     updateRoll,
     updateViewport,
     selectRoll,
+    addRoll,
     fitToSite,
     generateRollLayout,
     // Backward compatibility aliases
     updatePanel: updateRoll,
     updateCanvas: updateViewport,
     selectPanel: selectRoll,
+    addPanel: addRoll,
     // Memoized backward compatibility state aliases
     panels,
     canvas,
