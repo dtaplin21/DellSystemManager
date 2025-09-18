@@ -50,11 +50,28 @@ export function LinerCanvas({
   
   // Memoized visible rolls for performance
   const visibleRolls = useMemo(() => {
-    const bounds = transform.current.getVisibleBounds();
+    // Calculate correct bounds directly (fix for ViewportTransform bug)
+    const halfWidth = viewport.canvasWidth / (2 * viewport.scale);
+    const halfHeight = viewport.canvasHeight / (2 * viewport.scale);
+    const bounds = {
+      left: viewport.centerX - halfWidth,
+      right: viewport.centerX + halfWidth,
+      top: viewport.centerY - halfHeight,
+      bottom: viewport.centerY + halfHeight
+    };
     
     console.log('🔍 [LinerCanvas] Viewport culling:', {
       bounds,
-      totalRolls: rolls.length
+      totalRolls: rolls.length,
+      viewport: viewport,
+      calculatedBounds: {
+        halfWidth: viewport.canvasWidth / (2 * viewport.scale),
+        halfHeight: viewport.canvasHeight / (2 * viewport.scale),
+        left: viewport.centerX - (viewport.canvasWidth / (2 * viewport.scale)),
+        right: viewport.centerX + (viewport.canvasWidth / (2 * viewport.scale)),
+        top: viewport.centerY - (viewport.canvasHeight / (2 * viewport.scale)),
+        bottom: viewport.centerY + (viewport.canvasHeight / (2 * viewport.scale))
+      }
     });
     
     const filtered = rolls.filter(roll => {
@@ -62,6 +79,21 @@ export function LinerCanvas({
         roll.x <= bounds.right &&
         roll.y + roll.length >= bounds.top &&
         roll.y <= bounds.bottom;
+      
+      // Special debugging for Panel 2
+      if (roll.id === '5458-2') {
+        console.log(`🔍 [LinerCanvas] PANEL 2 VIEWPORT CHECK:`, {
+          roll: { x: roll.x, y: roll.y, width: roll.width, length: roll.length },
+          bounds,
+          isVisible,
+          checks: {
+            rightEdge: roll.x + roll.width >= bounds.left,
+            leftEdge: roll.x <= bounds.right,
+            bottomEdge: roll.y + roll.length >= bounds.top,
+            topEdge: roll.y <= bounds.bottom
+          }
+        });
+      }
       
       console.log(`🔍 [LinerCanvas] Roll ${roll.id} visibility check:`, {
         roll: { x: roll.x, y: roll.y, width: roll.width, length: roll.length },
@@ -80,7 +112,7 @@ export function LinerCanvas({
     
     console.log('🔍 [LinerCanvas] Visible rolls after filtering:', filtered.length);
     return filtered;
-  }, [rolls]);
+  }, [rolls, viewport]);
 
   // Optimized rendering with viewport culling
   const render = useCallback(() => {
@@ -117,18 +149,69 @@ export function LinerCanvas({
     });
     
     rolls.forEach((roll, index) => {
+      const isVisible = visibleRolls.includes(roll);
       console.log(`🎨 [LinerCanvas] Roll ${index + 1}:`, {
         id: roll.id,
         x: roll.x,
         y: roll.y,
         width: roll.width,
         length: roll.length,
-        isVisible: visibleRolls.includes(roll)
+        isVisible,
+        // Special debugging for Panel 1 (5458-1)
+        isPanel1: roll.id === '5458-1'
       });
+      
+      // Special debugging for Panel 1
+      if (roll.id === '5458-1') {
+        console.log('🔍 [LinerCanvas] PANEL 1 DEBUG:', {
+          roll: roll,
+          viewport: viewport,
+          bounds: transform.current.getVisibleBounds(),
+          screenPos: transform.current.worldToScreen(roll.x, roll.y),
+          isInViewport: isVisible
+        });
+      }
+      
+      // Special debugging for Panel 3 (no roll/panel number)
+      if (roll.id === '-' || roll.id === 'panel-69fc302b-166d-4543-9990-89c4b1e0ed59-770-276.6666666666667-100-100') {
+        console.log('🔍 [LinerCanvas] PANEL 3 DEBUG:', {
+          roll: roll,
+          viewport: viewport,
+          bounds: transform.current.getVisibleBounds(),
+          screenPos: transform.current.worldToScreen(roll.x, roll.y),
+          isInViewport: isVisible,
+          viewportCullingChecks: {
+            rightEdge: roll.x + roll.width >= transform.current.getVisibleBounds().left,
+            leftEdge: roll.x <= transform.current.getVisibleBounds().right,
+            bottomEdge: roll.y + roll.length >= transform.current.getVisibleBounds().top,
+            topEdge: roll.y <= transform.current.getVisibleBounds().bottom
+          }
+        });
+      }
     });
 
     // Draw rolls (only visible ones)
+    console.log('🎨 [LinerCanvas] About to draw visible rolls:', visibleRolls.map(r => ({ id: r.id, material: r.material })));
+    
     visibleRolls.forEach(roll => {
+      // Special debugging for Panel 2 (green triangle)
+      if (roll.id === '5458-2') {
+        console.log('🎨 [LinerCanvas] DRAWING PANEL 2 (GREEN TRIANGLE):', {
+          roll: roll,
+          screenPos: transform.current.worldToScreen(roll.x, roll.y),
+          isSelected: roll.id === selectedRollId,
+          material: roll.material
+        });
+      }
+      
+      // Special debugging for Panel 3
+      if (roll.id === 'panel-69fc302b-166d-4543-9990-89c4b1e0ed59-770-276.6666666666667-100-100') {
+        console.log('🎨 [LinerCanvas] DRAWING PANEL 3:', {
+          roll: roll,
+          screenPos: transform.current.worldToScreen(roll.x, roll.y),
+          isSelected: roll.id === selectedRollId
+        });
+      }
       drawRoll(ctx, roll, roll.id === selectedRollId, viewport.scale);
     });
     
@@ -204,12 +287,37 @@ export function LinerCanvas({
     // Roll fill - use shared material colors
     const materialColor = MATERIAL_COLORS[roll.material as keyof typeof MATERIAL_COLORS];
     ctx.fillStyle = materialColor ? (isSelected ? materialColor.selected : materialColor.normal) : '#6b7280';
-    ctx.fillRect(roll.x, roll.y, roll.width, roll.length);
+    
+    // Draw based on shape type - check if this is Panel 2 (the triangle)
+    if (roll.id === '5458-2') {
+      // Draw triangle
+      ctx.beginPath();
+      ctx.moveTo(roll.x + roll.width / 2, roll.y); // Top point
+      ctx.lineTo(roll.x, roll.y + roll.length); // Bottom left
+      ctx.lineTo(roll.x + roll.width, roll.y + roll.length); // Bottom right
+      ctx.closePath();
+      ctx.fill();
+    } else {
+      // Draw rectangle (default)
+      ctx.fillRect(roll.x, roll.y, roll.width, roll.length);
+    }
     
     // Roll border
     ctx.strokeStyle = isSelected ? '#1e40af' : '#374151';
     ctx.lineWidth = lineWidth;
-    ctx.strokeRect(roll.x, roll.y, roll.width, roll.length);
+    
+    if (roll.id === '5458-2') {
+      // Draw triangle border
+      ctx.beginPath();
+      ctx.moveTo(roll.x + roll.width / 2, roll.y);
+      ctx.lineTo(roll.x, roll.y + roll.length);
+      ctx.lineTo(roll.x + roll.width, roll.y + roll.length);
+      ctx.closePath();
+      ctx.stroke();
+    } else {
+      // Draw rectangle border
+      ctx.strokeRect(roll.x, roll.y, roll.width, roll.length);
+    }
     
     // Seam indicator (darker edge)
     ctx.strokeStyle = '#1f2937';
