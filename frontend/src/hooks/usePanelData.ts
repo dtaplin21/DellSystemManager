@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { getCurrentSession } from '@/lib/supabase';
+import { apiClient } from '@/lib/apiClient';
+import { authManager, AuthState } from '@/lib/authManager';
 import { 
   Panel, 
   PanelLayout, 
@@ -43,6 +44,12 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
     panels: [],
     lastUpdated: Date.now()
   });
+
+  // Auth state for tracking authentication status
+  const [authState, setAuthState] = useState<{
+    isAuthenticated: boolean;
+    error: string | null;
+  }>({ isAuthenticated: false, error: null });
 
   // Debug logging helper - use ref to avoid dependency issues
   const debugLogRef = useRef((message: string, data?: any) => {
@@ -277,7 +284,27 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
     }
   }, [projectId]); // Only depend on projectId - other functions are stable
 
-  // Atomic panel position update
+  // Auth state monitoring
+  useEffect(() => {
+    const unsubscribe = authManager.onAuthStateChange((state: AuthState) => {
+      setAuthState({
+        isAuthenticated: state.isAuthenticated,
+        error: state.error
+      });
+    });
+
+    // Initial check
+    authManager.getAuthState().then(state => {
+      setAuthState({
+        isAuthenticated: state.isAuthenticated,
+        error: state.error
+      });
+    });
+
+    return unsubscribe;
+  }, []);
+
+  // Atomic panel position update with robust authentication
   const updatePanelPosition = useCallback(async (panelId: string, position: { x: number; y: number; rotation?: number }) => {
     // Update local state immediately for responsive UI
     setDataState(prev => {
@@ -311,42 +338,45 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
       };
     });
 
-    // Send update to backend
+    // Only attempt backend save if authenticated
+    if (!authState.isAuthenticated) {
+      debugLog('Not authenticated, skipping backend save', { panelId, position });
+      return;
+    }
+
+    // Send update to backend using robust API client
     try {
       debugLog(`Sending panel ${panelId} position update to backend`, position);
       
-      // Get auth token from Supabase session
-      const session = await getCurrentSession();
-      if (!session?.access_token) {
-        throw new Error('No authentication token found. Please log in.');
-      }
-
-      const response = await fetch(`${BACKEND_URL}/api/panel-layout/move-panel`, {
+      const result = await apiClient.request('/api/panel-layout/move-panel', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
-        },
-        body: JSON.stringify({
+        body: {
           projectId,
           panelId,
           newPosition: position
-        })
+        }
       });
 
-      if (!response.ok) {
-        throw new Error(`Backend update failed: ${response.status} ${response.statusText}`);
-      }
-
-      const result = await response.json();
-      debugLog(`Backend panel update successful`, result);
+      debugLog('Backend panel update successful', result);
       
     } catch (error) {
       console.error('Failed to update panel position in backend:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      debugLog(`Backend panel update failed: ${errorMessage}`, { panelId, position });
+      
+      const apiError = error as any;
+      let userMessage = 'Failed to save panel position';
+      
+      if (apiError.isAuthError) {
+        userMessage = 'Authentication expired. Panel saved locally only.';
+        // Optionally trigger re-authentication flow
+      } else if (apiError.isRetryable) {
+        userMessage = 'Server temporarily unavailable. Panel saved locally.';
+      }
+      
+      // You can add toast notification here
+      console.warn(userMessage);
+      debugLog(`Backend update failed: ${userMessage}`, { panelId, position, error: apiError.message });
     }
-  }, [projectId, flags.ENABLE_PERSISTENCE, saveToLocalStorage, debugLog]);
+  }, [projectId, flags.ENABLE_PERSISTENCE, saveToLocalStorage, debugLog, authState.isAuthenticated]);
 
   // Add new panel
   const addPanel = useCallback((panelData: Omit<Panel, 'id'>) => {
