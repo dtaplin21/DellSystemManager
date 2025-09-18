@@ -96,9 +96,9 @@ export function validatePanel(panel: any): panel is Panel {
     typeof panel.x === 'number' &&
     typeof panel.y === 'number' &&
     panel.width > 0 &&
-    panel.height > 0 &&
-    panel.x >= 0 &&
-    panel.y >= 0
+    panel.height > 0
+    // Removed x >= 0 and y >= 0 constraints to allow negative coordinates
+    // which are valid in world coordinate systems
   );
 }
 

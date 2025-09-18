@@ -151,11 +151,23 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
           const xFeet = Number(backendPanel.x || 0);
           const yFeet = Number(backendPanel.y || 0);
           
+          // Generate stable ID - prioritize non-empty values
+          const rollNumber = backendPanel.roll_number && backendPanel.roll_number !== '' ? backendPanel.roll_number : null;
+          const panelNumber = backendPanel.panel_number && backendPanel.panel_number !== '' ? backendPanel.panel_number : null;
+          const generatedId = `panel-${projectId}-${xFeet}-${yFeet}-${widthFeet}-${heightFeet}`;
+          
+          const panelId = backendPanel.id || rollNumber || panelNumber || generatedId;
+          
+          console.log('🔍 [usePanelData] Panel ID generation:', {
+            originalId: backendPanel.id,
+            rollNumber,
+            panelNumber,
+            generatedId,
+            finalId: panelId
+          });
+          
           return {
-            id: backendPanel.id || 
-                backendPanel.roll_number || 
-                backendPanel.panel_number || 
-                `panel-${projectId}-${backendPanel.x}-${backendPanel.y}-${backendPanel.width_feet}-${backendPanel.height_feet}`,
+            id: panelId,
             width: widthFeet, // Keep in world units (feet)
             height: heightFeet, // Keep in world units (feet)
             x: xFeet, // Keep in world units (feet)
@@ -169,8 +181,8 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
             manufacturer: backendPanel.manufacturer || 'Unknown',
             power: backendPanel.power || 0,
             efficiency: backendPanel.efficiency || 0,
-            panelNumber: backendPanel.panel_number || backendPanel.panelNumber || `P${index + 1}`,
-            rollNumber: backendPanel.roll_number || backendPanel.rollNumber || `R${index + 1}`,
+            panelNumber: panelNumber || `P${index + 1}`,
+            rollNumber: rollNumber || `R${index + 1}`,
             color: backendPanel.color || '#3b82f6',
             fill: backendPanel.fill || '#3b82f6',
             date: backendPanel.date || new Date().toISOString().split('T')[0],
@@ -181,8 +193,62 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
       
       console.log('🔍 [usePanelData] Mapped layout:', mappedLayout);
       console.log('🔍 [usePanelData] Mapped panels count:', mappedLayout.panels.length);
+      
+      // Debug validation
+      console.log('🔍 [usePanelData] Layout validation:', {
+        hasId: !!mappedLayout.id,
+        hasProjectId: !!mappedLayout.projectId,
+        panelsIsArray: Array.isArray(mappedLayout.panels),
+        panelsLength: mappedLayout.panels.length
+      });
+      
+      if (mappedLayout.panels.length > 0) {
+        console.log('🔍 [usePanelData] First panel validation:', {
+          hasId: !!mappedLayout.panels[0].id,
+          width: mappedLayout.panels[0].width,
+          height: mappedLayout.panels[0].height,
+          x: mappedLayout.panels[0].x,
+          y: mappedLayout.panels[0].y,
+          widthType: typeof mappedLayout.panels[0].width,
+          heightType: typeof mappedLayout.panels[0].height,
+          xType: typeof mappedLayout.panels[0].x,
+          yType: typeof mappedLayout.panels[0].y
+        });
+        
+        // Test individual panel validation
+        const firstPanel = mappedLayout.panels[0];
+        console.log('🔍 [usePanelData] Individual panel validation test:', {
+          hasPanel: !!firstPanel,
+          hasId: !!firstPanel.id,
+          idType: typeof firstPanel.id,
+          widthValid: typeof firstPanel.width === 'number' && firstPanel.width > 0,
+          heightValid: typeof firstPanel.height === 'number' && firstPanel.height > 0,
+          xValid: typeof firstPanel.x === 'number',
+          yValid: typeof firstPanel.y === 'number',
+          width: firstPanel.width,
+          height: firstPanel.height,
+          x: firstPanel.x,
+          y: firstPanel.y
+        });
+      }
 
-      if (validatePanelLayout(mappedLayout)) {
+      // Test validation step by step
+      console.log('🔍 [usePanelData] Testing validation step by step:');
+      console.log('🔍 [usePanelData] Layout exists:', !!mappedLayout);
+      console.log('🔍 [usePanelData] Layout ID type:', typeof mappedLayout.id);
+      console.log('🔍 [usePanelData] Project ID type:', typeof mappedLayout.projectId);
+      console.log('🔍 [usePanelData] Panels is array:', Array.isArray(mappedLayout.panels));
+      
+      if (mappedLayout.panels.length > 0) {
+        console.log('🔍 [usePanelData] Testing first panel validation:');
+        const firstPanelValid = validatePanel(mappedLayout.panels[0]);
+        console.log('🔍 [usePanelData] First panel valid:', firstPanelValid);
+      }
+      
+      const layoutValid = validatePanelLayout(mappedLayout);
+      console.log('🔍 [usePanelData] Layout validation result:', layoutValid);
+
+      if (layoutValid) {
         return mappedLayout;
       } else {
         throw new Error('Invalid panel layout data from backend after mapping');
