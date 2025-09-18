@@ -120,7 +120,14 @@ class PanelLayoutService {
         console.error('Error parsing panels in movePanel:', error);
         currentPanels = [];
       }
-      const panelIndex = currentPanels.findIndex(p => p.id === panelId);
+      // Find panel by ID - prioritize roll_number and panel_number since they're more stable
+      const panelIndex = currentPanels.findIndex(p => 
+        p.roll_number === panelId ||
+        p.panel_number === panelId ||
+        p.id === panelId || 
+        p.panel_id === panelId || 
+        p.panelId === panelId
+      );
 
       if (panelIndex === -1) {
         throw new Error('Panel not found');

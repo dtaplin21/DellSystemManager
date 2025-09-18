@@ -152,7 +152,7 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
           const yFeet = Number(backendPanel.y || 0);
           
           return {
-            id: backendPanel.id || `panel-${projectId}-${index}-${Date.now()}`,
+            id: backendPanel.id || backendPanel.roll_number || backendPanel.panel_number || `panel-${projectId}-${index}-${Date.now()}`,
             width: widthFeet, // Keep in world units (feet)
             height: heightFeet, // Keep in world units (feet)
             x: xFeet, // Keep in world units (feet)
