@@ -221,6 +221,7 @@ export default function PanelLayoutRefactored() {
               panels={panels}
               projectId={Array.isArray(params.id) ? params.id[0] || 'unknown' : params.id || 'unknown'}
               onPanelUpdate={handlePanelPositionUpdate}
+              onAddPanel={handleAddPanel}
               featureFlags={featureFlags}
             />
           </div>

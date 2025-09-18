@@ -12,6 +12,7 @@ interface PanelLayoutRefactoredProps {
   panels: Panel[];
   projectId: string;
   onPanelUpdate?: (panelId: string, updates: Partial<Panel>) => Promise<void>;
+  onAddPanel?: () => void;
   featureFlags?: {
     ENABLE_PERSISTENCE?: boolean;
     ENABLE_DRAGGING?: boolean;
@@ -37,6 +38,7 @@ function PanelLayoutContent({
   panels,
   projectId,
   onPanelUpdate,
+  onAddPanel,
   featureFlags = {},
 }: PanelLayoutRefactoredProps) {
   // Internal event handlers
@@ -53,6 +55,11 @@ function PanelLayoutContent({
     await onPanelUpdate?.(panelId, updates);
   };
 
+  const handleAddPanel = () => {
+    console.log('Add panel requested');
+    onAddPanel?.();
+  };
+
   const handleSave = () => {
     console.log('Save clicked');
   };
@@ -63,10 +70,6 @@ function PanelLayoutContent({
 
   const handleImport = () => {
     console.log('Import clicked');
-  };
-
-  const handleAddPanel = () => {
-    console.log('Add panel clicked');
   };
   const { fullscreen } = useFullscreenState();
 
@@ -113,6 +116,7 @@ export function PanelLayoutRefactored({
   panels,
   projectId,
   onPanelUpdate,
+  onAddPanel,
   featureFlags = {},
 }: PanelLayoutRefactoredProps) {
   return (
@@ -125,6 +129,7 @@ export function PanelLayoutRefactored({
           panels={panels}
           projectId={projectId}
           onPanelUpdate={onPanelUpdate}
+          onAddPanel={onAddPanel}
           featureFlags={featureFlags}
         />
       </PanelProvider>
