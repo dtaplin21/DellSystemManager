@@ -300,7 +300,11 @@ export function useCanvas({
       cancelAnimationFrame(animationFrameRef.current);
     }
     
-    animationFrameRef.current = requestAnimationFrame(() => renderRef.current());
+    animationFrameRef.current = requestAnimationFrame(() => {
+      if (renderRef.current) {
+        renderRef.current();
+      }
+    });
 
     return () => {
       if (animationFrameRef.current) {
