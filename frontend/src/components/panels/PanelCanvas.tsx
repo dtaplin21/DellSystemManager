@@ -1,23 +1,18 @@
 'use client';
 
 import React from 'react';
-import { useUnifiedMouseInteraction } from '@/hooks/useUnifiedMouseInteraction';
-import { useCanvasState as useLocalCanvasState } from '@/hooks/useLocalStorage';
 import { useCanvasState, usePanelState } from '@/contexts/PanelContext';
+import { useUnifiedMouseInteraction } from '@/hooks/useUnifiedMouseInteraction';
 import { Panel } from '@/types/panel';
 
 interface PanelCanvasProps {
   panels: Panel[];
   onPanelClick?: (panel: Panel) => void;
   onPanelDoubleClick?: (panel: Panel) => void;
-  onPanelUpdate?: (panelId: string, updates: Partial<Panel>) => void;
+  onPanelUpdate?: (panelId: string, updates: Partial<Panel>) => Promise<void>;
   enableDebugLogging?: boolean;
 }
 
-/**
- * Focused component for canvas rendering and interaction
- * Handles only canvas-specific concerns
- */
 export function PanelCanvas({ 
   panels, 
   onPanelClick, 
@@ -25,16 +20,23 @@ export function PanelCanvas({
   onPanelUpdate,
   enableDebugLogging = false 
 }: PanelCanvasProps) {
-  // console.log('🔍 [PanelCanvas] Component rendered with panels:', panels);
-  // console.log('🔍 [PanelCanvas] Panels count:', panels.length);
-  
   const { canvas: canvasContext, dispatchCanvas } = useCanvasState();
   const { panels: panelState, dispatchPanels } = usePanelState();
-  const { canvasState: storedCanvasState, updateCanvasState } = useLocalCanvasState();
   
-  // console.log('🔍 [PanelCanvas] Panel state from context:', panelState);
-  // console.log('🔍 [PanelCanvas] Panel state panels count:', panelState.panels.length);
-
+  // Simple localStorage hook for canvas state
+  const updateCanvasState = React.useCallback((state: any) => {
+    localStorage.setItem('canvasState', JSON.stringify(state));
+  }, []);
+  
+  const storedCanvasState = React.useMemo(() => {
+    try {
+      const stored = localStorage.getItem('canvasState');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  }, []);
+  
   // Use panels from props (usePanelData) as the single source of truth
   const panelsToRender = panels;
   
@@ -60,29 +62,36 @@ export function PanelCanvas({
   };
 
   const onCanvasPanRef = React.useRef((deltaX: number, deltaY: number) => {
-    const newOffsetX = canvasContext.worldOffsetX + deltaX;
-    const newOffsetY = canvasContext.worldOffsetY + deltaY;
-    
-    dispatchCanvas({ type: 'SET_WORLD_OFFSET', payload: { x: newOffsetX, y: newOffsetY } });
-    
-    // Persist canvas state
-    updateCanvasState({
-      worldOffsetX: newOffsetX,
-      worldOffsetY: newOffsetY,
-      worldScale: canvasContext.worldScale,
-    });
+    dispatchCanvas({ type: 'SET_WORLD_OFFSET', payload: { 
+      x: canvasContext.worldOffsetX + deltaX, 
+      y: canvasContext.worldOffsetY + deltaY 
+    }});
   });
   onCanvasPanRef.current = (deltaX: number, deltaY: number) => {
-    const newOffsetX = canvasContext.worldOffsetX + deltaX;
-    const newOffsetY = canvasContext.worldOffsetY + deltaY;
-    
-    dispatchCanvas({ type: 'SET_WORLD_OFFSET', payload: { x: newOffsetX, y: newOffsetY } });
+    dispatchCanvas({ type: 'SET_WORLD_OFFSET', payload: { 
+      x: canvasContext.worldOffsetX + deltaX, 
+      y: canvasContext.worldOffsetY + deltaY 
+    }});
+  };
+
+  const onCanvasZoomRef = React.useRef((newScale: number) => {
+    dispatchCanvas({ type: 'SET_WORLD_SCALE', payload: newScale });
     
     // Persist canvas state
     updateCanvasState({
-      worldOffsetX: newOffsetX,
-      worldOffsetY: newOffsetY,
-      worldScale: canvasContext.worldScale,
+      worldOffsetX: canvasContext.worldOffsetX,
+      worldOffsetY: canvasContext.worldOffsetY,
+      worldScale: newScale,
+    });
+  });
+  onCanvasZoomRef.current = (newScale: number) => {
+    dispatchCanvas({ type: 'SET_WORLD_SCALE', payload: newScale });
+    
+    // Persist canvas state
+    updateCanvasState({
+      worldOffsetX: canvasContext.worldOffsetX,
+      worldOffsetY: canvasContext.worldOffsetY,
+      worldScale: newScale,
     });
   };
 
@@ -105,27 +114,6 @@ export function PanelCanvas({
   });
   onDragEndRef.current = () => {
     dispatchCanvas({ type: 'END_DRAG' });
-  };
-
-  const onCanvasZoomRef = React.useRef((newScale: number) => {
-    dispatchCanvas({ type: 'SET_WORLD_SCALE', payload: newScale });
-    
-    // Persist canvas state
-    updateCanvasState({
-      worldOffsetX: canvasContext.worldOffsetX,
-      worldOffsetY: canvasContext.worldOffsetY,
-      worldScale: newScale,
-    });
-  });
-  onCanvasZoomRef.current = (newScale: number) => {
-    dispatchCanvas({ type: 'SET_WORLD_SCALE', payload: newScale });
-    
-    // Persist canvas state
-    updateCanvasState({
-      worldOffsetX: canvasContext.worldOffsetX,
-      worldOffsetY: canvasContext.worldOffsetY,
-      worldScale: newScale,
-    });
   };
 
   // Unified mouse interaction hook - combines mouse handling and canvas rendering
@@ -222,20 +210,26 @@ export function PanelCanvas({
     worldOffsetX: canvasContext.worldOffsetX,
     worldOffsetY: canvasContext.worldOffsetY,
   });
-  updateCanvasStateRef.current = updateCanvasState;
-  
+
   React.useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false;
-      return; // Skip on initial mount
+      return;
     }
-    
-    // Only persist if there's a significant change to prevent excessive writes during zoom
-    const scaleChanged = Math.abs(canvasContext.worldScale - lastPersistedStateRef.current.worldScale) > 0.01;
-    const offsetChanged = Math.abs(canvasContext.worldOffsetX - lastPersistedStateRef.current.worldOffsetX) > 5 ||
-                         Math.abs(canvasContext.worldOffsetY - lastPersistedStateRef.current.worldOffsetY) > 5;
-    
-    if (scaleChanged || offsetChanged) {
+
+    // Only persist if state actually changed
+    const currentState = {
+      worldScale: canvasContext.worldScale,
+      worldOffsetX: canvasContext.worldOffsetX,
+      worldOffsetY: canvasContext.worldOffsetY,
+    };
+
+    const hasChanged = 
+      currentState.worldScale !== lastPersistedStateRef.current.worldScale ||
+      currentState.worldOffsetX !== lastPersistedStateRef.current.worldOffsetX ||
+      currentState.worldOffsetY !== lastPersistedStateRef.current.worldOffsetY;
+
+    if (hasChanged) {
       lastPersistedStateRef.current = {
         worldScale: canvasContext.worldScale,
         worldOffsetX: canvasContext.worldOffsetX,
