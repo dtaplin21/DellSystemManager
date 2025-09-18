@@ -137,25 +137,18 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
         panels: data.layout?.panels?.map((backendPanel: any, index: number) => {
           console.log('🔍 [usePanelData] Mapping panel:', backendPanel);
           
-          // Convert feet to pixels for unified coordinate system
-          const widthFeet = backendPanel.width_feet || backendPanel.width || 1;
-          const heightFeet = backendPanel.height_feet || backendPanel.height || 1;
-          const xFeet = backendPanel.x || 0;
-          const yFeet = backendPanel.y || 0;
-          
-          // Convert to pixels (assuming backend stores coordinates in feet)
-          const PIXELS_PER_FOOT = 10; // 10 pixels per foot - significantly larger for better visibility
-          const widthPixels = widthFeet * PIXELS_PER_FOOT;
-          const heightPixels = heightFeet * PIXELS_PER_FOOT;
-          const xPixels = xFeet * PIXELS_PER_FOOT;
-          const yPixels = yFeet * PIXELS_PER_FOOT;
+          // Keep coordinates in world units (feet) - let canvas rendering handle scaling
+          const widthFeet = Number(backendPanel.width_feet || backendPanel.width || 100);
+          const heightFeet = Number(backendPanel.height_feet || backendPanel.height || 100);
+          const xFeet = Number(backendPanel.x || 0);
+          const yFeet = Number(backendPanel.y || 0);
           
           return {
             id: backendPanel.id || `panel-${projectId}-${index}-${Date.now()}`,
-            width: widthPixels, // Store in pixels (unified coordinate system)
-            height: heightPixels, // Store in pixels (unified coordinate system)
-            x: xPixels, // Store in pixels (unified coordinate system)
-            y: yPixels, // Store in pixels (unified coordinate system)
+            width: widthFeet, // Keep in world units (feet)
+            height: heightFeet, // Keep in world units (feet)
+            x: xFeet, // Keep in world units (feet)
+            y: yFeet, // Keep in world units (feet)
             rotation: backendPanel.rotation || 0,
             isValid: true,
             shape: backendPanel.type === 'triangle' ? 'triangle' : 
@@ -166,7 +159,11 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
             power: backendPanel.power || 0,
             efficiency: backendPanel.efficiency || 0,
             panelNumber: backendPanel.panel_number || backendPanel.panelNumber || 'Unknown',
-            rollNumber: backendPanel.roll_number || backendPanel.rollNumber || 'Unknown'
+            rollNumber: backendPanel.roll_number || backendPanel.rollNumber || 'Unknown',
+            color: backendPanel.color || '#3b82f6',
+            fill: backendPanel.fill || '#3b82f6',
+            date: backendPanel.date || new Date().toISOString().split('T')[0],
+            location: backendPanel.location || 'Unknown'
           };
         }) || []
       };
