@@ -24,7 +24,7 @@ interface UsePanelDataReturn {
   error: string | null;
   panels: Panel[];
   updatePanelPosition: (panelId: string, position: { x: number; y: number; rotation?: number }) => Promise<void>;
-  addPanel: (panel: Omit<Panel, 'id'>) => void;
+  addPanel: (panel: Omit<Panel, 'id'>) => Promise<void>;
   removePanel: (panelId: string) => void;
   refreshData: () => Promise<void>;
   clearLocalStorage: () => void;
@@ -457,40 +457,158 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
   }, [projectId, flags.ENABLE_PERSISTENCE, saveToLocalStorage, debugLog, authState.isAuthenticated]);
 
   // Add new panel
-  const addPanel = useCallback((panelData: Omit<Panel, 'id'>) => {
-    const newPanel: Panel = {
-      ...panelData,
-      id: `panel-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      isValid: true
-    };
+  const addPanel = useCallback(async (panelData: Omit<Panel, 'id'>) => {
+    debugLog('Adding new panel', panelData);
 
-    setDataState(prev => {
-      if (prev.state !== 'loaded') return prev;
+    // If not authenticated, add to local state only
+    if (!authState.isAuthenticated) {
+      debugLog('Not authenticated, adding panel to local state only');
+      const newPanel: Panel = {
+        ...panelData,
+        id: `panel-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        isValid: true
+      };
 
-      const updatedPanels = [...prev.panels, newPanel];
+      setDataState(prev => {
+        if (prev.state !== 'loaded') return prev;
 
-      // Update localStorage
-      if (flags.ENABLE_PERSISTENCE) {
-        const positionMap: PanelPositionMap = {};
-        updatedPanels.forEach(panel => {
-          positionMap[panel.id] = {
-            x: panel.x,
-            y: panel.y,
-            rotation: panel.rotation
+        const updatedPanels = [...prev.panels, newPanel];
+
+        // Update localStorage
+        if (flags.ENABLE_PERSISTENCE) {
+          const positionMap: PanelPositionMap = {};
+          updatedPanels.forEach(panel => {
+            positionMap[panel.id] = {
+              x: panel.x,
+              y: panel.y,
+              rotation: panel.rotation
+            };
+          });
+          saveToLocalStorage(positionMap);
+        }
+
+        return {
+          ...prev,
+          panels: updatedPanels,
+          lastUpdated: Date.now()
+        };
+      });
+      return;
+    }
+
+    try {
+      // Call backend to create panel using authenticated API client
+      const result = await apiClient.request('/api/panel-layout/create-panel', {
+        method: 'POST',
+        body: {
+          projectId,
+          panelData: {
+            x: panelData.x,
+            y: panelData.y,
+            width_feet: panelData.width,
+            height_feet: panelData.height,
+            rotation: panelData.rotation || 0,
+            type: panelData.shape || 'rectangle',
+            roll_number: panelData.rollNumber || '',
+            panel_number: panelData.panelNumber || '',
+            material: 'HDPE', // Default material for geosynthetic panels
+            thickness: 60 // Default thickness
+          }
+        },
+        requireAuth: true
+      });
+
+      debugLog('Backend panel creation response:', result);
+
+      const apiResult = result as { success: boolean; panel: any; error?: string };
+      
+      if (apiResult.success && apiResult.panel) {
+        // Convert backend panel to frontend Panel format
+        const backendPanel = apiResult.panel;
+        const newPanel: Panel = {
+          id: backendPanel.id || `panel-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          width: backendPanel.width_feet || panelData.width,
+          height: backendPanel.height_feet || panelData.height,
+          x: backendPanel.x || panelData.x,
+          y: backendPanel.y || panelData.y,
+          rotation: backendPanel.rotation || panelData.rotation || 0,
+          isValid: true,
+          shape: panelData.shape || 'rectangle',
+          panelNumber: backendPanel.panel_number || panelData.panelNumber,
+          rollNumber: backendPanel.roll_number || panelData.rollNumber,
+          color: panelData.color || '#3b82f6',
+          fill: panelData.fill || '#3b82f6',
+          date: panelData.date,
+          location: panelData.location,
+          meta: panelData.meta
+        };
+
+        setDataState(prev => {
+          if (prev.state !== 'loaded') return prev;
+
+          const updatedPanels = [...prev.panels, newPanel];
+
+          // Update localStorage
+          if (flags.ENABLE_PERSISTENCE) {
+            const positionMap: PanelPositionMap = {};
+            updatedPanels.forEach(panel => {
+              positionMap[panel.id] = {
+                x: panel.x,
+                y: panel.y,
+                rotation: panel.rotation
+              };
+            });
+            saveToLocalStorage(positionMap);
+          }
+
+          debugLog('Successfully added panel to state', newPanel);
+
+          return {
+            ...prev,
+            panels: updatedPanels,
+            lastUpdated: Date.now()
           };
         });
-        saveToLocalStorage(positionMap);
+      } else {
+        throw new Error(apiResult.error || 'Failed to create panel');
       }
-
-      debugLog('Added new panel', newPanel);
-
-      return {
-        ...prev,
-        panels: updatedPanels,
-        lastUpdated: Date.now()
+    } catch (error) {
+      console.error('Failed to create panel in backend:', error);
+      
+      // Fallback: Add to local state only
+      debugLog('Backend creation failed, adding to local state only', error);
+      const newPanel: Panel = {
+        ...panelData,
+        id: `panel-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        isValid: true
       };
-    });
-  }, [flags.ENABLE_PERSISTENCE, saveToLocalStorage, debugLog]);
+
+      setDataState(prev => {
+        if (prev.state !== 'loaded') return prev;
+
+        const updatedPanels = [...prev.panels, newPanel];
+
+        // Update localStorage
+        if (flags.ENABLE_PERSISTENCE) {
+          const positionMap: PanelPositionMap = {};
+          updatedPanels.forEach(panel => {
+            positionMap[panel.id] = {
+              x: panel.x,
+              y: panel.y,
+              rotation: panel.rotation
+            };
+          });
+          saveToLocalStorage(positionMap);
+        }
+
+        return {
+          ...prev,
+          panels: updatedPanels,
+          lastUpdated: Date.now()
+        };
+      });
+    }
+  }, [projectId, flags.ENABLE_PERSISTENCE, saveToLocalStorage, debugLog, authState.isAuthenticated]);
 
   // Remove panel
   const removePanel = useCallback((panelId: string) => {

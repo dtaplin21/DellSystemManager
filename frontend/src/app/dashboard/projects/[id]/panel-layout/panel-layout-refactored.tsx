@@ -94,7 +94,7 @@ export default function PanelLayoutRefactored() {
     setShowCreatePanelModal(true);
   };
 
-  const handleCreatePanel = (panelData: any) => {
+  const handleCreatePanel = async (panelData: any) => {
     console.log('🔍 [PanelLayoutRefactored] Creating panel with data:', panelData);
     const newPanel: Omit<Panel, 'id'> = {
       shape: panelData.shape || 'rectangle',
@@ -116,8 +116,14 @@ export default function PanelLayoutRefactored() {
       }
     };
     
-    addPanel(newPanel);
-    setShowCreatePanelModal(false);
+    try {
+      await addPanel(newPanel);
+      setShowCreatePanelModal(false);
+      console.log('✅ Panel created successfully');
+    } catch (error) {
+      console.error('❌ Failed to create panel:', error);
+      // Keep modal open on error so user can retry
+    }
   };
 
   // Handle adding test panels (for empty state)
