@@ -174,47 +174,57 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
     fetchAsbuiltData(); // Refresh data after manual entry
   }, [fetchAsbuiltData]);
 
-  // Get record count for a domain
+  // Get record count for a domain - with robust error handling
   const getRecordCount = (domain: AsbuiltDomain): number => {
     if (!asbuiltData) return 0;
     
-    switch (domain) {
-      case 'panel_placement':
-        return asbuiltData.panelPlacement?.length || 0;
-      case 'panel_seaming':
-        return asbuiltData.panelSeaming?.length || 0;
-      case 'non_destructive':
-        return asbuiltData.nonDestructive?.length || 0;
-      case 'trial_weld':
-        return asbuiltData.trialWeld?.length || 0;
-      case 'repairs':
-        return asbuiltData.repairs?.length || 0;
-      case 'destructive':
-        return asbuiltData.destructive?.length || 0;
-      default:
-        return 0;
+    try {
+      switch (domain) {
+        case 'panel_placement':
+          return Array.isArray(asbuiltData.panelPlacement) ? asbuiltData.panelPlacement.length : 0;
+        case 'panel_seaming':
+          return Array.isArray(asbuiltData.panelSeaming) ? asbuiltData.panelSeaming.length : 0;
+        case 'non_destructive':
+          return Array.isArray(asbuiltData.nonDestructive) ? asbuiltData.nonDestructive.length : 0;
+        case 'trial_weld':
+          return Array.isArray(asbuiltData.trialWeld) ? asbuiltData.trialWeld.length : 0;
+        case 'repairs':
+          return Array.isArray(asbuiltData.repairs) ? asbuiltData.repairs.length : 0;
+        case 'destructive':
+          return Array.isArray(asbuiltData.destructive) ? asbuiltData.destructive.length : 0;
+        default:
+          return 0;
+      }
+    } catch (error) {
+      console.error('Error getting record count for domain:', domain, error);
+      return 0;
     }
   };
 
-  // Get records for a domain
+  // Get records for a domain - with robust error handling
   const getRecords = (domain: AsbuiltDomain): AsbuiltRecord[] => {
     if (!asbuiltData) return [];
     
-    switch (domain) {
-      case 'panel_placement':
-        return asbuiltData.panelPlacement || [];
-      case 'panel_seaming':
-        return asbuiltData.panelSeaming || [];
-      case 'non_destructive':
-        return asbuiltData.nonDestructive || [];
-      case 'trial_weld':
-        return asbuiltData.trialWeld || [];
-      case 'repairs':
-        return asbuiltData.repairs || [];
-      case 'destructive':
-        return asbuiltData.destructive || [];
-      default:
-        return [];
+    try {
+      switch (domain) {
+        case 'panel_placement':
+          return Array.isArray(asbuiltData.panelPlacement) ? asbuiltData.panelPlacement : [];
+        case 'panel_seaming':
+          return Array.isArray(asbuiltData.panelSeaming) ? asbuiltData.panelSeaming : [];
+        case 'non_destructive':
+          return Array.isArray(asbuiltData.nonDestructive) ? asbuiltData.nonDestructive : [];
+        case 'trial_weld':
+          return Array.isArray(asbuiltData.trialWeld) ? asbuiltData.trialWeld : [];
+        case 'repairs':
+          return Array.isArray(asbuiltData.repairs) ? asbuiltData.repairs : [];
+        case 'destructive':
+          return Array.isArray(asbuiltData.destructive) ? asbuiltData.destructive : [];
+        default:
+          return [];
+      }
+    } catch (error) {
+      console.error('Error getting records for domain:', domain, error);
+      return [];
     }
   };
 

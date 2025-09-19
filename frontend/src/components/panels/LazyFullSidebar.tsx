@@ -122,8 +122,8 @@ export function LazyFullSidebar({ projectId, onClose, onError }: LazyFullSidebar
     console.log(`🔄 LazyFullSidebar render #${renderCount.current}`);
   }
   
-  // Memoize performance monitoring to prevent recreation
-  const performance = useMemo(() => usePerformanceMonitoring({
+  // Performance monitoring - call hook at top level, not inside useMemo
+  const performance = usePerformanceMonitoring({
     enabled: true,
     samplingRate: 0.1,
     thresholds: {
@@ -133,7 +133,7 @@ export function LazyFullSidebar({ projectId, onClose, onError }: LazyFullSidebar
       maxErrorRate: 0.01,
       maxSidebarLoadTime: 3000,
     },
-  }), []); // Empty dependency array - performance config is stable
+  });
 
   const selectedPanel = fullscreen.sidebarPanel || fullscreen.selectedPanel;
   
@@ -343,15 +343,15 @@ export function LazyFullSidebar({ projectId, onClose, onError }: LazyFullSidebar
     );
   }
 
-  // Render the actual sidebar
+  // Render the actual sidebar with safety checks
   return (
     <Suspense fallback={<SidebarSkeleton />}>
       <PanelSidebar
         isOpen={true}
         onToggle={handleClose}
         projectId={projectId}
-        panelId={selectedPanel.id}
-        panelNumber={selectedPanel.panelNumber || selectedPanel.id}
+        panelId={selectedPanel?.id || ''}
+        panelNumber={selectedPanel?.panelNumber || selectedPanel?.id || 'Unknown'}
         onClose={handleClose}
       />
     </Suspense>
