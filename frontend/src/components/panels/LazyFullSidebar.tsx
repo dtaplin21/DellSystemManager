@@ -1,6 +1,6 @@
 'use client';
 
-import React, { Suspense, lazy, useCallback, useEffect, useState } from 'react';
+import React, { Suspense, lazy, useCallback, useEffect, useState, useMemo, useRef } from 'react';
 import { AlertTriangle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -113,7 +113,17 @@ export function LazyFullSidebar({ projectId, onClose, onError }: LazyFullSidebar
   const [retryCount, setRetryCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   
-  const performance = usePerformanceMonitoring({
+  // Add render count for debugging
+  const renderCount = useRef(0);
+  renderCount.current++;
+  
+  // Debug logging to detect infinite loops
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`🔄 LazyFullSidebar render #${renderCount.current}`);
+  }
+  
+  // Memoize performance monitoring to prevent recreation
+  const performance = useMemo(() => usePerformanceMonitoring({
     enabled: true,
     samplingRate: 0.1,
     thresholds: {
@@ -123,41 +133,63 @@ export function LazyFullSidebar({ projectId, onClose, onError }: LazyFullSidebar
       maxErrorRate: 0.01,
       maxSidebarLoadTime: 3000,
     },
-  });
+  }), []); // Empty dependency array - performance config is stable
 
   const selectedPanel = fullscreen.sidebarPanel || fullscreen.selectedPanel;
+  
+  // Extract stable primitive values for dependencies
+  const selectedPanelId = selectedPanel?.id;
+  const isFullscreenVisible = fullscreen.fullSidebarVisible;
 
-  // Handle sidebar close
+  // Handle sidebar close - stable callback
   const handleClose = useCallback(() => {
     dispatchFullscreen({ type: 'SET_FULL_SIDEBAR', payload: false });
     setError(null);
     onClose?.();
   }, [dispatchFullscreen, onClose]);
 
-  // Handle retry
+  // Handle retry - use stable primitive values
   const handleRetry = useCallback(() => {
     setError(null);
     setRetryCount(prev => prev + 1);
     setIsLoading(true);
     
     // Clear cache for this panel to force fresh data
-    if (selectedPanel) {
-      sidebarDataCache.delete(selectedPanel.id, projectId);
+    if (selectedPanelId && projectId) {
+      sidebarDataCache.delete(selectedPanelId, projectId);
     }
-  }, [selectedPanel, projectId]);
+  }, [selectedPanelId, projectId]);
 
-  // Handle errors
+  // Handle errors - stable callback without performance dependency
   const handleError = useCallback((error: Error) => {
     console.error('Sidebar error:', error);
     setError(error);
     setIsLoading(false);
+    // Call performance.trackError directly to avoid dependency issues
     performance.trackError(error);
     onError?.(error);
-  }, [performance, onError]);
+  }, [onError]); // Remove performance from dependencies
 
-  // Preload sidebar data when panel is selected
+  // Preload sidebar data when panel is selected - FIXED with proper dependencies
   useEffect(() => {
-    if (!selectedPanel || !fullscreen.fullSidebarVisible) return;
+    // Early return with stable primitive values
+    if (!selectedPanelId || !isFullscreenVisible || !projectId) {
+      console.log('🔄 LazyFullSidebar useEffect early return:', {
+        selectedPanelId,
+        isFullscreenVisible,
+        projectId,
+        timestamp: Date.now()
+      });
+      return;
+    }
+
+    // Debug logging to track what triggers re-renders
+    console.log('🔄 LazyFullSidebar useEffect triggered by:', {
+      selectedPanelId,
+      projectId,
+      isFullscreenVisible,
+      timestamp: Date.now()
+    });
 
     const preloadData = async () => {
       try {
@@ -166,7 +198,7 @@ export function LazyFullSidebar({ projectId, onClose, onError }: LazyFullSidebar
         setError(null);
 
         // Check cache first
-        const cachedData = sidebarDataCache.get(selectedPanel.id, projectId);
+        const cachedData = sidebarDataCache.get(selectedPanelId, projectId);
         if (cachedData) {
           performance.trackCacheHit();
           setIsLoading(false);
@@ -182,9 +214,9 @@ export function LazyFullSidebar({ projectId, onClose, onError }: LazyFullSidebar
         // Mock data (replace with actual data fetching)
         const mockData = {
           panelDetails: {
-            id: selectedPanel.id,
-            name: selectedPanel.panelNumber || selectedPanel.id,
-            type: selectedPanel.type || 'standard',
+            id: selectedPanelId,
+            name: selectedPanel?.panelNumber || selectedPanelId,
+            type: selectedPanel?.type || 'standard',
             status: 'active',
           },
           asbuiltData: {
@@ -201,26 +233,64 @@ export function LazyFullSidebar({ projectId, onClose, onError }: LazyFullSidebar
             link: `/dashboard/projects/${projectId}/panels/P-002`,
           },
           metadata: {
-            panelId: selectedPanel.id,
+            panelId: selectedPanelId,
             projectId,
             lastUpdated: Date.now(),
             dataSize: 1024,
           },
         };
 
-        // Cache the data
-        sidebarDataCache.set(selectedPanel.id, projectId, mockData);
+        // Cache the data - only if we have valid IDs
+        if (selectedPanelId && projectId) {
+          sidebarDataCache.set(selectedPanelId, projectId, mockData);
+        }
         
         setIsLoading(false);
         performance.endInteractionTiming();
       } catch (err) {
         const error = err instanceof Error ? err : new Error('Failed to load sidebar data');
-        handleError(error);
+        console.error('Sidebar error:', error);
+        setError(error);
+        setIsLoading(false);
+        performance.trackError(error);
+        onError?.(error);
       }
     };
 
     preloadData();
-  }, [selectedPanel, projectId, fullscreen.fullSidebarVisible, performance, handleError]);
+  }, [selectedPanelId, projectId, isFullscreenVisible]); // Use stable primitive values only
+
+  // DEBUGGING: Add comprehensive debugging to detect future infinite loops
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔄 LazyFullSidebar useEffect dependencies changed:', {
+        selectedPanelId,
+        projectId,
+        isFullscreenVisible,
+        renderCount: renderCount.current,
+        timestamp: Date.now()
+      });
+    }
+  }, [selectedPanelId, projectId, isFullscreenVisible]);
+
+  // DEBUGGING: Track render frequency to detect infinite loops
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      const now = Date.now();
+      const timeSinceLastRender = now - (window as any).lastLazyFullSidebarRender || 0;
+      
+      if (timeSinceLastRender < 100) { // Less than 100ms between renders
+        console.warn('⚠️ LazyFullSidebar rendering too frequently!', {
+          timeSinceLastRender,
+          renderCount: renderCount.current,
+          selectedPanelId,
+          isFullscreenVisible
+        });
+      }
+      
+      (window as any).lastLazyFullSidebarRender = now;
+    }
+  });
 
   // Don't render if not in fullscreen or no panel selected
   if (!fullscreen.isFullscreen || !fullscreen.fullSidebarVisible || !selectedPanel) {
