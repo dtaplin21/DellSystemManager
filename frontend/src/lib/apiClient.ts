@@ -65,18 +65,26 @@ class ApiClient {
 
       clearTimeout(timeoutId);
 
-      // Handle response
+      // CRITICAL: Handle error responses BEFORE trying to parse success responses
       if (!response.ok) {
         await this.handleErrorResponse(response, endpoint, options, retryCount);
+        // This line never executes because handleErrorResponse always throws
+        throw new Error('Unexpected: handleErrorResponse should have thrown');
       }
 
-      // Parse response
-      const contentType = response.headers.get('content-type');
-      if (contentType && contentType.includes('application/json')) {
-        return await response.json();
-      } else {
-        const text = await response.text();
-        return (text || 'Success') as T;
+      // Parse successful response
+      try {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const jsonData = await response.json();
+          return jsonData;
+        } else {
+          const textData = await response.text();
+          return (textData || 'Success') as T;
+        }
+      } catch (parseError) {
+        console.error('Failed to parse response:', parseError);
+        throw new Error('Invalid response format from server');
       }
 
     } catch (error) {
@@ -89,7 +97,7 @@ class ApiClient {
         throw timeoutError;
       }
 
-      // Re-throw ApiError instances
+      // Re-throw ApiError instances (from handleErrorResponse or auth)
       if ((error as ApiError).isAuthError || (error as ApiError).status) {
         throw error;
       }
@@ -101,7 +109,7 @@ class ApiClient {
       // Retry network errors
       if (retryCount < this.maxRetries) {
         console.log(`Retrying request ${retryCount + 1}/${this.maxRetries} after network error`);
-        await this.delay(Math.pow(2, retryCount) * 1000); // Exponential backoff
+        await this.delay(Math.pow(2, retryCount) * 1000);
         return this.request(endpoint, { ...options, retryCount: retryCount + 1 });
       }
 
@@ -118,30 +126,44 @@ class ApiClient {
     let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
     let errorCode = 'HTTP_ERROR';
     
+    // CRITICAL FIX: Clone the response before reading the body
+    // This prevents "body already read" errors
+    const responseClone = response.clone();
+    
     try {
-      const errorText = await response.text();
+      const errorText = await responseClone.text();
       if (errorText) {
         try {
           const errorJson = JSON.parse(errorText);
           errorMessage = errorJson.message || errorMessage;
           errorCode = errorJson.code || errorCode;
-        } catch {
-          errorMessage = errorText;
+        } catch (parseError) {
+          // JSON parsing failed, use the text as-is
+          errorMessage = errorText.substring(0, 200); // Limit length
         }
       }
-    } catch {
-      // Ignore parsing errors
+    } catch (readError) {
+      console.warn('Could not read error response body:', readError);
+      // Continue with default error message
     }
 
     const error = new Error(errorMessage) as ApiError;
     error.status = response.status;
     error.code = errorCode;
 
+    // Log the full error details for debugging
+    console.error(`API Error ${response.status} for ${endpoint}:`, {
+      status: response.status,
+      statusText: response.statusText,
+      message: errorMessage,
+      code: errorCode,
+      url: response.url
+    });
+
     switch (response.status) {
       case 401:
         error.isAuthError = true;
         console.error('Authentication failed:', errorMessage);
-        // Don't retry auth errors immediately
         throw error;
       
       case 403:
@@ -187,6 +209,34 @@ class ApiClient {
       return true;
     } catch {
       return false;
+    }
+  }
+
+  // DEBUGGING HELPER: Add this method to help diagnose backend issues
+  async debugRequest(endpoint: string, options: ApiRequestOptions = {}): Promise<void> {
+    try {
+      console.group(`🔍 Debug API Request: ${options.method || 'GET'} ${endpoint}`);
+      
+      // Test without auth first
+      console.log('Testing without auth...');
+      try {
+        await this.request(endpoint, { ...options, requireAuth: false });
+        console.log('✅ Request works without auth');
+      } catch (error) {
+        console.log('❌ Request fails without auth:', error);
+      }
+      
+      // Test with auth
+      console.log('Testing with auth...');
+      try {
+        const result = await this.request(endpoint, options);
+        console.log('✅ Request works with auth:', result);
+      } catch (error) {
+        console.log('❌ Request fails with auth:', error);
+      }
+      
+    } finally {
+      console.groupEnd();
     }
   }
 }
