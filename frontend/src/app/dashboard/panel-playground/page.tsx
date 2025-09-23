@@ -467,12 +467,25 @@ export default function PanelPlaygroundPage() {
       alert('Please enter both roll number and panel number.');
       return;
     }
+
+    // Set dimensions based on shape
+    let panelWidth, panelHeight;
+    if (selectedShape === 'circle') {
+      // Circle panels: 13.33ft diameter (30 circles on 400ft panel)
+      panelWidth = 400 / 30; // 13.33 feet
+      panelHeight = 400 / 30; // 13.33 feet
+    } else {
+      // Rectangle and right-triangle panels: use user dimensions
+      panelWidth = dimensions.width;
+      panelHeight = dimensions.length;
+    }
+
     const newPanel: Panel = {
       id: Date.now().toString(),
       rollNumber,
       panelNumber,
-      width: dimensions.width,
-      height: dimensions.length, // height should match length for consistency
+      width: panelWidth,
+      height: panelHeight,
       isValid: true,
       shape: selectedShape,
       x: 50 + (panels.length * 20),
@@ -699,6 +712,49 @@ export default function PanelPlaygroundPage() {
                       min="1"
                       max="500"
                     />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {selectedShape === 'right-triangle' && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium mb-2">Dimensions</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Width (ft)</label>
+                    <input
+                      type="number"
+                      value={dimensions.width}
+                      onChange={(e) => setDimensions({...dimensions, width: parseFloat(e.target.value) || 0})}
+                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                      min="1"
+                      max="100"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Length (ft)</label>
+                    <input
+                      type="number"
+                      value={dimensions.length}
+                      onChange={(e) => setDimensions({...dimensions, length: parseFloat(e.target.value) || 0})}
+                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                      min="1"
+                      max="500"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {selectedShape === 'circle' && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium mb-2">Circle Dimensions</label>
+                <div className="bg-gray-50 p-3 rounded border">
+                  <div className="text-sm text-gray-600">
+                    <div>Diameter: 13.33 ft</div>
+                    <div>Radius: 6.67 ft</div>
+                    <div className="text-xs mt-1">Fixed size for 30 circles on 400ft panel</div>
                   </div>
                 </div>
               </div>

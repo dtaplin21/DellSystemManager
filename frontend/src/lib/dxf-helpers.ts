@@ -175,28 +175,42 @@ function generateDXF(panels: Panel[], projectInfo: ProjectInfo): string {
       dxf += '72\n1\n'; // Horizontal text justification (center)
       dxf += '73\n1\n'; // Vertical text justification (middle)
     }
-    else if (panel.shape === 'triangle' && panel.points && panel.points.length >= 6) {
-      // Add triangle
+    else if (panel.shape === 'right-triangle') {
+      // Add right triangle using width and height
       dxf += '0\nPOLYLINE\n';
       dxf += '8\nPanels\n';
       dxf += '66\n1\n';
       dxf += '70\n1\n';
       
-      // Add each vertex (triangle has 3 vertices)
-      for (let i = 0; i < panel.points.length; i += 2) {
-        dxf += '0\nVERTEX\n';
-        dxf += '8\nPanels\n';
-        dxf += '10\n' + panel.points[i] + '\n';
-        dxf += '20\n' + panel.points[i + 1] + '\n';
-      }
+      // Right triangle vertices: bottom-left, bottom-right, top-left
+      const x1 = panel.x;
+      const y1 = panel.y + panel.length;
+      const x2 = panel.x + panel.width;
+      const y2 = panel.y + panel.length;
+      const x3 = panel.x;
+      const y3 = panel.y;
+      
+      // Add each vertex
+      dxf += '0\nVERTEX\n';
+      dxf += '8\nPanels\n';
+      dxf += '10\n' + x1 + '\n';
+      dxf += '20\n' + y1 + '\n';
+      
+      dxf += '0\nVERTEX\n';
+      dxf += '8\nPanels\n';
+      dxf += '10\n' + x2 + '\n';
+      dxf += '20\n' + y2 + '\n';
+      
+      dxf += '0\nVERTEX\n';
+      dxf += '8\nPanels\n';
+      dxf += '10\n' + x3 + '\n';
+      dxf += '20\n' + y3 + '\n';
       
       dxf += '0\nSEQEND\n';
       
       // Calculate centroid for text position
-      const xCoords = panel.points.filter((_, i) => i % 2 === 0);
-      const yCoords = panel.points.filter((_, i) => i % 2 === 1);
-      const centroidX = xCoords.reduce((sum, x) => sum + x, 0) / xCoords.length;
-      const centroidY = yCoords.reduce((sum, y) => sum + y, 0) / yCoords.length;
+      const centroidX = (x1 + x2 + x3) / 3;
+      const centroidY = (y1 + y2 + y3) / 3;
       
       // Add panel number as text
       dxf += '0\nTEXT\n';
@@ -204,43 +218,6 @@ function generateDXF(panels: Panel[], projectInfo: ProjectInfo): string {
       dxf += '1\n' + panel.panelNumber + '\n';
       dxf += '10\n' + centroidX + '\n';
       dxf += '20\n' + centroidY + '\n';
-      dxf += '40\n2.5\n';
-      dxf += '72\n1\n'; // Horizontal text justification (center)
-      dxf += '73\n1\n'; // Vertical text justification (middle)
-    }
-    else if (panel.shape === 'right-triangle') {
-      // Add right triangle with 90-degree angle at bottom-left corner
-      dxf += '0\nPOLYLINE\n';
-      dxf += '8\nPanels\n';
-      dxf += '66\n1\n';
-      dxf += '70\n1\n';
-      
-      // Top-left corner
-      dxf += '0\nVERTEX\n';
-      dxf += '8\nPanels\n';
-      dxf += '10\n' + panel.x + '\n';
-      dxf += '20\n' + panel.y + '\n';
-      
-      // Top-right corner
-      dxf += '0\nVERTEX\n';
-      dxf += '8\nPanels\n';
-      dxf += '10\n' + (panel.x + panel.width) + '\n';
-      dxf += '20\n' + panel.y + '\n';
-      
-      // Bottom-left corner (right angle)
-      dxf += '0\nVERTEX\n';
-      dxf += '8\nPanels\n';
-      dxf += '10\n' + panel.x + '\n';
-      dxf += '20\n' + (panel.y + panel.length) + '\n';
-      
-      dxf += '0\nSEQEND\n';
-      
-      // Add panel number as text (positioned at centroid, consistent with rendering)
-      dxf += '0\nTEXT\n';
-      dxf += '8\nLabels\n';
-      dxf += '1\n' + panel.panelNumber + '\n';
-      dxf += '10\n' + (panel.x + panel.width / 3) + '\n';
-      dxf += '20\n' + (panel.y + panel.length / 3) + '\n';
       dxf += '40\n2.5\n';
       dxf += '72\n1\n'; // Horizontal text justification (center)
       dxf += '73\n1\n'; // Vertical text justification (middle)

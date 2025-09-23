@@ -168,7 +168,7 @@ export function LazyFullSidebar({ projectId, onClose, onError }: LazyFullSidebar
     // Call performance.trackError directly to avoid dependency issues
     performance.trackError(error);
     onError?.(error);
-  }, [onError]); // Remove performance from dependencies
+  }, [onError, performance]); // Add performance back to dependencies
 
   // Preload sidebar data when panel is selected - FIXED with proper dependencies
   useEffect(() => {
@@ -258,7 +258,7 @@ export function LazyFullSidebar({ projectId, onClose, onError }: LazyFullSidebar
     };
 
     preloadData();
-  }, [selectedPanelId, projectId, isFullscreenVisible]); // Use stable primitive values only
+  }, [selectedPanelId, projectId, isFullscreenVisible, performance, onError, selectedPanel?.panelNumber, selectedPanel?.type]); // Include all dependencies
 
   // DEBUGGING: Add comprehensive debugging to detect future infinite loops
   useEffect(() => {

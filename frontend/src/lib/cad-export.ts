@@ -46,8 +46,6 @@ export function exportToDXF(panels: Panel[], projectInfo: ProjectInfo): void {
       addRectangle(d, panel);
     } else if (panel.shape === 'circle' && panel.radius) {
       addCircle(d, panel);
-    } else if (panel.shape === 'triangle' && panel.points) {
-      addTriangle(d, panel);
     } else if (panel.shape === 'right-triangle') {
       addRightTriangle(d, panel);
     }

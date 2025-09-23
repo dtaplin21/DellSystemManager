@@ -29,7 +29,7 @@ export default function CreatePanelModal({
     width: 40,
     rollNumber: '',
     location: '',
-    shape: 'rectangle' as const
+    shape: 'rectangle' as 'rectangle' | 'right-triangle' | 'circle'
   })
 
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -136,41 +136,57 @@ export default function CreatePanelModal({
               />
             </div>
             
-            <div>
-              <label className="block mb-1">
-                Length (ft) *
-                {errors.length && (
-                  <span className="text-red-500 ml-1 text-sm">{errors.length}</span>
-                )}
-              </label>
-              <input
-                type="number"
-                name="length"
-                value={panelData.length}
-                onChange={handleChange}
-                className={`w-full p-2 border rounded ${errors.length ? 'border-red-500' : ''}`}
-                min="1"
-                step="0.5"
-              />
-            </div>
-            
-            <div>
-              <label className="block mb-1">
-                Width (ft) *
-                {errors.width && (
-                  <span className="text-red-500 ml-1 text-sm">{errors.width}</span>
-                )}
-              </label>
-              <input
-                type="number"
-                name="width"
-                value={panelData.width}
-                onChange={handleChange}
-                className={`w-full p-2 border rounded ${errors.width ? 'border-red-500' : ''}`}
-                min="1"
-                step="0.5"
-              />
-            </div>
+            {/* Dimensions - conditional based on shape */}
+            {panelData.shape === 'circle' ? (
+              <div>
+                <label className="block mb-1">Circle Dimensions</label>
+                <div className="bg-gray-50 p-3 rounded border">
+                  <div className="text-sm text-gray-600">
+                    <div>Diameter: 13.33 ft</div>
+                    <div>Radius: 6.67 ft</div>
+                    <div className="text-xs mt-1">Fixed size for 30 circles on 400ft panel</div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div>
+                  <label className="block mb-1">
+                    Length (ft) *
+                    {errors.length && (
+                      <span className="text-red-500 ml-1 text-sm">{errors.length}</span>
+                    )}
+                  </label>
+                  <input
+                    type="number"
+                    name="length"
+                    value={panelData.length}
+                    onChange={handleChange}
+                    className={`w-full p-2 border rounded ${errors.length ? 'border-red-500' : ''}`}
+                    min="1"
+                    step="0.5"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block mb-1">
+                    Width (ft) *
+                    {errors.width && (
+                      <span className="text-red-500 ml-1 text-sm">{errors.width}</span>
+                    )}
+                  </label>
+                  <input
+                    type="number"
+                    name="width"
+                    value={panelData.width}
+                    onChange={handleChange}
+                    className={`w-full p-2 border rounded ${errors.width ? 'border-red-500' : ''}`}
+                    min="1"
+                    step="0.5"
+                  />
+                </div>
+              </>
+            )}
             
             <div>
               <label className="block mb-1">

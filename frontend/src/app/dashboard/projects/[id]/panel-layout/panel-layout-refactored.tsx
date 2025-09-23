@@ -96,12 +96,25 @@ export default function PanelLayoutRefactored() {
 
   const handleCreatePanel = async (panelData: any) => {
     console.log('🔍 [PanelLayoutRefactored] Creating panel with data:', panelData);
+    
+    // Set dimensions based on shape
+    let panelWidth, panelHeight;
+    if (panelData.shape === 'circle') {
+      // Circle panels: 13.33ft diameter (30 circles on 400ft panel)
+      panelWidth = 400 / 30; // 13.33 feet
+      panelHeight = 400 / 30; // 13.33 feet
+    } else {
+      // Rectangle and right-triangle panels: use user dimensions
+      panelWidth = panelData.width || 100;
+      panelHeight = panelData.length || 50;
+    }
+    
     const newPanel: Omit<Panel, 'id'> = {
       shape: panelData.shape || 'rectangle',
       x: 100 + (panels.length * 50),
       y: 100 + (panels.length * 30),
-      width: panelData.width || 100,
-      height: panelData.length || 50,
+      width: panelWidth,
+      height: panelHeight,
       rotation: 0,
       fill: '#3b82f6',
       color: '#3b82f6',

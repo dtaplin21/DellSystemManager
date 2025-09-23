@@ -949,7 +949,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
         
         switch (panel.
           shape) {
-          case 'triangle':
+          case 'right-triangle':
             // Point-in-triangle test for equilateral triangle
             const centerX = panel.x + panel.width / 2;
             const topY = panel.y;
