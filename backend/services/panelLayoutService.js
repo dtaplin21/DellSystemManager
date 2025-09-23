@@ -41,18 +41,38 @@ class PanelLayoutService {
         }
       }
 
+      // Validate panel shape
+      const validShapes = ['rectangle', 'right-triangle', 'circle'];
+      const panelShape = panelData.shape || panelData.properties?.shape || 'rectangle';
+      
+      if (!validShapes.includes(panelShape)) {
+        throw new Error(`Invalid panel shape: ${panelShape}. Must be one of: ${validShapes.join(', ')}`);
+      }
+
+      // Set default dimensions based on shape
+      let defaultWidth, defaultHeight;
+      if (panelShape === 'circle') {
+        // Circle panels: 13.33ft diameter (30 circles on 400ft panel)
+        defaultWidth = 400 / 30; // 13.33 feet
+        defaultHeight = 400 / 30; // 13.33 feet
+      } else {
+        // Rectangle and right-triangle panels: standard dimensions
+        defaultWidth = 40;
+        defaultHeight = 100;
+      }
+
       // Create new panel with unique ID
       const newPanel = {
         id: Date.now().toString(),
         date: new Date().toISOString().slice(0, 10),
         panelNumber: panelData.panelNumber || `P${currentPanels.length + 1}`,
-        length: panelData.dimensions?.height || panelData.height || 100,
-        width: panelData.dimensions?.width || panelData.width || 40,
+        length: panelData.dimensions?.height || panelData.height || defaultHeight,
+        width: panelData.dimensions?.width || panelData.width || defaultWidth,
         rollNumber: panelData.rollNumber || `R-${100 + currentPanels.length + 1}`,
         location: panelData.properties?.location || 'AI Generated',
         x: panelData.position?.x || panelData.x || (currentPanels.length * 400 + 200),
         y: panelData.position?.y || panelData.y || (Math.floor(currentPanels.length / 5) * 300 + 200),
-        shape: panelData.properties?.shape || 'rectangle',
+        shape: panelShape,
         rotation: panelData.rotation || 0,
         fill: panelData.properties?.fill || '#E3F2FD',
         color: panelData.properties?.color || '#E3F2FD',

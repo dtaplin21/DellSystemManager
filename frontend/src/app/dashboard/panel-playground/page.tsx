@@ -17,7 +17,7 @@ import type { Panel } from '@/types/panel';
 import { useTooltip } from '@/components/ui/tooltip';
 import { applyPanelSnapping } from '@/lib/resize-utils';
 
-type PanelShape = 'rectangle' | 'triangle' | 'right-triangle' | 'circle';
+type PanelShape = 'rectangle' | 'right-triangle' | 'circle';
 
 interface DragInfo {
   isDragging: boolean;
@@ -294,19 +294,14 @@ export default function PanelPlaygroundPage() {
         const c = 1 - a - b;
         
         isInside = a >= 0 && b >= 0 && c >= 0;
-      } else if (panel.shape === 'triangle') {
-        // Check if point is inside equilateral triangle
-        const centerX = panel.x + panelWidth / 2;
-        const centerY = panel.y + panelHeight / 2;
-        const radius = Math.min(panelWidth, panelHeight) / 2;
-        
-        // Check if point is within the triangle bounds
-        const dx = Math.abs(x - centerX);
-        const dy = Math.abs(y - centerY);
-        const slope = Math.sqrt(3); // 60-degree angle
-        
-        isInside = dx <= radius && dy <= radius * slope / 2 && 
-                   (dx + dy * slope) <= radius * slope;
+      } else if (panel.shape === 'circle') {
+        // Check if point is inside circle
+        const radius = panelWidth / 2;
+        const centerX = panel.x + radius;
+        const centerY = panel.y + radius;
+        const dx = x - centerX;
+        const dy = y - centerY;
+        isInside = (dx * dx + dy * dy) <= (radius * radius);
       } else {
         // Default rectangular bounds check
         isInside = x >= panel.x && x <= panel.x + panelWidth &&
@@ -403,24 +398,13 @@ export default function PanelPlaygroundPage() {
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
-      } else if (panel.shape === 'triangle') {
-        // Draw equilateral triangle
-        const centerX = panel.x + panelWidth / 2;
-        const centerY = panel.y + panelHeight / 2;
-        const radius = Math.min(panelWidth, panelHeight) / 2;
-        
+      } else if (panel.shape === 'circle') {
+        // Draw circle - use width as diameter for consistent sizing
+        const radius = panelWidth / 2;
+        const centerX = panel.x + radius;
+        const centerY = panel.y + radius;
         ctx.beginPath();
-        for (let i = 0; i < 3; i++) {
-          const angle = (i * 2 * Math.PI) / 3 - Math.PI / 2;
-          const x = centerX + radius * Math.cos(angle);
-          const y = centerY + radius * Math.sin(angle);
-          if (i === 0) {
-            ctx.moveTo(x, y);
-          } else {
-            ctx.lineTo(x, y);
-          }
-        }
-        ctx.closePath();
+        ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
         ctx.fill();
         ctx.stroke();
       } else {
@@ -466,9 +450,6 @@ export default function PanelPlaygroundPage() {
       if (panel.shape === 'right-triangle') {
         textX = panel.x + panelWidth / 3;
         textY = panel.y + panelHeight / 3;
-      } else if (panel.shape === 'triangle') {
-        textX = panel.x + panelWidth / 2;
-        textY = panel.y + panelHeight / 2;
       } else {
         textX = panel.x + panelWidth / 2;
         textY = panel.y + panelHeight / 2;
@@ -568,19 +549,14 @@ export default function PanelPlaygroundPage() {
         const c = 1 - a - b;
         
         return a >= 0 && b >= 0 && c >= 0;
-      } else if (panel.shape === 'triangle') {
-        // Check if point is inside equilateral triangle
-        const centerX = panel.x + panelWidth / 2;
-        const centerY = panel.y + panelHeight / 2;
-        const radius = Math.min(panelWidth, panelHeight) / 2;
-        
-        // Check if point is within the triangle bounds
-        const dx = Math.abs(x - centerX);
-        const dy = Math.abs(y - centerY);
-        const slope = Math.sqrt(3); // 60-degree angle
-        
-        return dx <= radius && dy <= radius * slope / 2 && 
-               (dx + dy * slope) <= radius * slope;
+      } else if (panel.shape === 'circle') {
+        // Check if point is inside circle
+        const radius = panelWidth / 2;
+        const centerX = panel.x + radius;
+        const centerY = panel.y + radius;
+        const dx = x - centerX;
+        const dy = y - centerY;
+        return (dx * dx + dy * dy) <= (radius * radius);
       } else {
         // Default rectangular bounds check
         return x >= panel.x && x <= panel.x + panelWidth &&
@@ -658,7 +634,7 @@ export default function PanelPlaygroundPage() {
             <div>
               <label className="block text-sm font-medium mb-2">Panel Shape</label>
               <div className="flex border border-gray-300 rounded-md overflow-hidden">
-                {['rectangle', 'triangle', 'right-triangle', 'circle'].map(shape => (
+                {['rectangle', 'right-triangle', 'circle'].map(shape => (
                   <button
                     key={shape}
                     className={`flex-1 px-3 py-2 text-sm ${

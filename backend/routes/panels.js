@@ -20,7 +20,7 @@ const validatePanel = (panel) => {
   }
   
   // The frontend sends panels in this format:
-  // { project_id, type, x, y, width_feet, height_feet, roll_number, panel_number, fill, stroke, stroke_width, rotation }
+  // { project_id, type, x, y, width_feet, height_feet, roll_number, panel_number, fill, stroke, stroke_width, rotation, shape }
   
   // Required fields for the frontend format
   const requiredFields = ['project_id', 'type', 'x', 'y', 'width_feet', 'height_feet'];
@@ -54,6 +54,19 @@ const validatePanel = (panel) => {
       }
     });
     return false;
+  }
+  
+  // Validate panel shape if present
+  if (panel.shape !== undefined) {
+    const validShapes = ['rectangle', 'right-triangle', 'circle'];
+    if (!validShapes.includes(panel.shape)) {
+      console.warn('❌ Panel validation failed - invalid shape:', {
+        panel: panel.project_id || 'unknown',
+        shape: panel.shape,
+        validShapes: validShapes
+      });
+      return false;
+    }
   }
   
   // Optional fields - validate if present

@@ -34,7 +34,10 @@ function mapPanelFields(panel, index = 0) {
   const length = Number(panel.height_feet || panel.length || 100);
   const x = Number(panel.x || 0);
   const y = Number(panel.y || 0);
-  const shape = panel.type || panel.shape || 'rectangle';
+  // Validate shape and default to rectangle if invalid
+  const validShapes = ['rectangle', 'right-triangle', 'circle'];
+  const rawShape = panel.type || panel.shape || 'rectangle';
+  const shape = validShapes.includes(rawShape) ? rawShape : 'rectangle';
   
   console.log(`[MAP DEBUG] Field mapping:`, {
     'width_feet -> width': `${panel.width_feet} -> ${width}`,

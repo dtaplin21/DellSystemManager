@@ -181,14 +181,42 @@ export function useCanvas({
     ctx.rotate((rotation * Math.PI) / 180);
     ctx.translate(-width / 2, -height / 2);
 
-    // Panel background
+    // Panel colors
     ctx.fillStyle = '#3b82f6';
-    ctx.fillRect(0, 0, width, height);
-
-    // Panel border
     ctx.strokeStyle = '#1e40af';
     ctx.lineWidth = 0.1;
-    ctx.strokeRect(0, 0, width, height);
+
+    // Draw different shapes based on panel.shape
+    switch (panel.shape) {
+      case 'right-triangle':
+        // Draw right triangle with 90-degree angle at bottom-left corner
+        ctx.beginPath();
+        ctx.moveTo(0, 0); // Top left
+        ctx.lineTo(width, 0); // Top right
+        ctx.lineTo(0, height); // Bottom left (right angle)
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        break;
+        
+      case 'circle':
+        // Draw circle - use width as diameter for consistent sizing
+        const radius = width / 2;
+        const centerX = width / 2;
+        const centerY = height / 2;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.stroke();
+        break;
+        
+      case 'rectangle':
+      default:
+        // Draw rectangle (default)
+        ctx.fillRect(0, 0, width, height);
+        ctx.strokeRect(0, 0, width, height);
+        break;
+    }
 
     // Panel label
     ctx.fillStyle = 'white';

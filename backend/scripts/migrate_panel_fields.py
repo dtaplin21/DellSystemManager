@@ -2,6 +2,11 @@ import json
 import psycopg2
 from uuid import uuid4
 
+def validate_shape(shape):
+    """Validate panel shape and return 'rectangle' if invalid"""
+    valid_shapes = ['rectangle', 'right-triangle', 'circle']
+    return shape if shape in valid_shapes else 'rectangle'
+
 def map_panel_to_canonical(panel):
     return {
         'id': panel.get('id') or panel.get('panel_id') or str(uuid4()),
@@ -13,7 +18,7 @@ def map_panel_to_canonical(panel):
         'location': panel.get('location', ''),
         'x': panel.get('x', 0),
         'y': panel.get('y', 0),
-        'shape': panel.get('shape') or panel.get('type', 'rectangle'),
+        'shape': validate_shape(panel.get('shape') or panel.get('type', 'rectangle')),
         'points': panel.get('points'),
         'radius': panel.get('radius'),
         'rotation': panel.get('rotation', 0),

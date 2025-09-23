@@ -135,24 +135,24 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
     
     // Draw different shapes based on panel.shape
     switch (panel.shape) {
-      case 'triangle':
-        // Draw equilateral triangle
+      case 'right-triangle':
+        // Draw right triangle with 90-degree angle at bottom-left corner
         ctx.beginPath()
-        ctx.moveTo(screenPos.x + screenWidth / 2, screenPos.y) // Top point
-        ctx.lineTo(screenPos.x, screenPos.y + screenHeight) // Bottom left
-        ctx.lineTo(screenPos.x + screenWidth, screenPos.y + screenHeight) // Bottom right
+        ctx.moveTo(screenPos.x, screenPos.y) // Top left
+        ctx.lineTo(screenPos.x + screenWidth, screenPos.y) // Top right
+        ctx.lineTo(screenPos.x, screenPos.y + screenHeight) // Bottom left (right angle)
         ctx.closePath()
         ctx.fill()
         ctx.stroke()
         break
         
-      case 'right-triangle':
-        // Draw right triangle
+      case 'circle':
+        // Draw circle - use width as diameter for consistent sizing
+        const radius = screenWidth / 2
+        const centerX = screenPos.x + radius
+        const centerY = screenPos.y + radius
         ctx.beginPath()
-        ctx.moveTo(screenPos.x, screenPos.y) // Top left
-        ctx.lineTo(screenPos.x + screenWidth, screenPos.y) // Top right
-        ctx.lineTo(screenPos.x + screenWidth, screenPos.y + screenHeight) // Bottom right
-        ctx.closePath()
+        ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI)
         ctx.fill()
         ctx.stroke()
         break
@@ -214,25 +214,31 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
     let handles: Array<{ x: number; y: number; cursor: string }> = [];
     
     switch (panel.shape) {
-      case 'triangle':
-        // Triangle handles: corners and midpoints
-        handles = [
-          { x: screenPos.x + screenWidth / 2, y: screenPos.y, cursor: 'n-resize' }, // Top
-          { x: screenPos.x, y: screenPos.y + screenHeight, cursor: 'sw-resize' }, // Bottom left
-          { x: screenPos.x + screenWidth, y: screenPos.y + screenHeight, cursor: 'se-resize' }, // Bottom right
-          { x: screenPos.x + screenWidth / 4, y: screenPos.y + screenHeight / 2, cursor: 'w-resize' }, // Left mid
-          { x: screenPos.x + screenWidth * 3 / 4, y: screenPos.y + screenHeight / 2, cursor: 'e-resize' } // Right mid
-        ];
-        break;
-        
       case 'right-triangle':
         // Right triangle handles: corners and midpoints
         handles = [
           { x: screenPos.x, y: screenPos.y, cursor: 'nw-resize' }, // Top left
           { x: screenPos.x + screenWidth, y: screenPos.y, cursor: 'ne-resize' }, // Top right
-          { x: screenPos.x + screenWidth, y: screenPos.y + screenHeight, cursor: 'se-resize' }, // Bottom right
+          { x: screenPos.x, y: screenPos.y + screenHeight, cursor: 'sw-resize' }, // Bottom left (right angle)
           { x: screenPos.x + screenWidth / 2, y: screenPos.y, cursor: 'n-resize' }, // Top mid
-          { x: screenPos.x + screenWidth, y: screenPos.y + screenHeight / 2, cursor: 'e-resize' } // Right mid
+          { x: screenPos.x, y: screenPos.y + screenHeight / 2, cursor: 'w-resize' } // Left mid
+        ];
+        break;
+        
+      case 'circle':
+        // Circle handles: 8 points around the circle
+        const radius = screenWidth / 2
+        const centerX = screenPos.x + radius
+        const centerY = screenPos.y + radius
+        handles = [
+          { x: centerX, y: centerY - radius, cursor: 'n-resize' }, // Top
+          { x: centerX + radius * 0.707, y: centerY - radius * 0.707, cursor: 'ne-resize' }, // Top right
+          { x: centerX + radius, y: centerY, cursor: 'e-resize' }, // Right
+          { x: centerX + radius * 0.707, y: centerY + radius * 0.707, cursor: 'se-resize' }, // Bottom right
+          { x: centerX, y: centerY + radius, cursor: 's-resize' }, // Bottom
+          { x: centerX - radius * 0.707, y: centerY + radius * 0.707, cursor: 'sw-resize' }, // Bottom left
+          { x: centerX - radius, y: centerY, cursor: 'w-resize' }, // Left
+          { x: centerX - radius * 0.707, y: centerY - radius * 0.707, cursor: 'nw-resize' } // Top left
         ];
         break;
         
@@ -276,16 +282,17 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
     let rotationHandleY: number;
     
     switch (panel.shape) {
-      case 'triangle':
-        // For triangle, place rotation handle above the top point
-        rotationHandleX = screenPos.x + screenWidth / 2;
-        rotationHandleY = screenPos.y - 30;
-        break;
-        
       case 'right-triangle':
         // For right triangle, place rotation handle above the top edge center
         rotationHandleX = screenPos.x + screenWidth / 2;
         rotationHandleY = screenPos.y - 30;
+        break;
+        
+      case 'circle':
+        // For circle, place rotation handle above the circle center
+        const circleRadius = screenWidth / 2;
+        rotationHandleX = screenPos.x + circleRadius;
+        rotationHandleY = screenPos.y + circleRadius - 30;
         break;
         
       case 'rectangle':

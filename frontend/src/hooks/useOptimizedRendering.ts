@@ -179,14 +179,42 @@ export function useOptimizedRendering({
     const { scale } = viewTransform;
     const isSelected = selectedPanelId === panel.id;
     
-    // Panel background
+    // Panel colors
     ctx.fillStyle = isSelected ? '#ef4444' : panel.color || '#3b82f6';
-    ctx.fillRect(panel.x, panel.y, panel.width, panel.height);
-    
-    // Panel border
     ctx.strokeStyle = isSelected ? '#dc2626' : '#1e40af';
     ctx.lineWidth = Math.max(0.5, 2 / scale);
-    ctx.strokeRect(panel.x, panel.y, panel.width, panel.height);
+    
+    // Draw different shapes based on panel.shape
+    switch (panel.shape) {
+      case 'right-triangle':
+        // Draw right triangle with 90-degree angle at bottom-left corner
+        ctx.beginPath();
+        ctx.moveTo(panel.x, panel.y); // Top left
+        ctx.lineTo(panel.x + panel.width, panel.y); // Top right
+        ctx.lineTo(panel.x, panel.y + panel.height); // Bottom left (right angle)
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        break;
+        
+      case 'circle':
+        // Draw circle - use width as diameter for consistent sizing
+        const radius = panel.width / 2;
+        const centerX = panel.x + radius;
+        const centerY = panel.y + radius;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.stroke();
+        break;
+        
+      case 'rectangle':
+      default:
+        // Draw rectangle (default)
+        ctx.fillRect(panel.x, panel.y, panel.width, panel.height);
+        ctx.strokeRect(panel.x, panel.y, panel.width, panel.height);
+        break;
+    }
     
     // Panel label (only if panel is large enough)
     const minSizeForLabel = 20 / scale; // 20 feet minimum for label
@@ -209,7 +237,33 @@ export function useOptimizedRendering({
       ctx.strokeStyle = '#dc2626';
       ctx.lineWidth = Math.max(1, 4 / scale);
       ctx.setLineDash([5 / scale, 5 / scale]);
-      ctx.strokeRect(panel.x - 2, panel.y - 2, panel.width + 4, panel.height + 4);
+      
+      // Draw selection outline based on shape
+      switch (panel.shape) {
+        case 'right-triangle':
+          ctx.beginPath();
+          ctx.moveTo(panel.x - 2, panel.y - 2);
+          ctx.lineTo(panel.x + panel.width + 2, panel.y - 2);
+          ctx.lineTo(panel.x - 2, panel.y + panel.height + 2);
+          ctx.closePath();
+          ctx.stroke();
+          break;
+          
+        case 'circle':
+          const circleRadius = panel.width / 2;
+          const circleCenterX = panel.x + circleRadius;
+          const circleCenterY = panel.y + circleRadius;
+          ctx.beginPath();
+          ctx.arc(circleCenterX, circleCenterY, circleRadius + 2, 0, 2 * Math.PI);
+          ctx.stroke();
+          break;
+          
+        case 'rectangle':
+        default:
+          ctx.strokeRect(panel.x - 2, panel.y - 2, panel.width + 4, panel.height + 4);
+          break;
+      }
+      
       ctx.setLineDash([]);
     }
   }, [viewTransform, selectedPanelId]);

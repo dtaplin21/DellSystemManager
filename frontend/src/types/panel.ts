@@ -9,7 +9,7 @@ export interface Panel {
   y: number; // World units (feet) - real measurements
   rotation?: number;
   isValid: boolean;
-  shape?: 'rectangle' | 'triangle' | 'right-triangle' | 'circle';
+  shape?: 'rectangle' | 'right-triangle' | 'circle';
   // Additional panel properties
   type?: string;
   model?: string;
@@ -135,6 +135,56 @@ export function createEmptyPanel(id: string): Panel {
     height: 1,
     x: 0,
     y: 0,
+    rotation: 0,
+    isValid: true,
+    shape: 'rectangle'
+  };
+}
+
+// Circle panel dimensions for 30 circles on 400ft panel
+export const CIRCLE_PANEL_CONFIG = {
+  DIAMETER: 400 / 30, // 13.33 feet diameter
+  RADIUS: (400 / 30) / 2, // 6.67 feet radius
+  WIDTH: 400 / 30, // Same as diameter for bounding box
+  HEIGHT: 400 / 30 // Same as diameter for bounding box
+} as const;
+
+// Utility function to create a circle panel with correct dimensions
+export function createCirclePanel(id: string, x: number, y: number): Panel {
+  return {
+    id,
+    width: CIRCLE_PANEL_CONFIG.WIDTH,
+    height: CIRCLE_PANEL_CONFIG.HEIGHT,
+    x,
+    y,
+    rotation: 0,
+    isValid: true,
+    shape: 'circle'
+  };
+}
+
+// Utility function to create a right triangle panel
+export function createRightTrianglePanel(id: string, x: number, y: number, width: number, height: number): Panel {
+  return {
+    id,
+    width,
+    height,
+    x,
+    y,
+    rotation: 0,
+    isValid: true,
+    shape: 'right-triangle'
+  };
+}
+
+// Utility function to create a rectangle panel
+export function createRectanglePanel(id: string, x: number, y: number, width: number, height: number): Panel {
+  return {
+    id,
+    width,
+    height,
+    x,
+    y,
     rotation: 0,
     isValid: true,
     shape: 'rectangle'
