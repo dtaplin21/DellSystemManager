@@ -38,7 +38,7 @@ export interface UnifiedPanel {
   height: number; // Pixels (directly maps to feet)
   rotation?: number;
   isValid: boolean;
-  shape?: 'rectangle' | 'triangle' | 'right-triangle' | 'circle';
+  shape?: 'rectangle' | 'right-triangle' | 'circle';
   // Additional panel properties
   type?: string;
   model?: string;

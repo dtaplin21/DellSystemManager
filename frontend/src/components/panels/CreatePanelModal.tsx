@@ -12,7 +12,7 @@ interface CreatePanelModalProps {
     width: number
     rollNumber: string
     location: string
-    shape: 'rectangle' | 'triangle' | 'circle'
+    shape: 'rectangle' | 'right-triangle' | 'circle'
     points?: number[]
     radius?: number
   }) => void
@@ -198,7 +198,7 @@ export default function CreatePanelModal({
                 className="w-full p-2 border rounded"
               >
                 <option value="rectangle">Rectangle</option>
-                <option value="polygon">Polygon</option>
+                <option value="right-triangle">Right Triangle</option>
                 <option value="circle">Circle</option>
               </select>
             </div>

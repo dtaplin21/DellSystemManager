@@ -8,7 +8,7 @@ interface Panel {
   x: number;
   y: number;
   rotation: number;
-  shape: 'rectangle' | 'triangle' | 'right-triangle' | 'circle';
+  shape: 'rectangle' | 'right-triangle' | 'circle';
   points?: number[];
   radius?: number;
 }
