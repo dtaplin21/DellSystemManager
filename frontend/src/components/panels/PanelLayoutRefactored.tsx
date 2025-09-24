@@ -12,6 +12,7 @@ interface PanelLayoutRefactoredProps {
   panels: Panel[];
   projectId: string;
   onPanelUpdate?: (panelId: string, updates: Partial<Panel>) => Promise<void>;
+  onPanelDelete?: (panelId: string) => void;
   onAddPanel?: () => void;
   featureFlags?: {
     ENABLE_PERSISTENCE?: boolean;
@@ -38,6 +39,7 @@ function PanelLayoutContent({
   panels,
   projectId,
   onPanelUpdate,
+  onPanelDelete,
   onAddPanel,
   featureFlags = {},
 }: PanelLayoutRefactoredProps) {
@@ -106,6 +108,7 @@ function PanelLayoutContent({
                 onPanelClick={handlePanelClick}
                 onPanelDoubleClick={handlePanelDoubleClick}
                 onPanelUpdate={handlePanelUpdate}
+                onPanelDelete={removePanel}
                 enableDebugLogging={featureFlags.ENABLE_DEBUG_LOGGING}
               />
     </>

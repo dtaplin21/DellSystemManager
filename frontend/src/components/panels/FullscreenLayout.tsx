@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
-import { X, Minimize2, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
+import { X, Minimize2, ZoomIn, ZoomOut, RotateCcw, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useFullscreenState, useCanvasState } from '@/contexts/PanelContext';
 import { Panel } from '@/types/panel';
@@ -14,6 +14,7 @@ interface FullscreenLayoutProps {
   onPanelClick?: (panel: Panel) => void;
   onPanelDoubleClick?: (panel: Panel) => void;
   onPanelUpdate?: (panelId: string, updates: Partial<Panel>) => Promise<void>;
+  onPanelDelete?: (panelId: string) => void;
   enableDebugLogging?: boolean;
 }
 
@@ -27,12 +28,36 @@ export function FullscreenLayout({
   onPanelClick,
   onPanelDoubleClick,
   onPanelUpdate,
+  onPanelDelete,
   enableDebugLogging = false,
 }: FullscreenLayoutProps) {
   const { fullscreen, dispatchFullscreen } = useFullscreenState();
   const { canvas, dispatchCanvas } = useCanvasState();
   const containerRef = useRef<HTMLDivElement>(null);
   const [zoomLevel, setZoomLevel] = useState(100);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [panelToDelete, setPanelToDelete] = useState<string | null>(null);
+
+  // Handle panel deletion
+  const handleDeletePanel = useCallback((panelId: string) => {
+    setPanelToDelete(panelId);
+    setShowDeleteConfirm(true);
+  }, []);
+
+  const confirmDelete = useCallback(() => {
+    if (panelToDelete && onPanelDelete) {
+      onPanelDelete(panelToDelete);
+      // Clear selection after deletion
+      dispatchFullscreen({ type: 'SET_SELECTED_PANEL', payload: null });
+    }
+    setShowDeleteConfirm(false);
+    setPanelToDelete(null);
+  }, [panelToDelete, onPanelDelete, dispatchFullscreen]);
+
+  const cancelDelete = useCallback(() => {
+    setShowDeleteConfirm(false);
+    setPanelToDelete(null);
+  }, []);
 
   // Handle escape key to exit fullscreen
   useEffect(() => {
@@ -62,6 +87,9 @@ export function FullscreenLayout({
               payload: { panelId: fullscreen.selectedPanel.id } 
             });
           }
+        } else if (event.key === 'Delete' && fullscreen.selectedPanel) {
+          event.preventDefault();
+          handleDeletePanel(fullscreen.selectedPanel.id);
         }
       }
     };
@@ -229,6 +257,21 @@ export function FullscreenLayout({
           
           <div className="w-px h-6 bg-gray-600" />
           
+          {/* Delete panel button */}
+          {fullscreen.selectedPanel && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleDeletePanel(fullscreen.selectedPanel!.id)}
+              className="bg-red-700 border-red-600 text-white hover:bg-red-600 transition-all duration-150 ease-in-out hover:scale-105 group"
+              title="Delete Selected Panel (Delete)"
+            >
+              <Trash2 className="h-4 w-4 group-hover:text-red-200" />
+            </Button>
+          )}
+          
+          <div className="w-px h-6 bg-gray-600" />
+          
           {/* Exit fullscreen */}
           <Button
             variant="outline"
@@ -379,6 +422,7 @@ export function FullscreenLayout({
           <div><kbd className="bg-gray-700 px-1 rounded">0</kbd> Reset zoom</div>
           <div><kbd className="bg-gray-700 px-1 rounded">F</kbd> Fit to screen</div>
           <div><kbd className="bg-gray-700 px-1 rounded">D</kbd> View full details</div>
+          <div><kbd className="bg-gray-700 px-1 rounded">Delete</kbd> Delete selected panel</div>
         </div>
       </div>
 
@@ -403,6 +447,33 @@ export function FullscreenLayout({
           console.error('Full sidebar error:', error);
         }}
       />
+
+      {/* Delete Confirmation Dialog */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4">Delete Panel</h3>
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to delete this panel? This action cannot be undone.
+            </p>
+            <div className="flex justify-end space-x-3">
+              <Button
+                variant="outline"
+                onClick={cancelDelete}
+                className="px-4 py-2"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={confirmDelete}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white"
+              >
+                Delete Panel
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

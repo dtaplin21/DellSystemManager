@@ -240,6 +240,7 @@ export default function PanelLayoutRefactored() {
               panels={panels}
               projectId={Array.isArray(params.id) ? params.id[0] || 'unknown' : params.id || 'unknown'}
               onPanelUpdate={handlePanelPositionUpdate}
+              onPanelDelete={removePanel}
               onAddPanel={handleAddPanel}
               featureFlags={featureFlags}
             />
