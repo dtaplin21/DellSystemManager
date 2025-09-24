@@ -95,12 +95,12 @@ export function useLinerSystem(projectId: string) {
           panelData: {
             x: rollData.x,
             y: rollData.y,
-            width_feet: rollData.width,
-            height_feet: rollData.length,
+            width: rollData.width,
+            height: rollData.length,
             rotation: rollData.rotation || 0,
             type: 'rectangle', // Default to rectangle for geosynthetic rolls
-            roll_number: rollData.rollNumber || '',
-            panel_number: rollData.panelNumber || '',
+            rollNumber: rollData.rollNumber || '',
+            panelNumber: rollData.panelNumber || '',
             material: rollData.material || 'HDPE',
             thickness: rollData.thickness || 60
           }

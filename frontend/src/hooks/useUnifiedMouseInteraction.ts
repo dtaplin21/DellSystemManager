@@ -233,8 +233,13 @@ export function useUnifiedMouseInteraction({
     const worldHeight = panel.height;
 
     // Panel colors
-    ctx.fillStyle = panel.fill || '#3b82f6';
-    ctx.strokeStyle = '#1e40af';
+    if (panel.shape === 'patch') {
+      ctx.fillStyle = '#ef4444'; // Red for patches
+      ctx.strokeStyle = '#b91c1c'; // Darker red for stroke
+    } else {
+      ctx.fillStyle = panel.fill || '#3b82f6';
+      ctx.strokeStyle = '#1e40af';
+    }
     ctx.lineWidth = 2;
     
     // Draw different shapes based on panel.shape

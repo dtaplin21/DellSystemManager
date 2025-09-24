@@ -519,13 +519,13 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
           panelData: {
             x: panelData.x,
             y: panelData.y,
-            width_feet: panelData.width,
-            height_feet: panelData.height,
+            width: panelData.width,
+            height: panelData.height,
             rotation: panelData.rotation || 0,
             type: panelData.shape || 'rectangle',
             shape: panelData.shape || 'rectangle',
-            roll_number: panelData.rollNumber || '',
-            panel_number: panelData.panelNumber || '',
+            rollNumber: panelData.rollNumber || '',
+            panelNumber: panelData.panelNumber || '',
             material: 'HDPE', // Default material for geosynthetic panels
             thickness: 60 // Default thickness
           }

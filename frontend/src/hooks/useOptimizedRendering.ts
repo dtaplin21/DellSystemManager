@@ -180,8 +180,13 @@ export function useOptimizedRendering({
     const isSelected = selectedPanelId === panel.id;
     
     // Panel colors
-    ctx.fillStyle = isSelected ? '#ef4444' : panel.color || '#3b82f6';
-    ctx.strokeStyle = isSelected ? '#dc2626' : '#1e40af';
+    if (panel.shape === 'patch') {
+      ctx.fillStyle = '#ef4444'; // Red for patches
+      ctx.strokeStyle = isSelected ? '#dc2626' : '#b91c1c'; // Darker red for stroke
+    } else {
+      ctx.fillStyle = isSelected ? '#ef4444' : panel.color || '#3b82f6';
+      ctx.strokeStyle = isSelected ? '#dc2626' : '#1e40af';
+    }
     ctx.lineWidth = Math.max(0.5, 2 / scale);
     
     // Draw different shapes based on panel.shape

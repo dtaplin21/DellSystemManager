@@ -182,8 +182,13 @@ export function useCanvas({
     ctx.translate(-width / 2, -height / 2);
 
     // Panel colors
-    ctx.fillStyle = '#3b82f6';
-    ctx.strokeStyle = '#1e40af';
+    if (panel.shape === 'patch') {
+      ctx.fillStyle = '#ef4444'; // Red for patches
+      ctx.strokeStyle = '#b91c1c'; // Darker red for stroke
+    } else {
+      ctx.fillStyle = '#3b82f6';
+      ctx.strokeStyle = '#1e40af';
+    }
     ctx.lineWidth = 0.1;
 
     // Draw different shapes based on panel.shape

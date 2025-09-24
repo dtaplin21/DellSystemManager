@@ -129,8 +129,13 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
     }
     
     // Draw panel based on shape
-    ctx.fillStyle = panel.fill || '#4f46e6'
-    ctx.strokeStyle = isSelected ? '#f59e0b' : panel.color || '#1e1b4b'
+    if (panel.shape === 'patch') {
+      ctx.fillStyle = '#ef4444' // Red for patches
+      ctx.strokeStyle = isSelected ? '#dc2626' : '#b91c1c' // Darker red for stroke
+    } else {
+      ctx.fillStyle = panel.fill || '#4f46e6'
+      ctx.strokeStyle = isSelected ? '#f59e0b' : panel.color || '#1e1b4b'
+    }
     ctx.lineWidth = isSelected ? 3 : 2
     
     // Draw different shapes based on panel.shape

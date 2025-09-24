@@ -384,8 +384,13 @@ export default function PanelPlaygroundPage() {
       }
       
       // Panel body
-      ctx.fillStyle = panel.color || '#4f46e5';
-      ctx.strokeStyle = isSelected ? '#f97316' : '#000000';
+      if (panel.shape === 'patch') {
+        ctx.fillStyle = '#ef4444'; // Red for patches
+        ctx.strokeStyle = isSelected ? '#dc2626' : '#b91c1c'; // Darker red for stroke
+      } else {
+        ctx.fillStyle = panel.color || '#4f46e5';
+        ctx.strokeStyle = isSelected ? '#f97316' : '#000000';
+      }
       ctx.lineWidth = isSelected ? 3 : 1;
       
       // Draw different shapes
