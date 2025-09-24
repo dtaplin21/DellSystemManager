@@ -25,7 +25,7 @@ interface UsePanelDataReturn {
   panels: Panel[];
   updatePanelPosition: (panelId: string, position: { x: number; y: number; rotation?: number }) => Promise<void>;
   addPanel: (panel: Omit<Panel, 'id'>) => Promise<void>;
-  removePanel: (panelId: string) => void;
+  removePanel: (panelId: string) => Promise<void>;
   refreshData: () => Promise<void>;
   clearLocalStorage: () => void;
 }
@@ -626,11 +626,15 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
   }, [projectId, flags.ENABLE_PERSISTENCE, saveToLocalStorage, debugLog, authState.isAuthenticated]);
 
   // Remove panel
-  const removePanel = useCallback((panelId: string) => {
-    setDataState(prev => {
-      if (prev.state !== 'loaded') return prev;
+  const removePanel = useCallback(async (panelId: string) => {
+    try {
+      debugLog(`🗑️ [removePanel] Starting deletion of panel ${panelId}`);
+      
+      // First, update local state optimistically
+      setDataState(prev => {
+        if (prev.state !== 'loaded') return prev;
 
-      const updatedPanels = prev.panels.filter(panel => panel.id !== panelId);
+        const updatedPanels = prev.panels.filter(panel => panel.id !== panelId);
 
         // Update localStorage
         if (flags.ENABLE_PERSISTENCE) {
@@ -647,15 +651,36 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
           console.log('🔍 [SHAPE DEBUG] Saved to localStorage with shapes:', positionMap);
         }
 
-      debugLog(`Removed panel ${panelId}`);
+        debugLog(`Removed panel ${panelId} from local state`);
 
-      return {
-        ...prev,
-        panels: updatedPanels,
-        lastUpdated: Date.now()
-      };
-    });
-  }, [flags.ENABLE_PERSISTENCE, saveToLocalStorage, debugLog]);
+        return {
+          ...prev,
+          panels: updatedPanels,
+          lastUpdated: Date.now()
+        };
+      });
+
+      // Then, persist to backend if authenticated
+      if (authState.isAuthenticated && projectId) {
+        try {
+          debugLog(`🗑️ [removePanel] Calling API to delete panel ${panelId} from backend`);
+          const { deletePanel } = await import('../lib/api');
+          await deletePanel(projectId, panelId);
+          debugLog(`✅ [removePanel] Successfully deleted panel ${panelId} from backend`);
+        } catch (apiError) {
+          console.error('❌ [removePanel] Failed to delete panel from backend:', apiError);
+          // Optionally revert the local state change if API fails
+          // For now, we'll keep the local deletion but log the error
+          debugLog(`⚠️ [removePanel] Panel ${panelId} deleted locally but failed to persist to backend`);
+        }
+      } else {
+        debugLog(`⚠️ [removePanel] Not authenticated or missing projectId, only deleted locally`);
+      }
+    } catch (error) {
+      console.error('❌ [removePanel] Error during panel deletion:', error);
+      debugLog(`❌ [removePanel] Failed to delete panel ${panelId}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }, [flags.ENABLE_PERSISTENCE, saveToLocalStorage, debugLog, authState.isAuthenticated, projectId]);
 
   // Clear localStorage
   const clearLocalStorage = useCallback(() => {

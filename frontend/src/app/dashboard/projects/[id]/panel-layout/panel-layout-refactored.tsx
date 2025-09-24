@@ -90,11 +90,11 @@ export default function PanelLayoutRefactored() {
   };
 
   // Handle panel deletion
-  const handlePanelDelete = (panelId: string) => {
+  const handlePanelDelete = async (panelId: string) => {
     console.log('🗑️ [PanelLayoutRefactored] handlePanelDelete called with panelId:', panelId);
     console.log('🗑️ [PanelLayoutRefactored] removePanel function:', removePanel);
     try {
-      removePanel(panelId);
+      await removePanel(panelId);
       console.log('🗑️ [PanelLayoutRefactored] Panel deleted successfully');
     } catch (error) {
       console.error('🗑️ [PanelLayoutRefactored] Error deleting panel:', error);

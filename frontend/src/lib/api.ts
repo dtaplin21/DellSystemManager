@@ -701,6 +701,66 @@ export async function updatePanelLayout(projectId: string, data: {
   }
 }
 
+export async function deletePanel(projectId: string, panelId: string): Promise<any> {
+  try {
+    console.log('🔍 [API] === deletePanel START ===');
+    console.log('🔍 [API] Input parameters:', { projectId, panelId });
+    
+    const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/panel-layout/delete-panel`, {
+      method: 'DELETE',
+      body: JSON.stringify({
+        projectId,
+        panelId
+      })
+    });
+    
+    console.log('🔍 [API] Backend response status:', response.status);
+    
+    if (!response.ok) {
+      let errorMessage = 'Failed to delete panel';
+      
+      if (response.status === 401) {
+        errorMessage = 'Authentication required. Please log in.';
+        console.error('❌ [API] Authentication failed for panel deletion');
+      } else if (response.status === 404) {
+        errorMessage = 'Panel not found.';
+        console.error('❌ [API] Panel not found:', panelId);
+      } else if (response.status === 500) {
+        errorMessage = 'Server error occurred while deleting panel.';
+        console.error('❌ [API] Server error for panel deletion:', response.statusText);
+      }
+      
+      // Try to get error details from response
+      try {
+        const errorData = await response.json();
+        if (errorData.message) {
+          errorMessage = errorData.message;
+        }
+        if (errorData.error) {
+          console.error('❌ [API] Backend error code:', errorData.error);
+        }
+      } catch (parseError) {
+        console.warn('⚠️ [API] Could not parse error response');
+      }
+      
+      throw new Error(errorMessage);
+    }
+    
+    const result = await response.json();
+    console.log('✅ [API] Panel deletion successful:', {
+      projectId,
+      panelId,
+      result
+    });
+    console.log('🔍 [API] === deletePanel END ===');
+    
+    return result;
+  } catch (error) {
+    console.error('❌ [API] Delete panel error:', error);
+    throw error;
+  }
+}
+
 export async function importQCDataFromExcel(projectId: string, file: File, options: {
   hasHeaderRow: boolean;
   typeColumn: string;
