@@ -68,7 +68,9 @@ class PanelLayoutService {
         panelNumber: panelData.panel_number || panelData.panelNumber || `P${currentPanels.length + 1}`,
         length: panelData.dimensions?.height || panelData.height_feet || panelData.height || defaultHeight,
         width: panelData.dimensions?.width || panelData.width_feet || panelData.width || defaultWidth,
-        rollNumber: panelData.roll_number || panelData.rollNumber || `R-${100 + currentPanels.length + 1}`,
+        rollNumber: panelShape === 'patch' 
+          ? (panelData.roll_number || panelData.rollNumber || 'N/A') 
+          : (panelData.roll_number || panelData.rollNumber || `R-${100 + currentPanels.length + 1}`),
         location: panelData.properties?.location || 'AI Generated',
         x: panelData.position?.x || panelData.x || (currentPanels.length * 400 + 200),
         y: panelData.position?.y || panelData.y || (Math.floor(currentPanels.length / 5) * 300 + 200),

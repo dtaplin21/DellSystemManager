@@ -38,7 +38,7 @@ export default function CreatePanelModal({
     const newErrors: Record<string, string> = {}
     
     if (!panelData.panelNumber) {
-      newErrors.panelNumber = 'Panel number is required'
+      newErrors.panelNumber = panelData.shape === 'patch' ? 'Patch number is required' : 'Panel number is required'
     }
     
     if (panelData.length <= 0) {
@@ -49,7 +49,8 @@ export default function CreatePanelModal({
       newErrors.width = 'Width must be greater than 0'
     }
     
-    if (!panelData.rollNumber) {
+    // Only require roll number for non-patch shapes
+    if (panelData.shape !== 'patch' && !panelData.rollNumber) {
       newErrors.rollNumber = 'Roll number is required'
     }
 
@@ -76,22 +77,6 @@ export default function CreatePanelModal({
     }
   }
 
-  // Common panel sizes presets
-  const presets = [
-    { name: '60 mil × 100 ft Standard', width: 22.5, length: 100 },
-    { name: '60 mil × 75 ft Standard', width: 22.5, length: 75 },
-    { name: '80 mil × 100 ft Heavy-Duty', width: 22.5, length: 100 },
-    { name: '40 mil × 100 ft Light-Duty', width: 22.5, length: 100 },
-    { name: '60 mil × 150 ft Custom', width: 22.5, length: 150 },
-  ]
-
-  const applyPreset = (preset: { width: number, length: number }) => {
-    setPanelData({
-      ...panelData,
-      width: preset.width,
-      length: preset.length
-    })
-  }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -121,7 +106,7 @@ export default function CreatePanelModal({
             
             <div>
               <label className="block mb-1">
-                Panel Number *
+                {panelData.shape === 'patch' ? 'Patch Number' : 'Panel Number'} *
                 {errors.panelNumber && (
                   <span className="text-red-500 ml-1 text-sm">{errors.panelNumber}</span>
                 )}
@@ -132,7 +117,7 @@ export default function CreatePanelModal({
                 value={panelData.panelNumber}
                 onChange={handleChange}
                 className={`w-full p-2 border rounded ${errors.panelNumber ? 'border-red-500' : ''}`}
-                placeholder="e.g. PA-01"
+                placeholder={panelData.shape === 'patch' ? "e.g. PATCH-01" : "e.g. PA-01"}
               />
             </div>
             
@@ -188,22 +173,24 @@ export default function CreatePanelModal({
               </>
             )}
             
-            <div>
-              <label className="block mb-1">
-                Roll Number *
-                {errors.rollNumber && (
-                  <span className="text-red-500 ml-1 text-sm">{errors.rollNumber}</span>
-                )}
-              </label>
-              <input
-                type="text"
-                name="rollNumber"
-                value={panelData.rollNumber}
-                onChange={handleChange}
-                className={`w-full p-2 border rounded ${errors.rollNumber ? 'border-red-500' : ''}`}
-                placeholder="e.g. R-101"
-              />
-            </div>
+            {panelData.shape !== 'patch' && (
+              <div>
+                <label className="block mb-1">
+                  Roll Number *
+                  {errors.rollNumber && (
+                    <span className="text-red-500 ml-1 text-sm">{errors.rollNumber}</span>
+                  )}
+                </label>
+                <input
+                  type="text"
+                  name="rollNumber"
+                  value={panelData.rollNumber}
+                  onChange={handleChange}
+                  className={`w-full p-2 border rounded ${errors.rollNumber ? 'border-red-500' : ''}`}
+                  placeholder="e.g. R-101"
+                />
+              </div>
+            )}
             
             <div>
               <label className="block mb-1">Shape</label>
@@ -232,22 +219,6 @@ export default function CreatePanelModal({
             />
           </div>
 
-          <div className="mb-4">
-            <h3 className="font-medium mb-2">Common Panel Templates</h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-              {presets.map((preset, index) => (
-                <Button 
-                  key={index}
-                  type="button"
-                  variant="outline"
-                  onClick={() => applyPreset(preset)}
-                  className="text-sm h-auto py-1"
-                >
-                  {preset.name}
-                </Button>
-              ))}
-            </div>
-          </div>
 
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={onClose}>
