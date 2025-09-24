@@ -65,7 +65,7 @@ class PanelLayoutService {
       const newPanel = {
         id: Date.now().toString(),
         date: new Date().toISOString().slice(0, 10),
-        panelNumber: panelData.panel_number || panelData.panelNumber || `P${currentPanels.length + 1}`,
+        panelNumber: panelData.panel_number || panelData.panelNumber || `${currentPanels.length + 1}`,
         length: panelData.dimensions?.height || panelData.height_feet || panelData.height || defaultHeight,
         width: panelData.dimensions?.width || panelData.width_feet || panelData.width || defaultWidth,
         rollNumber: panelShape === 'patch' 
@@ -76,8 +76,8 @@ class PanelLayoutService {
         y: panelData.position?.y || panelData.y || (Math.floor(currentPanels.length / 5) * 300 + 200),
         shape: panelShape,
         rotation: panelData.rotation || 0,
-        fill: panelData.properties?.fill || '#E3F2FD',
-        color: panelData.properties?.color || '#E3F2FD',
+        fill: panelData.properties?.fill || '#87CEEB',
+        color: panelData.properties?.color || '#87CEEB',
         material: panelData.material || panelData.properties?.material || 'HDPE',
         thickness: panelData.thickness || panelData.properties?.thickness || 60,
         seamsType: panelData.seamRequirements || panelData.properties?.seamsType || 'fusion',

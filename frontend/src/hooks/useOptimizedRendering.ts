@@ -184,7 +184,7 @@ export function useOptimizedRendering({
       ctx.fillStyle = '#ef4444'; // Red for patches
       ctx.strokeStyle = isSelected ? '#dc2626' : '#b91c1c'; // Darker red for stroke
     } else {
-      ctx.fillStyle = isSelected ? '#ef4444' : panel.color || '#3b82f6';
+      ctx.fillStyle = isSelected ? '#ef4444' : panel.color || '#87CEEB';
       ctx.strokeStyle = isSelected ? '#dc2626' : '#1e40af';
     }
     ctx.lineWidth = Math.max(0.5, 2 / scale);

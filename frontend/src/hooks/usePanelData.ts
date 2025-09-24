@@ -186,10 +186,10 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
             manufacturer: backendPanel.manufacturer || 'Unknown',
             power: backendPanel.power || 0,
             efficiency: backendPanel.efficiency || 0,
-            panelNumber: panelNumber || `P${index + 1}`,
+            panelNumber: panelNumber || `${index + 1}`,
             rollNumber: rollNumber || `R${index + 1}`,
-            color: backendPanel.color || '#3b82f6',
-            fill: backendPanel.fill || '#3b82f6',
+            color: backendPanel.color || '#87CEEB',
+            fill: backendPanel.fill || '#87CEEB',
             date: backendPanel.date || new Date().toISOString().split('T')[0],
             location: backendPanel.location || 'Unknown'
           };
@@ -556,8 +556,8 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
           shape: panelData.shape || 'rectangle',
           panelNumber: backendPanel.panel_number || panelData.panelNumber,
           rollNumber: backendPanel.roll_number || panelData.rollNumber,
-          color: panelData.color || '#3b82f6',
-          fill: panelData.fill || '#3b82f6',
+          color: panelData.color || '#87CEEB',
+          fill: panelData.fill || '#87CEEB',
           date: panelData.date,
           location: panelData.location,
           meta: panelData.meta

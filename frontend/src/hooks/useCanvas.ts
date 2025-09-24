@@ -186,7 +186,7 @@ export function useCanvas({
       ctx.fillStyle = '#ef4444'; // Red for patches
       ctx.strokeStyle = '#b91c1c'; // Darker red for stroke
     } else {
-      ctx.fillStyle = '#3b82f6';
+      ctx.fillStyle = '#87CEEB';
       ctx.strokeStyle = '#1e40af';
     }
     ctx.lineWidth = 0.1;

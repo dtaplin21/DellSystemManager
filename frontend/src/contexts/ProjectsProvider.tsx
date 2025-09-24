@@ -84,8 +84,8 @@ function mapBackendPanelToFrontend(panel: any): CanonicalPanel | null {
     points: panel.points,
     radius: panel.radius,
     rotation: panel.rotation || 0,
-    fill: panel.fill || '#3b82f6',
-    color: panel.color || panel.fill || '#3b82f6',
+    fill: panel.fill || '#87CEEB',
+    color: panel.color || panel.fill || '#87CEEB',
     meta: {
       repairs: [],
       airTest: { result: 'pending' }
