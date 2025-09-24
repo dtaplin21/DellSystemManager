@@ -40,15 +40,21 @@ export function FullscreenLayout({
 
   // Handle panel deletion
   const handleDeletePanel = useCallback((panelId: string) => {
+    console.log('🗑️ [FullscreenLayout] handleDeletePanel called with panelId:', panelId);
     setPanelToDelete(panelId);
     setShowDeleteConfirm(true);
   }, []);
 
   const confirmDelete = useCallback(() => {
+    console.log('🗑️ [FullscreenLayout] confirmDelete called with panelToDelete:', panelToDelete);
+    console.log('🗑️ [FullscreenLayout] onPanelDelete function:', onPanelDelete);
     if (panelToDelete && onPanelDelete) {
+      console.log('🗑️ [FullscreenLayout] Calling onPanelDelete with panelId:', panelToDelete);
       onPanelDelete(panelToDelete);
       // Clear selection after deletion
       dispatchFullscreen({ type: 'SET_SELECTED_PANEL', payload: null });
+    } else {
+      console.log('🗑️ [FullscreenLayout] Cannot delete - missing panelToDelete or onPanelDelete function');
     }
     setShowDeleteConfirm(false);
     setPanelToDelete(null);

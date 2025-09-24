@@ -108,7 +108,7 @@ function PanelLayoutContent({
                 onPanelClick={handlePanelClick}
                 onPanelDoubleClick={handlePanelDoubleClick}
                 onPanelUpdate={handlePanelUpdate}
-                onPanelDelete={removePanel}
+                onPanelDelete={onPanelDelete}
                 enableDebugLogging={featureFlags.ENABLE_DEBUG_LOGGING}
               />
     </>
@@ -119,6 +119,7 @@ export function PanelLayoutRefactored({
   panels,
   projectId,
   onPanelUpdate,
+  onPanelDelete,
   onAddPanel,
   featureFlags = {},
 }: PanelLayoutRefactoredProps) {
@@ -132,6 +133,7 @@ export function PanelLayoutRefactored({
           panels={panels}
           projectId={projectId}
           onPanelUpdate={onPanelUpdate}
+          onPanelDelete={onPanelDelete}
           onAddPanel={onAddPanel}
           featureFlags={featureFlags}
         />

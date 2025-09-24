@@ -89,6 +89,18 @@ export default function PanelLayoutRefactored() {
     await updatePanelPosition(panelId, position);
   };
 
+  // Handle panel deletion
+  const handlePanelDelete = (panelId: string) => {
+    console.log('🗑️ [PanelLayoutRefactored] handlePanelDelete called with panelId:', panelId);
+    console.log('🗑️ [PanelLayoutRefactored] removePanel function:', removePanel);
+    try {
+      removePanel(panelId);
+      console.log('🗑️ [PanelLayoutRefactored] Panel deleted successfully');
+    } catch (error) {
+      console.error('🗑️ [PanelLayoutRefactored] Error deleting panel:', error);
+    }
+  };
+
   // Panel creation handlers
   const handleAddPanel = () => {
     setShowCreatePanelModal(true);
@@ -240,7 +252,7 @@ export default function PanelLayoutRefactored() {
               panels={panels}
               projectId={Array.isArray(params.id) ? params.id[0] || 'unknown' : params.id || 'unknown'}
               onPanelUpdate={handlePanelPositionUpdate}
-              onPanelDelete={removePanel}
+              onPanelDelete={handlePanelDelete}
               onAddPanel={handleAddPanel}
               featureFlags={featureFlags}
             />
