@@ -644,6 +644,14 @@ export default function PanelLayoutClient({
           console.log(`🚨 [CLIENT] No localStorage position for panel ${panel.id}, using layout position: (${x}, ${y})`);
         }
         
+        // Debug shape mapping
+        console.log(`🔍 [SHAPE DEBUG] Panel ${idx} shape fields:`, {
+          id: panel.id,
+          type: panel.type,
+          shape: panel.shape,
+          finalShape: panel.type || panel.shape || 'rectangle'
+        });
+        
         const shape = panel.type || panel.shape || 'rectangle';
         
         const mappedPanel = {

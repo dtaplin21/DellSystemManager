@@ -278,6 +278,8 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
           x: localPosition.x,
           y: localPosition.y,
           rotation: localPosition.rotation ?? panel.rotation,
+          // Ensure shape is preserved from backend
+          shape: panel.shape || 'rectangle',
           isValid: true
         };
       }

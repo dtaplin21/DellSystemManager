@@ -232,13 +232,42 @@ export function useUnifiedMouseInteraction({
     const worldWidth = panel.width;
     const worldHeight = panel.height;
 
-    // Draw panel rectangle
+    // Panel colors
     ctx.fillStyle = panel.fill || '#3b82f6';
     ctx.strokeStyle = '#1e40af';
     ctx.lineWidth = 2;
     
-    ctx.fillRect(drawX, drawY, worldWidth, worldHeight);
-    ctx.strokeRect(drawX, drawY, worldWidth, worldHeight);
+    // Draw different shapes based on panel.shape
+    switch (panel.shape) {
+      case 'right-triangle':
+        // Draw right triangle with 90-degree angle at bottom-left corner
+        ctx.beginPath();
+        ctx.moveTo(drawX, drawY); // Top left
+        ctx.lineTo(drawX + worldWidth, drawY); // Top right
+        ctx.lineTo(drawX, drawY + worldHeight); // Bottom left (right angle)
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        break;
+        
+      case 'circle':
+        // Draw circle - use width as diameter for consistent sizing
+        const radius = worldWidth / 2;
+        const centerX = drawX + radius;
+        const centerY = drawY + radius;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.stroke();
+        break;
+        
+      case 'rectangle':
+      default:
+        // Draw rectangle (default)
+        ctx.fillRect(drawX, drawY, worldWidth, worldHeight);
+        ctx.strokeRect(drawX, drawY, worldWidth, worldHeight);
+        break;
+    }
 
     // Draw panel number
     ctx.fillStyle = '#ffffff';

@@ -202,12 +202,14 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
         const mergedPanels = backendData.panels.map(backendPanel => {
           const localPanel = localData.panels.find(p => p.id === backendPanel.id);
           if (localPanel) {
-            // Use local position but keep backend properties
+            // Use local position but keep backend properties (especially shape)
             return {
               ...backendPanel,
               x: localPanel.x,
               y: localPanel.y,
-              rotation: localPanel.rotation
+              rotation: localPanel.rotation,
+              // Ensure shape is preserved from backend
+              shape: backendPanel.shape || localPanel.shape || 'rectangle'
             };
           }
           return backendPanel;
