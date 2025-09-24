@@ -649,10 +649,10 @@ export default function PanelLayoutClient({
           id: panel.id,
           type: panel.type,
           shape: panel.shape,
-          finalShape: panel.type || panel.shape || 'rectangle'
+          finalShape: panel.shape || panel.type || 'rectangle'
         });
         
-        const shape = panel.type || panel.shape || 'rectangle';
+        const shape = panel.shape || panel.type || 'rectangle';
         
         const mappedPanel = {
           id: panel.id || `panel-${idx}`,

@@ -144,6 +144,12 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
         projectId: projectId,
         panels: data.layout?.panels?.map((backendPanel: any, index: number) => {
           console.log('🔍 [usePanelData] Mapping panel:', backendPanel);
+          console.log('🔍 [SHAPE DEBUG] Backend panel shape fields:', {
+            id: backendPanel.id,
+            shape: backendPanel.shape,
+            type: backendPanel.type,
+            finalShape: backendPanel.shape || backendPanel.type || 'rectangle'
+          });
           
           // Keep coordinates in world units (feet) - let canvas rendering handle scaling
           const widthFeet = Number(backendPanel.width_feet || backendPanel.width || 100);
@@ -174,8 +180,7 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
             y: yFeet, // Keep in world units (feet)
             rotation: backendPanel.rotation || 0,
             isValid: true,
-            shape: backendPanel.type === 'triangle' ? 'triangle' : 
-                   backendPanel.type === 'right-triangle' ? 'right-triangle' : 'rectangle',
+            shape: backendPanel.shape || backendPanel.type || 'rectangle',
             type: backendPanel.type || 'panel',
             model: backendPanel.model || 'Unknown',
             manufacturer: backendPanel.manufacturer || 'Unknown',
@@ -273,13 +278,19 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
       const localPosition = localPositions[panel.id];
       if (localPosition) {
         debugLog(`Applying localStorage position for panel ${panel.id}`, localPosition);
+        console.log('🔍 [SHAPE DEBUG] Merge logic - panel shape fields:', {
+          panelId: panel.id,
+          backendShape: panel.shape,
+          localShape: localPosition.shape,
+          finalShape: localPosition.shape || panel.shape || 'rectangle'
+        });
         return {
           ...panel,
           x: localPosition.x,
           y: localPosition.y,
           rotation: localPosition.rotation ?? panel.rotation,
-          // Ensure shape is preserved from backend
-          shape: panel.shape || 'rectangle',
+          // Use shape from localStorage if available, otherwise from backend
+          shape: localPosition.shape || panel.shape || 'rectangle',
           isValid: true
         };
       }
@@ -398,7 +409,8 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
           positionMap[panel.id] = {
             x: panel.x,
             y: panel.y,
-            rotation: panel.rotation
+            rotation: panel.rotation,
+            shape: panel.shape // Include shape in localStorage
           };
         });
         saveToLocalStorage(positionMap);
@@ -511,6 +523,7 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
             height_feet: panelData.height,
             rotation: panelData.rotation || 0,
             type: panelData.shape || 'rectangle',
+            shape: panelData.shape || 'rectangle',
             roll_number: panelData.rollNumber || '',
             panel_number: panelData.panelNumber || '',
             material: 'HDPE', // Default material for geosynthetic panels
@@ -619,18 +632,20 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
 
       const updatedPanels = prev.panels.filter(panel => panel.id !== panelId);
 
-      // Update localStorage
-      if (flags.ENABLE_PERSISTENCE) {
-        const positionMap: PanelPositionMap = {};
-        updatedPanels.forEach(panel => {
-          positionMap[panel.id] = {
-            x: panel.x,
-            y: panel.y,
-            rotation: panel.rotation
-          };
-        });
-        saveToLocalStorage(positionMap);
-      }
+        // Update localStorage
+        if (flags.ENABLE_PERSISTENCE) {
+          const positionMap: PanelPositionMap = {};
+          updatedPanels.forEach(panel => {
+            positionMap[panel.id] = {
+              x: panel.x,
+              y: panel.y,
+              rotation: panel.rotation,
+              shape: panel.shape // Include shape in localStorage
+            };
+          });
+          saveToLocalStorage(positionMap);
+          console.log('🔍 [SHAPE DEBUG] Saved to localStorage with shapes:', positionMap);
+        }
 
       debugLog(`Removed panel ${panelId}`);
 

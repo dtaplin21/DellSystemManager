@@ -61,6 +61,7 @@ export interface PanelPosition {
   x: number;
   y: number;
   rotation?: number;
+  shape?: 'rectangle' | 'right-triangle' | 'circle';
 }
 
 export interface PanelPositionMap {

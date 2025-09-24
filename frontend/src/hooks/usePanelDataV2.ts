@@ -110,8 +110,7 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
             y: yFeet, // Keep in world units (feet)
             rotation: backendPanel.rotation || 0,
             isValid: true,
-            shape: backendPanel.type === 'triangle' ? 'triangle' : 
-                   backendPanel.type === 'right-triangle' ? 'right-triangle' : 'rectangle',
+            shape: backendPanel.shape || backendPanel.type || 'rectangle',
             type: backendPanel.type || 'panel',
             model: backendPanel.model || 'Unknown',
             manufacturer: backendPanel.manufacturer || 'Unknown',
@@ -208,8 +207,8 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
               x: localPanel.x,
               y: localPanel.y,
               rotation: localPanel.rotation,
-              // Ensure shape is preserved from backend
-              shape: backendPanel.shape || localPanel.shape || 'rectangle'
+              // Use shape from localStorage if available, otherwise from backend
+              shape: localPanel.shape || backendPanel.shape || 'rectangle'
             };
           }
           return backendPanel;
