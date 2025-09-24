@@ -42,7 +42,7 @@ class PanelLayoutService {
       }
 
       // Validate panel shape
-      const validShapes = ['rectangle', 'right-triangle', 'circle'];
+      const validShapes = ['rectangle', 'right-triangle', 'patch'];
       const panelShape = panelData.shape || panelData.properties?.shape || 'rectangle';
       
       if (!validShapes.includes(panelShape)) {
@@ -51,8 +51,8 @@ class PanelLayoutService {
 
       // Set default dimensions based on shape
       let defaultWidth, defaultHeight;
-      if (panelShape === 'circle') {
-        // Circle panels: 13.33ft diameter (30 circles on 400ft panel)
+      if (panelShape === 'patch') {
+        // Patch panels: 13.33ft diameter (30 patches on 400ft panel)
         defaultWidth = 400 / 30; // 13.33 feet
         defaultHeight = 400 / 30; // 13.33 feet
       } else {

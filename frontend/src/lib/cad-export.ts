@@ -17,7 +17,7 @@ interface Panel {
   x: number;
   y: number;
   rotation: number;
-  shape: 'rectangle' | 'right-triangle' | 'circle';
+  shape: 'rectangle' | 'right-triangle' | 'patch';
   points?: number[];
   radius?: number;
 }
@@ -44,7 +44,7 @@ export function exportToDXF(panels: Panel[], projectInfo: ProjectInfo): void {
   panels.forEach(panel => {
     if (panel.shape === 'rectangle') {
       addRectangle(d, panel);
-    } else if (panel.shape === 'circle' && panel.radius) {
+    } else if (panel.shape === 'patch' && panel.radius) {
       addCircle(d, panel);
     } else if (panel.shape === 'right-triangle') {
       addRightTriangle(d, panel);

@@ -17,7 +17,7 @@ import type { Panel } from '@/types/panel';
 import { useTooltip } from '@/components/ui/tooltip';
 import { applyPanelSnapping } from '@/lib/resize-utils';
 
-type PanelShape = 'rectangle' | 'right-triangle' | 'circle';
+type PanelShape = 'rectangle' | 'right-triangle' | 'patch';
 
 interface DragInfo {
   isDragging: boolean;
@@ -294,7 +294,7 @@ export default function PanelPlaygroundPage() {
         const c = 1 - a - b;
         
         isInside = a >= 0 && b >= 0 && c >= 0;
-      } else if (panel.shape === 'circle') {
+      } else if (panel.shape === 'patch') {
         // Check if point is inside circle
         const radius = panelWidth / 2;
         const centerX = panel.x + radius;
@@ -398,7 +398,7 @@ export default function PanelPlaygroundPage() {
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
-      } else if (panel.shape === 'circle') {
+      } else if (panel.shape === 'patch') {
         // Draw circle - use width as diameter for consistent sizing
         const radius = panelWidth / 2;
         const centerX = panel.x + radius;
@@ -470,8 +470,8 @@ export default function PanelPlaygroundPage() {
 
     // Set dimensions based on shape
     let panelWidth, panelHeight;
-    if (selectedShape === 'circle') {
-      // Circle panels: 13.33ft diameter (30 circles on 400ft panel)
+    if (selectedShape === 'patch') {
+      // Patch panels: 13.33ft diameter (30 patches on 400ft panel)
       panelWidth = 400 / 30; // 13.33 feet
       panelHeight = 400 / 30; // 13.33 feet
     } else {
@@ -562,7 +562,7 @@ export default function PanelPlaygroundPage() {
         const c = 1 - a - b;
         
         return a >= 0 && b >= 0 && c >= 0;
-      } else if (panel.shape === 'circle') {
+      } else if (panel.shape === 'patch') {
         // Check if point is inside circle
         const radius = panelWidth / 2;
         const centerX = panel.x + radius;
@@ -647,7 +647,7 @@ export default function PanelPlaygroundPage() {
             <div>
               <label className="block text-sm font-medium mb-2">Panel Shape</label>
               <div className="flex border border-gray-300 rounded-md overflow-hidden">
-                {['rectangle', 'right-triangle', 'circle'].map(shape => (
+                {['rectangle', 'right-triangle', 'patch'].map(shape => (
                   <button
                     key={shape}
                     className={`flex-1 px-3 py-2 text-sm ${
@@ -747,14 +747,14 @@ export default function PanelPlaygroundPage() {
               </div>
             )}
 
-            {selectedShape === 'circle' && (
+            {selectedShape === 'patch' && (
               <div className="mb-4">
-                <label className="block text-sm font-medium mb-2">Circle Dimensions</label>
+                <label className="block text-sm font-medium mb-2">Patch Dimensions</label>
                 <div className="bg-gray-50 p-3 rounded border">
                   <div className="text-sm text-gray-600">
                     <div>Diameter: 13.33 ft</div>
                     <div>Radius: 6.67 ft</div>
-                    <div className="text-xs mt-1">Fixed size for 30 circles on 400ft panel</div>
+                    <div className="text-xs mt-1">Fixed size for 30 patches on 400ft panel</div>
                   </div>
                 </div>
               </div>

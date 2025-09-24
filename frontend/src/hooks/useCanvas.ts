@@ -199,7 +199,7 @@ export function useCanvas({
         ctx.stroke();
         break;
         
-      case 'circle':
+      case 'patch':
         // Draw circle - use width as diameter for consistent sizing
         const radius = width / 2;
         const centerX = width / 2;

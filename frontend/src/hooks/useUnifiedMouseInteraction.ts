@@ -250,7 +250,7 @@ export function useUnifiedMouseInteraction({
         ctx.stroke();
         break;
         
-      case 'circle':
+      case 'patch':
         // Draw circle - use width as diameter for consistent sizing
         const radius = worldWidth / 2;
         const centerX = drawX + radius;

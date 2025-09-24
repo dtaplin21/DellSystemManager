@@ -146,7 +146,7 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
         ctx.stroke()
         break
         
-      case 'circle':
+      case 'patch':
         // Draw circle - use width as diameter for consistent sizing
         const radius = screenWidth / 2
         const centerX = screenPos.x + radius
@@ -225,7 +225,7 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
         ];
         break;
         
-      case 'circle':
+      case 'patch':
         // Circle handles: 8 points around the circle
         const radius = screenWidth / 2
         const centerX = screenPos.x + radius
@@ -288,7 +288,7 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
         rotationHandleY = screenPos.y - 30;
         break;
         
-      case 'circle':
+      case 'patch':
         // For circle, place rotation handle above the circle center
         const circleRadius = screenWidth / 2;
         rotationHandleX = screenPos.x + circleRadius;

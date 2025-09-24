@@ -58,7 +58,7 @@ const validatePanel = (panel) => {
   
   // Validate panel shape if present
   if (panel.shape !== undefined) {
-    const validShapes = ['rectangle', 'right-triangle', 'circle'];
+    const validShapes = ['rectangle', 'right-triangle', 'patch'];
     if (!validShapes.includes(panel.shape)) {
       console.warn('❌ Panel validation failed - invalid shape:', {
         panel: panel.project_id || 'unknown',

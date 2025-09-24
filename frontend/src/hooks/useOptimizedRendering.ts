@@ -197,7 +197,7 @@ export function useOptimizedRendering({
         ctx.stroke();
         break;
         
-      case 'circle':
+      case 'patch':
         // Draw circle - use width as diameter for consistent sizing
         const radius = panel.width / 2;
         const centerX = panel.x + radius;
@@ -249,7 +249,7 @@ export function useOptimizedRendering({
           ctx.stroke();
           break;
           
-        case 'circle':
+        case 'patch':
           const circleRadius = panel.width / 2;
           const circleCenterX = panel.x + circleRadius;
           const circleCenterY = panel.y + circleRadius;

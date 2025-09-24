@@ -8,7 +8,7 @@ interface Panel {
   x: number;
   y: number;
   rotation: number;
-  shape: 'rectangle' | 'right-triangle' | 'circle';
+  shape: 'rectangle' | 'right-triangle' | 'patch';
   points?: number[];
   radius?: number;
 }
@@ -157,7 +157,7 @@ function generateDXF(panels: Panel[], projectInfo: ProjectInfo): string {
       dxf += '72\n1\n'; // Horizontal text justification (center)
       dxf += '73\n1\n'; // Vertical text justification (middle)
     }
-    else if (panel.shape === 'circle' && panel.radius) {
+    else if (panel.shape === 'patch' && panel.radius) {
       // Add circle
       dxf += '0\nCIRCLE\n';
       dxf += '8\nPanels\n';

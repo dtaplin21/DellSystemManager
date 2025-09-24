@@ -111,8 +111,8 @@ export default function PanelLayoutRefactored() {
     
     // Set dimensions based on shape
     let panelWidth, panelHeight;
-    if (panelData.shape === 'circle') {
-      // Circle panels: 13.33ft diameter (30 circles on 400ft panel)
+    if (panelData.shape === 'patch') {
+      // Patch panels: 13.33ft diameter (30 patches on 400ft panel)
       panelWidth = 400 / 30; // 13.33 feet
       panelHeight = 400 / 30; // 13.33 feet
     } else {

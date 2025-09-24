@@ -12,7 +12,7 @@ interface CreatePanelModalProps {
     width: number
     rollNumber: string
     location: string
-    shape: 'rectangle' | 'right-triangle' | 'circle'
+    shape: 'rectangle' | 'right-triangle' | 'patch'
     points?: number[]
     radius?: number
   }) => void
@@ -29,7 +29,7 @@ export default function CreatePanelModal({
     width: 40,
     rollNumber: '',
     location: '',
-    shape: 'rectangle' as 'rectangle' | 'right-triangle' | 'circle'
+    shape: 'rectangle' as 'rectangle' | 'right-triangle' | 'patch'
   })
 
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -137,14 +137,14 @@ export default function CreatePanelModal({
             </div>
             
             {/* Dimensions - conditional based on shape */}
-            {panelData.shape === 'circle' ? (
+            {panelData.shape === 'patch' ? (
               <div>
-                <label className="block mb-1">Circle Dimensions</label>
+                <label className="block mb-1">Patch Dimensions</label>
                 <div className="bg-gray-50 p-3 rounded border">
                   <div className="text-sm text-gray-600">
                     <div>Diameter: 13.33 ft</div>
                     <div>Radius: 6.67 ft</div>
-                    <div className="text-xs mt-1">Fixed size for 30 circles on 400ft panel</div>
+                    <div className="text-xs mt-1">Fixed size for 30 patches on 400ft panel</div>
                   </div>
                 </div>
               </div>
@@ -215,7 +215,7 @@ export default function CreatePanelModal({
               >
                 <option value="rectangle">Rectangle</option>
                 <option value="right-triangle">Right Triangle</option>
-                <option value="circle">Circle</option>
+                <option value="patch">Patch</option>
               </select>
             </div>
           </div>

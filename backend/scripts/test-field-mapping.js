@@ -35,7 +35,7 @@ function mapPanelFields(panel, index = 0) {
   const x = Number(panel.x || 0);
   const y = Number(panel.y || 0);
   // Validate shape and default to rectangle if invalid
-  const validShapes = ['rectangle', 'right-triangle', 'circle'];
+  const validShapes = ['rectangle', 'right-triangle', 'patch'];
   const rawShape = panel.type || panel.shape || 'rectangle';
   const shape = validShapes.includes(rawShape) ? rawShape : 'rectangle';
   

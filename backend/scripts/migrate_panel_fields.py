@@ -4,7 +4,7 @@ from uuid import uuid4
 
 def validate_shape(shape):
     """Validate panel shape and return 'rectangle' if invalid"""
-    valid_shapes = ['rectangle', 'right-triangle', 'circle']
+    valid_shapes = ['rectangle', 'right-triangle', 'patch']
     return shape if shape in valid_shapes else 'rectangle'
 
 def map_panel_to_canonical(panel):

@@ -9,7 +9,7 @@ export interface Panel {
   y: number; // World units (feet) - real measurements
   rotation?: number;
   isValid: boolean;
-  shape?: 'rectangle' | 'right-triangle' | 'circle';
+  shape?: 'rectangle' | 'right-triangle' | 'patch';
   // Additional panel properties
   type?: string;
   model?: string;
@@ -61,7 +61,7 @@ export interface PanelPosition {
   x: number;
   y: number;
   rotation?: number;
-  shape?: 'rectangle' | 'right-triangle' | 'circle';
+  shape?: 'rectangle' | 'right-triangle' | 'patch';
 }
 
 export interface PanelPositionMap {
@@ -142,7 +142,7 @@ export function createEmptyPanel(id: string): Panel {
   };
 }
 
-// Circle panel dimensions for 30 circles on 400ft panel
+// Patch panel dimensions for 30 patches on 400ft panel
 export const CIRCLE_PANEL_CONFIG = {
   DIAMETER: 400 / 30, // 13.33 feet diameter
   RADIUS: (400 / 30) / 2, // 6.67 feet radius
@@ -150,7 +150,7 @@ export const CIRCLE_PANEL_CONFIG = {
   HEIGHT: 400 / 30 // Same as diameter for bounding box
 } as const;
 
-// Utility function to create a circle panel with correct dimensions
+// Utility function to create a patch panel with correct dimensions
 export function createCirclePanel(id: string, x: number, y: number): Panel {
   return {
     id,
@@ -160,7 +160,7 @@ export function createCirclePanel(id: string, x: number, y: number): Panel {
     y,
     rotation: 0,
     isValid: true,
-    shape: 'circle'
+    shape: 'patch'
   };
 }
 
