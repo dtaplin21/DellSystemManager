@@ -537,11 +537,16 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
 
       const apiResult = result as { success: boolean; panel: any; error?: string };
       
+      console.log('🔍 [addPanel] API result:', apiResult);
+      
       if (apiResult.success && apiResult.panel) {
         // Convert backend panel to frontend Panel format
         const backendPanel = apiResult.panel;
+        console.log('🔍 [addPanel] Backend panel:', backendPanel);
+        console.log('🔍 [addPanel] Backend panel ID:', backendPanel.id);
+        
         const newPanel: Panel = {
-          id: backendPanel.id || `panel-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          id: backendPanel.id, // Always use the backend-generated ID
           width: backendPanel.width_feet || panelData.width,
           height: backendPanel.height_feet || panelData.height,
           x: backendPanel.x || panelData.x,
@@ -594,7 +599,7 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
       debugLog('Backend creation failed, adding to local state only', error);
       const newPanel: Panel = {
         ...panelData,
-        id: `panel-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        id: `local-panel-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         isValid: true
       };
 
@@ -660,10 +665,12 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
         };
       });
 
-      // Then, persist to backend if authenticated
-      if (authState.isAuthenticated && projectId) {
+      // Then, persist to backend if authenticated and panel is not local-only
+      if (authState.isAuthenticated && projectId && !panelId.startsWith('local-panel-')) {
         try {
           debugLog(`🗑️ [removePanel] Calling API to delete panel ${panelId} from backend`);
+          console.log('🔍 [removePanel] Deleting panel with ID:', panelId);
+          console.log('🔍 [removePanel] Project ID:', projectId);
           const { deletePanel } = await import('../lib/api');
           await deletePanel(projectId, panelId);
           debugLog(`✅ [removePanel] Successfully deleted panel ${panelId} from backend`);
@@ -689,6 +696,7 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
       debugLog('Cleared localStorage');
     }
   }, [debugLog]);
+
 
   // Load data on mount - only on client side
   useEffect(() => {

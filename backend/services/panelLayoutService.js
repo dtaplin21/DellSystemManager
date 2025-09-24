@@ -191,10 +191,14 @@ class PanelLayoutService {
    */
   async deletePanel(projectId, panelId) {
     try {
+      console.log('🔍 [deletePanel] Starting deletion:', { projectId, panelId });
+      
       const [existingLayout] = await db
         .select()
         .from(panelLayouts)
         .where(eq(panelLayouts.projectId, projectId));
+
+      console.log('🔍 [deletePanel] Found layout:', !!existingLayout);
 
       if (!existingLayout) {
         throw new Error('Panel layout not found');
@@ -214,9 +218,16 @@ class PanelLayoutService {
         console.error('Error parsing panels in deletePanel:', error);
         currentPanels = [];
       }
+      
+      console.log('🔍 [deletePanel] Current panels count:', currentPanels.length);
+      console.log('🔍 [deletePanel] Looking for panel ID:', panelId);
+      console.log('🔍 [deletePanel] Available panel IDs:', currentPanels.map(p => p.id));
+      
       const filteredPanels = currentPanels.filter(p => p.id !== panelId);
+      console.log('🔍 [deletePanel] Filtered panels count:', filteredPanels.length);
 
       if (filteredPanels.length === currentPanels.length) {
+        console.log('❌ [deletePanel] Panel not found in current panels');
         throw new Error('Panel not found');
       }
 
