@@ -221,6 +221,12 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
 
   // Draw selection handles
   const drawSelectionHandles = useCallback((ctx: CanvasRenderingContext2D, panel: Panel) => {
+    console.log('🎯 [ROTATION HANDLE DEBUG] drawSelectionHandles called for panel:', {
+      id: panel.id,
+      shape: panel.shape,
+      isValid: panel.isValid
+    });
+    
     // Validate panel before drawing handles using utility function
     if (!isValidPanel(panel)) {
       const errors = getPanelValidationErrors(panel);
@@ -331,11 +337,22 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
         break;
     }
     
+    console.log('🎯 [ROTATION HANDLE DEBUG] Drawing rotation handle:', {
+      panelId: panel.id,
+      shape: panel.shape,
+      screenPos: { x: screenPos.x, y: screenPos.y },
+      screenSize: { width: screenWidth, height: screenHeight },
+      rotationHandlePos: { x: rotationHandleX, y: rotationHandleY },
+      handleSize
+    });
+    
     ctx.fillStyle = '#10b981'
     ctx.fillRect(rotationHandleX - handleSize / 2, rotationHandleY - handleSize / 2, handleSize, handleSize)
     ctx.strokeStyle = '#ffffff'
     ctx.lineWidth = 1
     ctx.strokeRect(rotationHandleX - handleSize / 2, rotationHandleY - handleSize / 2, handleSize, handleSize)
+    
+    console.log('🎯 [ROTATION HANDLE DEBUG] Rotation handle drawn successfully');
     
     ctx.restore()
   }, [isValidPanel, getPanelValidationErrors, worldToScreen, getWorldDimensions, canvasState.worldScale, canvasState.scale, canvasState.offsetX, canvasState.offsetY])
@@ -378,16 +395,27 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
     
     // Draw selection handles
     if (selectedPanelId) {
+      console.log('🎯 [ROTATION HANDLE DEBUG] selectedPanelId found:', selectedPanelId);
       const selectedPanel = panels.find(p => p.id === selectedPanelId)
       if (selectedPanel) {
+        console.log('🎯 [ROTATION HANDLE DEBUG] selectedPanel found:', {
+          id: selectedPanel.id,
+          shape: selectedPanel.shape,
+          isValid: selectedPanel.isValid
+        });
         // Validate the selected panel before drawing handles
         if (isValidPanel(selectedPanel)) {
+          console.log('🎯 [ROTATION HANDLE DEBUG] Calling drawSelectionHandles for selected panel');
           drawSelectionHandles(ctx, selectedPanel)
         } else {
           const errors = getPanelValidationErrors(selectedPanel);
           console.warn('[useCanvasRenderer] Selected panel has validation errors, skipping handles:', { panel: selectedPanel, errors });
         }
+      } else {
+        console.log('🎯 [ROTATION HANDLE DEBUG] selectedPanel not found for ID:', selectedPanelId);
       }
+    } else {
+      console.log('🎯 [ROTATION HANDLE DEBUG] No selectedPanelId');
     }
   }, [panels, selectedPanelId, drawGrid, drawPanel, drawSelectionHandles, isValidPanel, getPanelValidationErrors, getCanvasState, canvasState.showGrid])
 

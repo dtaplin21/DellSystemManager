@@ -355,6 +355,120 @@ export function useUnifiedMouseInteraction({
     ctx.fillText(panel.panelNumber || panel.id, drawX + 5, drawY + 15);
   }, []);
 
+  // Draw selection handles for a panel
+  const drawSelectionHandles = useCallback((ctx: CanvasRenderingContext2D, panel: Panel) => {
+    console.log('🎯 [ROTATION HANDLE DEBUG] drawSelectionHandles called for panel:', {
+      id: panel.id,
+      shape: panel.shape,
+      x: panel.x,
+      y: panel.y,
+      width: panel.width,
+      height: panel.height
+    });
+
+    const handleSize = 8;
+    const worldWidth = panel.width;
+    const worldHeight = panel.height;
+    
+    // Generate handles based on panel shape
+    let handles: Array<{ x: number; y: number; cursor: string }> = [];
+    
+    switch (panel.shape) {
+      case 'right-triangle':
+        // Right triangle handles: corners and midpoints
+        handles = [
+          { x: panel.x, y: panel.y, cursor: 'nw-resize' }, // Top left
+          { x: panel.x + worldWidth, y: panel.y, cursor: 'ne-resize' }, // Top right
+          { x: panel.x, y: panel.y + worldHeight, cursor: 'sw-resize' }, // Bottom left (right angle)
+          { x: panel.x + worldWidth / 2, y: panel.y, cursor: 'n-resize' }, // Top mid
+          { x: panel.x, y: panel.y + worldHeight / 2, cursor: 'w-resize' } // Left mid
+        ];
+        break;
+        
+      case 'patch':
+        // Circle handles: 8 points around the circle
+        const radius = worldWidth / 2;
+        const centerX = panel.x + radius;
+        const centerY = panel.y + radius;
+        handles = [
+          { x: centerX, y: centerY - radius, cursor: 'n-resize' }, // Top
+          { x: centerX + radius * 0.707, y: centerY - radius * 0.707, cursor: 'ne-resize' }, // Top right
+          { x: centerX + radius, y: centerY, cursor: 'e-resize' }, // Right
+          { x: centerX + radius * 0.707, y: centerY + radius * 0.707, cursor: 'se-resize' }, // Bottom right
+          { x: centerX, y: centerY + radius, cursor: 's-resize' }, // Bottom
+          { x: centerX - radius * 0.707, y: centerY + radius * 0.707, cursor: 'sw-resize' }, // Bottom left
+          { x: centerX - radius, y: centerY, cursor: 'w-resize' }, // Left
+          { x: centerX - radius * 0.707, y: centerY - radius * 0.707, cursor: 'nw-resize' } // Top left
+        ];
+        break;
+        
+      case 'rectangle':
+      default:
+        // Rectangle handles: all corners and midpoints
+        handles = [
+          { x: panel.x, y: panel.y, cursor: 'nw-resize' },
+          { x: panel.x + worldWidth / 2, y: panel.y, cursor: 'n-resize' },
+          { x: panel.x + worldWidth, y: panel.y, cursor: 'ne-resize' },
+          { x: panel.x + worldWidth, y: panel.y + worldHeight / 2, cursor: 'e-resize' },
+          { x: panel.x + worldWidth, y: panel.y + worldHeight, cursor: 'se-resize' },
+          { x: panel.x + worldWidth / 2, y: panel.y + worldHeight, cursor: 's-resize' },
+          { x: panel.x, y: panel.y + worldHeight, cursor: 'sw-resize' },
+          { x: panel.x, y: panel.y + worldHeight / 2, cursor: 'w-resize' }
+        ];
+        break;
+    }
+    
+    // Draw resize handles
+    handles.forEach(handle => {
+      ctx.fillStyle = '#f59e0b';
+      ctx.fillRect(handle.x - handleSize / 2, handle.y - handleSize / 2, handleSize, handleSize);
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(handle.x - handleSize / 2, handle.y - handleSize / 2, handleSize, handleSize);
+    });
+    
+    // Draw rotation handle - position based on shape
+    let rotationHandleX: number;
+    let rotationHandleY: number;
+    
+    switch (panel.shape) {
+      case 'right-triangle':
+        // For right triangle, place rotation handle above the top edge center
+        rotationHandleX = panel.x + worldWidth / 2;
+        rotationHandleY = panel.y - 30;
+        break;
+        
+      case 'patch':
+        // For circle, place rotation handle above the circle center
+        const circleRadius = worldWidth / 2;
+        rotationHandleX = panel.x + circleRadius;
+        rotationHandleY = panel.y + circleRadius - 30;
+        break;
+        
+      case 'rectangle':
+      default:
+        // For rectangle, place rotation handle above the top edge center
+        rotationHandleX = panel.x + worldWidth / 2;
+        rotationHandleY = panel.y - 30;
+        break;
+    }
+    
+    console.log('🎯 [ROTATION HANDLE DEBUG] Drawing rotation handle at:', {
+      x: rotationHandleX,
+      y: rotationHandleY,
+      handleSize
+    });
+    
+    // Draw rotation handle (green circle)
+    ctx.fillStyle = '#10b981';
+    ctx.fillRect(rotationHandleX - handleSize / 2, rotationHandleY - handleSize / 2, handleSize, handleSize);
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(rotationHandleX - handleSize / 2, rotationHandleY - handleSize / 2, handleSize, handleSize);
+    
+    console.log('🎯 [ROTATION HANDLE DEBUG] Rotation handle drawn successfully');
+  }, []);
+
   // Canvas rendering function - simplified for unified coordinates
   const render = useCallback(() => {
     // SSR Guard: Don't render on server
@@ -401,6 +515,21 @@ export function useUnifiedMouseInteraction({
       }
     });
 
+    // Draw selection handles for selected panel
+    const selectedPanel = panels.find(p => p.id === mouseStateRef.current.selectedPanelId);
+    if (selectedPanel && selectedPanel.isValid) {
+      console.log('🎯 [ROTATION HANDLE DEBUG] Drawing selection handles for selected panel:', {
+        id: selectedPanel.id,
+        shape: selectedPanel.shape
+      });
+      drawSelectionHandles(ctx, selectedPanel);
+    } else {
+      console.log('🎯 [ROTATION HANDLE DEBUG] No selected panel or panel invalid:', {
+        selectedPanelId: mouseStateRef.current.selectedPanelId,
+        selectedPanel: selectedPanel
+      });
+    }
+
     // Restore transformations
     ctx.restore();
 
@@ -411,7 +540,7 @@ export function useUnifiedMouseInteraction({
       worldOffset: { x: canvasState.worldOffsetX, y: canvasState.worldOffsetY },
       worldScale: canvasState.worldScale
     });
-  }, [canvasState, panels, isSSR]); // Include actual dependencies
+  }, [canvasState, panels, isSSR, drawSelectionHandles]); // Include actual dependencies
 
   // Render function is now self-contained without circular dependencies
 
@@ -957,10 +1086,18 @@ export function useUnifiedMouseInteraction({
     const screenX = event.clientX - rect.left;
     const screenY = event.clientY - rect.top;
     
+    console.log('🎯 [ROTATION HANDLE DEBUG] Canvas click at:', { screenX, screenY });
+    
     // Use screen coordinates directly (panels are stored in unified pixels)
     const clickedPanel = getPanelAtPosition(screenX, screenY);
     if (clickedPanel && onPanelClick) {
+      console.log('🎯 [ROTATION HANDLE DEBUG] Panel clicked, calling onPanelClick:', {
+        id: clickedPanel.id,
+        shape: clickedPanel.shape
+      });
       onPanelClick(clickedPanel);
+    } else {
+      console.log('🎯 [ROTATION HANDLE DEBUG] No panel clicked or onPanelClick not available');
     }
   }, [getPanelAtPosition, onPanelClick]);
 
