@@ -15,6 +15,8 @@ interface PanelLayoutRefactoredProps {
   onPanelDelete?: (panelId: string) => void;
   onAddPanel?: () => void;
   onPanelSelect?: (panel: Panel) => void;
+  onViewFullDetails?: () => void;
+  isFullscreen?: boolean;
   featureFlags?: {
     ENABLE_PERSISTENCE?: boolean;
     ENABLE_DRAGGING?: boolean;
@@ -43,6 +45,8 @@ function PanelLayoutContent({
   onPanelDelete,
   onAddPanel,
   onPanelSelect,
+  onViewFullDetails,
+  isFullscreen,
   featureFlags = {},
 }: PanelLayoutRefactoredProps) {
   // Internal event handlers
@@ -127,6 +131,8 @@ export function PanelLayoutRefactored({
   onPanelDelete,
   onAddPanel,
   onPanelSelect,
+  onViewFullDetails,
+  isFullscreen,
   featureFlags = {},
 }: PanelLayoutRefactoredProps) {
   return (
@@ -142,6 +148,8 @@ export function PanelLayoutRefactored({
           onPanelDelete={onPanelDelete}
           onAddPanel={onAddPanel}
           onPanelSelect={onPanelSelect}
+          onViewFullDetails={onViewFullDetails}
+          isFullscreen={isFullscreen}
           featureFlags={featureFlags}
         />
       </PanelProvider>

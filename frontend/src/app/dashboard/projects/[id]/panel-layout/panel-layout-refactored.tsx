@@ -37,6 +37,9 @@ export default function PanelLayoutRefactored() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedPanel, setSelectedPanel] = useState<Panel | null>(null);
   
+  // Fullscreen state detection
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  
   // Feature flags for debugging/development
   const featureFlags = {
     ENABLE_PERSISTENCE: true,
@@ -63,6 +66,19 @@ export default function PanelLayoutRefactored() {
   // Prevent server-side rendering issues
   useEffect(() => {
     setIsHydrated(true);
+  }, []);
+
+  // Listen for fullscreen changes
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    
+    // Check initial fullscreen state
+    handleFullscreenChange();
+    
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
   
   // Don't render anything on server side to prevent SSR issues
@@ -109,13 +125,20 @@ export default function PanelLayoutRefactored() {
   // Handle panel selection for sidebar
   const handlePanelSelect = (panel: Panel) => {
     setSelectedPanel(panel);
-    setSidebarOpen(true);
+    // setSidebarOpen(true); // Removed - no auto-open, user must click "View Full Details"
   };
 
   // Handle sidebar close
   const handleSidebarClose = () => {
     setSidebarOpen(false);
     setSelectedPanel(null);
+  };
+
+  // Handle "View Full Details" button click
+  const handleViewFullDetails = () => {
+    if (selectedPanel) {
+      setSidebarOpen(true);
+    }
   };
 
   // Panel creation handlers
@@ -272,6 +295,8 @@ export default function PanelLayoutRefactored() {
               onPanelDelete={handlePanelDelete}
               onAddPanel={handleAddPanel}
               onPanelSelect={handlePanelSelect}
+              onViewFullDetails={handleViewFullDetails}
+              isFullscreen={isFullscreen}
               featureFlags={featureFlags}
             />
           </div>
@@ -293,8 +318,8 @@ export default function PanelLayoutRefactored() {
           />
         )}
 
-        {/* Panel Sidebar */}
-        {selectedPanel && (
+        {/* Panel Sidebar - Only show in fullscreen mode */}
+        {selectedPanel && isFullscreen && (
           <PanelSidebar
             isOpen={sidebarOpen}
             onToggle={handleSidebarClose}
