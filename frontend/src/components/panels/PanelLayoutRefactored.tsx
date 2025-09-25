@@ -14,6 +14,7 @@ interface PanelLayoutRefactoredProps {
   onPanelUpdate?: (panelId: string, updates: Partial<Panel>) => Promise<void>;
   onPanelDelete?: (panelId: string) => void;
   onAddPanel?: () => void;
+  onPanelSelect?: (panel: Panel) => void;
   featureFlags?: {
     ENABLE_PERSISTENCE?: boolean;
     ENABLE_DRAGGING?: boolean;
@@ -41,11 +42,15 @@ function PanelLayoutContent({
   onPanelUpdate,
   onPanelDelete,
   onAddPanel,
+  onPanelSelect,
   featureFlags = {},
 }: PanelLayoutRefactoredProps) {
   // Internal event handlers
   const handlePanelClick = (panel: Panel) => {
     console.log('Panel clicked:', panel.id);
+    if (onPanelSelect) {
+      onPanelSelect(panel);
+    }
   };
 
   const handlePanelDoubleClick = (panel: Panel) => {
@@ -121,6 +126,7 @@ export function PanelLayoutRefactored({
   onPanelUpdate,
   onPanelDelete,
   onAddPanel,
+  onPanelSelect,
   featureFlags = {},
 }: PanelLayoutRefactoredProps) {
   return (
@@ -135,6 +141,7 @@ export function PanelLayoutRefactored({
           onPanelUpdate={onPanelUpdate}
           onPanelDelete={onPanelDelete}
           onAddPanel={onAddPanel}
+          onPanelSelect={onPanelSelect}
           featureFlags={featureFlags}
         />
       </PanelProvider>

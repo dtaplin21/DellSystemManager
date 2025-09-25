@@ -12,6 +12,7 @@ import {
 } from '@/components/panels/PanelLayoutFallbacks';
 import { PanelLayoutRefactored as PanelLayoutComponent } from '@/components/panels/PanelLayoutRefactored';
 import CreatePanelModal from '@/components/panels/CreatePanelModal';
+import PanelSidebar from '@/components/panel-layout/panel-sidebar';
 // FullscreenLayout is now handled inside PanelLayoutComponent
 // Removed useFullscreenState import - will be handled inside PanelLayoutComponent
 import { Panel } from '@/types/panel';
@@ -31,6 +32,10 @@ export default function PanelLayoutRefactored() {
   
   // Modal state
   const [showCreatePanelModal, setShowCreatePanelModal] = useState(false);
+  
+  // Sidebar state
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [selectedPanel, setSelectedPanel] = useState<Panel | null>(null);
   
   // Feature flags for debugging/development
   const featureFlags = {
@@ -99,6 +104,18 @@ export default function PanelLayoutRefactored() {
     } catch (error) {
       console.error('🗑️ [PanelLayoutRefactored] Error deleting panel:', error);
     }
+  };
+
+  // Handle panel selection for sidebar
+  const handlePanelSelect = (panel: Panel) => {
+    setSelectedPanel(panel);
+    setSidebarOpen(true);
+  };
+
+  // Handle sidebar close
+  const handleSidebarClose = () => {
+    setSidebarOpen(false);
+    setSelectedPanel(null);
   };
 
   // Panel creation handlers
@@ -254,6 +271,7 @@ export default function PanelLayoutRefactored() {
               onPanelUpdate={handlePanelPositionUpdate}
               onPanelDelete={handlePanelDelete}
               onAddPanel={handleAddPanel}
+              onPanelSelect={handlePanelSelect}
               featureFlags={featureFlags}
             />
           </div>
@@ -272,6 +290,18 @@ export default function PanelLayoutRefactored() {
           <CreatePanelModal
             onClose={() => setShowCreatePanelModal(false)}
             onCreatePanel={handleCreatePanel}
+          />
+        )}
+
+        {/* Panel Sidebar */}
+        {selectedPanel && (
+          <PanelSidebar
+            isOpen={sidebarOpen}
+            onToggle={handleSidebarClose}
+            projectId={Array.isArray(params.id) ? params.id[0] || 'unknown' : params.id || 'unknown'}
+            panelId={selectedPanel.id}
+            panelNumber={selectedPanel.panelNumber || selectedPanel.id}
+            onClose={handleSidebarClose}
           />
         )}
         
