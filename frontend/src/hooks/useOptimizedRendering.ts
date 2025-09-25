@@ -192,23 +192,46 @@ export function useOptimizedRendering({
     // Draw different shapes based on panel.shape
     switch (panel.shape) {
       case 'right-triangle':
-        // Draw right triangle with 90-degree angle at bottom-left corner
         ctx.beginPath();
-        ctx.moveTo(panel.x, panel.y); // Top left
-        ctx.lineTo(panel.x + panel.width, panel.y); // Top right
-        ctx.lineTo(panel.x, panel.y + panel.height); // Bottom left (right angle)
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
+        
+        // Calculate center point for rotation
+        const triangleCenterX = panel.x + panel.width / 2
+        const triangleCenterY = panel.y + panel.height / 2
+        
+        // Define triangle points relative to center
+        const points = [
+          { x: -panel.width / 2, y: -panel.height / 2 }, // Top left
+          { x: panel.width / 2, y: -panel.height / 2 },  // Top right
+          { x: -panel.width / 2, y: panel.height / 2 }   // Bottom left (right angle)
+        ]
+        
+        // Apply rotation
+        const rotation = (panel.rotation || 0) * Math.PI / 180
+        const cos = Math.cos(rotation)
+        const sin = Math.sin(rotation)
+        
+        // Rotate and translate points
+        const rotatedPoints = points.map(point => ({
+          x: triangleCenterX + (point.x * cos - point.y * sin),
+          y: triangleCenterY + (point.x * sin + point.y * cos)
+        }))
+        
+        // Draw rotated triangle
+        ctx.moveTo(rotatedPoints[0].x, rotatedPoints[0].y)
+        ctx.lineTo(rotatedPoints[1].x, rotatedPoints[1].y)
+        ctx.lineTo(rotatedPoints[2].x, rotatedPoints[2].y)
+        ctx.closePath()
+        ctx.fill()
+        ctx.stroke()
         break;
         
       case 'patch':
         // Draw circle - use width as diameter for consistent sizing
         const radius = panel.width / 2;
-        const centerX = panel.x + radius;
-        const centerY = panel.y + radius;
+        const circleCenterX = panel.x + radius;
+        const circleCenterY = panel.y + radius;
         ctx.beginPath();
-        ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+        ctx.arc(circleCenterX, circleCenterY, radius, 0, 2 * Math.PI);
         ctx.fill();
         ctx.stroke();
         break;

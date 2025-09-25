@@ -141,11 +141,34 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
     // Draw different shapes based on panel.shape
     switch (panel.shape) {
       case 'right-triangle':
-        // Draw right triangle with 90-degree angle at bottom-left corner
         ctx.beginPath()
-        ctx.moveTo(screenPos.x, screenPos.y) // Top left
-        ctx.lineTo(screenPos.x + screenWidth, screenPos.y) // Top right
-        ctx.lineTo(screenPos.x, screenPos.y + screenHeight) // Bottom left (right angle)
+        
+        // Calculate center point for rotation
+        const triangleCenterX = screenPos.x + screenWidth / 2
+        const triangleCenterY = screenPos.y + screenHeight / 2
+        
+        // Define triangle points relative to center
+        const points = [
+          { x: -screenWidth / 2, y: -screenHeight / 2 }, // Top left
+          { x: screenWidth / 2, y: -screenHeight / 2 },  // Top right  
+          { x: -screenWidth / 2, y: screenHeight / 2 }   // Bottom left (right angle)
+        ]
+        
+        // Apply rotation
+        const rotation = (panel.rotation || 0) * Math.PI / 180
+        const cos = Math.cos(rotation)
+        const sin = Math.sin(rotation)
+        
+        // Rotate and translate points
+        const rotatedPoints = points.map(point => ({
+          x: triangleCenterX + (point.x * cos - point.y * sin),
+          y: triangleCenterY + (point.x * sin + point.y * cos)
+        }))
+        
+        // Draw rotated triangle
+        ctx.moveTo(rotatedPoints[0].x, rotatedPoints[0].y)
+        ctx.lineTo(rotatedPoints[1].x, rotatedPoints[1].y)
+        ctx.lineTo(rotatedPoints[2].x, rotatedPoints[2].y)
         ctx.closePath()
         ctx.fill()
         ctx.stroke()
@@ -154,10 +177,10 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
       case 'patch':
         // Draw circle - use width as diameter for consistent sizing
         const radius = screenWidth / 2
-        const centerX = screenPos.x + radius
-        const centerY = screenPos.y + radius
+        const circleCenterX = screenPos.x + radius
+        const circleCenterY = screenPos.y + radius
         ctx.beginPath()
-        ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI)
+        ctx.arc(circleCenterX, circleCenterY, radius, 0, 2 * Math.PI)
         ctx.fill()
         ctx.stroke()
         break

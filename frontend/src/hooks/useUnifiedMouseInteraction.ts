@@ -4,6 +4,7 @@ import { Panel } from '@/types/panel';
 interface MouseState {
   isDragging: boolean;
   isPanning: boolean;
+  isRotating: boolean;
   selectedPanelId: string | null;
   dragStartX: number;
   dragStartY: number;
@@ -11,6 +12,7 @@ interface MouseState {
   dragCurrentY?: number; // Current drag position for visual feedback
   lastMouseX: number;
   lastMouseY: number;
+  rotationStartAngle?: number; // Initial angle when rotation starts
 }
 
 interface CanvasState {
@@ -46,6 +48,7 @@ interface UseUnifiedMouseInteractionReturn {
 const initialMouseState: MouseState = {
   isDragging: false,
   isPanning: false,
+  isRotating: false,
   selectedPanelId: null,
   dragStartX: 0,
   dragStartY: 0,
@@ -169,6 +172,54 @@ export function useUnifiedMouseInteraction({
     return null;
   }, [panels, getWorldCoordinates]);
 
+  // Check if mouse is over rotation handle
+  const isOverRotationHandle = useCallback((screenX: number, screenY: number, panel: Panel): boolean => {
+    if (!panel.isValid) return false;
+    
+    // Convert panel world coordinates to screen coordinates
+    const screenPos = getScreenCoordinates(panel.x, panel.y);
+    const screenWidth = panel.width * canvasState.worldScale;
+    const screenHeight = panel.height * canvasState.worldScale;
+    
+    // Calculate rotation handle position based on panel shape
+    let rotationHandleX: number;
+    let rotationHandleY: number;
+    
+    switch (panel.shape) {
+      case 'right-triangle':
+        // For right triangle, place rotation handle above the top edge center
+        rotationHandleX = screenPos.x + screenWidth / 2;
+        rotationHandleY = screenPos.y - 30;
+        break;
+        
+      case 'patch':
+        // For circle, place rotation handle above the circle center
+        const circleRadius = screenWidth / 2;
+        rotationHandleX = screenPos.x + circleRadius;
+        rotationHandleY = screenPos.y + circleRadius - 30;
+        break;
+        
+      case 'rectangle':
+      default:
+        // For rectangle, place rotation handle above the top edge center
+        rotationHandleX = screenPos.x + screenWidth / 2;
+        rotationHandleY = screenPos.y - 30;
+        break;
+    }
+    
+    // Check if mouse is within rotation handle bounds (8x8 pixel handle)
+    const handleSize = 8;
+    const handleBounds = {
+      left: rotationHandleX - handleSize / 2,
+      right: rotationHandleX + handleSize / 2,
+      top: rotationHandleY - handleSize / 2,
+      bottom: rotationHandleY + handleSize / 2
+    };
+    
+    return screenX >= handleBounds.left && screenX <= handleBounds.right &&
+           screenY >= handleBounds.top && screenY <= handleBounds.bottom;
+  }, [canvasState.worldScale, getScreenCoordinates]);
+
   // Grid drawing function - uses unified coordinate system
   const drawGrid = useCallback((ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, state: CanvasState) => {
     const gridSize = 10; // 10px = 1 foot (unified coordinate system: 10 pixels per foot)
@@ -245,23 +296,46 @@ export function useUnifiedMouseInteraction({
     // Draw different shapes based on panel.shape
     switch (panel.shape) {
       case 'right-triangle':
-        // Draw right triangle with 90-degree angle at bottom-left corner
         ctx.beginPath();
-        ctx.moveTo(drawX, drawY); // Top left
-        ctx.lineTo(drawX + worldWidth, drawY); // Top right
-        ctx.lineTo(drawX, drawY + worldHeight); // Bottom left (right angle)
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
+        
+        // Calculate center point for rotation
+        const triangleCenterX = drawX + worldWidth / 2
+        const triangleCenterY = drawY + worldHeight / 2
+        
+        // Define triangle points relative to center
+        const points = [
+          { x: -worldWidth / 2, y: -worldHeight / 2 }, // Top left
+          { x: worldWidth / 2, y: -worldHeight / 2 },  // Top right
+          { x: -worldWidth / 2, y: worldHeight / 2 }   // Bottom left (right angle)
+        ]
+        
+        // Apply rotation
+        const rotation = (panel.rotation || 0) * Math.PI / 180
+        const cos = Math.cos(rotation)
+        const sin = Math.sin(rotation)
+        
+        // Rotate and translate points
+        const rotatedPoints = points.map(point => ({
+          x: triangleCenterX + (point.x * cos - point.y * sin),
+          y: triangleCenterY + (point.x * sin + point.y * cos)
+        }))
+        
+        // Draw rotated triangle
+        ctx.moveTo(rotatedPoints[0].x, rotatedPoints[0].y)
+        ctx.lineTo(rotatedPoints[1].x, rotatedPoints[1].y)
+        ctx.lineTo(rotatedPoints[2].x, rotatedPoints[2].y)
+        ctx.closePath()
+        ctx.fill()
+        ctx.stroke()
         break;
         
       case 'patch':
         // Draw circle - use width as diameter for consistent sizing
         const radius = worldWidth / 2;
-        const centerX = drawX + radius;
-        const centerY = drawY + radius;
+        const circleCenterX = drawX + radius;
+        const circleCenterY = drawY + radius;
         ctx.beginPath();
-        ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+        ctx.arc(circleCenterX, circleCenterY, radius, 0, 2 * Math.PI);
         ctx.fill();
         ctx.stroke();
         break;
@@ -484,6 +558,43 @@ export function useUnifiedMouseInteraction({
         isValid: clickedPanel.isValid
       });
 
+      // Check if clicking on rotation handle
+      if (isOverRotationHandle(screenX, screenY, clickedPanel)) {
+        console.log('🎯 [ROTATION DEBUG] ✅ ROTATION HANDLE CLICKED!', {
+          panelId: clickedPanel.id,
+          currentRotation: clickedPanel.rotation || 0
+        });
+
+        // Convert screen coordinates to world coordinates for rotation calculation
+        const worldPos = getWorldCoordinates(screenX, screenY);
+        
+        // Calculate initial angle from panel center to mouse position
+        const panelCenterX = clickedPanel.x + clickedPanel.width / 2;
+        const panelCenterY = clickedPanel.y + clickedPanel.height / 2;
+        const initialAngle = Math.atan2(worldPos.y - panelCenterY, worldPos.x - panelCenterX);
+        
+        // Start rotating panel
+        mouseStateRef.current = {
+          isDragging: false,
+          isPanning: false,
+          isRotating: true,
+          selectedPanelId: clickedPanel.id,
+          dragStartX: worldPos.x,
+          dragStartY: worldPos.y,
+          lastMouseX: screenX,
+          lastMouseY: screenY,
+          rotationStartAngle: initialAngle,
+        };
+        
+        console.log('🎯 [ROTATION DEBUG] Started rotating panel:', {
+          panelId: clickedPanel.id,
+          initialAngle: initialAngle * (180 / Math.PI),
+          currentRotation: clickedPanel.rotation || 0
+        });
+        
+        return; // Exit early, don't start dragging
+      }
+
       // Convert screen coordinates to world coordinates for drag calculation
       const worldPos = getWorldCoordinates(screenX, screenY);
       console.log('🎯 [DRAG DEBUG] World coordinates:', worldPos);
@@ -492,6 +603,7 @@ export function useUnifiedMouseInteraction({
       mouseStateRef.current = {
         isDragging: true,
         isPanning: false,
+        isRotating: false,
         selectedPanelId: clickedPanel.id,
         dragStartX: worldPos.x - clickedPanel.x, // Offset from panel's left edge (world coords)
         dragStartY: worldPos.y - clickedPanel.y, // Offset from panel's top edge (world coords)
@@ -522,6 +634,7 @@ export function useUnifiedMouseInteraction({
       mouseStateRef.current = {
         isDragging: false,
         isPanning: true,
+        isRotating: false,
         selectedPanelId: null,
         dragStartX: 0,
         dragStartY: 0,
@@ -537,7 +650,7 @@ export function useUnifiedMouseInteraction({
       onPanelSelect(null);
       logRef.current('Started panning canvas', { screenX, screenY });
     }
-  }, [canvas, getPanelAtPosition, onPanelSelect, onDragStart, getWorldCoordinates, panels]);
+  }, [canvas, getPanelAtPosition, onPanelSelect, onDragStart, getWorldCoordinates, panels, isOverRotationHandle]);
 
   // Mouse move handler - convert coordinates properly for world coordinate system
   const handleMouseMove = useCallback((event: MouseEvent) => {
@@ -604,6 +717,60 @@ export function useUnifiedMouseInteraction({
         newPos: { x: newX, y: newY },
         dragStart: { x: currentState.dragStartX, y: currentState.dragStartY }
       });
+    } else if (currentState.isRotating && currentState.selectedPanelId) {
+      console.log('🎯 [ROTATION DEBUG] 🔄 ROTATING PANEL');
+      
+      // Convert screen coordinates to world coordinates for rotation calculation
+      const worldPos = getWorldCoordinates(screenX, screenY);
+      console.log('🎯 [ROTATION DEBUG] World coordinates:', worldPos);
+      
+      // Find the panel being rotated
+      const panel = panels.find(p => p.id === currentState.selectedPanelId);
+      if (!panel) {
+        console.log('🎯 [ROTATION DEBUG] ❌ Panel not found for rotation');
+        return;
+      }
+      
+      // Calculate panel center
+      const panelCenterX = panel.x + panel.width / 2;
+      const panelCenterY = panel.y + panel.height / 2;
+      
+      // Calculate current angle from panel center to mouse position
+      const currentAngle = Math.atan2(worldPos.y - panelCenterY, worldPos.x - panelCenterX);
+      
+      // Calculate rotation delta from initial angle
+      const angleDelta = currentAngle - (currentState.rotationStartAngle || 0);
+      
+      // Convert to degrees and snap to 15-degree increments for better UX
+      const rotationDeltaDegrees = angleDelta * (180 / Math.PI);
+      const snappedRotation = Math.round(rotationDeltaDegrees / 15) * 15;
+      
+      // Calculate new rotation (add to existing rotation)
+      const currentRotation = panel.rotation || 0;
+      const newRotation = (currentRotation + snappedRotation) % 360;
+      
+      console.log('🎯 [ROTATION DEBUG] Rotation calculation:', {
+        panelId: panel.id,
+        currentAngle: currentAngle * (180 / Math.PI),
+        initialAngle: (currentState.rotationStartAngle || 0) * (180 / Math.PI),
+        angleDelta: rotationDeltaDegrees,
+        snappedRotation,
+        currentRotation,
+        newRotation
+      });
+      
+      // Update panel rotation
+      onPanelUpdate(panel.id, { rotation: newRotation });
+      
+      // Update the rotation start angle to prevent accumulation
+      currentState.rotationStartAngle = currentAngle;
+      
+      logRef.current('Rotating panel', { 
+        panelId: currentState.selectedPanelId, 
+        screenPos: { x: screenX, y: screenY },
+        worldPos: { x: worldPos.x, y: worldPos.y },
+        newRotation
+      });
     } else if (currentState.isPanning) {
       console.log('🎯 [DRAG DEBUG] 🔄 PANNING CANVAS');
       
@@ -625,7 +792,7 @@ export function useUnifiedMouseInteraction({
 
       logRef.current('Panning canvas', { deltaX, deltaY });
     }
-  }, [canvas, onCanvasPan, getWorldCoordinates]);
+  }, [canvas, onCanvasPan, getWorldCoordinates, onPanelUpdate, panels]);
 
   // Mouse up handler
   const handleMouseUp = useCallback(async (event: MouseEvent) => {
@@ -673,6 +840,23 @@ export function useUnifiedMouseInteraction({
         panelId: currentState.selectedPanelId,
         duration: clickDuration 
       });
+    } else if (currentState.isRotating && currentState.selectedPanelId) {
+      console.log('🎯 [ROTATION DEBUG] ✅ FINISHING PANEL ROTATION');
+      
+      // Find the panel being rotated
+      const panel = panels.find(p => p.id === currentState.selectedPanelId);
+      if (panel) {
+        console.log('🎯 [ROTATION DEBUG] Final rotation:', {
+          panelId: panel.id,
+          finalRotation: panel.rotation || 0
+        });
+        
+        logRef.current('Finished rotating panel', { 
+          panelId: currentState.selectedPanelId,
+          finalRotation: panel.rotation || 0,
+          duration: clickDuration 
+        });
+      }
     } else if (currentState.isPanning) {
       console.log('🎯 [DRAG DEBUG] ✅ FINISHING CANVAS PAN');
       logRef.current('Finished panning canvas', { duration: clickDuration });

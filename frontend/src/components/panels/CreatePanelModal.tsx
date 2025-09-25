@@ -13,6 +13,7 @@ interface CreatePanelModalProps {
     rollNumber: string
     location: string
     shape: 'rectangle' | 'right-triangle' | 'patch'
+    rotation?: number
     points?: number[]
     radius?: number
   }) => void
@@ -29,7 +30,8 @@ export default function CreatePanelModal({
     width: 40,
     rollNumber: '',
     location: '',
-    shape: 'rectangle' as 'rectangle' | 'right-triangle' | 'patch'
+    shape: 'rectangle' as 'rectangle' | 'right-triangle' | 'patch',
+    rotation: 0
   })
 
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -63,7 +65,7 @@ export default function CreatePanelModal({
     
     setPanelData({
       ...panelData,
-      [name]: ['length', 'width'].includes(name) ? Number(value) : value
+      [name]: ['length', 'width', 'rotation'].includes(name) ? Number(value) : value
     })
   }
 
@@ -205,6 +207,22 @@ export default function CreatePanelModal({
                 <option value="patch">Patch</option>
               </select>
             </div>
+            
+            {/* Rotation input - only show for right-triangle */}
+            {panelData.shape === 'right-triangle' && (
+              <div>
+                <label className="block mb-1">Rotation (degrees)</label>
+                <select
+                  name="rotation"
+                  value={panelData.rotation}
+                  onChange={handleChange}
+                  className="w-full p-2 border rounded"
+                >
+                  <option value={0}>0° (Normal)</option>
+                  <option value={180}>180° (Flipped)</option>
+                </select>
+              </div>
+            )}
           </div>
           
           <div className="mb-4">

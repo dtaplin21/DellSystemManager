@@ -194,13 +194,32 @@ export function useCanvas({
     // Draw different shapes based on panel.shape
     switch (panel.shape) {
       case 'right-triangle':
-        // Draw right triangle with 90-degree angle at bottom-left corner
         ctx.beginPath();
-        ctx.moveTo(0, 0); // Top left
-        ctx.lineTo(width, 0); // Top right
-        ctx.lineTo(0, height); // Bottom left (right angle)
-        ctx.closePath();
-        ctx.fill();
+        
+        // Define triangle points relative to center
+        const points = [
+          { x: -width / 2, y: -height / 2 }, // Top left
+          { x: width / 2, y: -height / 2 },  // Top right
+          { x: -width / 2, y: height / 2 }   // Bottom left (right angle)
+        ]
+        
+        // Apply rotation
+        const rotation = (panel.rotation || 0) * Math.PI / 180
+        const cos = Math.cos(rotation)
+        const sin = Math.sin(rotation)
+        
+        // Rotate points
+        const rotatedPoints = points.map(point => ({
+          x: (point.x * cos - point.y * sin),
+          y: (point.x * sin + point.y * cos)
+        }))
+        
+        // Draw rotated triangle
+        ctx.moveTo(rotatedPoints[0].x, rotatedPoints[0].y)
+        ctx.lineTo(rotatedPoints[1].x, rotatedPoints[1].y)
+        ctx.lineTo(rotatedPoints[2].x, rotatedPoints[2].y)
+        ctx.closePath()
+        ctx.fill()
         ctx.stroke();
         break;
         
