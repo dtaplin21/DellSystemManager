@@ -163,6 +163,29 @@ router.post('/batch-operations', auth, async (req, res) => {
             break;
 
           case 'MOVE_PANEL':
+            // Validate newPosition before moving
+            if (!operation.payload.newPosition || typeof operation.payload.newPosition !== 'object') {
+              results.push({ 
+                success: false, 
+                type: 'MOVE_PANEL', 
+                error: 'Invalid newPosition: must be an object' 
+              });
+              break;
+            }
+            
+            // Validate rotation if present
+            if (operation.payload.newPosition.rotation !== undefined) {
+              const rotation = operation.payload.newPosition.rotation;
+              if (typeof rotation !== 'number' || rotation < 0 || rotation >= 360 || !isFinite(rotation)) {
+                results.push({ 
+                  success: false, 
+                  type: 'MOVE_PANEL', 
+                  error: 'Invalid rotation: must be a number between 0 and 360 degrees' 
+                });
+                break;
+              }
+            }
+            
             const movedPanel = await panelLayoutService.movePanel(
               projectId, 
               operation.payload.panelId, 
@@ -263,6 +286,31 @@ router.post('/execute-ai-layout', auth, async (req, res) => {
             break;
 
           case 'MOVE_PANEL':
+            // Validate newPosition before moving
+            if (!action.payload.newPosition || typeof action.payload.newPosition !== 'object') {
+              results.push({ 
+                success: false, 
+                type: 'MOVE_PANEL', 
+                error: 'Invalid newPosition: must be an object',
+                actionId: action.id 
+              });
+              break;
+            }
+            
+            // Validate rotation if present
+            if (action.payload.newPosition.rotation !== undefined) {
+              const rotation = action.payload.newPosition.rotation;
+              if (typeof rotation !== 'number' || rotation < 0 || rotation >= 360 || !isFinite(rotation)) {
+                results.push({ 
+                  success: false, 
+                  type: 'MOVE_PANEL', 
+                  error: 'Invalid rotation: must be a number between 0 and 360 degrees',
+                  actionId: action.id 
+                });
+                break;
+              }
+            }
+            
             const movedPanel = await panelLayoutService.movePanel(
               projectId, 
               action.payload.panelId, 

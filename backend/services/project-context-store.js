@@ -1,5 +1,5 @@
 const { db } = require('../db/index');
-const { projects, documents, panels, qcData } = require('../db/schema');
+const { projects, documents, panelLayouts, qcData } = require('../db/schema');
 const { eq } = require('drizzle-orm');
 const { v4: uuidv4 } = require('uuid');
 
@@ -37,8 +37,8 @@ class ProjectContextStore {
       // Fetch panel layout
       const [panelLayout] = await db
         .select()
-        .from(panels)
-        .where(eq(panels.projectId, projectId));
+        .from(panelLayouts)
+        .where(eq(panelLayouts.projectId, projectId));
 
       // Fetch QC data
       const qcRecords = await db
@@ -69,10 +69,10 @@ class ProjectContextStore {
         })),
         panelLayout: panelLayout ? {
           id: panelLayout.id,
-          panels: JSON.parse(panelLayout.panels || '[]'),
+          panels: panelLayout.panels || [], // JSONB is already parsed
           width: panelLayout.width,
           height: panelLayout.height,
-          optimizationHistory: JSON.parse(panelLayout.optimizationHistory || '[]'),
+          optimizationHistory: panelLayout.optimizationHistory || [],
           lastOptimized: panelLayout.lastOptimized
         } : null,
         qcData: qcRecords.map(qc => ({
@@ -220,17 +220,17 @@ class ProjectContextStore {
         case 'create':
         case 'update':
           // Insert or update panel layout
-          await db.insert(panels).values({
+          await db.insert(panelLayouts).values({
             projectId,
-            panels: JSON.stringify(data.panels),
+            panels: data.panels, // JSONB handles serialization automatically
             width: data.width,
             height: data.height,
             scale: data.scale || 1,
             lastUpdated: new Date()
           }).onConflictDoUpdate({
-            target: panels.projectId,
+            target: panelLayouts.projectId,
             set: {
-              panels: JSON.stringify(data.panels),
+              panels: data.panels, // JSONB handles serialization automatically
               width: data.width,
               height: data.height,
               scale: data.scale || 1,
@@ -240,8 +240,8 @@ class ProjectContextStore {
           break;
         case 'delete':
           // Delete panel layout
-          await db.delete(panels)
-            .where(eq(panels.projectId, projectId));
+          await db.delete(panelLayouts)
+            .where(eq(panelLayouts.projectId, projectId));
           break;
         default:
           console.warn(`Unknown action for panel layout: ${action}`);

@@ -12,45 +12,43 @@ const DEFAULT_LAYOUT_WIDTH = 4000;
 const DEFAULT_LAYOUT_HEIGHT = 4000;
 const DEFAULT_SCALE = 1.0;
 
-// Validate panel data - updated to handle the actual format sent from frontend
+// Validate panel data - updated to handle the actual format used in the system
 const validatePanel = (panel) => {
   if (!panel || typeof panel !== 'object') {
     console.warn('❌ Panel validation failed - not an object:', panel);
     return false;
   }
   
-  // The frontend sends panels in this format:
-  // { project_id, type, x, y, width_feet, height_feet, roll_number, panel_number, fill, stroke, stroke_width, rotation, shape }
+  // The system uses panels in this format:
+  // { id, x, y, width, height, rotation, shape, panelNumber, rollNumber, ... }
   
-  // Required fields for the frontend format
-  const requiredFields = ['project_id', 'type', 'x', 'y', 'width_feet', 'height_feet'];
+  // Required fields for the system format
+  const requiredFields = ['id', 'x', 'y', 'width', 'height'];
   for (const field of requiredFields) {
     if (!(field in panel)) {
-      console.warn('❌ Panel validation failed - missing required field:', field, 'Panel:', panel.project_id || 'unknown');
+      console.warn('❌ Panel validation failed - missing required field:', field, 'Panel:', panel.id || 'unknown');
       return false;
     }
   }
   
   // Validate data types for required fields
   const isValid = (
-    typeof panel.project_id === 'string' &&
-    typeof panel.type === 'string' &&
+    typeof panel.id === 'string' &&
     typeof panel.x === 'number' &&
     typeof panel.y === 'number' &&
-    typeof panel.width_feet === 'number' &&
-    typeof panel.height_feet === 'number'
+    typeof panel.width === 'number' &&
+    typeof panel.height === 'number'
   );
   
   if (!isValid) {
     console.warn('❌ Panel validation failed - invalid data types:', {
-      panel: panel.project_id || 'unknown',
+      panel: panel.id || 'unknown',
       types: {
-        project_id: typeof panel.project_id,
-        type: typeof panel.type,
+        id: typeof panel.id,
         x: typeof panel.x,
         y: typeof panel.y,
-        width_feet: typeof panel.width_feet,
-        height_feet: typeof panel.height_feet
+        width: typeof panel.width,
+        height: typeof panel.height
       }
     });
     return false;
@@ -70,25 +68,45 @@ const validatePanel = (panel) => {
   }
   
   // Optional fields - validate if present
-  if (panel.rotation !== undefined && typeof panel.rotation !== 'number') {
-    console.warn('❌ Panel validation failed - rotation must be a number if present:', {
-      panel: panel.project_id || 'unknown',
-      rotation: panel.rotation,
-      type: typeof panel.rotation
+  if (panel.rotation !== undefined) {
+    if (typeof panel.rotation !== 'number') {
+      console.warn('❌ Panel validation failed - rotation must be a number if present:', {
+        panel: panel.id || 'unknown',
+        rotation: panel.rotation,
+        type: typeof panel.rotation
+      });
+      return false;
+    }
+    
+    // Validate rotation range (0-360 degrees)
+    if (panel.rotation < 0 || panel.rotation >= 360) {
+      console.warn('❌ Panel validation failed - rotation must be between 0 and 360 degrees:', {
+        panel: panel.id || 'unknown',
+        rotation: panel.rotation
+      });
+      return false;
+    }
+    
+    // Validate rotation is a valid number (not NaN or Infinity)
+    if (!isFinite(panel.rotation)) {
+      console.warn('❌ Panel validation failed - rotation must be a finite number:', {
+        panel: panel.id || 'unknown',
+        rotation: panel.rotation
+      });
+      return false;
+    }
+  }
+  
+  if (panel.strokeWidth !== undefined && typeof panel.strokeWidth !== 'number') {
+    console.warn('❌ Panel validation failed - strokeWidth must be a number if present:', {
+      panel: panel.id || 'unknown',
+      strokeWidth: panel.strokeWidth,
+      type: typeof panel.strokeWidth
     });
     return false;
   }
   
-  if (panel.stroke_width !== undefined && typeof panel.stroke_width !== 'number') {
-    console.warn('❌ Panel validation failed - stroke_width must be a number if present:', {
-      panel: panel.project_id || 'unknown',
-      stroke_width: panel.stroke_width,
-      type: typeof panel.stroke_width
-    });
-    return false;
-  }
-  
-  console.log('✅ Panel validation passed:', panel.project_id || 'unknown');
+  console.log('✅ Panel validation passed:', panel.id || 'unknown');
   return true;
 };
 
@@ -417,29 +435,27 @@ router.patch('/layout/:projectId', async (req, res, next) => {
       // Validate panels
       const validPanels = updateData.panels.filter(panel => {
         console.log('🔍 [PANELS] Validating panel:', {
-          id: panel?.project_id || 'unknown',
+          id: panel?.id || 'unknown',
           keys: Object.keys(panel || {}),
           hasRequiredFields: {
-            project_id: !!panel?.project_id,
-            type: !!panel?.type,
+            id: !!panel?.id,
             x: !!panel?.x,
             y: !!panel?.y,
-            width_feet: !!panel?.width_feet,
-            height_feet: !!panel?.height_feet
+            width: !!panel?.width,
+            height: !!panel?.height
           }
         });
         
         const isValid = validatePanel(panel);
         if (!isValid) {
           console.warn('⚠️ [PANELS] Panel validation failed for panel:', {
-            project_id: panel?.project_id,
-            type: panel?.type,
+            id: panel?.id,
             x: panel?.x,
             y: panel?.y,
-            width_feet: panel?.width_feet,
-            height_feet: panel?.height_feet,
-            roll_number: panel?.roll_number,
-            panel_number: panel?.panel_number,
+            width: panel?.width,
+            height: panel?.height,
+            rollNumber: panel?.rollNumber,
+            panelNumber: panel?.panelNumber,
             rotation: panel?.rotation
           });
         }

@@ -1,6 +1,7 @@
 const { db } = require('../db/index');
 const { panelLayouts, projects } = require('../db/schema');
 const { eq, and } = require('drizzle-orm');
+const { v4: uuidv4 } = require('uuid');
 
 class PanelLayoutService {
   /**
@@ -27,12 +28,14 @@ class PanelLayoutService {
       let currentPanels = [];
       if (existingLayout) {
         try {
-          // Check if panels is already an object (JSONB) or needs parsing
-          if (typeof existingLayout.panels === 'string') {
-            currentPanels = JSON.parse(existingLayout.panels || '[]');
-          } else if (Array.isArray(existingLayout.panels)) {
+          // Standardized JSONB parsing - panels should always be an array
+          if (Array.isArray(existingLayout.panels)) {
             currentPanels = existingLayout.panels;
+          } else if (typeof existingLayout.panels === 'string') {
+            // Handle legacy TEXT format
+            currentPanels = JSON.parse(existingLayout.panels || '[]');
           } else {
+            console.warn('Unexpected panels data type:', typeof existingLayout.panels);
             currentPanels = [];
           }
         } catch (error) {
@@ -61,12 +64,12 @@ class PanelLayoutService {
         defaultHeight = 100;
       }
 
-      // Create new panel with unique ID
+      // Create new panel with unique UUID
       const newPanel = {
-        id: Date.now().toString(),
+        id: uuidv4(),
         date: new Date().toISOString().slice(0, 10),
         panelNumber: panelData.panel_number || panelData.panelNumber || `${currentPanels.length + 1}`,
-        length: panelData.dimensions?.height || panelData.height_feet || panelData.height || defaultHeight,
+        height: panelData.dimensions?.height || panelData.height_feet || panelData.height || defaultHeight,
         width: panelData.dimensions?.width || panelData.width_feet || panelData.width || defaultWidth,
         rollNumber: panelShape === 'patch' 
           ? (panelData.roll_number || panelData.rollNumber || 'N/A') 
@@ -92,14 +95,14 @@ class PanelLayoutService {
         await db
           .update(panelLayouts)
           .set({
-            panels: JSON.stringify(currentPanels),
+            panels: currentPanels, // JSONB handles serialization automatically
             lastUpdated: new Date()
           })
           .where(eq(panelLayouts.projectId, projectId));
       } else {
         await db.insert(panelLayouts).values({
           projectId,
-          panels: JSON.stringify(currentPanels),
+          panels: currentPanels, // JSONB handles serialization automatically
           width: project.layoutWidth || 1000,
           height: project.layoutHeight || 800,
           scale: project.scale || 1,
@@ -119,6 +122,34 @@ class PanelLayoutService {
    */
   async movePanel(projectId, panelId, newPosition) {
     try {
+      console.log('🔍 [movePanel] Starting panel move:', {
+        projectId,
+        panelId,
+        newPosition
+      });
+
+      // Validate newPosition data
+      if (!newPosition || typeof newPosition !== 'object') {
+        throw new Error('Invalid newPosition: must be an object');
+      }
+
+      if (typeof newPosition.x !== 'number' || typeof newPosition.y !== 'number') {
+        throw new Error('Invalid newPosition: x and y must be numbers');
+      }
+
+      // Validate rotation if present
+      if (newPosition.rotation !== undefined) {
+        if (typeof newPosition.rotation !== 'number') {
+          throw new Error('Invalid rotation: must be a number');
+        }
+        if (newPosition.rotation < 0 || newPosition.rotation >= 360) {
+          throw new Error('Invalid rotation: must be between 0 and 360 degrees');
+        }
+        if (!isFinite(newPosition.rotation)) {
+          throw new Error('Invalid rotation: must be a finite number');
+        }
+      }
+
       const [existingLayout] = await db
         .select()
         .from(panelLayouts)
@@ -130,14 +161,28 @@ class PanelLayoutService {
 
       let currentPanels = [];
       try {
-        // Check if panels is already an object (JSONB) or needs parsing
-        if (typeof existingLayout.panels === 'string') {
-          currentPanels = JSON.parse(existingLayout.panels || '[]');
-        } else if (Array.isArray(existingLayout.panels)) {
+        // Standardized JSONB parsing - panels should always be an array
+        if (Array.isArray(existingLayout.panels)) {
           currentPanels = existingLayout.panels;
+        } else if (typeof existingLayout.panels === 'string') {
+          // Handle legacy TEXT format
+          currentPanels = JSON.parse(existingLayout.panels || '[]');
         } else {
+          console.warn('Unexpected panels data type:', typeof existingLayout.panels);
           currentPanels = [];
         }
+        
+        console.log('🔍 [movePanel] Current panels loaded:', {
+          panelCount: currentPanels.length,
+          firstPanel: currentPanels[0] ? {
+            id: currentPanels[0].id,
+            x: currentPanels[0].x,
+            y: currentPanels[0].y,
+            width: currentPanels[0].width,
+            height: currentPanels[0].height,
+            rotation: currentPanels[0].rotation
+          } : 'No panels'
+        });
       } catch (error) {
         console.error('Error parsing panels in movePanel:', error);
         currentPanels = [];
@@ -145,12 +190,12 @@ class PanelLayoutService {
       // Find panel by ID - check multiple possible ID fields
       const panelIndex = currentPanels.findIndex(p => {
         // Check exact matches first
-        if (p.id === panelId || p.roll_number === panelId || p.panel_number === panelId) {
+        if (p.id === panelId || p.rollNumber === panelId || p.panelNumber === panelId) {
           return true;
         }
         
         // Check generated ID pattern: panel-{projectId}-{x}-{y}-{width}-{height}
-        const generatedId = `panel-${projectId}-${p.x}-${p.y}-${p.width_feet}-${p.height_feet}`;
+        const generatedId = `panel-${projectId}-${p.x}-${p.y}-${p.width}-${p.height}`;
         if (generatedId === panelId) {
           return true;
         }
@@ -159,22 +204,43 @@ class PanelLayoutService {
       });
 
       if (panelIndex === -1) {
+        console.log('🔍 [movePanel] Panel not found:', {
+          panelId,
+          availablePanelIds: currentPanels.map(p => p.id),
+          availablePanelNumbers: currentPanels.map(p => p.panelNumber)
+        });
         throw new Error('Panel not found');
       }
+
+      console.log('🔍 [movePanel] Found panel at index:', {
+        panelIndex,
+        panel: currentPanels[panelIndex],
+        newPosition
+      });
 
       // Update panel position
       currentPanels[panelIndex] = {
         ...currentPanels[panelIndex],
         x: newPosition.x,
         y: newPosition.y,
-        rotation: newPosition.rotation || currentPanels[panelIndex].rotation
+        rotation: newPosition.rotation !== undefined ? newPosition.rotation : currentPanels[panelIndex].rotation
       };
+
+      console.log('🔍 [movePanel] Updated panel:', {
+        panelId,
+        oldPosition: {
+          x: currentPanels[panelIndex].x,
+          y: currentPanels[panelIndex].y,
+          rotation: currentPanels[panelIndex].rotation
+        },
+        newPosition
+      });
 
       // Update layout
       await db
         .update(panelLayouts)
         .set({
-          panels: JSON.stringify(currentPanels),
+          panels: currentPanels, // JSONB handles serialization automatically
           lastUpdated: new Date()
         })
         .where(eq(panelLayouts.projectId, projectId));
@@ -206,12 +272,14 @@ class PanelLayoutService {
 
       let currentPanels = [];
       try {
-        // Check if panels is already an object (JSONB) or needs parsing
-        if (typeof existingLayout.panels === 'string') {
-          currentPanels = JSON.parse(existingLayout.panels || '[]');
-        } else if (Array.isArray(existingLayout.panels)) {
+        // Standardized JSONB parsing - panels should always be an array
+        if (Array.isArray(existingLayout.panels)) {
           currentPanels = existingLayout.panels;
+        } else if (typeof existingLayout.panels === 'string') {
+          // Handle legacy TEXT format
+          currentPanels = JSON.parse(existingLayout.panels || '[]');
         } else {
+          console.warn('Unexpected panels data type:', typeof existingLayout.panels);
           currentPanels = [];
         }
       } catch (error) {
@@ -235,7 +303,7 @@ class PanelLayoutService {
       await db
         .update(panelLayouts)
         .set({
-          panels: JSON.stringify(filteredPanels),
+          panels: filteredPanels, // JSONB handles serialization automatically
           lastUpdated: new Date()
         })
         .where(eq(panelLayouts.projectId, projectId));
@@ -286,12 +354,14 @@ class PanelLayoutService {
 
       let currentPanels = [];
       try {
-        // Check if panels is already an object (JSONB) or needs parsing
-        if (typeof layout.panels === 'string') {
-          currentPanels = JSON.parse(layout.panels || '[]');
-        } else if (Array.isArray(layout.panels)) {
+        // Standardized JSONB parsing - panels should always be an array
+        if (Array.isArray(layout.panels)) {
           currentPanels = layout.panels;
+        } else if (typeof layout.panels === 'string') {
+          // Handle legacy TEXT format
+          currentPanels = JSON.parse(layout.panels || '[]');
         } else {
+          console.warn('Unexpected panels data type:', typeof layout.panels);
           currentPanels = [];
         }
       } catch (error) {
@@ -327,8 +397,8 @@ class PanelLayoutService {
       await db
         .update(panelLayouts)
         .set({
-          panels: JSON.stringify(optimizedPanels),
-          lastUpdated: new Date().toISOString()
+          panels: optimizedPanels, // JSONB handles serialization automatically
+          lastUpdated: new Date()
         })
         .where(eq(panelLayouts.projectId, projectId));
 
@@ -375,25 +445,29 @@ class PanelLayoutService {
     const maxWidth = 1000;
 
     for (const panel of panels) {
+      // Create a copy to avoid mutating the original
+      const optimizedPanel = { ...panel };
+      
       // Check if panel fits in current row
-      if (currentX + panel.width + spacing <= maxWidth) {
-        panel.x = currentX;
-        panel.y = currentY;
-        currentX += panel.width + spacing;
-        maxHeightInRow = Math.max(maxHeightInRow, panel.length);
+      if (currentX + optimizedPanel.width + spacing <= maxWidth) {
+        optimizedPanel.x = currentX;
+        optimizedPanel.y = currentY;
+        currentX += optimizedPanel.width + spacing;
+        maxHeightInRow = Math.max(maxHeightInRow, optimizedPanel.height);
       } else {
         // Move to next row
         currentX = 50;
         currentY += maxHeightInRow + spacing;
         maxHeightInRow = 0;
         
-        panel.x = currentX;
-        panel.y = currentY;
-        currentX += panel.width + spacing;
-        maxHeightInRow = panel.length;
+        optimizedPanel.x = currentX;
+        optimizedPanel.y = currentY;
+        currentX += optimizedPanel.width + spacing;
+        maxHeightInRow = optimizedPanel.height;
       }
       
-      optimized.push(panel);
+      // Preserve rotation and other properties
+      optimized.push(optimizedPanel);
     }
 
     return optimized;
@@ -403,20 +477,20 @@ class PanelLayoutService {
    * Material efficiency optimization
    */
   optimizeMaterialEfficiency(panels) {
-    // Sort by area (largest first) to maximize material usage
-    return panels.sort((a, b) => (b.width * b.length) - (a.width * a.length));
+    // Sort by area (largest first) to maximize material usage, preserving all properties
+    return panels.map(panel => ({ ...panel })).sort((a, b) => (b.width * b.height) - (a.width * a.height));
   }
 
   /**
    * Labor efficiency optimization
    */
   optimizeLaborEfficiency(panels) {
-    // Group similar panels together
+    // Group similar panels together, preserving all properties
     const groups = {};
     panels.forEach(panel => {
-      const key = `${panel.width}x${panel.length}`;
+      const key = `${panel.width}x${panel.height}`;
       if (!groups[key]) groups[key] = [];
-      groups[key].push(panel);
+      groups[key].push({ ...panel }); // Create copy to preserve original
     });
 
     const optimized = [];
@@ -431,7 +505,7 @@ class PanelLayoutService {
    * Balanced optimization
    */
   optimizeBalanced(panels, spacing = 10) {
-    // Combine material and labor efficiency
+    // Combine material and labor efficiency, preserving all properties
     const materialOptimized = this.optimizeMaterialEfficiency(panels);
     return this.optimizeGridLayout(materialOptimized, spacing);
   }

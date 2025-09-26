@@ -402,10 +402,37 @@ router.post('/execute-ai-layout', requireAuth, async (req, res) => {
             break;
 
           case 'MOVE_PANEL':
+            const moveData = action.data || action.payload;
+            
+            // Validate newPosition before moving
+            if (!moveData.newPosition || typeof moveData.newPosition !== 'object') {
+              results.push({ 
+                success: false, 
+                type: 'MOVE_PANEL', 
+                error: 'Invalid newPosition: must be an object',
+                actionId: action.id 
+              });
+              break;
+            }
+            
+            // Validate rotation if present
+            if (moveData.newPosition.rotation !== undefined) {
+              const rotation = moveData.newPosition.rotation;
+              if (typeof rotation !== 'number' || rotation < 0 || rotation >= 360 || !isFinite(rotation)) {
+                results.push({ 
+                  success: false, 
+                  type: 'MOVE_PANEL', 
+                  error: 'Invalid rotation: must be a number between 0 and 360 degrees',
+                  actionId: action.id 
+                });
+                break;
+              }
+            }
+            
             const movedPanel = await panelLayoutService.movePanel(
               projectId, 
-              (action.data || action.payload).panelId, 
-              (action.data || action.payload).newPosition
+              moveData.panelId, 
+              moveData.newPosition
             );
             results.push({ 
               success: true, 
