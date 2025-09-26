@@ -105,7 +105,7 @@ export default function PanelLayoutRefactored() {
     const position = {
       x: updates.x!,
       y: updates.y!,
-      rotation: updates.rotation
+      rotation: updates.rotation || 0
     };
     await updatePanelPosition(panelId, position);
   };

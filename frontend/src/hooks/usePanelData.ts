@@ -23,7 +23,7 @@ interface UsePanelDataReturn {
   isLoading: boolean;
   error: string | null;
   panels: Panel[];
-  updatePanelPosition: (panelId: string, position: { x: number; y: number; rotation?: number }) => Promise<void>;
+  updatePanelPosition: (panelId: string, position: { x: number; y: number; rotation: number }) => Promise<void>;
   addPanel: (panel: Omit<Panel, 'id'>) => Promise<void>;
   removePanel: (panelId: string) => Promise<void>;
   refreshData: () => Promise<void>;
@@ -391,7 +391,7 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
   }, []);
 
   // Atomic panel position update with robust authentication
-  const updatePanelPosition = useCallback(async (panelId: string, position: { x: number; y: number; rotation?: number }) => {
+  const updatePanelPosition = useCallback(async (panelId: string, position: { x: number; y: number; rotation: number }) => {
     // Update local state immediately for responsive UI
     setDataState(prev => {
       if (prev.state !== 'loaded') return prev;
@@ -445,7 +445,11 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
         body: {
           projectId,
           panelId,
-          newPosition: position
+          newPosition: {
+            x: position.x,
+            y: position.y,
+            rotation: position.rotation || 0  // Ensure rotation is always included
+          }
         }
       });
 

@@ -7,7 +7,7 @@ export interface Panel {
   height: number; // World units (feet) - real measurements
   x: number; // World units (feet) - real measurements
   y: number; // World units (feet) - real measurements
-  rotation?: number;
+  rotation: number; // Remove the ? to make it required, default to 0
   isValid: boolean;
   shape?: 'rectangle' | 'right-triangle' | 'patch';
   // Additional panel properties
@@ -60,7 +60,7 @@ export interface PanelDataState {
 export interface PanelPosition {
   x: number;
   y: number;
-  rotation?: number;
+  rotation: number; // Make rotation required
   shape?: 'rectangle' | 'right-triangle' | 'patch';
 }
 
