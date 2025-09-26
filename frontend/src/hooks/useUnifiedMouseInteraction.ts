@@ -74,6 +74,11 @@ export function useUnifiedMouseInteraction({
   onDragEnd,
   enableDebugLogging = false,
 }: UseUnifiedMouseInteractionOptions): UseUnifiedMouseInteractionReturn {
+  
+  // Debug: Log canvasState changes
+  useEffect(() => {
+    console.log('🎯 [CANVAS STATE DEBUG] CanvasState updated:', canvasState);
+  }, [canvasState]);
   // SSR Guard: Return empty functions if running on server
   const isSSR = typeof window === 'undefined';
   
@@ -126,6 +131,7 @@ export function useUnifiedMouseInteraction({
   // Panel hit detection - convert screen coordinates to world coordinates for comparison
   const getPanelAtPosition = useCallback((screenX: number, screenY: number): Panel | null => {
     // Convert screen coordinates to world coordinates
+    // Use the current canvasState from the hook parameter, not the closure
     const worldPos = getWorldCoordinates(screenX, screenY, canvasState);
     
     console.log('🎯 [HIT DETECTION] Screen coords:', { screenX, screenY });
@@ -135,6 +141,17 @@ export function useUnifiedMouseInteraction({
       worldOffsetX: canvasState.worldOffsetX,
       worldOffsetY: canvasState.worldOffsetY
     });
+    
+    // Debug: Manual calculation to verify conversion
+    const manualWorldX = (screenX - canvasState.worldOffsetX) / canvasState.worldScale;
+    const manualWorldY = (screenY - canvasState.worldOffsetY) / canvasState.worldScale;
+    console.log('🎯 [HIT DETECTION] Manual conversion check:', {
+      screenX, screenY,
+      offsetX: canvasState.worldOffsetX, offsetY: canvasState.worldOffsetY,
+      scale: canvasState.worldScale,
+      manualWorld: { x: manualWorldX, y: manualWorldY },
+      functionWorld: worldPos
+    });
     console.log('🎯 [HIT DETECTION] Available panels:', panels.map(p => ({ 
       id: p.id, 
       x: p.x, 
@@ -142,8 +159,23 @@ export function useUnifiedMouseInteraction({
       width: p.width, 
       height: p.height, 
       isValid: p.isValid,
-      panelNumber: p.panelNumber 
+      panelNumber: p.panelNumber,
+      shape: p.shape
     })));
+    
+    console.log('🎯 [HIT DETECTION] Coordinate system analysis:', {
+      clickScreen: { x: screenX, y: screenY },
+      clickWorld: worldPos,
+      canvasState: {
+        worldScale: canvasState.worldScale,
+        worldOffsetX: canvasState.worldOffsetX,
+        worldOffsetY: canvasState.worldOffsetY
+      },
+      conversionFormula: {
+        worldX: `(${screenX} - ${canvasState.worldOffsetX}) / ${canvasState.worldScale} = ${worldPos.x}`,
+        worldY: `(${screenY} - ${canvasState.worldOffsetY}) / ${canvasState.worldScale} = ${worldPos.y}`
+      }
+    });
     
     // Check panels in reverse order (top to bottom)
     for (let i = panels.length - 1; i >= 0; i--) {
@@ -154,11 +186,20 @@ export function useUnifiedMouseInteraction({
         continue;
       }
 
-      // Panels are stored in world coordinates (pixels), so compare with world coordinates
+      // Panels are stored in world coordinates (feet), so we can compare directly with world coordinates
+      // The mouse position has already been converted to world coordinates
       const left = panel.x;
       const right = panel.x + panel.width;
       const top = panel.y;
       const bottom = panel.y + panel.height;
+      
+      console.log('🎯 [HIT DETECTION] Panel bounds calculation:', {
+        panelId: panel.id,
+        panelCoords: { x: panel.x, y: panel.y, width: panel.width, height: panel.height },
+        calculatedBounds: { left, right, top, bottom },
+        worldPos,
+        note: 'Panels are stored in feet, hit detection should work in same units'
+      });
 
       console.log('🎯 [HIT DETECTION] Checking panel:', {
         id: panel.id,
@@ -171,6 +212,12 @@ export function useUnifiedMouseInteraction({
           yInBounds: worldPos.y >= top && worldPos.y <= bottom,
           xCheck: `${worldPos.x} >= ${left} && ${worldPos.x} <= ${right}`,
           yCheck: `${worldPos.y} >= ${top} && ${worldPos.y} <= ${bottom}`
+        },
+        coordinateSystem: {
+          panelUnits: 'feet (world units)',
+          worldPosUnits: 'converted from screen pixels',
+          scale: canvasState.worldScale,
+          offset: { x: canvasState.worldOffsetX, y: canvasState.worldOffsetY }
         }
       });
 
@@ -201,7 +248,8 @@ export function useUnifiedMouseInteraction({
         worldScale: canvasState.worldScale,
         worldOffsetX: canvasState.worldOffsetX,
         worldOffsetY: canvasState.worldOffsetY
-      }
+      },
+      canvasStateObject: canvasState
     });
     
     // Get current mouse state for drag feedback - SAME AS drawSelectionHandles
