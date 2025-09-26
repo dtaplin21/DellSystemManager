@@ -203,7 +203,11 @@ export function useUnifiedMouseInteraction({
     }
     
     // Convert panel world coordinates to screen coordinates - using drawX/drawY
-    const screenPos = getScreenCoordinates(drawX, drawY);
+    // The canvas has transformations applied, so we need to account for them
+    const screenPos = {
+      x: drawX * canvasState.worldScale + canvasState.worldOffsetX,
+      y: drawY * canvasState.worldScale + canvasState.worldOffsetY
+    };
     const screenWidth = panel.width * canvasState.worldScale;
     const screenHeight = panel.height * canvasState.worldScale;
     
@@ -429,30 +433,36 @@ export function useUnifiedMouseInteraction({
       });
     }
 
+    // Convert world coordinates to screen coordinates for handles
+    const screenPos = {
+      x: drawX * canvasState.worldScale + canvasState.worldOffsetX,
+      y: drawY * canvasState.worldScale + canvasState.worldOffsetY
+    };
+    const screenWidth = panel.width * canvasState.worldScale;
+    const screenHeight = panel.height * canvasState.worldScale;
+
     const handleSize = 8;
-    const worldWidth = panel.width;
-    const worldHeight = panel.height;
     
-    // Generate handles based on panel shape - using drawX/drawY instead of panel.x/panel.y
+    // Generate handles based on panel shape - using screen coordinates
     let handles: Array<{ x: number; y: number; cursor: string }> = [];
     
     switch (panel.shape) {
       case 'right-triangle':
         // Right triangle handles: corners and midpoints
         handles = [
-          { x: drawX, y: drawY, cursor: 'nw-resize' }, // Top left
-          { x: drawX + worldWidth, y: drawY, cursor: 'ne-resize' }, // Top right
-          { x: drawX, y: drawY + worldHeight, cursor: 'sw-resize' }, // Bottom left (right angle)
-          { x: drawX + worldWidth / 2, y: drawY, cursor: 'n-resize' }, // Top mid
-          { x: drawX, y: drawY + worldHeight / 2, cursor: 'w-resize' } // Left mid
+          { x: screenPos.x, y: screenPos.y, cursor: 'nw-resize' }, // Top left
+          { x: screenPos.x + screenWidth, y: screenPos.y, cursor: 'ne-resize' }, // Top right
+          { x: screenPos.x, y: screenPos.y + screenHeight, cursor: 'sw-resize' }, // Bottom left (right angle)
+          { x: screenPos.x + screenWidth / 2, y: screenPos.y, cursor: 'n-resize' }, // Top mid
+          { x: screenPos.x, y: screenPos.y + screenHeight / 2, cursor: 'w-resize' } // Left mid
         ];
         break;
         
       case 'patch':
         // Circle handles: 8 points around the circle
-        const radius = worldWidth / 2;
-        const centerX = drawX + radius;
-        const centerY = drawY + radius;
+        const radius = screenWidth / 2;
+        const centerX = screenPos.x + radius;
+        const centerY = screenPos.y + radius;
         handles = [
           { x: centerX, y: centerY - radius, cursor: 'n-resize' }, // Top
           { x: centerX + radius * 0.707, y: centerY - radius * 0.707, cursor: 'ne-resize' }, // Top right
@@ -469,14 +479,14 @@ export function useUnifiedMouseInteraction({
       default:
         // Rectangle handles: all corners and midpoints
         handles = [
-          { x: drawX, y: drawY, cursor: 'nw-resize' },
-          { x: drawX + worldWidth / 2, y: drawY, cursor: 'n-resize' },
-          { x: drawX + worldWidth, y: drawY, cursor: 'ne-resize' },
-          { x: drawX + worldWidth, y: drawY + worldHeight / 2, cursor: 'e-resize' },
-          { x: drawX + worldWidth, y: drawY + worldHeight, cursor: 'se-resize' },
-          { x: drawX + worldWidth / 2, y: drawY + worldHeight, cursor: 's-resize' },
-          { x: drawX, y: drawY + worldHeight, cursor: 'sw-resize' },
-          { x: drawX, y: drawY + worldHeight / 2, cursor: 'w-resize' }
+          { x: screenPos.x, y: screenPos.y, cursor: 'nw-resize' },
+          { x: screenPos.x + screenWidth / 2, y: screenPos.y, cursor: 'n-resize' },
+          { x: screenPos.x + screenWidth, y: screenPos.y, cursor: 'ne-resize' },
+          { x: screenPos.x + screenWidth, y: screenPos.y + screenHeight / 2, cursor: 'e-resize' },
+          { x: screenPos.x + screenWidth, y: screenPos.y + screenHeight, cursor: 'se-resize' },
+          { x: screenPos.x + screenWidth / 2, y: screenPos.y + screenHeight, cursor: 's-resize' },
+          { x: screenPos.x, y: screenPos.y + screenHeight, cursor: 'sw-resize' },
+          { x: screenPos.x, y: screenPos.y + screenHeight / 2, cursor: 'w-resize' }
         ];
         break;
     }
@@ -490,37 +500,38 @@ export function useUnifiedMouseInteraction({
       ctx.strokeRect(handle.x - handleSize / 2, handle.y - handleSize / 2, handleSize, handleSize);
     });
     
-    // Draw rotation handle - position based on shape using drawX/drawY
+    // Draw rotation handle - position based on shape using screen coordinates
     let rotationHandleX: number;
     let rotationHandleY: number;
     
     switch (panel.shape) {
       case 'right-triangle':
         // For right triangle, place rotation handle above the top edge center
-        rotationHandleX = drawX + worldWidth / 2;
-        rotationHandleY = drawY - 30;
+        rotationHandleX = screenPos.x + screenWidth / 2;
+        rotationHandleY = screenPos.y - 30;
         break;
         
       case 'patch':
         // For circle, place rotation handle above the circle center
-        const circleRadius = worldWidth / 2;
-        rotationHandleX = drawX + circleRadius;
-        rotationHandleY = drawY + circleRadius - 30;
+        const circleRadius = screenWidth / 2;
+        rotationHandleX = screenPos.x + circleRadius;
+        rotationHandleY = screenPos.y + circleRadius - 30;
         break;
         
       case 'rectangle':
       default:
         // For rectangle, place rotation handle above the top edge center
-        rotationHandleX = drawX + worldWidth / 2;
-        rotationHandleY = drawY - 30;
+        rotationHandleX = screenPos.x + screenWidth / 2;
+        rotationHandleY = screenPos.y - 30;
         break;
     }
     
     console.log('🎯 [ROTATION HANDLE DEBUG] Drawing rotation handle at:', {
       x: rotationHandleX,
       y: rotationHandleY,
-      drawX,
-      drawY,
+      screenPos,
+      screenWidth,
+      screenHeight,
       handleSize
     });
     
@@ -532,7 +543,7 @@ export function useUnifiedMouseInteraction({
     ctx.strokeRect(rotationHandleX - handleSize / 2, rotationHandleY - handleSize / 2, handleSize, handleSize);
     
     console.log('🎯 [ROTATION HANDLE DEBUG] Rotation handle drawn successfully');
-  }, []);
+  }, [canvasState.worldScale, canvasState.worldOffsetX, canvasState.worldOffsetY]);
 
   // Canvas rendering function - simplified for unified coordinates
   const render = useCallback(() => {
@@ -580,7 +591,10 @@ export function useUnifiedMouseInteraction({
       }
     });
 
-    // Draw selection handles for selected panel
+    // Restore transformations
+    ctx.restore();
+
+    // Draw selection handles for selected panel - AFTER transformations are restored (screen coordinates)
     const selectedPanel = panels.find(p => p.id === mouseStateRef.current.selectedPanelId);
     if (selectedPanel && selectedPanel.isValid) {
       console.log('🎯 [ROTATION HANDLE DEBUG] Drawing selection handles for selected panel:', {
@@ -594,9 +608,6 @@ export function useUnifiedMouseInteraction({
         selectedPanel: selectedPanel
       });
     }
-
-    // Restore transformations
-    ctx.restore();
 
     logRef.current('Canvas rendered', { 
       panelCount: panels.length, 
