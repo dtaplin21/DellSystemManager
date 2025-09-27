@@ -189,37 +189,35 @@ export function useOptimizedRendering({
     }
     ctx.lineWidth = Math.max(0.5, 2 / scale);
     
+    // Apply rotation for all shapes
+    const rotation = (panel.rotation || 0) * Math.PI / 180;
+    const centerX = panel.x + panel.width / 2;
+    const centerY = panel.y + panel.height / 2;
+    
+    // Save the current transformation state
+    ctx.save();
+    
+    // Apply rotation transformation
+    ctx.translate(centerX, centerY);
+    ctx.rotate(rotation);
+    ctx.translate(-panel.width / 2, -panel.height / 2);
+    
     // Draw different shapes based on panel.shape
     switch (panel.shape) {
       case 'right-triangle':
         ctx.beginPath();
         
-        // Calculate center point for rotation
-        const triangleCenterX = panel.x + panel.width / 2
-        const triangleCenterY = panel.y + panel.height / 2
-        
-        // Define triangle points relative to center
+        // Define triangle points relative to origin (after translation)
         const points = [
-          { x: -panel.width / 2, y: -panel.height / 2 }, // Top left
-          { x: panel.width / 2, y: -panel.height / 2 },  // Top right
-          { x: -panel.width / 2, y: panel.height / 2 }   // Bottom left (right angle)
+          { x: 0, y: 0 }, // Top left
+          { x: panel.width, y: 0 },  // Top right
+          { x: 0, y: panel.height }   // Bottom left (right angle)
         ]
         
-        // Apply rotation
-        const rotation = (panel.rotation || 0) * Math.PI / 180
-        const cos = Math.cos(rotation)
-        const sin = Math.sin(rotation)
-        
-        // Rotate and translate points
-        const rotatedPoints = points.map(point => ({
-          x: triangleCenterX + (point.x * cos - point.y * sin),
-          y: triangleCenterY + (point.x * sin + point.y * cos)
-        }))
-        
-        // Draw rotated triangle
-        ctx.moveTo(rotatedPoints[0].x, rotatedPoints[0].y)
-        ctx.lineTo(rotatedPoints[1].x, rotatedPoints[1].y)
-        ctx.lineTo(rotatedPoints[2].x, rotatedPoints[2].y)
+        // Draw triangle
+        ctx.moveTo(points[0].x, points[0].y)
+        ctx.lineTo(points[1].x, points[1].y)
+        ctx.lineTo(points[2].x, points[2].y)
         ctx.closePath()
         ctx.fill()
         ctx.stroke()
@@ -228,8 +226,8 @@ export function useOptimizedRendering({
       case 'patch':
         // Draw circle - use width as diameter for consistent sizing
         const radius = panel.width / 2;
-        const circleCenterX = panel.x + radius;
-        const circleCenterY = panel.y + radius;
+        const circleCenterX = panel.width / 2;
+        const circleCenterY = panel.height / 2;
         ctx.beginPath();
         ctx.arc(circleCenterX, circleCenterY, radius, 0, 2 * Math.PI);
         ctx.fill();
@@ -239,10 +237,13 @@ export function useOptimizedRendering({
       case 'rectangle':
       default:
         // Draw rectangle (default)
-        ctx.fillRect(panel.x, panel.y, panel.width, panel.height);
-        ctx.strokeRect(panel.x, panel.y, panel.width, panel.height);
+        ctx.fillRect(0, 0, panel.width, panel.height);
+        ctx.strokeRect(0, 0, panel.width, panel.height);
         break;
     }
+    
+    // Restore the transformation state
+    ctx.restore();
     
     // Panel label (only if panel is large enough)
     const minSizeForLabel = 20 / scale; // 20 feet minimum for label

@@ -196,28 +196,17 @@ export function useCanvas({
       case 'right-triangle':
         ctx.beginPath();
         
-        // Define triangle points relative to center
+        // Define triangle points relative to origin (rotation already applied via canvas transform)
         const points = [
-          { x: -width / 2, y: -height / 2 }, // Top left
-          { x: width / 2, y: -height / 2 },  // Top right
-          { x: -width / 2, y: height / 2 }   // Bottom left (right angle)
+          { x: 0, y: 0 }, // Top left
+          { x: width, y: 0 },  // Top right
+          { x: 0, y: height }   // Bottom left (right angle)
         ]
         
-        // Apply rotation
-        const rotation = (panel.rotation || 0) * Math.PI / 180
-        const cos = Math.cos(rotation)
-        const sin = Math.sin(rotation)
-        
-        // Rotate points
-        const rotatedPoints = points.map(point => ({
-          x: (point.x * cos - point.y * sin),
-          y: (point.x * sin + point.y * cos)
-        }))
-        
-        // Draw rotated triangle
-        ctx.moveTo(rotatedPoints[0].x, rotatedPoints[0].y)
-        ctx.lineTo(rotatedPoints[1].x, rotatedPoints[1].y)
-        ctx.lineTo(rotatedPoints[2].x, rotatedPoints[2].y)
+        // Draw triangle (rotation already applied via canvas transform)
+        ctx.moveTo(points[0].x, points[0].y)
+        ctx.lineTo(points[1].x, points[1].y)
+        ctx.lineTo(points[2].x, points[2].y)
         ctx.closePath()
         ctx.fill()
         ctx.stroke();

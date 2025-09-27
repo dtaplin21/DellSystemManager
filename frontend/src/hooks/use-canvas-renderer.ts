@@ -120,12 +120,13 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
     
     // Apply panel transformations in screen coordinates
     // No need to translate to world coordinates since we already converted to screen coordinates
+    const panelCenterX = screenPos.x + screenWidth / 2;
+    const panelCenterY = screenPos.y + screenHeight / 2;
+    
     if (panel.rotation && panel.rotation !== 0) {
-      const centerX = screenPos.x + screenWidth / 2;
-      const centerY = screenPos.y + screenHeight / 2;
-      ctx.translate(centerX, centerY);
+      ctx.translate(panelCenterX, panelCenterY);
       ctx.rotate((panel.rotation * Math.PI) / 180);
-      ctx.translate(-centerX, -centerY);
+      ctx.translate(-panelCenterX, -panelCenterY);
     }
     
     // Draw panel based on shape
@@ -143,32 +144,17 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
       case 'right-triangle':
         ctx.beginPath()
         
-        // Calculate center point for rotation
-        const triangleCenterX = screenPos.x + screenWidth / 2
-        const triangleCenterY = screenPos.y + screenHeight / 2
-        
-        // Define triangle points relative to center
+        // Define triangle points relative to center (rotation already applied via canvas transform)
         const points = [
           { x: -screenWidth / 2, y: -screenHeight / 2 }, // Top left
           { x: screenWidth / 2, y: -screenHeight / 2 },  // Top right  
           { x: -screenWidth / 2, y: screenHeight / 2 }   // Bottom left (right angle)
         ]
         
-        // Apply rotation
-        const rotation = (panel.rotation || 0) * Math.PI / 180
-        const cos = Math.cos(rotation)
-        const sin = Math.sin(rotation)
-        
-        // Rotate and translate points
-        const rotatedPoints = points.map(point => ({
-          x: triangleCenterX + (point.x * cos - point.y * sin),
-          y: triangleCenterY + (point.x * sin + point.y * cos)
-        }))
-        
-        // Draw rotated triangle
-        ctx.moveTo(rotatedPoints[0].x, rotatedPoints[0].y)
-        ctx.lineTo(rotatedPoints[1].x, rotatedPoints[1].y)
-        ctx.lineTo(rotatedPoints[2].x, rotatedPoints[2].y)
+        // Draw triangle (rotation already applied via canvas transform)
+        ctx.moveTo(panelCenterX + points[0].x, panelCenterY + points[0].y)
+        ctx.lineTo(panelCenterX + points[1].x, panelCenterY + points[1].y)
+        ctx.lineTo(panelCenterX + points[2].x, panelCenterY + points[2].y)
         ctx.closePath()
         ctx.fill()
         ctx.stroke()
@@ -177,19 +163,17 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
       case 'patch':
         // Draw circle - use width as diameter for consistent sizing
         const radius = screenWidth / 2
-        const circleCenterX = screenPos.x + radius
-        const circleCenterY = screenPos.y + radius
         ctx.beginPath()
-        ctx.arc(circleCenterX, circleCenterY, radius, 0, 2 * Math.PI)
+        ctx.arc(panelCenterX, panelCenterY, radius, 0, 2 * Math.PI)
         ctx.fill()
         ctx.stroke()
         break
         
       case 'rectangle':
       default:
-        // Draw rectangle (default)
-        ctx.fillRect(screenPos.x, screenPos.y, screenWidth, screenHeight)
-        ctx.strokeRect(screenPos.x, screenPos.y, screenWidth, screenHeight)
+        // Draw rectangle (default) - centered
+        ctx.fillRect(panelCenterX - screenWidth / 2, panelCenterY - screenHeight / 2, screenWidth, screenHeight)
+        ctx.strokeRect(panelCenterX - screenWidth / 2, panelCenterY - screenHeight / 2, screenWidth, screenHeight)
         break
     }
     
@@ -199,22 +183,19 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     
-    const centerX = screenPos.x + screenWidth / 2
-    const centerY = screenPos.y + screenHeight / 2
-    
     if (panel.panelNumber) {
-      ctx.fillText(panel.panelNumber.toString(), centerX, centerY - 10)
+      ctx.fillText(panel.panelNumber.toString(), panelCenterX, panelCenterY - 10)
     }
     
     if (panel.rollNumber) {
-      ctx.fillText(panel.rollNumber.toString(), centerX, centerY + 10)
+      ctx.fillText(panel.rollNumber.toString(), panelCenterX, panelCenterY + 10)
     }
     
     // Draw panel dimensions label
     const dimensionsText = `${panel.width.toFixed(0)}' × ${panel.height.toFixed(0)}'`;
     ctx.fillStyle = '#ffffff'
     ctx.font = `${Math.max(10, 14)}px Arial`
-    ctx.fillText(dimensionsText, centerX, centerY + 25)
+    ctx.fillText(dimensionsText, panelCenterX, panelCenterY + 25)
     
     ctx.restore()
   }, [isValidPanel, getPanelValidationErrors, worldToScreen, getCurrentCanvas])
