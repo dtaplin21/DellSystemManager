@@ -13,6 +13,7 @@ interface MouseState {
   lastMouseX: number;
   lastMouseY: number;
   rotationStartAngle?: number; // Initial angle when rotation starts
+  originalRotation?: number; // Original rotation when rotation starts (prevents drift)
 }
 
 interface CanvasState {
@@ -785,6 +786,7 @@ export function useUnifiedMouseInteraction({
           lastMouseX: screenX,
           lastMouseY: screenY,
           rotationStartAngle: initialAngle,
+          originalRotation: panel.rotation || 0, // Store original rotation to prevent drift
         };
         
         // Also select the panel for visual feedback
@@ -985,13 +987,10 @@ export function useUnifiedMouseInteraction({
       const rotationDeltaDegrees = angleDelta * (180 / Math.PI);
       
       // Apply rotation delta to the original rotation (stored when rotation started)
-      const originalRotation = panel.rotation || 0;
+      const originalRotation = currentState.originalRotation || 0; // Use stored original rotation
       let newRotation = originalRotation + rotationDeltaDegrees;
       
-      // Snap to 15-degree increments for better UX
-      newRotation = Math.round(newRotation / 15) * 15;
-      
-      // Normalize to 0-360 range
+      // Normalize to 0-360 range (no snapping during mouse move for smooth rotation)
       while (newRotation < 0) newRotation += 360;
       while (newRotation >= 360) newRotation -= 360;
       
@@ -1004,9 +1003,20 @@ export function useUnifiedMouseInteraction({
         newRotation
       });
       
-      // Only update if rotation changed significantly
-      if (Math.abs(newRotation - (panel.rotation || 0)) > 0.1) {
-        onPanelUpdate(panel.id, { rotation: newRotation });
+      // Throttle rotation updates to prevent excessive API calls
+      const now = performance.now();
+      if (now - lastRotationUpdateRef.current > ROTATION_THROTTLE_MS) {
+        lastRotationUpdateRef.current = now;
+        
+        // Only update if rotation changed significantly
+        if (Math.abs(newRotation - (panel.rotation || 0)) > 0.1) {
+          // Send complete position data (CRITICAL FIX)
+          onPanelUpdate(panel.id, { 
+            x: panel.x,
+            y: panel.y,
+            rotation: newRotation 
+          });
+        }
       }
       
       logRef.current('Rotating panel', { 
@@ -1095,17 +1105,30 @@ export function useUnifiedMouseInteraction({
       // Find the panel being rotated
       const panel = panels.find(p => p.id === currentState.selectedPanelId);
       if (panel) {
-        console.log('🎯 [ROTATION DEBUG] Final rotation committed:', {
+        // Apply 15-degree snapping to final rotation
+        let finalRotation = panel.rotation || 0;
+        finalRotation = Math.round(finalRotation / 15) * 15;
+        
+        // Normalize to 0-360 range
+        while (finalRotation < 0) finalRotation += 360;
+        while (finalRotation >= 360) finalRotation -= 360;
+        
+        console.log('🎯 [ROTATION DEBUG] Final rotation with snapping:', {
           panelId: panel.id,
-          finalRotation: panel.rotation || 0
+          originalRotation: panel.rotation || 0,
+          snappedRotation: finalRotation
         });
         
-        // The rotation should already be committed via onPanelUpdate calls during mouse move
-        // But we can do a final update here if needed to ensure it's saved
+        // Commit the snapped rotation with complete position data
+        await onPanelUpdate(panel.id, {
+          x: panel.x,
+          y: panel.y,
+          rotation: finalRotation
+        });
         
         logRef.current('Finished rotating panel', { 
           panelId: currentState.selectedPanelId,
-          finalRotation: panel.rotation || 0,
+          finalRotation: finalRotation,
           duration: clickDuration 
         });
       }
@@ -1125,6 +1148,10 @@ export function useUnifiedMouseInteraction({
   const zoomThrottleRef = useRef<number>();
   const lastZoomTimeRef = useRef<number>(0);
   const ZOOM_THROTTLE_MS = 16; // ~60fps
+  
+  // Throttle rotation updates to prevent excessive API calls
+  const lastRotationUpdateRef = useRef<number>(0);
+  const ROTATION_THROTTLE_MS = 50; // Update every 50ms max
 
   // Mouse wheel handler for zooming - throttled to prevent excessive updates
   const handleWheel = useCallback((event: WheelEvent) => {
