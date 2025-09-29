@@ -46,15 +46,28 @@ class ApiClient {
         try {
           const token = await authManager.getValidToken();
           headers['Authorization'] = `Bearer ${token}`;
+          console.log('🔐 [API CLIENT] Auth token added to request:', {
+            tokenPreview: token.substring(0, 20) + '...',
+            tokenLength: token.length,
+            endpoint: endpoint
+          });
         } catch (authError) {
+          console.error('🔐 [API CLIENT] Auth token failed:', authError);
           const error = new Error('Authentication required. Please log in.') as ApiError;
           error.isAuthError = true;
           error.status = 401;
           throw error;
         }
+      } else {
+        console.log('🔐 [API CLIENT] No auth required for endpoint:', endpoint);
       }
 
       console.log(`API Request: ${method} ${this.baseUrl}${endpoint}`);
+      console.log('🔐 [API CLIENT] Request headers:', {
+        contentType: headers['Content-Type'],
+        authorization: headers['Authorization'] ? 'Present' : 'Missing',
+        authPreview: headers['Authorization'] ? headers['Authorization'].substring(0, 20) + '...' : 'None'
+      });
       
       const response = await fetch(`${this.baseUrl}${endpoint}`, {
         method,

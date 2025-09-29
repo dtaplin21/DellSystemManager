@@ -11,6 +11,16 @@ const auth = async (req, res, next) => {
       userAgent: req.headers?.['user-agent']?.substring(0, 50) + '...'
     });
     
+    // Enhanced debugging for authorization header
+    if (req.headers?.authorization) {
+      console.log('🔐 [AUTH] Authorization header details:', {
+        fullHeader: req.headers.authorization,
+        headerLength: req.headers.authorization.length,
+        startsWithBearer: req.headers.authorization.startsWith('Bearer '),
+        tokenPart: req.headers.authorization.replace('Bearer ', '').substring(0, 20) + '...'
+      });
+    }
+    
     // Only check Authorization header for Supabase tokens
     let token = null;
     
@@ -32,7 +42,14 @@ const auth = async (req, res, next) => {
     console.log('🔍 [AUTH] Token length:', token.length);
 
     // Verify the token with Supabase using server-side client
+    console.log('🔍 [AUTH] Calling supabase.auth.getUser()...');
     const { data: { user: supabaseUser }, error } = await supabase.auth.getUser(token);
+    console.log('🔍 [AUTH] Supabase auth response:', {
+      hasUser: !!supabaseUser,
+      hasError: !!error,
+      errorMessage: error?.message,
+      userId: supabaseUser?.id
+    });
     
     if (error) {
       console.log('❌ Invalid Supabase token:', error.message);

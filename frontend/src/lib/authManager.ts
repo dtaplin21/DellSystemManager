@@ -63,9 +63,20 @@ class AuthManager {
   // Get valid token with automatic refresh
   async getValidToken(): Promise<string> {
     try {
+      console.log('🔐 [AUTH MANAGER] Getting valid token...');
       const { data: { session }, error } = await getSupabase().auth.getSession();
       
+      console.log('🔐 [AUTH MANAGER] Session check result:', {
+        hasSession: !!session,
+        hasError: !!error,
+        errorMessage: error?.message,
+        hasAccessToken: !!session?.access_token,
+        tokenLength: session?.access_token?.length,
+        tokenPreview: session?.access_token?.substring(0, 20) + '...'
+      });
+      
       if (error || !session) {
+        console.error('🔐 [AUTH MANAGER] No valid session:', error?.message);
         throw new Error('No valid session. Please log in.');
       }
 
@@ -74,11 +85,18 @@ class AuthManager {
       const now = Date.now();
       const fiveMinutes = 5 * 60 * 1000;
 
+      console.log('🔐 [AUTH MANAGER] Token expiration check:', {
+        expiresAt: expiresAt ? new Date(expiresAt).toISOString() : 'No expiration',
+        now: new Date(now).toISOString(),
+        expiresSoon: expiresAt ? (expiresAt - now < fiveMinutes) : false
+      });
+
       if (expiresAt && expiresAt - now < fiveMinutes) {
-        console.log('Token expires soon, refreshing...');
+        console.log('🔐 [AUTH MANAGER] Token expires soon, refreshing...');
         return await this.refreshToken();
       }
 
+      console.log('🔐 [AUTH MANAGER] Returning valid token:', session.access_token.substring(0, 20) + '...');
       return session.access_token;
     } catch (error) {
       console.error('Error getting valid token:', error);
