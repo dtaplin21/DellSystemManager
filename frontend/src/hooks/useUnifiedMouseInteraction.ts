@@ -410,62 +410,7 @@ export function useUnifiedMouseInteraction({
     // Convert handle size from screen pixels to world units
     const handleSizeWorld = 16 / canvasState.worldScale; // 16 pixels in world units
     
-    // Generate handles based on panel shape - using world coordinates
-    let handles: Array<{ x: number; y: number; cursor: string }> = [];
-    
-    switch (panel.shape) {
-      case 'right-triangle':
-        // Right triangle handles: corners and midpoints
-        handles = [
-          { x: drawX, y: drawY, cursor: 'nw-resize' }, // Top left
-          { x: drawX + panel.width, y: drawY, cursor: 'ne-resize' }, // Top right
-          { x: drawX, y: drawY + panel.height, cursor: 'sw-resize' }, // Bottom left (right angle)
-          { x: drawX + panel.width / 2, y: drawY, cursor: 'n-resize' }, // Top mid
-          { x: drawX, y: drawY + panel.height / 2, cursor: 'w-resize' } // Left mid
-        ];
-        break;
-        
-      case 'patch':
-        // Circle handles: 8 points around the circle
-        const radius = panel.width / 2;
-        const centerX = drawX + radius;
-        const centerY = drawY + radius;
-        handles = [
-          { x: centerX, y: centerY - radius, cursor: 'n-resize' }, // Top
-          { x: centerX + radius * 0.707, y: centerY - radius * 0.707, cursor: 'ne-resize' }, // Top right
-          { x: centerX + radius, y: centerY, cursor: 'e-resize' }, // Right
-          { x: centerX + radius * 0.707, y: centerY + radius * 0.707, cursor: 'se-resize' }, // Bottom right
-          { x: centerX, y: centerY + radius, cursor: 's-resize' }, // Bottom
-          { x: centerX - radius * 0.707, y: centerY + radius * 0.707, cursor: 'sw-resize' }, // Bottom left
-          { x: centerX - radius, y: centerY, cursor: 'w-resize' }, // Left
-          { x: centerX - radius * 0.707, y: centerY - radius * 0.707, cursor: 'nw-resize' } // Top left
-        ];
-        break;
-        
-      case 'rectangle':
-      default:
-        // Rectangle handles: all corners and midpoints
-        handles = [
-          { x: drawX, y: drawY, cursor: 'nw-resize' },
-          { x: drawX + panel.width / 2, y: drawY, cursor: 'n-resize' },
-          { x: drawX + panel.width, y: drawY, cursor: 'ne-resize' },
-          { x: drawX + panel.width, y: drawY + panel.height / 2, cursor: 'e-resize' },
-          { x: drawX + panel.width, y: drawY + panel.height, cursor: 'se-resize' },
-          { x: drawX + panel.width / 2, y: drawY + panel.height, cursor: 's-resize' },
-          { x: drawX, y: drawY + panel.height, cursor: 'sw-resize' },
-          { x: drawX, y: drawY + panel.height / 2, cursor: 'w-resize' }
-        ];
-        break;
-    }
-    
-    // Draw resize handles (in world coordinates)
-    handles.forEach(handle => {
-      ctx.fillStyle = '#f59e0b';
-      ctx.fillRect(handle.x - handleSizeWorld / 2, handle.y - handleSizeWorld / 2, handleSizeWorld, handleSizeWorld);
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 1 / canvasState.worldScale; // Scale line width
-      ctx.strokeRect(handle.x - handleSizeWorld / 2, handle.y - handleSizeWorld / 2, handleSizeWorld, handleSizeWorld);
-    });
+    // Orange resize handles removed - only rotation handle remains
     
     // Draw rotation handle - ALWAYS use original panel position (not drag position)
     // Use world coordinates for consistency
@@ -499,37 +444,12 @@ export function useUnifiedMouseInteraction({
         break;
     }
     
-    console.log('🎯 [ROTATION HANDLE DEBUG] Drawing rotation handle at (world coords):', {
-      x: rotationHandleWorldX,
-      y: rotationHandleWorldY,
-      originalPanelWorldCoords: { x: originalPanelWorldX, y: originalPanelWorldY, width: originalPanelWorldWidth, height: originalPanelWorldHeight },
-      dragPanelWorldCoords: { x: drawX, y: drawY, width: panel.width, height: panel.height },
-      handleSizeWorld,
-      panelShape: panel.shape,
-      canvasState: {
-        worldScale: canvasState.worldScale,
-        worldOffsetX: canvasState.worldOffsetX,
-        worldOffsetY: canvasState.worldOffsetY
-      }
-    });
-    
     // Draw rotation handle (green square) in world coordinates
     ctx.fillStyle = '#10b981';
     ctx.fillRect(rotationHandleWorldX - handleSizeWorld / 2, rotationHandleWorldY - handleSizeWorld / 2, handleSizeWorld, handleSizeWorld);
     ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 1 / canvasState.worldScale; // Scale line width
+    ctx.lineWidth = 1 / canvasState.worldScale;
     ctx.strokeRect(rotationHandleWorldX - handleSizeWorld / 2, rotationHandleWorldY - handleSizeWorld / 2, handleSizeWorld, handleSizeWorld);
-    
-    // DEBUG: Draw handle bounds outline for visual debugging
-    ctx.strokeStyle = '#ff0000'; // Red outline
-    ctx.lineWidth = 2 / canvasState.worldScale;
-    ctx.strokeRect(rotationHandleWorldX - handleSizeWorld / 2, rotationHandleWorldY - handleSizeWorld / 2, handleSizeWorld, handleSizeWorld);
-    
-    // DEBUG: Draw center point
-    ctx.fillStyle = '#ff0000';
-    ctx.fillRect(rotationHandleWorldX - 1 / canvasState.worldScale, rotationHandleWorldY - 1 / canvasState.worldScale, 2 / canvasState.worldScale, 2 / canvasState.worldScale);
-    
-    console.log('🎯 [ROTATION HANDLE DEBUG] Rotation handle drawn successfully (world coords)');
   }, [canvasState]);
 
   // Canvas rendering function - simplified for unified coordinates

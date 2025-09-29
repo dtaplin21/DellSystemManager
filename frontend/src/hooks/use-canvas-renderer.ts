@@ -216,64 +216,15 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
     }
     
     // Convert world coordinates to screen coordinates
-    // Use dynamic state if available, otherwise fall back to canvasState
     const currentCanvasState = getCanvasState ? getCanvasState() : canvasState;
     const worldScale = getWorldDimensions ? getWorldDimensions().worldScale : currentCanvasState.worldScale;
     const screenPos = worldToScreen(panel.x, panel.y, worldScale, currentCanvasState.scale, currentCanvasState.offsetX, currentCanvasState.offsetY);
     const screenWidth = panel.width * worldScale * currentCanvasState.scale;
     const screenHeight = panel.height * worldScale * currentCanvasState.scale;
     
-    const handleSize = 8
+    const handleSize = 8;
     
-    // Generate handles based on panel shape
-    let handles: Array<{ x: number; y: number; cursor: string }> = [];
-    
-    switch (panel.shape) {
-      case 'right-triangle':
-        // Right triangle handles: corners and midpoints
-        handles = [
-          { x: screenPos.x, y: screenPos.y, cursor: 'nw-resize' }, // Top left
-          { x: screenPos.x + screenWidth, y: screenPos.y, cursor: 'ne-resize' }, // Top right
-          { x: screenPos.x, y: screenPos.y + screenHeight, cursor: 'sw-resize' }, // Bottom left (right angle)
-          { x: screenPos.x + screenWidth / 2, y: screenPos.y, cursor: 'n-resize' }, // Top mid
-          { x: screenPos.x, y: screenPos.y + screenHeight / 2, cursor: 'w-resize' } // Left mid
-        ];
-        break;
-        
-      case 'patch':
-        // Circle handles: 8 points around the circle
-        const radius = screenWidth / 2
-        const centerX = screenPos.x + radius
-        const centerY = screenPos.y + radius
-        handles = [
-          { x: centerX, y: centerY - radius, cursor: 'n-resize' }, // Top
-          { x: centerX + radius * 0.707, y: centerY - radius * 0.707, cursor: 'ne-resize' }, // Top right
-          { x: centerX + radius, y: centerY, cursor: 'e-resize' }, // Right
-          { x: centerX + radius * 0.707, y: centerY + radius * 0.707, cursor: 'se-resize' }, // Bottom right
-          { x: centerX, y: centerY + radius, cursor: 's-resize' }, // Bottom
-          { x: centerX - radius * 0.707, y: centerY + radius * 0.707, cursor: 'sw-resize' }, // Bottom left
-          { x: centerX - radius, y: centerY, cursor: 'w-resize' }, // Left
-          { x: centerX - radius * 0.707, y: centerY - radius * 0.707, cursor: 'nw-resize' } // Top left
-        ];
-        break;
-        
-      case 'rectangle':
-      default:
-        // Rectangle handles: all corners and midpoints
-        handles = [
-          { x: screenPos.x, y: screenPos.y, cursor: 'nw-resize' },
-          { x: screenPos.x + screenWidth / 2, y: screenPos.y, cursor: 'n-resize' },
-          { x: screenPos.x + screenWidth, y: screenPos.y, cursor: 'ne-resize' },
-          { x: screenPos.x + screenWidth, y: screenPos.y + screenHeight / 2, cursor: 'e-resize' },
-          { x: screenPos.x + screenWidth, y: screenPos.y + screenHeight, cursor: 'se-resize' },
-          { x: screenPos.x + screenWidth / 2, y: screenPos.y + screenHeight, cursor: 's-resize' },
-          { x: screenPos.x, y: screenPos.y + screenHeight, cursor: 'sw-resize' },
-          { x: screenPos.x, y: screenPos.y + screenHeight / 2, cursor: 'w-resize' }
-        ];
-        break;
-    }
-    
-    ctx.save()
+    ctx.save();
     
     // Apply rotation if needed
     if (panel.rotation && panel.rotation !== 0) {
@@ -284,27 +235,17 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
       ctx.translate(-centerX, -centerY);
     }
     
-    handles.forEach(handle => {
-      ctx.fillStyle = '#f59e0b'
-      ctx.fillRect(handle.x - handleSize / 2, handle.y - handleSize / 2, handleSize, handleSize)
-      ctx.strokeStyle = '#ffffff'
-      ctx.lineWidth = 1
-      ctx.strokeRect(handle.x - handleSize / 2, handle.y - handleSize / 2, handleSize, handleSize)
-    })
-    
-    // Draw rotation handle - position based on shape
+    // Draw rotation handle only - position based on shape
     let rotationHandleX: number;
     let rotationHandleY: number;
     
     switch (panel.shape) {
       case 'right-triangle':
-        // For right triangle, place rotation handle above the top edge center
         rotationHandleX = screenPos.x + screenWidth / 2;
         rotationHandleY = screenPos.y - 30;
         break;
         
       case 'patch':
-        // For circle, place rotation handle above the circle center
         const circleRadius = screenWidth / 2;
         rotationHandleX = screenPos.x + circleRadius;
         rotationHandleY = screenPos.y + circleRadius - 30;
@@ -312,7 +253,6 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
         
       case 'rectangle':
       default:
-        // For rectangle, place rotation handle above the top edge center
         rotationHandleX = screenPos.x + screenWidth / 2;
         rotationHandleY = screenPos.y - 30;
         break;
@@ -327,15 +267,15 @@ export const useCanvasRenderer = (options: UseCanvasRendererOptions): UseCanvasR
       handleSize
     });
     
-    ctx.fillStyle = '#10b981'
-    ctx.fillRect(rotationHandleX - handleSize / 2, rotationHandleY - handleSize / 2, handleSize, handleSize)
-    ctx.strokeStyle = '#ffffff'
-    ctx.lineWidth = 1
-    ctx.strokeRect(rotationHandleX - handleSize / 2, rotationHandleY - handleSize / 2, handleSize, handleSize)
+    ctx.fillStyle = '#10b981';
+    ctx.fillRect(rotationHandleX - handleSize / 2, rotationHandleY - handleSize / 2, handleSize, handleSize);
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(rotationHandleX - handleSize / 2, rotationHandleY - handleSize / 2, handleSize, handleSize);
     
     console.log('🎯 [ROTATION HANDLE DEBUG] Rotation handle drawn successfully');
     
-    ctx.restore()
+    ctx.restore();
   }, [isValidPanel, getPanelValidationErrors, worldToScreen, getWorldDimensions, canvasState.worldScale, canvasState.scale, canvasState.offsetX, canvasState.offsetY])
 
   // Canvas rendering function
