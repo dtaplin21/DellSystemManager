@@ -5,6 +5,44 @@ const { v4: uuidv4 } = require('uuid');
 
 class PanelLayoutService {
   /**
+   * Check if a panel exists in the project
+   */
+  async checkPanelExists(projectId, panelId) {
+    try {
+      const [existingLayout] = await db
+        .select()
+        .from(panelLayouts)
+        .where(eq(panelLayouts.projectId, projectId));
+
+      if (!existingLayout) {
+        return false;
+      }
+
+      let currentPanels = [];
+      try {
+        if (Array.isArray(existingLayout.panels)) {
+          currentPanels = existingLayout.panels;
+        } else if (typeof existingLayout.panels === 'string') {
+          currentPanels = JSON.parse(existingLayout.panels || '[]');
+        }
+      } catch (error) {
+        console.error('Error parsing panels in checkPanelExists:', error);
+        return false;
+      }
+
+      return currentPanels.some(p => 
+        p.id === panelId || 
+        p.rollNumber === panelId || 
+        p.panelNumber === panelId ||
+        `panel-${projectId}-${p.x}-${p.y}-${p.width}-${p.height}` === panelId
+      );
+    } catch (error) {
+      console.error('Error checking panel existence:', error);
+      return false;
+    }
+  }
+
+  /**
    * Create a single panel in the layout
    */
   async createPanel(projectId, panelData) {
@@ -128,13 +166,48 @@ class PanelLayoutService {
         newPosition
       });
 
+      // Validate panelId parameter
+      if (!panelId || typeof panelId !== 'string' || panelId.trim() === '') {
+        throw new Error('Invalid panelId: must be a non-empty string');
+      }
+
+      // Check if panel exists before attempting to move
+      const panelExists = await this.checkPanelExists(projectId, panelId);
+      if (!panelExists) {
+        throw new Error(`Panel with ID '${panelId}' does not exist in this project`);
+      }
+
       // Validate newPosition data
       if (!newPosition || typeof newPosition !== 'object') {
         throw new Error('Invalid newPosition: must be an object');
       }
 
+      console.log('🔍 [movePanel] Validating newPosition data:', {
+        newPosition,
+        x: newPosition.x,
+        y: newPosition.y,
+        rotation: newPosition.rotation,
+        xType: typeof newPosition.x,
+        yType: typeof newPosition.y,
+        rotationType: typeof newPosition.rotation
+      });
+
       if (typeof newPosition.x !== 'number' || typeof newPosition.y !== 'number') {
-        throw new Error('Invalid newPosition: x and y must be numbers');
+        throw new Error(`Invalid newPosition: x and y must be numbers. Received x: ${newPosition.x} (${typeof newPosition.x}), y: ${newPosition.y} (${typeof newPosition.y})`);
+      }
+
+      // Check for NaN values
+      if (isNaN(newPosition.x) || isNaN(newPosition.y)) {
+        console.warn(`⚠️ [movePanel] NaN values detected, converting to 0. Received x: ${newPosition.x}, y: ${newPosition.y}`);
+        newPosition.x = isNaN(newPosition.x) ? 0 : newPosition.x;
+        newPosition.y = isNaN(newPosition.y) ? 0 : newPosition.y;
+      }
+
+      // Check for infinite values
+      if (!isFinite(newPosition.x) || !isFinite(newPosition.y)) {
+        console.warn(`⚠️ [movePanel] Infinite values detected, clamping to reasonable range. Received x: ${newPosition.x}, y: ${newPosition.y}`);
+        newPosition.x = !isFinite(newPosition.x) ? 0 : Math.max(-10000, Math.min(10000, newPosition.x));
+        newPosition.y = !isFinite(newPosition.y) ? 0 : Math.max(-10000, Math.min(10000, newPosition.y));
       }
 
       // Validate rotation if present
@@ -187,16 +260,35 @@ class PanelLayoutService {
         console.error('Error parsing panels in movePanel:', error);
         currentPanels = [];
       }
-      // Find panel by ID - check multiple possible ID fields
+      // Find panel by ID - check multiple possible ID fields with better logging
+      console.log('🔍 [movePanel] Searching for panel with ID:', panelId);
+      console.log('🔍 [movePanel] Available panels:', currentPanels.map(p => ({
+        id: p.id,
+        panelNumber: p.panelNumber,
+        rollNumber: p.rollNumber,
+        x: p.x,
+        y: p.y
+      })));
+
       const panelIndex = currentPanels.findIndex(p => {
         // Check exact matches first
         if (p.id === panelId || p.rollNumber === panelId || p.panelNumber === panelId) {
+          console.log('🔍 [movePanel] Found panel by exact match:', {
+            panelId,
+            matchedField: p.id === panelId ? 'id' : (p.rollNumber === panelId ? 'rollNumber' : 'panelNumber'),
+            panel: p
+          });
           return true;
         }
         
         // Check generated ID pattern: panel-{projectId}-{x}-{y}-{width}-{height}
         const generatedId = `panel-${projectId}-${p.x}-${p.y}-${p.width}-${p.height}`;
         if (generatedId === panelId) {
+          console.log('🔍 [movePanel] Found panel by generated ID pattern:', {
+            panelId,
+            generatedId,
+            panel: p
+          });
           return true;
         }
         
@@ -204,12 +296,16 @@ class PanelLayoutService {
       });
 
       if (panelIndex === -1) {
-        console.log('🔍 [movePanel] Panel not found:', {
-          panelId,
-          availablePanelIds: currentPanels.map(p => p.id),
-          availablePanelNumbers: currentPanels.map(p => p.panelNumber)
-        });
-        throw new Error('Panel not found');
+        const errorDetails = {
+          requestedPanelId: panelId,
+          totalPanels: currentPanels.length,
+          availablePanelIds: currentPanels.map(p => p.id).filter(id => id),
+          availablePanelNumbers: currentPanels.map(p => p.panelNumber).filter(num => num),
+          availableRollNumbers: currentPanels.map(p => p.rollNumber).filter(roll => roll)
+        };
+        
+        console.error('❌ [movePanel] Panel not found:', errorDetails);
+        throw new Error(`Panel with ID '${panelId}' not found in project. Available panels: ${errorDetails.availablePanelIds.join(', ')}`);
       }
 
       console.log('🔍 [movePanel] Found panel at index:', {

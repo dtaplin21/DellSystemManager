@@ -54,9 +54,15 @@ router.post('/move-panel', auth, async (req, res) => {
 
   } catch (error) {
     console.error('Error moving panel:', error);
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
     res.status(500).json({
       error: 'Failed to move panel',
-      details: error.message
+      details: error.message,
+      type: error.name || 'Error'
     });
   }
 });
@@ -186,12 +192,21 @@ router.post('/batch-operations', auth, async (req, res) => {
               }
             }
             
-            const movedPanel = await panelLayoutService.movePanel(
-              projectId, 
-              operation.payload.panelId, 
-              operation.payload.newPosition
-            );
-            results.push({ success: true, type: 'MOVE_PANEL', panel: movedPanel });
+            try {
+              const movedPanel = await panelLayoutService.movePanel(
+                projectId, 
+                operation.payload.panelId, 
+                operation.payload.newPosition
+              );
+              results.push({ success: true, type: 'MOVE_PANEL', panel: movedPanel });
+            } catch (error) {
+              results.push({ 
+                success: false, 
+                type: 'MOVE_PANEL', 
+                error: error.message || 'Failed to move panel',
+                panelId: operation.payload.panelId
+              });
+            }
             break;
 
           case 'DELETE_PANEL':
@@ -311,17 +326,27 @@ router.post('/execute-ai-layout', auth, async (req, res) => {
               }
             }
             
-            const movedPanel = await panelLayoutService.movePanel(
-              projectId, 
-              action.payload.panelId, 
-              action.payload.newPosition
-            );
-            results.push({ 
-              success: true, 
-              type: 'MOVE_PANEL', 
-              panel: movedPanel,
-              actionId: action.id 
-            });
+            try {
+              const movedPanel = await panelLayoutService.movePanel(
+                projectId, 
+                action.payload.panelId, 
+                action.payload.newPosition
+              );
+              results.push({ 
+                success: true, 
+                type: 'MOVE_PANEL', 
+                panel: movedPanel,
+                actionId: action.id 
+              });
+            } catch (error) {
+              results.push({ 
+                success: false, 
+                type: 'MOVE_PANEL', 
+                error: error.message || 'Failed to move panel',
+                panelId: action.payload.panelId,
+                actionId: action.id 
+              });
+            }
             break;
 
           case 'DELETE_PANEL':

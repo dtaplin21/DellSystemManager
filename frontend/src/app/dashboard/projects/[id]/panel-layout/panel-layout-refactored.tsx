@@ -101,12 +101,41 @@ export default function PanelLayoutRefactored() {
 
   // Handle panel position updates
   const handlePanelPositionUpdate = async (panelId: string, updates: Partial<Panel>) => {
+    console.log('🔍 [handlePanelPositionUpdate] Received updates:', {
+      panelId,
+      updates,
+      x: updates.x,
+      y: updates.y,
+      rotation: updates.rotation,
+      xType: typeof updates.x,
+      yType: typeof updates.y,
+      rotationType: typeof updates.rotation
+    });
+
+    // Validate position data before sending
+    if (updates.x === undefined || updates.y === undefined) {
+      console.error('❌ [handlePanelPositionUpdate] Missing position data:', { updates });
+      return;
+    }
+
+    if (typeof updates.x !== 'number' || typeof updates.y !== 'number') {
+      console.error('❌ [handlePanelPositionUpdate] Invalid position data types:', {
+        x: updates.x,
+        y: updates.y,
+        xType: typeof updates.x,
+        yType: typeof updates.y
+      });
+      return;
+    }
+
     // Extract position data from updates
     const position = {
-      x: updates.x!,
-      y: updates.y!,
-      rotation: updates.rotation || 0
+      x: Number(updates.x), // Ensure it's a number
+      y: Number(updates.y), // Ensure it's a number
+      rotation: Number(updates.rotation || 0) // Ensure it's a number
     };
+
+    console.log('🔍 [handlePanelPositionUpdate] Sending position to backend:', position);
     await updatePanelPosition(panelId, position);
   };
 
