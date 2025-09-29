@@ -46,8 +46,10 @@ app.use('/api/handwriting', require('./routes/handwriting'));
 app.use('/api/system', require('./routes/api/system'));
 app.use('/api/connected-workflow', require('./routes/connected-workflow'));
 app.use('/api/asbuilt', require('./routes/asbuilt'));
+app.use('/api/document-processing', require('./routes/documentProcessing'));
 console.log('✅ /api/connected-workflow route registered');
 console.log('✅ /api/asbuilt route registered');
+console.log('✅ /api/document-processing route registered');
 
 // Error handler
 app.use((err, req, res, next) => {

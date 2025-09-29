@@ -1,5 +1,6 @@
 const xlsx = require('xlsx');
 const { Pool } = require('pg');
+const PanelLookupService = require('./panelLookupService');
 require('dotenv').config();
 
 class AsbuiltImportAI {
@@ -8,6 +9,7 @@ class AsbuiltImportAI {
       connectionString: process.env.DATABASE_URL,
       ssl: { rejectUnauthorized: false }
     });
+    this.panelLookup = new PanelLookupService();
     
     // Canonical field mappings for each domain
     this.canonicalFields = {
@@ -429,19 +431,27 @@ class AsbuiltImportAI {
       // Validate data
       const validationResults = this.validateTransformedData(transformedRecords, domain);
 
-      // Prepare records for database insertion
-      const recordsToInsert = validationResults
-        .filter(result => result.isValid)
-        .map(result => ({
-          projectId,
-          panelId: this.extractPanelId(result.record, domain), // This will need to be implemented
-          domain,
-          rawData: result.record.rawData,
-          mappedData: result.record.mappedData,
-          aiConfidence: mappingResult.overallConfidence,
-          requiresReview: mappingResult.requiresReview || result.errors.length > 0,
-          createdBy: userId
-        }));
+      // Prepare records for database insertion with proper panel ID extraction
+      const recordsToInsert = [];
+      
+      for (const result of validationResults.filter(r => r.isValid)) {
+        const panelId = await this.extractPanelId(result.record, domain, projectId);
+        
+        if (panelId) {
+          recordsToInsert.push({
+            projectId,
+            panelId,
+            domain,
+            rawData: result.record.rawData,
+            mappedData: result.record.mappedData,
+            aiConfidence: mappingResult.overallConfidence,
+            requiresReview: mappingResult.requiresReview || result.errors.length > 0,
+            createdBy: userId
+          });
+        } else {
+          console.warn(`⚠️ [ASBUILT_IMPORT] Skipping record due to missing panel ID:`, result.record);
+        }
+      }
 
       console.log(`📊 Import summary: ${recordsToInsert.length} valid records ready for insertion`);
       console.log(`📊 Confidence: ${(mappingResult.overallConfidence * 100).toFixed(1)}%`);
@@ -465,15 +475,66 @@ class AsbuiltImportAI {
 
   /**
    * Extract panel ID from record data
-   * This is a placeholder - will need integration with panel layout system
+   * Now properly integrated with panel layout system
    */
-  extractPanelId(record, domain) {
-    // For now, return a placeholder
-    // In production, this would need to:
-    // 1. Extract panel number from the data
-    // 2. Look up the actual panel ID from the panel layout system
-    // 3. Handle multiple panels if specified
-    return 'placeholder-panel-id';
+  async extractPanelId(record, domain, projectId) {
+    try {
+      console.log(`🔍 [ASBUILT_IMPORT] Extracting panel ID for domain: ${domain}, project: ${projectId}`);
+      
+      // Extract panel number from the mapped data
+      let panelNumber = null;
+      
+      // Try different field names based on domain
+      if (record.mappedData.panelNumber) {
+        panelNumber = record.mappedData.panelNumber;
+      } else if (record.mappedData.panelNumbers) {
+        // Handle multiple panels - take the first one for now
+        const panelNumbers = record.mappedData.panelNumbers;
+        if (typeof panelNumbers === 'string') {
+          // Split by common separators
+          panelNumber = panelNumbers.split(/[|,;]/)[0].trim();
+        } else if (Array.isArray(panelNumbers)) {
+          panelNumber = panelNumbers[0];
+        }
+      }
+      
+      if (!panelNumber) {
+        console.warn(`⚠️ [ASBUILT_IMPORT] No panel number found in record for domain: ${domain}`);
+        return null;
+      }
+      
+      console.log(`🔍 [ASBUILT_IMPORT] Found panel number: ${panelNumber}`);
+      
+      // Look up the actual panel ID from the panel layout system
+      const panelId = await this.panelLookup.findPanelIdByNumber(panelNumber, projectId);
+      
+      if (panelId) {
+        console.log(`✅ [ASBUILT_IMPORT] Found panel ID: ${panelId} for panel number: ${panelNumber}`);
+        return panelId;
+      }
+      
+      // If panel doesn't exist, create it automatically
+      console.log(`🔍 [ASBUILT_IMPORT] Panel not found, creating new panel: ${panelNumber}`);
+      const newPanelId = await this.panelLookup.createPanelIfNotExists(panelNumber, projectId, {
+        // Add some default properties based on domain
+        ...(domain === 'panel_placement' && record.mappedData.dimensions ? {
+          width: record.mappedData.dimensions.width || 100,
+          height: record.mappedData.dimensions.length || 100
+        } : {})
+      });
+      
+      if (newPanelId) {
+        console.log(`✅ [ASBUILT_IMPORT] Created new panel: ${newPanelId} for panel number: ${panelNumber}`);
+        return newPanelId;
+      }
+      
+      console.error(`❌ [ASBUILT_IMPORT] Failed to find or create panel for: ${panelNumber}`);
+      return null;
+      
+    } catch (error) {
+      console.error(`❌ [ASBUILT_IMPORT] Error extracting panel ID:`, error);
+      return null;
+    }
   }
 
   /**
