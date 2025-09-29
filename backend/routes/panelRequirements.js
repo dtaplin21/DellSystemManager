@@ -154,43 +154,43 @@ router.get('/:projectId/analysis', auth, async (req, res) => {
           ]
         }
       });
-    }
+    } else {
+      const confidence = panelRequirementsService.calculateConfidenceScore(requirements);
+      const missing = panelRequirementsService.getMissingRequirements(requirements);
 
-    const confidence = panelRequirementsService.calculateConfidenceScore(requirements);
-    const missing = panelRequirementsService.getMissingRequirements(requirements);
-
-    // Generate recommendations based on missing data
-    const recommendations = [];
-    if (missing.panelSpecifications.length > 0) {
-      recommendations.push('Upload panel specifications document with panel numbers, dimensions, and roll numbers');
-    }
-    if (missing.materialRequirements.length > 0) {
-      recommendations.push('Upload material specifications document (optional) for material recognition');
-    }
-    if (missing.rollInventory.length > 0) {
-      recommendations.push('Upload roll inventory document (optional) for roll tracking');
-    }
-    if (missing.installationNotes.length > 0) {
-      recommendations.push('Upload installation notes document (optional) for installation procedures');
-    }
-
-    let status = 'complete';
-    if (confidence < 30) {
-      status = 'insufficient';
-    } else if (confidence < 70) {
-      status = 'partial';
-    }
-
-    res.json({
-      success: true,
-      analysis: {
-        status,
-        confidence,
-        missing,
-        recommendations,
-        requirements
+      // Generate recommendations based on missing data
+      const recommendations = [];
+      if (missing.panelSpecifications.length > 0) {
+        recommendations.push('Upload panel specifications document with panel numbers, dimensions, and roll numbers');
       }
-    });
+      if (missing.materialRequirements.length > 0) {
+        recommendations.push('Upload material specifications document (optional) for material recognition');
+      }
+      if (missing.rollInventory.length > 0) {
+        recommendations.push('Upload roll inventory document (optional) for roll tracking');
+      }
+      if (missing.installationNotes.length > 0) {
+        recommendations.push('Upload installation notes document (optional) for installation procedures');
+      }
+
+      let status = 'complete';
+      if (confidence < 20) {
+        status = 'insufficient';
+      } else if (confidence < 50) {
+        status = 'partial';
+      }
+
+      res.json({
+        success: true,
+        analysis: {
+          status,
+          confidence,
+          missing,
+          recommendations,
+          requirements
+        }
+      });
+    }
   } catch (error) {
     console.error('Error analyzing panel requirements:', error);
     res.status(500).json({ success: false, message: 'Failed to analyze panel requirements' });

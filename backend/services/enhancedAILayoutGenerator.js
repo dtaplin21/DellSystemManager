@@ -52,8 +52,8 @@ class EnhancedAILayoutGenerator {
       console.log('📊 Requirements confidence score:', confidence);
       console.log('🔍 Missing requirements:', missing);
 
-      // Check if we have sufficient information (lowered threshold to 30%)
-      if (confidence < 30) {
+      // Check if we have sufficient information (lowered threshold to 20% for easier generation)
+      if (confidence < 20) {
         console.log('⚠️ Insufficient information for panel generation');
         return {
           success: false,

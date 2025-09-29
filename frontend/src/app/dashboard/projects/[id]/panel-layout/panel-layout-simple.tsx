@@ -33,7 +33,11 @@ export default function PanelLayoutSimple() {
 
   // Handle panel position updates
   const handlePanelPositionUpdate = (panelId: string, position: { x: number; y: number; rotation?: number }) => {
-    updatePanelPosition(panelId, position);
+    updatePanelPosition(panelId, {
+      x: position.x,
+      y: position.y,
+      rotation: position.rotation ?? 0
+    });
   };
 
   // Handle adding test panels

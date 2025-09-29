@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -24,6 +24,7 @@ import {
   savePanelRequirements,
   getPanelRequirementsAnalysis
 } from '@/lib/api';
+// import { debugAuthStatus, testAuthenticatedAPI } from '@/lib/auth-debug';
 import { useToast } from '@/hooks/use-toast';
 import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
 import PanelRequirementsForm from '@/components/panel-layout/PanelRequirementsForm';
@@ -81,7 +82,7 @@ export default function AIPage() {
     }
   }, [isAuthenticated, loading, router]);
 
-  const loadProjects = async () => {
+  const loadProjects = useCallback(async () => {
     // Prevent multiple simultaneous calls
     if (projectsLoading) return;
     
@@ -124,9 +125,9 @@ export default function AIPage() {
     } finally {
       setProjectsLoading(false);
     }
-  };
+  }, [projectsLoading, toast, router]);
 
-  const loadDocuments = async () => {
+  const loadDocuments = useCallback(async () => {
     if (!selectedProject) return;
     
     try {
@@ -135,9 +136,9 @@ export default function AIPage() {
     } catch (error) {
       console.error('Error loading documents:', error);
     }
-  };
+  }, [selectedProject]);
 
-  const loadRequirements = async () => {
+  const loadRequirements = useCallback(async () => {
     if (!selectedProject) return;
     
     try {
@@ -149,7 +150,7 @@ export default function AIPage() {
     } catch (error) {
       console.error('Error loading requirements:', error);
     }
-  };
+  }, [selectedProject]);
 
   // Load projects only when authenticated and not already attempted
   useEffect(() => {
@@ -443,6 +444,43 @@ export default function AIPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Debug Section */}
+      <Card className="mt-6 border-orange-200 bg-orange-50">
+        <CardHeader>
+          <CardTitle className="text-orange-800 flex items-center gap-2">
+            <AlertCircle className="h-5 w-5" />
+            Authentication Debug
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <p className="text-sm text-orange-700">
+              If you&apos;re seeing &quot;Failed to fetch&quot; errors, use these debug tools to check your authentication status.
+            </p>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => {
+                  alert('Debug tools temporarily disabled. Check console for errors.');
+                }}
+              >
+                Check Auth Status
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => {
+                  alert('Debug tools temporarily disabled. Check console for errors.');
+                }}
+              >
+                Test API Call
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

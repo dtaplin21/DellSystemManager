@@ -53,12 +53,13 @@ export function snapToGridXY(x: number, y: number, gridSize: number = WORLD_CONS
 }
 
 // Panel validation with bounds checking
-export function validatePanel(panel: { x: number; y: number; width: number; height: number; id: string }): {
+export function validatePanel(panel: { x: number; y: number; width: number; height: number; id: string; rotation?: number }): {
   x: number;
   y: number;
   width: number;
   height: number;
   id: string;
+  rotation: number;
   isValid: boolean;
 } {
   const validatedWidth = Math.max(
@@ -80,6 +81,7 @@ export function validatePanel(panel: { x: number; y: number; width: number; heig
     y: validatedY,
     width: validatedWidth,
     height: validatedHeight,
+    rotation: panel.rotation ?? 0,
     isValid: true
   };
 }

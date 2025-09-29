@@ -1,0 +1,42 @@
+Checking Supabase credentials...
+SUPABASE_URL: ✓ Present
+SUPABASE_SERVICE_ROLE_KEY: ✓ Present
+SUPABASE_KEY (fallback): ✗ Missing
+DATABASE_URL: ✓ Present
+Environment Variables:
+SUPABASE_URL: exists
+SUPABASE_KEY: missing
+DATABASE_URL: exists
+Stripe client initialized successfully
+✅ connected-workflow.js route file loaded
+✅ /api/connected-workflow route registered
+✅ /api/asbuilt route registered
+WebSocket server initialized
+Server running on http://0.0.0.0:8003
+AI services status: { aiServiceAvailable: true, openaiServiceAvailable: true }
+🔌 Attempting to connect to database...
+🔌 Connection string preview: postgresql://postgres.chfdozvsvltdmglcuoqf:Qualitydata790@[HIDDEN]
+New client connected to database
+Client acquired from pool
+✅ Successfully connected to Supabase PostgreSQL database
+🔌 Connection details: {
+  host: 'aws-0-us-east-2.pooler.supabase.com',
+  port: 6543,
+  database: 'postgres',
+  user: 'postgres.chfdozvsvltdmglcuoqf',
+  ssl: 'enabled'
+}
+✅ Database test query successful: {
+  currentTime: 2025-09-29T19:13:01.573Z,
+  version: 'PostgreSQL 15.8 on aarch64-unknown-linux-gnu, comp...'
+}
+Connected to PostgreSQL database
+🔧 Applying database migrations...
+Client acquired from pool
+✅ panel_layouts table created/verified
+✅ panel_layouts index created/verified
+✅ asbuilt_records table created/verified
+✅ asbuilt_records indexes created/verified
+✅ Database migrations completed successfully
+Client removed from pool
+Client was removed due to pool ending

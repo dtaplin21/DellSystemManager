@@ -121,13 +121,15 @@ class PanelRequirementsService {
         score += 20;
         console.log('✅ Panel dimensions found:', specs.dimensions, '(+20 points)');
       }
-      if (specs.rollNumbers && specs.rollNumbers.length > 0) {
+      // Accept either rollNumbers OR panelNumbers for full points
+      if ((specs.rollNumbers && specs.rollNumbers.length > 0) || (specs.panelNumbers && specs.panelNumbers.length > 0)) {
         score += 20;
-        console.log('✅ Roll numbers found:', specs.rollNumbers.length, '(+20 points)');
+        console.log('✅ Roll/panel numbers found:', (specs.rollNumbers?.length || specs.panelNumbers?.length || 0), '(+20 points)');
       }
-      if (specs.panelNumbers && specs.panelNumbers.length > 0) {
+      // Give additional points if both are present
+      if (specs.rollNumbers && specs.rollNumbers.length > 0 && specs.panelNumbers && specs.panelNumbers.length > 0) {
         score += 10;
-        console.log('✅ Panel numbers found:', specs.panelNumbers.length, '(+10 points)');
+        console.log('✅ Both roll and panel numbers found (+10 bonus points)');
       }
     }
     totalFields += 70;
@@ -229,13 +231,19 @@ class PanelRequirementsService {
       } else {
         console.log('✅ Panel dimensions found:', specs.dimensions);
       }
-      if (!specs.rollNumbers || specs.rollNumbers.length === 0) {
-        missing.panelSpecifications.push('Roll numbers missing');
-        console.log('❌ Roll numbers missing or empty:', specs.rollNumbers?.length || 0);
-        console.log('❌ Roll numbers data:', specs.rollNumbers);
+      // Accept either rollNumbers OR panelNumbers
+      if ((!specs.rollNumbers || specs.rollNumbers.length === 0) && (!specs.panelNumbers || specs.panelNumbers.length === 0)) {
+        missing.panelSpecifications.push('Roll numbers or panel numbers missing');
+        console.log('❌ Both roll numbers and panel numbers missing');
       } else {
-        console.log('✅ Roll numbers found:', specs.rollNumbers.length);
-        console.log('✅ Roll numbers sample:', specs.rollNumbers.slice(0, 5));
+        if (specs.rollNumbers && specs.rollNumbers.length > 0) {
+          console.log('✅ Roll numbers found:', specs.rollNumbers.length);
+          console.log('✅ Roll numbers sample:', specs.rollNumbers.slice(0, 5));
+        }
+        if (specs.panelNumbers && specs.panelNumbers.length > 0) {
+          console.log('✅ Panel numbers found:', specs.panelNumbers.length);
+          console.log('✅ Panel numbers sample:', specs.panelNumbers.slice(0, 5));
+        }
       }
     }
 
