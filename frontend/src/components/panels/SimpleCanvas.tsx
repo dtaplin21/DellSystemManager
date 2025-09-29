@@ -147,7 +147,11 @@ export function SimpleCanvas({
       const newX = worldPos.x - dragStartRef.current.x;
       const newY = worldPos.y - dragStartRef.current.y;
       
-      onPanelUpdate(dragPanelId.current, { x: newX, y: newY });
+      // Find the panel to get its current rotation
+      const panel = panels.find(p => p.id === dragPanelId.current);
+      const currentRotation = panel?.rotation || 0;
+      
+      onPanelUpdate(dragPanelId.current, { x: newX, y: newY, rotation: currentRotation });
     } else {
       // Pan canvas
       const deltaX = screenX - dragStartRef.current.x;

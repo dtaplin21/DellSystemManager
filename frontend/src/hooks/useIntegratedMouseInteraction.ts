@@ -151,7 +151,9 @@ export function useIntegratedMouseInteraction({
       const clampedX = Math.max(0, Math.min(WORLD_CONSTANTS.WIDTH_FT - selectedPanelRef.current.width, snappedX));
       const clampedY = Math.max(0, Math.min(WORLD_CONSTANTS.HEIGHT_FT - selectedPanelRef.current.height, snappedY));
       
-      onPanelUpdate(selectedPanelRef.current.id, { x: clampedX, y: clampedY });
+      // Include rotation in the update
+      const currentRotation = selectedPanelRef.current?.rotation || 0;
+      onPanelUpdate(selectedPanelRef.current.id, { x: clampedX, y: clampedY, rotation: currentRotation });
       debugLog('Dragging panel', { panelId: selectedPanelRef.current.id, newPos: { x: clampedX, y: clampedY } });
     } else if (isPanningRef.current) {
       // Pan view

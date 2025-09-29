@@ -113,12 +113,16 @@ export default function PanelLayoutRefactored() {
     });
 
     // Validate position data before sending
-    if (updates.x === undefined || updates.y === undefined) {
-      console.error('❌ [handlePanelPositionUpdate] Missing position data:', { updates });
+    // Allow rotation-only updates, but require x,y for position updates
+    const hasPositionData = updates.x !== undefined && updates.y !== undefined;
+    const hasRotationData = updates.rotation !== undefined;
+    
+    if (!hasPositionData && !hasRotationData) {
+      console.error('❌ [handlePanelPositionUpdate] Missing position or rotation data:', { updates });
       return;
     }
-
-    if (typeof updates.x !== 'number' || typeof updates.y !== 'number') {
+    
+    if (hasPositionData && (typeof updates.x !== 'number' || typeof updates.y !== 'number')) {
       console.error('❌ [handlePanelPositionUpdate] Invalid position data types:', {
         x: updates.x,
         y: updates.y,
@@ -128,12 +132,35 @@ export default function PanelLayoutRefactored() {
       return;
     }
 
-    // Extract position data from updates
-    const position = {
-      x: Number(updates.x), // Ensure it's a number
-      y: Number(updates.y), // Ensure it's a number
-      rotation: Number(updates.rotation || 0) // Ensure it's a number
-    };
+
+    // For rotation-only updates, we need to get the current panel position
+    // For position updates, we can use the provided coordinates
+    let position;
+    
+    if (updates.x !== undefined && updates.y !== undefined) {
+      // Position update - use provided coordinates
+      position = {
+        x: Number(updates.x),
+        y: Number(updates.y),
+        rotation: updates.rotation !== undefined ? Number(updates.rotation) : 0
+      };
+    } else if (updates.rotation !== undefined) {
+      // Rotation-only update - get current panel position first
+      const currentPanel = panels.find(p => p.id === panelId);
+      if (!currentPanel) {
+        console.error('❌ [handlePanelPositionUpdate] Panel not found for rotation update:', panelId);
+        return;
+      }
+      
+      position = {
+        x: currentPanel.x,
+        y: currentPanel.y,
+        rotation: Number(updates.rotation)
+      };
+    } else {
+      console.error('❌ [handlePanelPositionUpdate] No valid updates provided:', updates);
+      return;
+    }
 
     console.log('🔍 [handlePanelPositionUpdate] Sending position to backend:', position);
     await updatePanelPosition(panelId, position);

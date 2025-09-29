@@ -1066,9 +1066,14 @@ export function useUnifiedMouseInteraction({
           finalPos: { x: currentState.dragCurrentX, y: currentState.dragCurrentY }
         });
         
+        // Find the panel to get its current rotation
+        const panel = panels.find(p => p.id === currentState.selectedPanelId);
+        const currentRotation = panel?.rotation || 0;
+        
         await onPanelUpdate(currentState.selectedPanelId, {
           x: currentState.dragCurrentX,
           y: currentState.dragCurrentY,
+          rotation: currentRotation
         });
         
         logRef.current('Committed panel position', { 
