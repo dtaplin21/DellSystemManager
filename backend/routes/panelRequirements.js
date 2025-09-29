@@ -4,6 +4,74 @@ const { auth } = require('../middlewares/auth');
 const panelRequirementsService = require('../services/panelRequirementsService');
 
 /**
+ * GET /api/panel-requirements/:projectId/analysis
+ * Get detailed analysis of panel requirements
+ */
+router.get('/:projectId/analysis', auth, async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    
+    const requirements = await panelRequirementsService.getRequirementsByProjectId(projectId);
+    
+    if (!requirements) {
+      return res.json({
+        success: true,
+        analysis: {
+          status: 'no_data',
+          confidence: 0,
+          missing: panelRequirementsService.getMissingRequirements({}),
+          recommendations: [
+            'Upload panel specifications document with panel numbers, dimensions, and roll numbers',
+            'Upload material specifications document (optional) for material recognition',
+            'Upload roll inventory document (optional) for roll tracking',
+            'Upload installation notes document (optional) for installation procedures'
+          ]
+        }
+      });
+    } else {
+      const confidence = panelRequirementsService.calculateConfidenceScore(requirements);
+      const missing = panelRequirementsService.getMissingRequirements(requirements);
+
+      // Generate recommendations based on missing data
+      const recommendations = [];
+      if (missing.panelSpecifications.length > 0) {
+        recommendations.push('Upload panel specifications document with panel numbers, dimensions, and roll numbers');
+      }
+      if (missing.materialRequirements.length > 0) {
+        recommendations.push('Upload material specifications document (optional) for material recognition');
+      }
+      if (missing.rollInventory.length > 0) {
+        recommendations.push('Upload roll inventory document (optional) for roll tracking');
+      }
+      if (missing.installationNotes.length > 0) {
+        recommendations.push('Upload installation notes document (optional) for installation procedures');
+      }
+
+      let status = 'complete';
+      if (confidence < 20) {
+        status = 'insufficient';
+      } else if (confidence < 50) {
+        status = 'partial';
+      }
+
+      res.json({
+        success: true,
+        analysis: {
+          status,
+          confidence,
+          missing,
+          recommendations,
+          requirements
+        }
+      });
+    }
+  } catch (error) {
+    console.error('Error analyzing panel requirements:', error);
+    res.status(500).json({ success: false, message: 'Failed to analyze panel requirements' });
+  }
+});
+
+/**
  * GET /api/panel-requirements/:projectId
  * Get panel layout requirements for a project
  */
@@ -126,74 +194,6 @@ router.delete('/:projectId', auth, async (req, res) => {
   } catch (error) {
     console.error('Error deleting panel requirements:', error);
     res.status(500).json({ success: false, message: 'Failed to delete panel requirements' });
-  }
-});
-
-/**
- * GET /api/panel-requirements/:projectId/analysis
- * Get detailed analysis of panel requirements
- */
-router.get('/:projectId/analysis', auth, async (req, res) => {
-  try {
-    const { projectId } = req.params;
-    
-    const requirements = await panelRequirementsService.getRequirementsByProjectId(projectId);
-    
-    if (!requirements) {
-      return res.json({
-        success: true,
-        analysis: {
-          status: 'no_data',
-          confidence: 0,
-          missing: panelRequirementsService.getMissingRequirements({}),
-          recommendations: [
-            'Upload panel specifications document with panel numbers, dimensions, and roll numbers',
-            'Upload material specifications document (optional) for material recognition',
-            'Upload roll inventory document (optional) for roll tracking',
-            'Upload installation notes document (optional) for installation procedures'
-          ]
-        }
-      });
-    } else {
-      const confidence = panelRequirementsService.calculateConfidenceScore(requirements);
-      const missing = panelRequirementsService.getMissingRequirements(requirements);
-
-      // Generate recommendations based on missing data
-      const recommendations = [];
-      if (missing.panelSpecifications.length > 0) {
-        recommendations.push('Upload panel specifications document with panel numbers, dimensions, and roll numbers');
-      }
-      if (missing.materialRequirements.length > 0) {
-        recommendations.push('Upload material specifications document (optional) for material recognition');
-      }
-      if (missing.rollInventory.length > 0) {
-        recommendations.push('Upload roll inventory document (optional) for roll tracking');
-      }
-      if (missing.installationNotes.length > 0) {
-        recommendations.push('Upload installation notes document (optional) for installation procedures');
-      }
-
-      let status = 'complete';
-      if (confidence < 20) {
-        status = 'insufficient';
-      } else if (confidence < 50) {
-        status = 'partial';
-      }
-
-      res.json({
-        success: true,
-        analysis: {
-          status,
-          confidence,
-          missing,
-          recommendations,
-          requirements
-        }
-      });
-    }
-  } catch (error) {
-    console.error('Error analyzing panel requirements:', error);
-    res.status(500).json({ success: false, message: 'Failed to analyze panel requirements' });
   }
 });
 
