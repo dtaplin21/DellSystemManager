@@ -5,6 +5,8 @@ import { useState, useEffect } from 'react';
 import { makeAuthenticatedRequest } from '@/lib/api';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
+import { Upload, Plus } from 'lucide-react';
 import './qc-data.css';
 
 // QC Data interface
@@ -27,6 +29,7 @@ export default function QCDataPage() {
   const [projectId, setProjectId] = useState<string>('69fc302b-166d-4543-9990-89c4b1e0ed59'); // Default project ID
   const [projects, setProjects] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [showAddTestModal, setShowAddTestModal] = useState(false);
 
   // Fetch projects for dropdown
   useEffect(() => {
@@ -96,15 +99,118 @@ export default function QCDataPage() {
   };
 
   const handleEditTest = (testId: string) => {
-    alert(`Editing test ${testId}`);
+    alert(`Editing test ${testId} - Feature coming soon!`);
   };
 
-  const handleExport = () => {
-    alert('Export functionality ready! This will generate CSV when connected to backend.');
+  const handleAddTest = async (testData: Partial<QCData>) => {
+    try {
+      const response = await makeAuthenticatedRequest(`/api/qc-data/${projectId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: testData.testType,
+          panelId: testData.location || 'default',
+          date: testData.testDate,
+          result: testData.result,
+          technician: testData.operator,
+          notes: testData.notes,
+          temperature: testData.value,
+        }),
+      });
+
+      if (response.ok) {
+        alert('Test added successfully!');
+        // Refresh data
+        window.location.reload();
+      } else {
+        const error = await response.text();
+        alert(`Failed to add test: ${error}`);
+      }
+    } catch (error) {
+      console.error('Add test error:', error);
+      alert(`Failed to add test: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   };
 
-  const handleUpload = () => {
-    alert('Upload functionality ready! This will connect to your backend when ready.');
+  const handleExport = async (format: 'csv' | 'excel' = 'csv') => {
+    if (!projectId) {
+      alert('Please select a project first.');
+      return;
+    }
+
+    try {
+      // Build query parameters
+      const params = new URLSearchParams();
+      if (selectedTestType !== 'All') {
+        params.append('testType', selectedTestType);
+      }
+
+      const response = await makeAuthenticatedRequest(
+        `/api/qc-data/${projectId}/export/${format}?${params.toString()}`
+      );
+
+      if (!response.ok) {
+        throw new Error(`Export failed: ${response.status} ${response.statusText}`);
+      }
+
+      // Get filename from response headers
+      const contentDisposition = response.headers.get('content-disposition');
+      const filename = contentDisposition 
+        ? contentDisposition.split('filename=')[1]?.replace(/"/g, '')
+        : `qc-data-${projectId}-${new Date().toISOString().split('T')[0]}.${format === 'csv' ? 'csv' : 'xlsx'}`;
+
+      // Create blob and download
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+    } catch (error) {
+      console.error('Export error:', error);
+      alert(`Export failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
+  const handleUpload = async () => {
+    // Create file input element
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.xlsx,.xls,.csv';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const response = await makeAuthenticatedRequest(`/api/qc-data/${projectId}/import`, {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          alert(`Successfully imported ${result.importedCount} QC records!`);
+          // Refresh data
+          window.location.reload();
+        } else {
+          const error = await response.text();
+          alert(`Import failed: ${error}`);
+        }
+      } catch (error) {
+        console.error('Import error:', error);
+        alert(`Import failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    };
+    input.click();
   };
 
   if (isLoading) {
@@ -123,10 +229,22 @@ export default function QCDataPage() {
     <div className="qc-data-page">
       <div className="qc-data-container">
         <div className="qc-data-header">
-          <h1 className="qc-data-title">Quality Control Data</h1>
-          <p className="qc-data-subtitle">
-            View, analyze, and manage all quality control test results for your geosynthetic projects.
-          </p>
+          <div>
+            <h1 className="qc-data-title">Quality Control Data</h1>
+            <p className="qc-data-subtitle">
+              View, analyze, and manage all quality control test results for your geosynthetic projects.
+            </p>
+          </div>
+          <div className="header-actions">
+            <Button onClick={handleUpload} variant="outline" className="mr-2">
+              <Upload className="h-4 w-4 mr-2" />
+              Import Excel
+            </Button>
+            <Button onClick={() => setShowAddTestModal(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Test
+            </Button>
+          </div>
         </div>
 
         {/* Project Selection */}
@@ -240,9 +358,14 @@ export default function QCDataPage() {
                 ))}
               </div>
               
-              <button onClick={handleExport} className="btn-export">
-                Export CSV
-              </button>
+              <div className="export-buttons" style={{ display: 'flex', gap: '0.5rem' }}>
+                <button onClick={() => handleExport('csv')} className="btn-export">
+                  Export CSV
+                </button>
+                <button onClick={() => handleExport('excel')} className="btn-export" style={{ backgroundColor: '#10b981', color: 'white' }}>
+                  Export Excel
+                </button>
+              </div>
             </div>
           </div>
           
@@ -346,6 +469,170 @@ export default function QCDataPage() {
             Upload New QC Data
           </button>
         </div>
+
+        {/* Add Test Modal */}
+        {showAddTestModal && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000
+          }}>
+            <div style={{
+              backgroundColor: 'white',
+              padding: '2rem',
+              borderRadius: '8px',
+              width: '500px',
+              maxHeight: '80vh',
+              overflow: 'auto'
+            }}>
+              <h3 style={{ marginBottom: '1rem' }}>Add New QC Test</h3>
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.target as HTMLFormElement);
+                const testData = {
+                  testType: formData.get('testType') as string,
+                  testDate: formData.get('testDate') as string,
+                  location: formData.get('location') as string,
+                  result: formData.get('result') as 'Pass' | 'Warning' | 'Fail',
+                  value: formData.get('value') as string,
+                  operator: formData.get('operator') as string,
+                  notes: formData.get('notes') as string,
+                };
+                handleAddTest(testData);
+                setShowAddTestModal(false);
+              }}>
+                <div style={{ marginBottom: '1rem' }}>
+                  <Label htmlFor="testType">Test Type</Label>
+                  <Select name="testType" required>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select test type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Seam Strength">Seam Strength</SelectItem>
+                      <SelectItem value="Puncture Resistance">Puncture Resistance</SelectItem>
+                      <SelectItem value="Tensile Strength">Tensile Strength</SelectItem>
+                      <SelectItem value="Density">Density</SelectItem>
+                      <SelectItem value="Thickness">Thickness</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div style={{ marginBottom: '1rem' }}>
+                  <Label htmlFor="testDate">Test Date</Label>
+                  <input
+                    type="date"
+                    name="testDate"
+                    required
+                    style={{
+                      width: '100%',
+                      padding: '0.5rem',
+                      border: '1px solid #ccc',
+                      borderRadius: '4px'
+                    }}
+                  />
+                </div>
+                
+                <div style={{ marginBottom: '1rem' }}>
+                  <Label htmlFor="location">Location</Label>
+                  <input
+                    type="text"
+                    name="location"
+                    placeholder="e.g., Panel 40, East Section"
+                    required
+                    style={{
+                      width: '100%',
+                      padding: '0.5rem',
+                      border: '1px solid #ccc',
+                      borderRadius: '4px'
+                    }}
+                  />
+                </div>
+                
+                <div style={{ marginBottom: '1rem' }}>
+                  <Label htmlFor="result">Result</Label>
+                  <Select name="result" required>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select result" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Pass">Pass</SelectItem>
+                      <SelectItem value="Warning">Warning</SelectItem>
+                      <SelectItem value="Fail">Fail</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div style={{ marginBottom: '1rem' }}>
+                  <Label htmlFor="value">Value</Label>
+                  <input
+                    type="text"
+                    name="value"
+                    placeholder="e.g., 150 N/cm"
+                    required
+                    style={{
+                      width: '100%',
+                      padding: '0.5rem',
+                      border: '1px solid #ccc',
+                      borderRadius: '4px'
+                    }}
+                  />
+                </div>
+                
+                <div style={{ marginBottom: '1rem' }}>
+                  <Label htmlFor="operator">Operator</Label>
+                  <input
+                    type="text"
+                    name="operator"
+                    placeholder="Technician name"
+                    required
+                    style={{
+                      width: '100%',
+                      padding: '0.5rem',
+                      border: '1px solid #ccc',
+                      borderRadius: '4px'
+                    }}
+                  />
+                </div>
+                
+                <div style={{ marginBottom: '1rem' }}>
+                  <Label htmlFor="notes">Notes</Label>
+                  <textarea
+                    name="notes"
+                    placeholder="Additional notes..."
+                    rows={3}
+                    style={{
+                      width: '100%',
+                      padding: '0.5rem',
+                      border: '1px solid #ccc',
+                      borderRadius: '4px',
+                      resize: 'vertical'
+                    }}
+                  />
+                </div>
+                
+                <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowAddTestModal(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit">
+                    Add Test
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

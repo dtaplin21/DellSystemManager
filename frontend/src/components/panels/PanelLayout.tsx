@@ -915,7 +915,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
       y: wy * totalScale + canvasState.offsetY
     };
   }, [worldDimensions.worldScale, canvasState.scale, canvasState.offsetX, canvasState.offsetY]);
-
+  
   // Mouse event handlers
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = isFullscreen ? fullscreenCanvasRef.current : canvasRef.current
@@ -1028,15 +1028,15 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
           }
           
           if (isRotationHandle(x, y, panel)) {
-            setIsRotating(true)
+        setIsRotating(true)
             // Convert screen coordinates to world coordinates for rotation calculation
             const worldPos = localScreenToWorld(x, y);
             const panelCenterX = panel.x + panel.width / 2;
             const panelCenterY = panel.y + panel.height / 2;
             setRotationStart(Math.atan2(worldPos.y - panelCenterY, worldPos.x - panelCenterX));
-            return
-          }
-          
+        return
+      }
+      
           // Only set the ref - simplified state management
           isDraggingRef.current = true;
           // Convert screen coordinates to world coordinates for drag calculation
@@ -1103,13 +1103,13 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
       // console.log('🚨 [PanelLayout] New position:', { x: finalX, y: finalY });
       // console.log('🚨 [PanelLayout] Dispatching UPDATE_PANEL action...');
       
-      dispatch({
-        type: 'UPDATE_PANEL',
-        payload: {
-          id: selectedPanel.id,
+        dispatch({
+          type: 'UPDATE_PANEL',
+          payload: {
+            id: selectedPanel.id,
           updates: { x: finalX, y: finalY }
-        }
-      })
+          }
+        })
     } else if (isRotating && selectedPanel) {
       const worldX = (x - canvasState.offsetX) / canvasState.scale / canvasState.worldScale;
       const worldY = (y - canvasState.offsetY) / canvasState.scale / canvasState.worldScale;
@@ -1327,7 +1327,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   // Update container dimensions when container ref is available
   useEffect(() => {
     const container = containerRef.current;
-    if (container) {
+        if (container) {
       let timeoutId: NodeJS.Timeout;
       
       const updateDimensions = () => {
@@ -1700,17 +1700,17 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
           >
             {/* Normal Canvas - Only shown when NOT in fullscreen */}
             {!isFullscreen && (
-            <canvas
-              ref={canvasRef}
-              width={canvasWidth}
-              height={canvasHeight}
+        <canvas
+          ref={canvasRef}
+          width={canvasWidth}
+          height={canvasHeight}
                 className="absolute inset-0 bg-white"
-              onMouseDown={handleMouseDown}
-              onMouseMove={handleMouseMove}
-              onMouseUp={handleMouseUp}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
                 onContextMenu={(e) => e.preventDefault()}
                 data-testid="canvas-main"
-                              style={{
+          style={{
                   cursor: mouseState.isPanning ? 'grabbing' : 
                          spacePressed ? 'grab' : 
                          isDraggingRef.current ? 'grabbing' : 
@@ -1738,7 +1738,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
                     } catch { return 'Error'; }
                   })()}</div>
                   <div>Last Update: {new Date().toLocaleTimeString()}</div>
-                </div>
+      </div>
               </div>
             )}
             
@@ -1746,7 +1746,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
             <div className="absolute top-4 left-4 bg-black bg-opacity-75 text-white px-3 py-2 rounded text-sm font-mono pointer-events-none">
               <div data-testid="text-world-coords">World: {Math.round(worldPos.x)}&apos;, {Math.round(worldPos.y)}&apos;</div>
               <div data-testid="text-screen-coords">Screen: {Math.round(mouseState.x)}, {Math.round(mouseState.y)}</div>
-            </div>
+      </div>
             
             {/* Help Overlay */}
             <div className="absolute bottom-4 right-4 bg-black bg-opacity-75 text-white px-3 py-2 rounded text-sm pointer-events-none">
@@ -1759,7 +1759,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
                 <div>Drag: Move Panel</div>
                 <div>Ctrl+F: Fullscreen</div>
                 <div>Delete: Remove Panel</div>
-              </div>
+    </div>
             </div>
           </div>
         </div>

@@ -348,4 +348,208 @@ router.delete('/:projectId/:id', auth, async (req, res, next) => {
   }
 });
 
+// Export QC data as CSV
+router.get('/:projectId/export/csv', auth, async (req, res, next) => {
+  try {
+    const { projectId } = req.params;
+    const { testType, startDate, endDate } = req.query;
+    
+    // Validate project ID
+    if (!validateObjectId(projectId)) {
+      return res.status(400).json({ message: 'Invalid project ID' });
+    }
+    
+    // Verify project belongs to user
+    const [project] = await db
+      .select()
+      .from(projects)
+      .where(and(
+        eq(projects.id, projectId),
+        eq(projects.userId, req.user.id)
+      ));
+    
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
+    
+    // Build query conditions
+    let queryConditions = [eq(qcData.projectId, projectId)];
+    
+    if (testType && testType !== 'All') {
+      queryConditions.push(eq(qcData.type, testType));
+    }
+    
+    if (startDate) {
+      queryConditions.push(eq(qcData.date, new Date(startDate)));
+    }
+    
+    if (endDate) {
+      queryConditions.push(eq(qcData.date, new Date(endDate)));
+    }
+    
+    // Get QC data
+    const projectQCData = await db
+      .select()
+      .from(qcData)
+      .where(and(...queryConditions))
+      .orderBy(qcData.createdAt);
+    
+    // Generate CSV content
+    const headers = [
+      'Test ID',
+      'Test Type', 
+      'Panel ID',
+      'Date',
+      'Result',
+      'Technician',
+      'Temperature',
+      'Pressure',
+      'Speed',
+      'Notes',
+      'Created At'
+    ];
+    
+    const csvRows = [
+      headers.join(','),
+      ...projectQCData.map(item => [
+        item.id,
+        `"${item.type || ''}"`,
+        `"${item.panelId || ''}"`,
+        `"${item.date || ''}"`,
+        `"${item.result || ''}"`,
+        `"${item.technician || ''}"`,
+        `"${item.temperature || ''}"`,
+        `"${item.pressure || ''}"`,
+        `"${item.speed || ''}"`,
+        `"${(item.notes || '').replace(/"/g, '""')}"`,
+        `"${item.createdAt || ''}"`
+      ].join(','))
+    ];
+    
+    const csvContent = csvRows.join('\n');
+    
+    // Set response headers for CSV download
+    const filename = `qc-data-${project.name.replace(/[^a-zA-Z0-9]/g, '-')}-${new Date().toISOString().split('T')[0]}.csv`;
+    
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(csvContent);
+    
+  } catch (error) {
+    console.error('Error exporting QC data:', error);
+    next(error);
+  }
+});
+
+// Export QC data as Excel
+router.get('/:projectId/export/excel', auth, async (req, res, next) => {
+  try {
+    const { projectId } = req.params;
+    const { testType, startDate, endDate } = req.query;
+    
+    // Validate project ID
+    if (!validateObjectId(projectId)) {
+      return res.status(400).json({ message: 'Invalid project ID' });
+    }
+    
+    // Verify project belongs to user
+    const [project] = await db
+      .select()
+      .from(projects)
+      .where(and(
+        eq(projects.id, projectId),
+        eq(projects.userId, req.user.id)
+      ));
+    
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
+    
+    // Build query conditions
+    let queryConditions = [eq(qcData.projectId, projectId)];
+    
+    if (testType && testType !== 'All') {
+      queryConditions.push(eq(qcData.type, testType));
+    }
+    
+    if (startDate) {
+      queryConditions.push(eq(qcData.date, new Date(startDate)));
+    }
+    
+    if (endDate) {
+      queryConditions.push(eq(qcData.date, new Date(endDate)));
+    }
+    
+    // Get QC data
+    const projectQCData = await db
+      .select()
+      .from(qcData)
+      .where(and(...queryConditions))
+      .orderBy(qcData.createdAt);
+    
+    // Create Excel workbook
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('QC Data');
+    
+    // Add headers
+    worksheet.columns = [
+      { header: 'Test ID', key: 'id', width: 15 },
+      { header: 'Test Type', key: 'type', width: 20 },
+      { header: 'Panel ID', key: 'panelId', width: 15 },
+      { header: 'Date', key: 'date', width: 15 },
+      { header: 'Result', key: 'result', width: 10 },
+      { header: 'Technician', key: 'technician', width: 20 },
+      { header: 'Temperature', key: 'temperature', width: 15 },
+      { header: 'Pressure', key: 'pressure', width: 15 },
+      { header: 'Speed', key: 'speed', width: 15 },
+      { header: 'Notes', key: 'notes', width: 30 },
+      { header: 'Created At', key: 'createdAt', width: 20 }
+    ];
+    
+    // Style headers
+    worksheet.getRow(1).font = { bold: true };
+    worksheet.getRow(1).fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFE0E0E0' }
+    };
+    
+    // Add data rows
+    projectQCData.forEach(item => {
+      worksheet.addRow({
+        id: item.id,
+        type: item.type || '',
+        panelId: item.panelId || '',
+        date: item.date ? new Date(item.date).toLocaleDateString() : '',
+        result: item.result || '',
+        technician: item.technician || '',
+        temperature: item.temperature || '',
+        pressure: item.pressure || '',
+        speed: item.speed || '',
+        notes: item.notes || '',
+        createdAt: item.createdAt ? new Date(item.createdAt).toLocaleString() : ''
+      });
+    });
+    
+    // Auto-fit columns
+    worksheet.columns.forEach(column => {
+      column.width = Math.max(column.width, 10);
+    });
+    
+    // Set response headers for Excel download
+    const filename = `qc-data-${project.name.replace(/[^a-zA-Z0-9]/g, '-')}-${new Date().toISOString().split('T')[0]}.xlsx`;
+    
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    
+    // Write Excel file to response
+    await workbook.xlsx.write(res);
+    res.end();
+    
+  } catch (error) {
+    console.error('Error exporting QC data to Excel:', error);
+    next(error);
+  }
+});
+
 module.exports = router;
