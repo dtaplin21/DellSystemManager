@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { FileSpreadsheet, Upload, Plus, Database, BarChart3, Filter } from 'lucide-react';
+import { makeAuthenticatedRequest } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -59,8 +60,8 @@ const AsbuiltPage: React.FC = () => {
       if (!projectId) return;
       
       try {
-        setIsLoading(true);
-        const response = await fetch(`/api/asbuilt/${projectId}/summary`);
+        setLoading(true);
+        const response = await makeAuthenticatedRequest(`/api/asbuilt/${projectId}/summary`);
         if (response.ok) {
           const data = await response.json();
           setSummaryData(data);
@@ -72,7 +73,7 @@ const AsbuiltPage: React.FC = () => {
         console.error('Error fetching as-built summary:', error);
         setSummaryData([]);
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
     };
 
@@ -87,7 +88,7 @@ const AsbuiltPage: React.FC = () => {
       const fetchAsbuiltSummary = async () => {
         try {
           setLoading(true);
-          const response = await fetch(`/api/asbuilt/${projectId}/summary`);
+          const response = await makeAuthenticatedRequest(`/api/asbuilt/${projectId}/summary`);
           if (response.ok) {
             const data = await response.json();
             setSummaryData(data);
@@ -110,7 +111,7 @@ const AsbuiltPage: React.FC = () => {
       const fetchAsbuiltSummary = async () => {
         try {
           setLoading(true);
-          const response = await fetch(`/api/asbuilt/${projectId}/summary`);
+          const response = await makeAuthenticatedRequest(`/api/asbuilt/${projectId}/summary`);
           if (response.ok) {
             const data = await response.json();
             setSummaryData(data);

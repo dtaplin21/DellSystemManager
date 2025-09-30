@@ -2,6 +2,7 @@
 export const dynamic = "force-dynamic";
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { makeAuthenticatedRequest } from '@/lib/api';
 import './dashboard.css';
 
 interface Project {
@@ -22,12 +23,12 @@ export default function Dashboard() {
     const fetchProjects = async () => {
       try {
         setIsLoading(true);
-        const response = await fetch('/api/projects');
+        const response = await makeAuthenticatedRequest('/api/projects');
         if (response.ok) {
           const data = await response.json();
           setProjects(data);
         } else {
-          console.error('Failed to fetch projects');
+          console.error('Failed to fetch projects:', response.status, response.statusText);
           setProjects([]);
         }
       } catch (error) {

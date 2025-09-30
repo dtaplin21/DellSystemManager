@@ -2,6 +2,7 @@
 export const dynamic = "force-dynamic";
 
 import { useState, useEffect } from 'react';
+import { makeAuthenticatedRequest } from '@/lib/api';
 import './qc-data.css';
 
 // QC Data interface
@@ -29,7 +30,7 @@ export default function QCDataPage() {
       
       try {
         setIsLoading(true);
-        const response = await fetch(`/api/qc-data/${projectId}`);
+        const response = await makeAuthenticatedRequest(`/api/qc-data/${projectId}`);
         if (response.ok) {
           const data = await response.json();
           setQcData(data);
