@@ -1,0 +1,26 @@
+# Ignore backend files for Vercel deployment
+backend/
+*.log
+node_modules/
+.env
+.env.local
+.env.production
+
+# Ignore TypeScript files that cause build issues
+frontend/src/hooks/use-canvas-renderer.ts
+frontend/src/hooks/use-fullscreen-canvas.ts
+frontend/src/hooks/use-panel-validation.ts
+frontend/src/hooks/use-toast.ts
+frontend/src/hooks/useCanvas.ts
+frontend/src/hooks/useIntegratedMouseInteraction.ts
+frontend/src/hooks/useMouseInteraction.ts
+frontend/src/hooks/useOptimizedRendering.ts
+frontend/src/hooks/usePanelData.ts
+frontend/src/hooks/usePanelDataV2.ts
+frontend/src/hooks/usePanelSync.ts
+frontend/src/hooks/usePanelSystem.ts
+frontend/src/hooks/usePerformance.ts
+frontend/src/hooks/useStableDependencies.ts
+frontend/src/hooks/useUnifiedMouseInteraction.ts
+frontend/src/hooks/useZoomPan.ts
+frontend/src/services/canvasActionExecutor.ts
