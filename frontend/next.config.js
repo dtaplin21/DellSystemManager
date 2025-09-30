@@ -4,12 +4,16 @@ const nextConfig = {
   outputFileTracingRoot: __dirname,
   // Remove deprecated experimental.appDir option
   async rewrites() {
-    return [
-      {
-        source: '/api/:path*',
-        destination: 'http://localhost:8003/api/:path*',
-      },
-    ];
+    // Only use rewrites in development
+    if (process.env.NODE_ENV === 'development') {
+      return [
+        {
+          source: '/api/:path*',
+          destination: 'http://localhost:8003/api/:path*',
+        },
+      ];
+    }
+    return [];
   },
   webpack: (config, { isServer }) => {
     if (!isServer) {

@@ -20,8 +20,10 @@ const app = express();
 // Middleware
 app.use(helmet());
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-  credentials: true
+  origin: process.env.CORS_ORIGIN || process.env.FRONTEND_URL || 'http://localhost:3000',
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 app.use(morgan('dev'));
 app.use(express.json({ limit: '50mb' }));
@@ -30,6 +32,38 @@ app.use(cookieParser());
 
 // Backend server should not handle root requests - only API routes
 // Root requests should go directly to gateway server on port 5000
+
+// API health check endpoint - must be before other API routes
+app.get('/api/health', async (req, res) => {
+  try {
+    // Test database connection
+    const client = await pool.connect();
+    await client.query('SELECT 1 as test');
+    client.release();
+    
+    res.status(200).json({ 
+      status: 'OK', 
+      service: 'GeoSynth QC Pro Backend',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      environment: process.env.NODE_ENV || 'development',
+      version: '1.0.0',
+      database: 'connected'
+    });
+  } catch (error) {
+    console.error('❌ API health check failed:', error);
+    res.status(500).json({ 
+      status: 'unhealthy',
+      service: 'GeoSynth QC Pro Backend',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      environment: process.env.NODE_ENV || 'development',
+      version: '1.0.0',
+      database: 'disconnected',
+      error: error.message
+    });
+  }
+});
 
 // Setup API routes
 app.use('/api/auth', require('./routes/auth'));
@@ -93,6 +127,7 @@ app.get('/health', async (req, res) => {
     });
   }
 });
+
 
 // Check for OpenAI API configuration
 const { isOpenAIConfigured, initAIServices } = require('./services/ai-connector');

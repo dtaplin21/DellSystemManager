@@ -1,0 +1,19 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/next"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "https://your-backend-app.onrender.com/api/$1"
+    }
+  ],
+  "env": {
+    "NEXT_PUBLIC_BACKEND_URL": "https://your-backend-app.onrender.com",
+    "NEXT_PUBLIC_AI_SERVICE_URL": "https://your-backend-app.onrender.com"
+  }
+}
