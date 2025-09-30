@@ -29,6 +29,7 @@
     "chart.js": "^4.3.0",
     "class-variance-authority": "^0.6.1",
     "clsx": "^1.2.1",
+    "file-saver": "^2.0.5",
     "firebase": "^10.0.0",
     "lodash": "^4.17.21",
     "lucide-react": "^0.260.0",
@@ -36,7 +37,8 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-reconciler": "^0.28.0",
-    "tailwind-merge": "^1.13.2"
+    "tailwind-merge": "^1.13.2",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@shadcn/ui": "^0.0.4",
