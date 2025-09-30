@@ -514,6 +514,28 @@ router.post('/validate', async (req, res) => {
 });
 
 /**
+ * @route GET /api/asbuilt/:projectId/summary
+ * @desc Get as-built data summary for a project
+ * @access Private
+ */
+router.get('/:projectId/summary', async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    
+    // Get summary data for all domains
+    const summaryData = await asbuiltService.getProjectSummary(projectId);
+    
+    res.json(summaryData);
+  } catch (error) {
+    console.error('Error fetching as-built summary:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch as-built summary', 
+      message: error.message 
+    });
+  }
+});
+
+/**
  * @route GET /api/asbuilt/domains
  * @desc Get available domains and their field mappings
  * @access Private

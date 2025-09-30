@@ -14,25 +14,31 @@ interface Project {
   status?: string;
 }
 
-const DEMO_PROJECTS = [
-  {
-    id: '00000000-0000-0000-0000-000000000001',
-    name: 'Demo Geosynthetic Project',
-    client: 'Demo Client',
-    location: 'Denver, CO',
-    lastUpdated: '2025-06-04',
-    progress: 25,
-  },
-];
-
 export default function Dashboard() {
-  const [projects, setProjects] = useState<Project[]>(DEMO_PROJECTS);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    setTimeout(() => {
-      setIsLoading(false);
-    }, 800);
+    const fetchProjects = async () => {
+      try {
+        setIsLoading(true);
+        const response = await fetch('/api/projects');
+        if (response.ok) {
+          const data = await response.json();
+          setProjects(data);
+        } else {
+          console.error('Failed to fetch projects');
+          setProjects([]);
+        }
+      } catch (error) {
+        console.error('Error fetching projects:', error);
+        setProjects([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchProjects();
   }, []);
 
   return (

@@ -91,63 +91,40 @@ async function extractDataFromDocument(file, extractionType = 'auto') {
       // For now, we'll simulate the response
       await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API delay
       
-      // Sample extracted data based on extraction type
-      switch (extractionType) {
-        case 'qc_data':
-          return {
-            extractionType: 'qc_data',
-            data: [
-              {
-                material: 'HDPE Geomembrane',
-                property: 'Thickness',
-                value: '1.5',
-                unit: 'mm',
-                testMethod: 'ASTM D5199',
-                result: 'Pass'
-              },
-              {
-                material: 'HDPE Geomembrane',
-                property: 'Tensile Strength',
-                value: '27.2',
-                unit: 'kN/m',
-                testMethod: 'ASTM D6693',
-                result: 'Pass'
-              }
-            ]
-          };
-          
-        case 'materials':
-          return {
-            extractionType: 'materials',
-            data: [
-              {
-                name: 'HDPE Geomembrane',
-                manufacturer: 'GeoSolutions Inc.',
-                thickness: '1.5 mm',
-                specifications: ['ASTM D5199', 'GRI-GM13']
-              },
-              {
-                name: 'Nonwoven Geotextile',
-                manufacturer: 'TextileTech',
-                weight: '270 g/m²',
-                specifications: ['ASTM D5261']
-              }
-            ]
-          };
-          
-        default:
-          return {
-            extractionType: 'auto',
-            data: {
-              materials: [
-                { name: 'HDPE Geomembrane', thickness: '1.5 mm' }
-              ],
-              testResults: [
-                { property: 'Thickness', value: '1.5 mm', result: 'Pass' }
-              ]
+      // Call actual AI service for data extraction
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4',
+          messages: [
+            {
+              role: 'system',
+              content: `Extract structured data from the provided document. Return data in JSON format based on extraction type: ${extractionType}`
+            },
+            {
+              role: 'user',
+              content: `Document content: ${file.text || 'No text content available'}`
             }
-          };
+          ],
+          temperature: 0.1
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('AI service request failed');
       }
+
+      const aiResponse = await response.json();
+      const extractedData = JSON.parse(aiResponse.choices[0].message.content);
+      
+      return {
+        extractionType,
+        data: extractedData
+      };
     } else {
       // Fallback to basic extraction without AI
       return {
@@ -247,28 +224,36 @@ async function generateRecommendations(projectData) {
       // For now, we'll simulate the response
       await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API delay
       
-      return {
-        recommendations: [
-          {
-            title: 'Optimize Test Frequency',
-            description: 'Based on the consistent passing results for permeability tests, consider reducing test frequency from every 5,000 sq.ft to every 10,000 sq.ft to optimize testing costs while maintaining quality assurance.',
-            impact: 'high',
-            category: 'Testing'
-          },
-          {
-            title: 'Material Supplier Evaluation',
-            description: 'Supplier XYZ shows higher variability in material properties compared to other suppliers. Consider reviewing quality control processes with this supplier or evaluating alternative sources.',
-            impact: 'medium',
-            category: 'Procurement'
-          },
-          {
-            title: 'Panel Layout Adjustment',
-            description: 'Current panel layout could be optimized to reduce waste by approximately 8.5%. Consider adjusting the layout according to the attached optimization plan.',
-            impact: 'high',
-            category: 'Design'
-          }
-        ]
-      };
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4',
+          messages: [
+            {
+              role: 'system',
+              content: 'Analyze the provided project data and generate actionable recommendations for quality control improvements. Return recommendations in JSON format with title, description, impact (high/medium/low), and category fields.'
+            },
+            {
+              role: 'user',
+              content: `Project data: ${JSON.stringify(projectData)}`
+            }
+          ],
+          temperature: 0.3
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('AI service request failed');
+      }
+
+      const aiResponse = await response.json();
+      const recommendations = JSON.parse(aiResponse.choices[0].message.content);
+      
+      return { recommendations };
     } else {
       // Fallback to basic recommendations without AI
       return {

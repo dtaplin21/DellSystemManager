@@ -53,67 +53,76 @@ const AsbuiltPage: React.FC = () => {
     { value: 'destructive', label: 'Destructive Testing', color: 'bg-gray-100 text-gray-800' }
   ];
 
-  // Mock data for demonstration
+  // Fetch real as-built data from API
   useEffect(() => {
-    // TODO: Replace with actual API call
-    const mockSummary: AsbuiltSummary[] = [
-      {
-        domain: 'panel_placement',
-        totalRecords: 45,
-        reviewRequired: 2,
-        averageConfidence: 0.92,
-        validationScore: 0.96
-      },
-      {
-        domain: 'panel_seaming',
-        totalRecords: 67,
-        reviewRequired: 5,
-        averageConfidence: 0.88,
-        validationScore: 0.93
-      },
-      {
-        domain: 'non_destructive',
-        totalRecords: 34,
-        reviewRequired: 1,
-        averageConfidence: 0.95,
-        validationScore: 0.97
-      },
-      {
-        domain: 'trial_weld',
-        totalRecords: 23,
-        reviewRequired: 3,
-        averageConfidence: 0.85,
-        validationScore: 0.87
-      },
-      {
-        domain: 'repairs',
-        totalRecords: 12,
-        reviewRequired: 2,
-        averageConfidence: 0.78,
-        validationScore: 0.83
-      },
-      {
-        domain: 'destructive',
-        totalRecords: 18,
-        reviewRequired: 1,
-        averageConfidence: 0.91,
-        validationScore: 0.94
+    const fetchAsbuiltSummary = async () => {
+      if (!projectId) return;
+      
+      try {
+        setIsLoading(true);
+        const response = await fetch(`/api/asbuilt/${projectId}/summary`);
+        if (response.ok) {
+          const data = await response.json();
+          setSummaryData(data);
+        } else {
+          console.error('Failed to fetch as-built summary');
+          setSummaryData([]);
+        }
+      } catch (error) {
+        console.error('Error fetching as-built summary:', error);
+        setSummaryData([]);
+      } finally {
+        setIsLoading(false);
       }
-    ];
+    };
 
-    setSummaryData(mockSummary);
-  }, []);
+    fetchAsbuiltSummary();
+  }, [projectId]);
 
   // Handle import completion
   const handleImportComplete = () => {
-    // TODO: Refresh summary data
     console.log('Import completed, refreshing data...');
+    // Refresh summary data
+    if (projectId) {
+      const fetchAsbuiltSummary = async () => {
+        try {
+          setLoading(true);
+          const response = await fetch(`/api/asbuilt/${projectId}/summary`);
+          if (response.ok) {
+            const data = await response.json();
+            setSummaryData(data);
+          }
+        } catch (error) {
+          console.error('Error refreshing as-built summary:', error);
+        } finally {
+          setLoading(false);
+        }
+      };
+      fetchAsbuiltSummary();
+    }
   };
 
   // Handle manual entry completion
   const handleManualEntryComplete = () => {
-    // TODO: Refresh summary data
     console.log('Manual entry completed, refreshing data...');
+    // Refresh summary data
+    if (projectId) {
+      const fetchAsbuiltSummary = async () => {
+        try {
+          setLoading(true);
+          const response = await fetch(`/api/asbuilt/${projectId}/summary`);
+          if (response.ok) {
+            const data = await response.json();
+            setSummaryData(data);
+          }
+        } catch (error) {
+          console.error('Error refreshing as-built summary:', error);
+        } finally {
+          setLoading(false);
+        }
+      };
+      fetchAsbuiltSummary();
+    }
   };
 
   // Get domain display info

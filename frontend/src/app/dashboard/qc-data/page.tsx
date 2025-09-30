@@ -4,76 +4,49 @@ export const dynamic = "force-dynamic";
 import { useState, useEffect } from 'react';
 import './qc-data.css';
 
-// Mock QC data for demonstration
-const DEMO_QC_DATA = [
-  {
-    id: 'qc001',
-    projectId: '1',
-    testType: 'Seam Strength',
-    testDate: '2025-05-17',
-    location: 'North Slope',
-    result: 'Pass',
-    value: '452 lbs',
-    operator: 'Michael Chen',
-    notes: 'All parameters within acceptable range',
-  },
-  {
-    id: 'qc002',
-    projectId: '1',
-    testType: 'Thickness',
-    testDate: '2025-05-16',
-    location: 'Central Area',
-    result: 'Pass',
-    value: '60 mil',
-    operator: 'Sarah Johnson',
-    notes: 'No anomalies detected',
-  },
-  {
-    id: 'qc003',
-    projectId: '2',
-    testType: 'Density',
-    testDate: '2025-05-15',
-    location: 'East Section',
-    result: 'Warning',
-    value: '0.932 g/cc',
-    operator: 'David Wilson',
-    notes: 'Within range but close to lower limit',
-  },
-  {
-    id: 'qc004',
-    projectId: '3',
-    testType: 'Tear Resistance',
-    testDate: '2025-05-18',
-    location: 'West Edge',
-    result: 'Pass',
-    value: '42 N',
-    operator: 'Emma Rodriguez',
-    notes: 'Material performing as expected',
-  },
-  {
-    id: 'qc005',
-    projectId: '2',
-    testType: 'Puncture Resistance',
-    testDate: '2025-05-14',
-    location: 'South Corner',
-    result: 'Fail',
-    value: '210 N',
-    operator: 'James Taylor',
-    notes: 'Below minimum requirement of 240 N. Retest recommended.',
-  },
-];
+// QC Data interface
+interface QCData {
+  id: string;
+  projectId: string;
+  testType: string;
+  testDate: string;
+  location: string;
+  result: 'Pass' | 'Warning' | 'Fail';
+  value: string;
+  operator: string;
+  notes: string;
+}
 
 export default function QCDataPage() {
-  const [qcData, setQcData] = useState(DEMO_QC_DATA);
+  const [qcData, setQcData] = useState<QCData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedTestType, setSelectedTestType] = useState('All');
+  const [projectId, setProjectId] = useState<string>('');
 
   useEffect(() => {
-    // Simulate loading QC data from API
-    setTimeout(() => {
-      setIsLoading(false);
-    }, 800);
-  }, []);
+    const fetchQCData = async () => {
+      if (!projectId) return;
+      
+      try {
+        setIsLoading(true);
+        const response = await fetch(`/api/qc-data/${projectId}`);
+        if (response.ok) {
+          const data = await response.json();
+          setQcData(data);
+        } else {
+          console.error('Failed to fetch QC data');
+          setQcData([]);
+        }
+      } catch (error) {
+        console.error('Error fetching QC data:', error);
+        setQcData([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchQCData();
+  }, [projectId]);
 
   // Filter data based on selected test type
   const filteredData = selectedTestType === 'All'

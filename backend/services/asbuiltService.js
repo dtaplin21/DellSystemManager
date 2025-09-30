@@ -360,6 +360,61 @@ class AsbuiltService {
       return null;
     }
   }
+
+  /**
+   * Get project summary data for all domains
+   */
+  async getProjectSummary(projectId) {
+    try {
+      console.log(`🔍 [SERVICE] Getting project summary for: ${projectId}`);
+      
+      const query = `
+        SELECT 
+          domain,
+          COUNT(*) as total_records,
+          COUNT(CASE WHEN requires_review = true THEN 1 END) as review_required,
+          AVG(ai_confidence) as average_confidence,
+          AVG(CASE WHEN ai_confidence >= 0.8 THEN 1.0 ELSE 0.0 END) as validation_score
+        FROM asbuilt_records 
+        WHERE project_id = $1
+        GROUP BY domain
+        ORDER BY domain
+      `;
+      
+      const result = await this.pool.query(query, [projectId]);
+      
+      // Create summary data for all domains
+      const domains = ['panel_placement', 'panel_seaming', 'non_destructive', 'trial_weld', 'repairs', 'destructive'];
+      const summaryData = domains.map(domain => {
+        const domainData = result.rows.find(row => row.domain === domain);
+        
+        if (domainData) {
+          return {
+            domain,
+            totalRecords: parseInt(domainData.total_records),
+            reviewRequired: parseInt(domainData.review_required),
+            averageConfidence: parseFloat(domainData.average_confidence) || 0,
+            validationScore: parseFloat(domainData.validation_score) || 0
+          };
+        } else {
+          return {
+            domain,
+            totalRecords: 0,
+            reviewRequired: 0,
+            averageConfidence: 0,
+            validationScore: 0
+          };
+        }
+      });
+      
+      console.log(`✅ [SERVICE] Project summary generated: ${summaryData.length} domains`);
+      return summaryData;
+      
+    } catch (error) {
+      console.error(`❌ [SERVICE] Error getting project summary:`, error);
+      throw new Error(`Failed to get project summary: ${error.message}`);
+    }
+  }
 }
 
 module.exports = AsbuiltService;

@@ -41,56 +41,35 @@ export default function QCDataAutoAnalysis({ projectId, onAnalysisComplete }: QC
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
-  // Sample data for demonstration (in a real app, this would come from the API)
-  const mockAnalysisResults: AnalysisResult = {
-    summary: {
-      totalSamples: 124,
-      passedTests: 115,
-      failedTests: 9,
-      anomalies: 3
-    },
-    insights: [
-      {
-        type: 'anomaly',
-        title: 'Tensile Strength Anomaly',
-        description: 'Three samples showed unusually low tensile strength values that are more than 2 standard deviations below the mean. This could indicate material inconsistency in batch #G-234.',
-        severity: 'high',
-        category: 'Tensile Properties'
-      },
-      {
-        type: 'pattern',
-        title: 'Thickness Trend',
-        description: 'The material thickness shows a slight but consistent decrease across samples from the same production run. While still within specifications, this trend should be monitored.',
-        severity: 'low',
-        category: 'Physical Properties'
-      },
-      {
-        type: 'recommendation',
-        title: 'Additional CBR Testing Recommended',
-        description: 'Based on the observed puncture resistance values, additional CBR testing is recommended for the eastern section materials to ensure compliance with project requirements.',
-        category: 'Testing Procedures'
-      }
-    ]
-  };
+  // Analysis results will be fetched from API
 
   const runAnalysis = async () => {
     setIsAnalyzing(true);
     setError(null);
 
     try {
-      // In a real implementation, this would be an API call
-      // const response = await axios.post(`/api/projects/${projectId}/qc-data/analyze`);
-      // setAnalysisResults(response.data);
+      const response = await fetch(`/api/qc-data/${projectId}/analyze`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to run analysis');
+      }
+
+      const results = await response.json();
+      setAnalysisResults(results);
       
-      // For demonstration, use mock data with a delay to simulate API call
-      setTimeout(() => {
-        setAnalysisResults(mockAnalysisResults);
-        if (onAnalysisComplete) {
-          onAnalysisComplete(mockAnalysisResults);
-        }
-        setIsAnalyzing(false);
-      }, 2000);
+      toast({
+        title: 'Analysis Complete',
+        description: 'QC data analysis has been completed successfully.',
+      });
       
+      if (onAnalysisComplete) {
+        onAnalysisComplete(results);
+      }
     } catch (err) {
       setError('Failed to analyze QC data. Please try again.');
       toast({
@@ -98,6 +77,7 @@ export default function QCDataAutoAnalysis({ projectId, onAnalysisComplete }: QC
         description: 'Could not complete the QC data analysis. Please check your connection and try again.',
         variant: 'destructive',
       });
+    } finally {
       setIsAnalyzing(false);
     }
   };
