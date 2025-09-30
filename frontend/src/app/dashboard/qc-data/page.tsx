@@ -3,6 +3,8 @@ export const dynamic = "force-dynamic";
 
 import { useState, useEffect } from 'react';
 import { makeAuthenticatedRequest } from '@/lib/api';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 import './qc-data.css';
 
 // QC Data interface
@@ -22,7 +24,25 @@ export default function QCDataPage() {
   const [qcData, setQcData] = useState<QCData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedTestType, setSelectedTestType] = useState('All');
-  const [projectId, setProjectId] = useState<string>('');
+  const [projectId, setProjectId] = useState<string>('69fc302b-166d-4543-9990-89c4b1e0ed59'); // Default project ID
+  const [projects, setProjects] = useState<any[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch projects for dropdown
+  useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        const response = await makeAuthenticatedRequest('/api/projects');
+        if (response.ok) {
+          const data = await response.json();
+          setProjects(data);
+        }
+      } catch (error) {
+        console.error('Error fetching projects:', error);
+      }
+    };
+    fetchProjects();
+  }, []);
 
   useEffect(() => {
     const fetchQCData = async () => {
@@ -30,16 +50,20 @@ export default function QCDataPage() {
       
       try {
         setIsLoading(true);
+        setError(null);
         const response = await makeAuthenticatedRequest(`/api/qc-data/${projectId}`);
         if (response.ok) {
           const data = await response.json();
           setQcData(data);
         } else {
-          console.error('Failed to fetch QC data');
+          const errorText = await response.text();
+          console.error('Failed to fetch QC data:', response.status, errorText);
+          setError(`Failed to fetch QC data: ${response.status} ${response.statusText}`);
           setQcData([]);
         }
       } catch (error) {
         console.error('Error fetching QC data:', error);
+        setError('Error fetching QC data. Please check your connection and try again.');
         setQcData([]);
       } finally {
         setIsLoading(false);
@@ -65,7 +89,7 @@ export default function QCDataPage() {
     fail: qcData.filter(item => item.result === 'Fail').length,
   };
 
-  const passRate = Math.round((stats.pass / stats.total) * 100);
+  const passRate = stats.total > 0 ? Math.round((stats.pass / stats.total) * 100) : 0;
 
   const handleViewTest = (testId: string) => {
     alert(`Viewing details for test ${testId}`);
@@ -104,6 +128,55 @@ export default function QCDataPage() {
             View, analyze, and manage all quality control test results for your geosynthetic projects.
           </p>
         </div>
+
+        {/* Project Selection */}
+        <div className="project-selection" style={{ marginBottom: '2rem', padding: '1rem', backgroundColor: '#f8f9fa', borderRadius: '8px' }}>
+          <Label htmlFor="project-select" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+            Select Project
+          </Label>
+          <Select value={projectId} onValueChange={setProjectId}>
+            <SelectTrigger style={{ width: '300px' }}>
+              <SelectValue placeholder="Select a project" />
+            </SelectTrigger>
+            <SelectContent>
+              {projects.map((project) => (
+                <SelectItem key={project.id} value={project.id}>
+                  {project.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Error Display */}
+        {error && (
+          <div style={{ 
+            padding: '1rem', 
+            backgroundColor: '#fee2e2', 
+            border: '1px solid #fca5a5', 
+            borderRadius: '8px', 
+            color: '#dc2626',
+            marginBottom: '2rem'
+          }}>
+            <strong>Error:</strong> {error}
+          </div>
+        )}
+
+        {/* No Data Message */}
+        {!isLoading && !error && qcData.length === 0 && (
+          <div style={{ 
+            padding: '2rem', 
+            textAlign: 'center', 
+            backgroundColor: '#f8f9fa', 
+            borderRadius: '8px',
+            marginBottom: '2rem'
+          }}>
+            <h3 style={{ marginBottom: '0.5rem', color: '#6b7280' }}>No QC Data Found</h3>
+            <p style={{ color: '#9ca3af' }}>
+              No quality control data found for the selected project. Try selecting a different project or upload some data.
+            </p>
+          </div>
+        )}
 
         {/* Statistics Grid */}
         <div className="stats-grid">
