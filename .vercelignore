@@ -6,7 +6,10 @@ node_modules/
 .env.local
 .env.production
 
-# Ignore TypeScript files that cause build issues
+# Ignore root package.json to force Vercel to use frontend
+package.json
+
+# Ignore problematic TypeScript files
 frontend/src/hooks/use-canvas-renderer.ts
 frontend/src/hooks/use-fullscreen-canvas.ts
 frontend/src/hooks/use-panel-validation.ts
