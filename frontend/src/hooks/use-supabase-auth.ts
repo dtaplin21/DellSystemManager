@@ -207,6 +207,16 @@ export function useSupabaseAuth() {
     }
   };
 
+  const updatePassword = async (newPassword: string) => {
+    const { error } = await getSupabaseClient().auth.updateUser({
+      password: newPassword
+    });
+
+    if (error) {
+      throw new Error(error.message || 'Password update failed');
+    }
+  };
+
   // Function to manually refresh session using Supabase's native refresh
   const refreshSession = useCallback(async () => {
     try {
@@ -260,6 +270,7 @@ export function useSupabaseAuth() {
     signOut,
     updateProfile,
     resetPassword,
+    updatePassword,
     refreshSession,
     clearSessionAndRedirect,
   };
