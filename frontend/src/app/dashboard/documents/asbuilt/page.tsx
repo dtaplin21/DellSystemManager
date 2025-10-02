@@ -26,6 +26,7 @@ import {
 import { AsbuiltDomain } from '@/types/asbuilt';
 import ExcelImportModal from '@/components/panel-layout/excel-import-modal';
 import ManualEntryModal from '@/components/panel-layout/manual-entry-modal';
+import { useProjects } from '@/contexts/ProjectsProvider';
 
 interface AsbuiltSummary {
   domain: string;
@@ -43,6 +44,9 @@ const AsbuiltPage: React.FC = () => {
   const [showImportModal, setShowImportModal] = useState(false);
   const [showManualEntryModal, setShowManualEntryModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Add projects context
+  const { projects, isLoading: projectsLoading, error: projectsError } = useProjects();
 
   // Domain options
   const domainOptions = [
@@ -64,7 +68,8 @@ const AsbuiltPage: React.FC = () => {
         const response = await makeAuthenticatedRequest(`/api/asbuilt/${projectId}/summary`);
         if (response.ok) {
           const data = await response.json();
-          setSummaryData(data);
+          // Ensure data is an array
+          setSummaryData(Array.isArray(data) ? data : []);
         } else {
           console.error('Failed to fetch as-built summary');
           setSummaryData([]);
@@ -137,9 +142,11 @@ const AsbuiltPage: React.FC = () => {
   };
 
   // Filter summary data
-  const filteredSummary = summaryData.filter(item => 
-    getDomainInfo(item.domain).label.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredSummary = Array.isArray(summaryData) 
+    ? summaryData.filter(item => 
+        getDomainInfo(item.domain).label.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    : [];
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -187,9 +194,19 @@ const AsbuiltPage: React.FC = () => {
                   <SelectValue placeholder="Select a project" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="project-1">Project Alpha</SelectItem>
-                  <SelectItem value="project-2">Project Beta</SelectItem>
-                  <SelectItem value="project-3">Project Gamma</SelectItem>
+                  {projectsLoading ? (
+                    <SelectItem value="loading" disabled>Loading projects...</SelectItem>
+                  ) : projectsError ? (
+                    <SelectItem value="error" disabled>Error loading projects</SelectItem>
+                  ) : projects.length === 0 ? (
+                    <SelectItem value="no-projects" disabled>No projects found</SelectItem>
+                  ) : (
+                    projects.map((project) => (
+                      <SelectItem key={project.id} value={project.id}>
+                        {project.name}
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -312,33 +329,41 @@ const AsbuiltPage: React.FC = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              <TableRow>
-                <TableCell>Panel Seaming</TableCell>
-                <TableCell>Excel Import</TableCell>
-                <TableCell>15 records</TableCell>
-                <TableCell>
-                  <Badge variant="secondary">Completed</Badge>
-                </TableCell>
-                <TableCell>2 hours ago</TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell>Non-Destructive Testing</TableCell>
-                <TableCell>Manual Entry</TableCell>
-                <TableCell>1 record</TableCell>
-                <TableCell>
-                  <Badge variant="secondary">Completed</Badge>
-                </TableCell>
-                <TableCell>4 hours ago</TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell>Repairs</TableCell>
-                <TableCell>Excel Import</TableCell>
-                <TableCell>8 records</TableCell>
-                <TableCell>
-                  <Badge variant="destructive">Review Required</Badge>
-                </TableCell>
-                <TableCell>1 day ago</TableCell>
-              </TableRow>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-8">
+                    Loading project data...
+                  </TableCell>
+                </TableRow>
+              ) : !projectId ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-8 text-gray-500">
+                    Select a project to view as-built data
+                  </TableCell>
+                </TableRow>
+              ) : filteredSummary.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-8 text-gray-500">
+                    No as-built data found for this project
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredSummary.map((item, index) => (
+                  <TableRow key={index}>
+                    <TableCell>{getDomainInfo(item.domain).label}</TableCell>
+                    <TableCell>Excel Import</TableCell>
+                    <TableCell>{item.totalRecords} records</TableCell>
+                    <TableCell>
+                      {item.reviewRequired > 0 ? (
+                        <Badge variant="destructive">Review Required</Badge>
+                      ) : (
+                        <Badge variant="secondary">Completed</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>Recently imported</TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </CardContent>
