@@ -25,7 +25,7 @@ export default function BackendStatus() {
     const startTime = Date.now();
     
     try {
-      const response = await fetch('http://localhost:8003/health', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003'}/health`, {
         method: 'GET',
         signal: AbortSignal.timeout(5000) // 5 second timeout
       });

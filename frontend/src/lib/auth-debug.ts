@@ -85,7 +85,7 @@ export async function testAuthenticatedAPI() {
 
   try {
     // Test the failing endpoint
-    const response = await fetch('http://localhost:8003/api/panel-requirements/test-project', {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003'}/api/panel-requirements/test-project`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',

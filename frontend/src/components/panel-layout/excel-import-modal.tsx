@@ -151,7 +151,7 @@ const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
       formData.append('panelId', panelId);
       formData.append('domain', selectedDomain);
 
-      const response = await fetch('http://localhost:8003/api/asbuilt/import', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003'}/api/asbuilt/import`, {
         method: 'POST',
         body: formData,
         headers: {
