@@ -78,12 +78,13 @@ class AsbuiltImportAI {
    * Auto-detect panels mentioned in Excel data
    */
   detectPanelsInData(dataRows) {
-    // More precise panel patterns - only match explicit panel references
+    // More precise panel patterns - match explicit panel references
     const panelPatterns = [
       /panel[\s\-_]*(\d+)/gi,     // "Panel 30", "Panel-30", "Panel_30"
       /p[\s\-_]*(\d+)/gi,         // "P 30", "P-30", "P_30"
       /panel\s*#?\s*(\d+)/gi,     // "Panel #30", "Panel#30"
-      /\bp(\d+)\b/gi              // "P30" as standalone word
+      /\bp(\d+)\b/gi,             // "P30" as standalone word
+      /^(\d{1,3})$/               // Just numbers 1-3 digits (potential panel IDs)
     ];
     
     const detectedPanels = new Set();
@@ -123,13 +124,6 @@ class AsbuiltImportAI {
     // Skip empty cells
     if (!cellStr || cellStr.length === 0) return true;
     
-    // Skip cells that are purely numeric without panel context
-    if (/^\d+$/.test(cellStr)) {
-      // Only skip if it's a very large number (likely not a panel)
-      const num = parseInt(cellStr);
-      if (num > 1000) return true;
-    }
-    
     // Skip cells that look like measurements, quantities, or other data
     const nonPanelPatterns = [
       /^\d+\.\d+$/,           // Decimals (measurements)
@@ -139,6 +133,7 @@ class AsbuiltImportAI {
       /^\d+:\d+$/,            // Ratios or times
       /^(pass|fail|na|n\/a)$/i, // Test results
       /^(yes|no|true|false)$/i, // Boolean values
+      /^\d{4,}$/              // Very large numbers (4+ digits) - likely not panels
     ];
     
     return nonPanelPatterns.some(pattern => pattern.test(cellStr));
