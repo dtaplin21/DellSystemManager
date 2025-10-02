@@ -96,7 +96,8 @@ const AsbuiltPage: React.FC = () => {
           const response = await makeAuthenticatedRequest(`/api/asbuilt/${projectId}/summary`);
           if (response.ok) {
             const data = await response.json();
-            setSummaryData(data);
+            // Ensure data is an array
+            setSummaryData(Array.isArray(data) ? data : []);
           }
         } catch (error) {
           console.error('Error refreshing as-built summary:', error);
@@ -119,7 +120,8 @@ const AsbuiltPage: React.FC = () => {
           const response = await makeAuthenticatedRequest(`/api/asbuilt/${projectId}/summary`);
           if (response.ok) {
             const data = await response.json();
-            setSummaryData(data);
+            // Ensure data is an array
+            setSummaryData(Array.isArray(data) ? data : []);
           }
         } catch (error) {
           console.error('Error refreshing as-built summary:', error);
