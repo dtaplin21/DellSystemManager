@@ -78,6 +78,8 @@ class AsbuiltImportAI {
    * Auto-detect panels mentioned in Excel data
    */
   detectPanelsInData(dataRows) {
+    console.log(`🔍 Starting panel detection on ${dataRows.length} rows`);
+    
     // More precise panel patterns - match explicit panel references
     const panelPatterns = [
       /panel[\s\-_]*(\d+)/gi,     // "Panel 30", "Panel-30", "Panel_30"
@@ -88,15 +90,20 @@ class AsbuiltImportAI {
     ];
     
     const detectedPanels = new Set();
+    let totalCellsProcessed = 0;
+    let cellsSkipped = 0;
+    let matchesFound = 0;
     
     dataRows.forEach((row, rowIndex) => {
       row.forEach((cell, colIndex) => {
         if (!cell) return;
         
         const cellStr = cell.toString().trim();
+        totalCellsProcessed++;
         
         // Skip obviously non-panel cells
         if (this.isNonPanelCell(cellStr, rowIndex, colIndex)) {
+          cellsSkipped++;
           return;
         }
         
@@ -106,7 +113,10 @@ class AsbuiltImportAI {
             matches.forEach(match => {
               const panelNum = match.replace(/[^\d]/g, '');
               if (panelNum && this.isValidPanelNumber(panelNum)) {
-                detectedPanels.add(`P-${panelNum.padStart(3, '0')}`);
+                const normalizedPanel = `P-${panelNum.padStart(3, '0')}`;
+                detectedPanels.add(normalizedPanel);
+                matchesFound++;
+                console.log(`✅ Found panel: "${cellStr}" → ${normalizedPanel}`);
               }
             });
           }
@@ -114,7 +124,15 @@ class AsbuiltImportAI {
       });
     });
     
-    return Array.from(detectedPanels).sort();
+    console.log(`📊 Panel detection summary:`);
+    console.log(`   - Total cells processed: ${totalCellsProcessed}`);
+    console.log(`   - Cells skipped: ${cellsSkipped}`);
+    console.log(`   - Matches found: ${matchesFound}`);
+    console.log(`   - Unique panels detected: ${detectedPanels.size}`);
+    
+    const result = Array.from(detectedPanels).sort();
+    console.log(`🎯 Final panels:`, result);
+    return result;
   }
 
   /**
@@ -126,17 +144,24 @@ class AsbuiltImportAI {
     
     // Skip cells that look like measurements, quantities, or other data
     const nonPanelPatterns = [
-      /^\d+\.\d+$/,           // Decimals (measurements)
-      /^\d+[x×]\d+$/,         // Dimensions (e.g., "10x5")
-      /^\d+[km]?m$/,          // Units (e.g., "100m", "5km")
-      /^\d+%$/,               // Percentages
-      /^\d+:\d+$/,            // Ratios or times
-      /^(pass|fail|na|n\/a)$/i, // Test results
-      /^(yes|no|true|false)$/i, // Boolean values
-      /^\d{4,}$/              // Very large numbers (4+ digits) - likely not panels
+      { pattern: /^\d+\.\d+$/, reason: 'decimals' },
+      { pattern: /^\d+[x×]\d+$/, reason: 'dimensions' },
+      { pattern: /^\d+[km]?m$/, reason: 'units' },
+      { pattern: /^\d+%$/, reason: 'percentages' },
+      { pattern: /^\d+:\d+$/, reason: 'ratios/times' },
+      { pattern: /^(pass|fail|na|n\/a)$/i, reason: 'test_results' },
+      { pattern: /^(yes|no|true|false)$/i, reason: 'boolean_values' },
+      { pattern: /^\d{4,}$/, reason: 'large_numbers' }
     ];
     
-    return nonPanelPatterns.some(pattern => pattern.test(cellStr));
+    for (const { pattern, reason } of nonPanelPatterns) {
+      if (pattern.test(cellStr)) {
+        console.log(`🚫 Skipping cell "${cellStr}" (reason: ${reason})`);
+        return true;
+      }
+    }
+    
+    return false;
   }
 
   /**
@@ -146,11 +171,18 @@ class AsbuiltImportAI {
     const num = parseInt(panelNum);
     
     // Panel numbers should be reasonable (1-999 for most projects)
-    if (num < 1 || num > 999) return false;
+    if (num < 1 || num > 999) {
+      console.log(`❌ Invalid panel number: ${panelNum} (out of range 1-999)`);
+      return false;
+    }
     
     // Panel numbers should not be too long (max 3 digits for most projects)
-    if (panelNum.length > 3) return false;
+    if (panelNum.length > 3) {
+      console.log(`❌ Invalid panel number: ${panelNum} (too long: ${panelNum.length} digits)`);
+      return false;
+    }
     
+    console.log(`✅ Valid panel number: ${panelNum}`);
     return true;
   }
 
