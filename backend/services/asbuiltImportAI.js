@@ -78,7 +78,139 @@ class AsbuiltImportAI {
    * Auto-detect panels mentioned in Excel data
    */
   detectPanelsInData(dataRows) {
-    console.log(`🔍 Starting frequency-based panel detection on ${dataRows.length} rows`);
+    console.log(`🔍 Starting column-aware panel detection on ${dataRows.length} rows`);
+    
+    // Step 1: Find the panel column by analyzing headers
+    const panelColumnIndex = this.findPanelColumn();
+    
+    if (panelColumnIndex === -1) {
+      console.log(`⚠️ No panel column found, falling back to frequency-based detection`);
+      return this.detectPanelsByFrequency(dataRows);
+    }
+    
+    console.log(`🎯 Found panel column at index ${panelColumnIndex}`);
+    
+    // Step 2: Extract panels only from the panel column
+    const panelNumbers = this.extractPanelsFromColumn(dataRows, panelColumnIndex);
+    
+    console.log(`📊 Column-aware panel detection summary:`);
+    console.log(`   - Panel column index: ${panelColumnIndex}`);
+    console.log(`   - Cells scanned: ${dataRows.length} (only panel column)`);
+    console.log(`   - Unique panels detected: ${panelNumbers.length}`);
+    
+    return panelNumbers;
+  }
+
+  /**
+   * Find the panel column by analyzing headers
+   */
+  findPanelColumn() {
+    if (!this.headers || this.headers.length === 0) {
+      console.log(`⚠️ No headers available for panel column detection`);
+      return -1;
+    }
+    
+    // Panel column header patterns (case-insensitive)
+    const panelHeaderPatterns = [
+      /^panel\s*#?$/i,
+      /^panel\s*number$/i,
+      /^panel\s*id$/i,
+      /^panel$/i,
+      /^p#?$/i,
+      /^p\s*number$/i,
+      /^p\s*id$/i,
+      /^panel\s*no$/i,
+      /^panel\s*num$/i
+    ];
+    
+    console.log(`🔍 Analyzing headers for panel column:`);
+    this.headers.forEach((header, index) => {
+      console.log(`   ${index}: "${header}"`);
+    });
+    
+    // Look for exact matches first
+    for (let i = 0; i < this.headers.length; i++) {
+      const header = this.headers[i].toString().trim();
+      
+      for (const pattern of panelHeaderPatterns) {
+        if (pattern.test(header)) {
+          console.log(`✅ Found panel column: "${header}" at index ${i}`);
+          return i;
+        }
+      }
+    }
+    
+    // If no exact match, look for partial matches
+    for (let i = 0; i < this.headers.length; i++) {
+      const header = this.headers[i].toString().trim().toLowerCase();
+      
+      if (header.includes('panel') || header.includes('p#') || header.includes('p ')) {
+        console.log(`✅ Found panel column (partial match): "${this.headers[i]}" at index ${i}`);
+        return i;
+      }
+    }
+    
+    console.log(`❌ No panel column found in headers`);
+    return -1;
+  }
+
+  /**
+   * Extract panel numbers from a specific column
+   */
+  extractPanelsFromColumn(dataRows, columnIndex) {
+    console.log(`🔍 Extracting panels from column ${columnIndex}`);
+    
+    const detectedPanels = new Set();
+    let cellsProcessed = 0;
+    
+    dataRows.forEach((row, rowIndex) => {
+      if (row[columnIndex]) {
+        const cellValue = row[columnIndex].toString().trim();
+        cellsProcessed++;
+        
+        // Skip empty cells
+        if (!cellValue) return;
+        
+        // Extract panel numbers using regex
+        const panelPatterns = [
+          /panel[\s\-_]*(\d+)/gi,     // "Panel 30", "Panel-30", "Panel_30"
+          /p[\s\-_]*(\d+)/gi,         // "P 30", "P-30", "P_30"
+          /panel\s*#?\s*(\d+)/gi,     // "Panel #30", "Panel#30"
+          /\bp(\d+)\b/gi,             // "P30" as standalone word
+          /^(\d{1,3})$/               // Just numbers 1-3 digits (potential panel IDs)
+        ];
+        
+        panelPatterns.forEach(pattern => {
+          const matches = cellValue.match(pattern);
+          if (matches) {
+            matches.forEach(match => {
+              const panelNum = match.replace(/[^\d]/g, '');
+              if (panelNum && this.isValidPanelNumber(panelNum)) {
+                const normalizedPanel = `P-${panelNum.padStart(3, '0')}`;
+                detectedPanels.add(normalizedPanel);
+                console.log(`✅ Found panel: "${cellValue}" → ${normalizedPanel}`);
+              }
+            });
+          }
+        });
+      }
+    });
+    
+    console.log(`📊 Column extraction summary:`);
+    console.log(`   - Column index: ${columnIndex}`);
+    console.log(`   - Cells processed: ${cellsProcessed}`);
+    console.log(`   - Unique panels found: ${detectedPanels.size}`);
+    
+    const result = Array.from(detectedPanels).sort();
+    console.log(`🎯 Panels from column:`, result);
+    return result;
+  }
+
+  /**
+   * Fallback: Frequency-based panel detection (original method)
+   */
+  detectPanelsByFrequency(dataRows) {
+    console.log(`🔄 Using frequency-based fallback detection`);
     
     // More precise panel patterns - match explicit panel references
     const panelPatterns = [
@@ -687,6 +819,10 @@ class AsbuiltImportAI {
 
       // Parse Excel file
       const { headers, dataRows } = await this.parseExcelFile(fileBuffer, domain);
+      
+      // Set headers for panel detection
+      this.headers = headers;
+      console.log(`📋 Headers available for panel detection:`, headers);
 
       // Auto-detect domain if not provided
       if (!domain) {
