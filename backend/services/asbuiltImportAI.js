@@ -78,27 +78,10 @@ class AsbuiltImportAI {
    * Auto-detect panels mentioned in Excel data
    */
   detectPanelsInData(dataRows) {
-    console.log(`🔍 Starting column-aware panel detection on ${dataRows.length} rows`);
+    console.log(`🔍 Starting frequency-based panel detection on ${dataRows.length} rows`);
     
-    // Step 1: Find the panel column by analyzing headers
-    const panelColumnIndex = this.findPanelColumn();
-    
-    if (panelColumnIndex === -1) {
-      console.log(`⚠️ No panel column found, falling back to frequency-based detection`);
-      return this.detectPanelsByFrequency(dataRows);
-    }
-    
-    console.log(`🎯 Found panel column at index ${panelColumnIndex}`);
-    
-    // Step 2: Extract panels only from the panel column
-    const panelNumbers = this.extractPanelsFromColumn(dataRows, panelColumnIndex);
-    
-    console.log(`📊 Column-aware panel detection summary:`);
-    console.log(`   - Panel column index: ${panelColumnIndex}`);
-    console.log(`   - Cells scanned: ${dataRows.length} (only panel column)`);
-    console.log(`   - Unique panels detected: ${panelNumbers.length}`);
-    
-    return panelNumbers;
+    // Use frequency-based detection with threshold of 2 (filter out frequent data values)
+    return this.detectPanelsByFrequency(dataRows);
   }
 
   /**
@@ -210,7 +193,7 @@ class AsbuiltImportAI {
    * Fallback: Frequency-based panel detection (original method)
    */
   detectPanelsByFrequency(dataRows) {
-    console.log(`🔄 Using frequency-based fallback detection`);
+    console.log(`🔄 Using frequency-based detection with threshold of 2`);
     
     // More precise panel patterns - match explicit panel references
     const panelPatterns = [
@@ -264,7 +247,7 @@ class AsbuiltImportAI {
     });
     
     // Step 2: Filter based on frequency (panel numbers should appear infrequently)
-    const FREQUENCY_THRESHOLD = 3; // If a number appears more than 3 times, it's likely data, not a panel
+    const FREQUENCY_THRESHOLD = 2; // If a number appears more than 2 times, it's likely data, not a panel
     const detectedPanels = new Set();
     
     Object.entries(numberFrequency).forEach(([num, freq]) => {
@@ -282,7 +265,7 @@ class AsbuiltImportAI {
     console.log(`   - Total cells processed: ${totalCellsProcessed}`);
     console.log(`   - Cells skipped: ${cellsSkipped}`);
     console.log(`   - Numbers analyzed: ${Object.keys(numberFrequency).length}`);
-    console.log(`   - Frequency threshold: ${FREQUENCY_THRESHOLD} times`);
+    console.log(`   - Frequency threshold: ${FREQUENCY_THRESHOLD} times (filter out frequent data values)`);
     console.log(`   - Unique panels detected: ${detectedPanels.size}`);
     
     const result = Array.from(detectedPanels).sort();
