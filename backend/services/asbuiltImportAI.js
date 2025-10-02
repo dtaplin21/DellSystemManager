@@ -78,7 +78,7 @@ class AsbuiltImportAI {
    * Auto-detect panels mentioned in Excel data
    */
   detectPanelsInData(dataRows) {
-    console.log(`🔍 Starting panel detection on ${dataRows.length} rows`);
+    console.log(`🔍 Starting frequency-based panel detection on ${dataRows.length} rows`);
     
     // More precise panel patterns - match explicit panel references
     const panelPatterns = [
@@ -89,10 +89,10 @@ class AsbuiltImportAI {
       /^(\d{1,3})$/               // Just numbers 1-3 digits (potential panel IDs)
     ];
     
-    const detectedPanels = new Set();
+    // Step 1: Count frequency of each number
+    const numberFrequency = {};
     let totalCellsProcessed = 0;
     let cellsSkipped = 0;
-    let matchesFound = 0;
     
     dataRows.forEach((row, rowIndex) => {
       row.forEach((cell, colIndex) => {
@@ -113,10 +113,8 @@ class AsbuiltImportAI {
             matches.forEach(match => {
               const panelNum = match.replace(/[^\d]/g, '');
               if (panelNum && this.isValidPanelNumber(panelNum)) {
-                const normalizedPanel = `P-${panelNum.padStart(3, '0')}`;
-                detectedPanels.add(normalizedPanel);
-                matchesFound++;
-                console.log(`✅ Found panel: "${cellStr}" → ${normalizedPanel}`);
+                const num = parseInt(panelNum);
+                numberFrequency[num] = (numberFrequency[num] || 0) + 1;
               }
             });
           }
@@ -124,10 +122,35 @@ class AsbuiltImportAI {
       });
     });
     
-    console.log(`📊 Panel detection summary:`);
+    console.log(`📊 Number frequency analysis:`);
+    const sortedFrequencies = Object.entries(numberFrequency)
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 20); // Show top 20 most frequent
+    
+    sortedFrequencies.forEach(([num, freq]) => {
+      console.log(`   ${num}: ${freq} times`);
+    });
+    
+    // Step 2: Filter based on frequency (panel numbers should appear infrequently)
+    const FREQUENCY_THRESHOLD = 3; // If a number appears more than 3 times, it's likely data, not a panel
+    const detectedPanels = new Set();
+    
+    Object.entries(numberFrequency).forEach(([num, freq]) => {
+      const normalizedPanel = `P-${num.padStart(3, '0')}`;
+      
+      if (freq <= FREQUENCY_THRESHOLD) {
+        detectedPanels.add(normalizedPanel);
+        console.log(`✅ Panel candidate: ${normalizedPanel} (appears ${freq} times)`);
+      } else {
+        console.log(`🚫 Filtered out: ${normalizedPanel} (appears ${freq} times - too frequent)`);
+      }
+    });
+    
+    console.log(`📊 Frequency-based panel detection summary:`);
     console.log(`   - Total cells processed: ${totalCellsProcessed}`);
     console.log(`   - Cells skipped: ${cellsSkipped}`);
-    console.log(`   - Matches found: ${matchesFound}`);
+    console.log(`   - Numbers analyzed: ${Object.keys(numberFrequency).length}`);
+    console.log(`   - Frequency threshold: ${FREQUENCY_THRESHOLD} times`);
     console.log(`   - Unique panels detected: ${detectedPanels.size}`);
     
     const result = Array.from(detectedPanels).sort();
