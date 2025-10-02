@@ -78,11 +78,12 @@ class AsbuiltImportAI {
    * Auto-detect panels mentioned in Excel data
    */
   detectPanelsInData(dataRows) {
+    // More precise panel patterns - only match explicit panel references
     const panelPatterns = [
-      /panel[\s\-_]*(\d+)/gi,
-      /p[\s\-_]*(\d+)/gi,
-      /panel\s*#?\s*(\d+)/gi,
-      /^(\d+)$/ // Just numbers
+      /panel[\s\-_]*(\d+)/gi,     // "Panel 30", "Panel-30", "Panel_30"
+      /p[\s\-_]*(\d+)/gi,         // "P 30", "P-30", "P_30"
+      /panel\s*#?\s*(\d+)/gi,     // "Panel #30", "Panel#30"
+      /\bp(\d+)\b/gi              // "P30" as standalone word
     ];
     
     const detectedPanels = new Set();
@@ -91,13 +92,19 @@ class AsbuiltImportAI {
       row.forEach((cell, colIndex) => {
         if (!cell) return;
         
-        const cellStr = cell.toString();
+        const cellStr = cell.toString().trim();
+        
+        // Skip obviously non-panel cells
+        if (this.isNonPanelCell(cellStr, rowIndex, colIndex)) {
+          return;
+        }
+        
         panelPatterns.forEach(pattern => {
           const matches = cellStr.match(pattern);
           if (matches) {
             matches.forEach(match => {
               const panelNum = match.replace(/[^\d]/g, '');
-              if (panelNum && panelNum.length <= 4) { // Reasonable panel number length
+              if (panelNum && this.isValidPanelNumber(panelNum)) {
                 detectedPanels.add(`P-${panelNum.padStart(3, '0')}`);
               }
             });
@@ -107,6 +114,101 @@ class AsbuiltImportAI {
     });
     
     return Array.from(detectedPanels).sort();
+  }
+
+  /**
+   * Check if a cell is obviously not a panel reference
+   */
+  isNonPanelCell(cellStr, rowIndex, colIndex) {
+    // Skip empty cells
+    if (!cellStr || cellStr.length === 0) return true;
+    
+    // Skip cells that are purely numeric without panel context
+    if (/^\d+$/.test(cellStr)) {
+      // Only skip if it's a very large number (likely not a panel)
+      const num = parseInt(cellStr);
+      if (num > 1000) return true;
+    }
+    
+    // Skip cells that look like measurements, quantities, or other data
+    const nonPanelPatterns = [
+      /^\d+\.\d+$/,           // Decimals (measurements)
+      /^\d+[x×]\d+$/,         // Dimensions (e.g., "10x5")
+      /^\d+[km]?m$/,          // Units (e.g., "100m", "5km")
+      /^\d+%$/,               // Percentages
+      /^\d+:\d+$/,            // Ratios or times
+      /^(pass|fail|na|n\/a)$/i, // Test results
+      /^(yes|no|true|false)$/i, // Boolean values
+    ];
+    
+    return nonPanelPatterns.some(pattern => pattern.test(cellStr));
+  }
+
+  /**
+   * Validate if a number could be a valid panel ID
+   */
+  isValidPanelNumber(panelNum) {
+    const num = parseInt(panelNum);
+    
+    // Panel numbers should be reasonable (1-999 for most projects)
+    if (num < 1 || num > 999) return false;
+    
+    // Panel numbers should not be too long (max 3 digits for most projects)
+    if (panelNum.length > 3) return false;
+    
+    return true;
+  }
+
+  /**
+   * Analyze header to understand column type and content
+   */
+  analyzeHeader(headerStr, columnIndex) {
+    const analysis = {
+      type: 'unknown',
+      containsNumbers: /\d/.test(headerStr),
+      containsUnits: /(ft|m|in|cm|mm|kg|lb|%|°|temp|temp\.)/i.test(headerStr),
+      isDateField: /(date|time|created|updated)/i.test(headerStr),
+      isTestResult: /(pass|fail|result|test|status)/i.test(headerStr),
+      isMeasurement: /(length|width|height|depth|distance|size|dimension)/i.test(headerStr),
+      isQuantity: /(count|number|qty|quantity|amount|total)/i.test(headerStr),
+      isPanelRelated: /(panel|p\-|p\s)/i.test(headerStr),
+      isOperatorField: /(operator|inspector|technician|name|initials)/i.test(headerStr),
+      isMachineField: /(machine|equipment|tool|seamer)/i.test(headerStr),
+      columnIndex: columnIndex
+    };
+
+    // Determine primary type
+    if (analysis.isPanelRelated) analysis.type = 'panel';
+    else if (analysis.isDateField) analysis.type = 'datetime';
+    else if (analysis.isTestResult) analysis.type = 'test_result';
+    else if (analysis.isMeasurement) analysis.type = 'measurement';
+    else if (analysis.isQuantity) analysis.type = 'quantity';
+    else if (analysis.isOperatorField) analysis.type = 'operator';
+    else if (analysis.isMachineField) analysis.type = 'machine';
+    else if (analysis.containsUnits) analysis.type = 'measurement';
+    else if (analysis.containsNumbers) analysis.type = 'numeric';
+    else analysis.type = 'text';
+
+    return analysis;
+  }
+
+  /**
+   * Check if a column should be preserved as custom data
+   */
+  isDataColumn(headerStr, analysis) {
+    // Preserve columns that contain useful data but don't map to canonical fields
+    const usefulPatterns = [
+      /(note|comment|remark|description|detail)/i,
+      /(additional|extra|custom|other)/i,
+      /(reference|id|code|number|serial)/i,
+      /(location|position|area|zone|section)/i,
+      /(weather|condition|environment)/i,
+      /(quality|grade|rating|score)/i
+    ];
+
+    return usefulPatterns.some(pattern => pattern.test(headerStr)) ||
+           analysis.type !== 'unknown' ||
+           headerStr.length > 3; // Preserve longer headers as they likely contain useful info
   }
 
   /**
@@ -186,6 +288,11 @@ class AsbuiltImportAI {
       if (!header) return; // Skip empty headers
 
       const headerStr = header.toString().trim();
+      
+      // Enhanced header analysis
+      const headerAnalysis = this.analyzeHeader(headerStr, index);
+      console.log(`🔍 Header analysis for "${headerStr}":`, headerAnalysis);
+      
       const bestMatch = this.findBestFieldMatch(headerStr, domain);
       
       if (bestMatch) {
@@ -194,13 +301,28 @@ class AsbuiltImportAI {
           canonicalField: bestMatch.field,
           confidence: bestMatch.confidence,
           columnIndex: index,
-          domain: domain
+          domain: domain,
+          analysis: headerAnalysis
         });
         confidenceScores.push(bestMatch.confidence);
         console.log(`✅ Mapped: "${headerStr}" → "${bestMatch.field}" (confidence: ${bestMatch.confidence})`);
       } else {
-        unmappedHeaders.push(headerStr);
-        console.log(`❌ Unmapped: "${headerStr}"`);
+        // Check if this might be a data column we should preserve
+        if (this.isDataColumn(headerStr, headerAnalysis)) {
+          mappings.push({
+            sourceHeader: headerStr,
+            canonicalField: 'custom_data',
+            confidence: 0.5,
+            columnIndex: index,
+            domain: domain,
+            analysis: headerAnalysis,
+            isCustomField: true
+          });
+          console.log(`📊 Custom data column: "${headerStr}" (preserved as custom field)`);
+        } else {
+          unmappedHeaders.push(headerStr);
+          console.log(`❌ Unmapped: "${headerStr}"`);
+        }
       }
     });
 
@@ -308,14 +430,26 @@ class AsbuiltImportAI {
         rowIndex: rowIndex + 2 // +2 because Excel is 1-indexed and we have headers
       };
 
-      // Extract raw data
+      // Extract raw data and handle custom fields
+      const customData = {};
       mappings.forEach(mapping => {
         const value = row[mapping.columnIndex];
         if (value !== undefined && value !== null && value !== '') {
           record.rawData[mapping.sourceHeader] = value;
-          record.mappedData[mapping.canonicalField] = this.normalizeValue(value, mapping.canonicalField);
+          
+          if (mapping.isCustomField) {
+            // Store custom fields separately
+            customData[mapping.sourceHeader] = this.normalizeValue(value, 'custom_data');
+          } else {
+            record.mappedData[mapping.canonicalField] = this.normalizeValue(value, mapping.canonicalField);
+          }
         }
       });
+      
+      // Add custom data to mapped data if any exists
+      if (Object.keys(customData).length > 0) {
+        record.mappedData.customData = customData;
+      }
 
       if (Object.keys(record.mappedData).length > 0) {
         transformedRecords.push(record);
@@ -335,6 +469,20 @@ class AsbuiltImportAI {
     }
 
     const strValue = value.toString().trim();
+
+    // Handle custom data fields
+    if (fieldName === 'custom_data') {
+      // For custom data, try to preserve the original type but normalize format
+      if (/^\d+\.?\d*$/.test(strValue)) {
+        const num = parseFloat(strValue);
+        return isNaN(num) ? strValue : num;
+      } else if (/^\d{4}-\d{2}-\d{2}/.test(strValue) || /^\d{2}\/\d{2}\/\d{4}/.test(strValue)) {
+        // Try to parse as date
+        const date = new Date(strValue);
+        return isNaN(date.getTime()) ? strValue : date.toISOString();
+      }
+      return strValue; // Return as string for text data
+    }
 
     // Handle numeric fields
     if (fieldName.includes('Temp') || fieldName.includes('Length') || 
