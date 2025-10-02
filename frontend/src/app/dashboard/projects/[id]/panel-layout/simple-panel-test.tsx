@@ -14,7 +14,7 @@ export default function SimplePanelTest() {
     const fetchData = async () => {
       try {
         console.log('🔍 [SimplePanelTest] Fetching data for project:', projectId);
-        const response = await fetch(`http://localhost:8003/api/panel-layout/ssr-layout/${projectId}`);
+        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003'}/api/panel-layout/ssr-layout/${projectId}`);
         console.log('🔍 [SimplePanelTest] Response status:', response.status);
         
         if (!response.ok) {

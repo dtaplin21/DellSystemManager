@@ -11,7 +11,7 @@ export default function TestPanelData() {
     const fetchData = async () => {
       try {
         console.log('🔍 [TestPanelData] Starting fetch...');
-        const response = await fetch('http://localhost:8003/api/panel-layout/ssr-layout/69fc302b-166d-4543-9990-89c4b1e0ed59');
+        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003'}/api/panel-layout/ssr-layout/69fc302b-166d-4543-9990-89c4b1e0ed59`);
         console.log('🔍 [TestPanelData] Response:', response);
         
         if (!response.ok) {
