@@ -19,6 +19,13 @@ const app = express();
 
 // Middleware
 app.use(helmet());
+
+// Debug CORS configuration
+console.log('CORS Configuration:');
+console.log('CORS_ORIGIN:', process.env.CORS_ORIGIN);
+console.log('FRONTEND_URL:', process.env.FRONTEND_URL);
+console.log('Final origin:', process.env.CORS_ORIGIN || process.env.FRONTEND_URL || 'http://localhost:3000');
+
 app.use(cors({
   origin: process.env.CORS_ORIGIN || process.env.FRONTEND_URL || 'http://localhost:3000',
   credentials: true,
