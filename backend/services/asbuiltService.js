@@ -415,6 +415,120 @@ class AsbuiltService {
       throw new Error(`Failed to get project summary: ${error.message}`);
     }
   }
+
+  /**
+   * Create file record in uploaded_files table
+   */
+  async createFileRecord(fileData) {
+    const {
+      projectId, filename, originalFilename, filePath, 
+      fileSize, uploaderId, domain, panelCount, 
+      recordCount, aiConfidence
+    } = fileData;
+
+    const query = `
+      INSERT INTO uploaded_files (
+        project_id, filename, original_filename, file_path,
+        file_size, uploader_id, domain, panel_count,
+        record_count, ai_confidence, status
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'completed')
+      RETURNING *
+    `;
+
+    const values = [
+      projectId, filename, originalFilename, filePath,
+      fileSize, uploaderId, domain, panelCount,
+      recordCount, aiConfidence
+    ];
+
+    try {
+      const result = await this.pool.query(query, values);
+      console.log(`✅ [SERVICE] File record created: ${filename}`);
+      return result.rows[0];
+    } catch (error) {
+      console.error('❌ [SERVICE] Error creating file record:', error);
+      throw new Error(`Failed to create file record: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get all uploaded files for a project
+   */
+  async getProjectFiles(projectId) {
+    try {
+      const query = `
+        SELECT 
+          id, filename, original_filename, domain,
+          upload_date, file_size, panel_count, record_count,
+          ai_confidence, status
+        FROM uploaded_files 
+        WHERE project_id = $1
+        ORDER BY upload_date DESC
+      `;
+      
+      const result = await this.pool.query(query, [projectId]);
+      console.log(`✅ [SERVICE] Retrieved ${result.rows.length} files for project ${projectId}`);
+      return result.rows;
+    } catch (error) {
+      console.error('❌ [SERVICE] Error fetching project files:', error);
+      throw new Error(`Failed to get project files: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get files for AI model with panel mapping
+   */
+  async getFilesForAI(projectId) {
+    try {
+      const query = `
+        SELECT 
+          uf.id as file_id,
+          uf.filename,
+          uf.original_filename,
+          uf.domain,
+          uf.upload_date,
+          uf.ai_confidence,
+          uf.panel_count,
+          uf.record_count,
+          ARRAY_AGG(DISTINCT ar.panel_id) as panels_with_data
+        FROM uploaded_files uf
+        LEFT JOIN asbuilt_records ar ON ar.source_file_id = uf.id
+        WHERE uf.project_id = $1
+        GROUP BY uf.id, uf.filename, uf.original_filename, uf.domain, uf.upload_date, 
+                 uf.ai_confidence, uf.panel_count, uf.record_count
+        ORDER BY uf.upload_date DESC
+      `;
+      
+      const result = await this.pool.query(query, [projectId]);
+      console.log(`✅ [SERVICE] Retrieved ${result.rows.length} files for AI processing`);
+      return result.rows;
+    } catch (error) {
+      console.error('❌ [SERVICE] Error fetching files for AI:', error);
+      throw new Error(`Failed to get files for AI: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get a specific file by ID for sidebar display
+   */
+  async getFileById(fileId) {
+    try {
+      const query = `
+        SELECT 
+          id, filename, original_filename, domain,
+          upload_date, file_size, panel_count, record_count,
+          ai_confidence, status, file_path
+        FROM uploaded_files 
+        WHERE id = $1
+      `;
+      
+      const result = await this.pool.query(query, [fileId]);
+      return result.rows[0] || null;
+    } catch (error) {
+      console.error('❌ [SERVICE] Error fetching file by ID:', error);
+      throw new Error(`Failed to get file: ${error.message}`);
+    }
+  }
 }
 
 module.exports = AsbuiltService;

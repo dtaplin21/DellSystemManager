@@ -3,6 +3,7 @@ const router = express.Router();
 const AsbuiltService = require('../services/asbuiltService');
 const AsbuiltImportAI = require('../services/asbuiltImportAI');
 const AsbuiltValidationService = require('../services/asbuiltValidationService');
+const FileStorageService = require('../services/storage'); // NEW
 const { auth } = require('../middlewares/auth');
 const multer = require('multer');
 const path = require('path');
@@ -137,7 +138,15 @@ router.post('/import', upload.single('excelFile'), async (req, res) => {
 
     console.log(`📁 Processing Excel file: ${excelFile.originalname} (${excelFile.size} bytes)`);
 
-    // Process the Excel file using AI import service (auto-detect domain and panels)
+    // STEP 1: Save the original file
+    const fileInfo = await FileStorageService.saveAsbuiltFile(
+      excelFile.buffer,
+      excelFile.originalname,
+      projectId,
+      userId
+    );
+
+    // STEP 2: Process the Excel file using AI import service (auto-detect domain and panels)
     const importResult = await asbuiltImportAI.importExcelData(
       excelFile.buffer, // multer stores file in buffer
       projectId,
@@ -145,15 +154,36 @@ router.post('/import', upload.single('excelFile'), async (req, res) => {
       userId
     );
 
-    // If records were successfully processed, insert them into the database
+    // STEP 3: Save file record to database
+    const fileRecord = await asbuiltService.createFileRecord({
+      projectId,
+      filename: fileInfo.filename,
+      originalFilename: fileInfo.originalFilename,
+      filePath: fileInfo.filePath,
+      fileSize: fileInfo.fileSize,
+      uploaderId: userId,
+      domain: importResult.detectedDomain,
+      panelCount: importResult.detectedPanels?.length || 0,
+      recordCount: importResult.records?.length || 0,
+      aiConfidence: importResult.confidenceScore || 0
+    });
+
+    // STEP 4: Insert records with source_file_id (CORRECT TABLE)
     if (importResult.records && importResult.records.length > 0) {
       try {
-        const insertedRecords = await asbuiltService.bulkInsertRecords(importResult.records);
-        console.log(`✅ Successfully inserted ${insertedRecords.length} records into database`);
+        // Add source_file_id to all records before inserting
+        const recordsWithSource = importResult.records.map(record => ({
+          ...record,
+          sourceDocId: fileRecord.id // Link to the file record
+        }));
+
+        const insertedRecords = await asbuiltService.bulkInsertRecords(recordsWithSource);
+        console.log(`✅ Successfully inserted ${insertedRecords.length} records with source file tracking`);
         
         // Update the import result with actual database records
         importResult.importedRows = insertedRecords.length;
         importResult.databaseRecords = insertedRecords;
+        importResult.fileId = fileRecord.id;
       } catch (dbError) {
         console.error('Database insertion failed:', dbError);
         importResult.databaseError = dbError.message;
@@ -541,6 +571,71 @@ router.get('/:projectId/summary', async (req, res) => {
     console.error('Error fetching as-built summary:', error);
     res.status(500).json({ 
       error: 'Failed to fetch as-built summary', 
+      message: error.message 
+    });
+  }
+});
+
+/**
+ * @route GET /api/asbuilt/:projectId/files
+ * @desc Get all uploaded files for a project (for Recent Activity)
+ * @access Private
+ */
+router.get('/:projectId/files', async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const files = await asbuiltService.getProjectFiles(projectId);
+    res.json(files);
+  } catch (error) {
+    console.error('Error fetching files:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch files',
+      message: error.message 
+    });
+  }
+});
+
+/**
+ * @route GET /api/asbuilt/:projectId/files-for-ai
+ * @desc Get files for AI model with panel mapping
+ * @access Private
+ */
+router.get('/:projectId/files-for-ai', async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const files = await asbuiltService.getFilesForAI(projectId);
+    res.json(files);
+  } catch (error) {
+    console.error('Error fetching files for AI:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch files for AI',
+      message: error.message 
+    });
+  }
+});
+
+/**
+ * @route GET /api/asbuilt/files/:fileId
+ * @desc Get specific file by ID (for sidebar display)
+ * @access Private
+ */
+router.get('/files/:fileId', async (req, res) => {
+  try {
+    const { fileId } = req.params;
+    const file = await asbuiltService.getFileById(fileId);
+    
+    if (!file) {
+      return res.status(404).json({ 
+        error: 'File not found',
+        message: 'The requested file does not exist' 
+      });
+    }
+    
+    res.json(file);
+  } catch (error) {
+    console.error('Error fetching file:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch file',
       message: error.message 
     });
   }

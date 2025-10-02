@@ -15,6 +15,7 @@ const UPLOAD_DIR = path.join(__dirname, '../uploads');
 const DOCUMENTS_DIR = path.join(UPLOAD_DIR, 'documents');
 const EXCEL_DIR = path.join(UPLOAD_DIR, 'excel');
 const TEMP_DIR = path.join(UPLOAD_DIR, 'temp');
+const ASBUILT_FILES_DIR = path.join(UPLOAD_DIR, 'asbuilt-files');
 
 // Ensure directories exist
 async function ensureDirectoriesExist() {
@@ -45,6 +46,13 @@ async function ensureDirectoriesExist() {
       await access(TEMP_DIR, fs.constants.F_OK);
     } catch (error) {
       await mkdir(TEMP_DIR, { recursive: true });
+    }
+    
+    // Check if asbuilt-files directory exists
+    try {
+      await access(ASBUILT_FILES_DIR, fs.constants.F_OK);
+    } catch (error) {
+      await mkdir(ASBUILT_FILES_DIR, { recursive: true });
     }
     
     console.log('Storage directories initialized');
@@ -93,6 +101,39 @@ async function saveExcel(file) {
   return await saveFile(file, 'excel');
 }
 
+// Save an as-built file (for Excel imports)
+async function saveAsbuiltFile(fileBuffer, originalName, projectId, userId) {
+  try {
+    const fileId = uuidv4();
+    const fileExtension = path.extname(originalName);
+    const filename = `${fileId}${fileExtension}`;
+    const filePath = path.join(ASBUILT_FILES_DIR, filename);
+
+    // Save file to disk
+    await writeFile(filePath, fileBuffer);
+    
+    // Verify file was saved successfully
+    try {
+      await access(filePath, fs.constants.F_OK);
+      console.log(`✅ As-built file saved successfully: ${filePath}`);
+    } catch (verifyError) {
+      throw new Error(`File verification failed: ${verifyError.message}`);
+    }
+
+    return {
+      fileId,
+      filename,
+      originalFilename: originalName,
+      filePath,
+      fileSize: fileBuffer.length,
+      uploaderId: userId
+    };
+  } catch (error) {
+    console.error('❌ Error saving as-built file:', error);
+    throw new Error(`Failed to save as-built file: ${error.message}`);
+  }
+}
+
 // Save a temporary file
 async function saveTempFile(data, extension) {
   const uniqueFilename = `${Date.now()}-${uuidv4()}.${extension}`;
@@ -130,14 +171,35 @@ async function readStoredFile(filePath) {
   }
 }
 
+// Get as-built file by filename (for AI model or sidebar display)
+async function getAsbuiltFile(filename) {
+  try {
+    const filePath = path.join(ASBUILT_FILES_DIR, filename);
+    const buffer = await readFile(filePath);
+    return {
+      buffer,
+      path: filePath,
+      exists: true
+    };
+  } catch (error) {
+    return { 
+      exists: false, 
+      error: error.message 
+    };
+  }
+}
+
 module.exports = {
   saveDocument,
   saveExcel,
+  saveAsbuiltFile,
   saveTempFile,
   deleteFile,
   readStoredFile,
+  getAsbuiltFile,
   UPLOAD_DIR,
   DOCUMENTS_DIR,
   EXCEL_DIR,
   TEMP_DIR,
+  ASBUILT_FILES_DIR,
 };

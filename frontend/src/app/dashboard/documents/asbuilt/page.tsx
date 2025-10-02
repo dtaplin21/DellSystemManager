@@ -36,6 +36,20 @@ interface AsbuiltSummary {
   validationScore: number;
 }
 
+// Interface for file imports
+interface FileImport {
+  id: string;
+  filename: string;
+  original_filename: string;
+  domain: string;
+  upload_date: string;
+  file_size: number;
+  panel_count: number;
+  record_count: number;
+  ai_confidence: number;
+  status: string;
+}
+
 const AsbuiltPage: React.FC = () => {
   const [projectId, setProjectId] = useState<string>('');
   const [selectedDomain, setSelectedDomain] = useState<AsbuiltDomain>('panel_placement');
@@ -47,6 +61,9 @@ const AsbuiltPage: React.FC = () => {
   
   // Add projects context
   const { projects, isLoading: projectsLoading, error: projectsError } = useProjects();
+
+  // New state for file imports
+  const [fileImports, setFileImports] = useState<FileImport[]>([]);
 
   // Domain options
   const domainOptions = [
@@ -85,51 +102,91 @@ const AsbuiltPage: React.FC = () => {
     fetchAsbuiltSummary();
   }, [projectId]);
 
+  // Fetch file imports for Recent Activity
+  useEffect(() => {
+    const fetchFileImports = async () => {
+      if (!projectId) return;
+      
+      try {
+        setLoading(true);
+        const response = await makeAuthenticatedRequest(`/api/asbuilt/${projectId}/files`);
+        if (response.ok) {
+          const data = await response.json();
+          setFileImports(Array.isArray(data) ? data : []);
+        } else {
+          console.error('Failed to fetch file imports');
+          setFileImports([]);
+        }
+      } catch (error) {
+        console.error('Error fetching file imports:', error);
+        setFileImports([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchFileImports();
+  }, [projectId]);
+
   // Handle import completion
   const handleImportComplete = () => {
     console.log('Import completed, refreshing data...');
-    // Refresh summary data
+    // Refresh both summary data and file imports
     if (projectId) {
-      const fetchAsbuiltSummary = async () => {
+      const refreshData = async () => {
         try {
           setLoading(true);
-          const response = await makeAuthenticatedRequest(`/api/asbuilt/${projectId}/summary`);
-          if (response.ok) {
-            const data = await response.json();
-            // Ensure data is an array
-            setSummaryData(Array.isArray(data) ? data : []);
+          // Refresh summary data
+          const summaryResponse = await makeAuthenticatedRequest(`/api/asbuilt/${projectId}/summary`);
+          if (summaryResponse.ok) {
+            const summaryData = await summaryResponse.json();
+            setSummaryData(Array.isArray(summaryData) ? summaryData : []);
+          }
+          
+          // Refresh file imports
+          const filesResponse = await makeAuthenticatedRequest(`/api/asbuilt/${projectId}/files`);
+          if (filesResponse.ok) {
+            const filesData = await filesResponse.json();
+            setFileImports(Array.isArray(filesData) ? filesData : []);
           }
         } catch (error) {
-          console.error('Error refreshing as-built summary:', error);
+          console.error('Error refreshing data:', error);
         } finally {
           setLoading(false);
         }
       };
-      fetchAsbuiltSummary();
+      refreshData();
     }
   };
 
   // Handle manual entry completion
   const handleManualEntryComplete = () => {
     console.log('Manual entry completed, refreshing data...');
-    // Refresh summary data
+    // Refresh both summary data and file imports
     if (projectId) {
-      const fetchAsbuiltSummary = async () => {
+      const refreshData = async () => {
         try {
           setLoading(true);
-          const response = await makeAuthenticatedRequest(`/api/asbuilt/${projectId}/summary`);
-          if (response.ok) {
-            const data = await response.json();
-            // Ensure data is an array
-            setSummaryData(Array.isArray(data) ? data : []);
+          // Refresh summary data
+          const summaryResponse = await makeAuthenticatedRequest(`/api/asbuilt/${projectId}/summary`);
+          if (summaryResponse.ok) {
+            const summaryData = await summaryResponse.json();
+            setSummaryData(Array.isArray(summaryData) ? summaryData : []);
+          }
+          
+          // Refresh file imports
+          const filesResponse = await makeAuthenticatedRequest(`/api/asbuilt/${projectId}/files`);
+          if (filesResponse.ok) {
+            const filesData = await filesResponse.json();
+            setFileImports(Array.isArray(filesData) ? filesData : []);
           }
         } catch (error) {
-          console.error('Error refreshing as-built summary:', error);
+          console.error('Error refreshing data:', error);
         } finally {
           setLoading(false);
         }
       };
-      fetchAsbuiltSummary();
+      refreshData();
     }
   };
 
@@ -323,8 +380,8 @@ const AsbuiltPage: React.FC = () => {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>File</TableHead>
                 <TableHead>Domain</TableHead>
-                <TableHead>Action</TableHead>
                 <TableHead>Records</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Date</TableHead>
@@ -334,35 +391,42 @@ const AsbuiltPage: React.FC = () => {
               {loading ? (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center py-8">
-                    Loading project data...
+                    Loading files...
                   </TableCell>
                 </TableRow>
               ) : !projectId ? (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center py-8 text-gray-500">
-                    Select a project to view as-built data
+                    Select a project to view imported files
                   </TableCell>
                 </TableRow>
-              ) : filteredSummary.length === 0 ? (
+              ) : fileImports.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center py-8 text-gray-500">
-                    No as-built data found for this project
+                    No files imported for this project
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredSummary.map((item, index) => (
-                  <TableRow key={index}>
-                    <TableCell>{getDomainInfo(item.domain).label}</TableCell>
-                    <TableCell>Excel Import</TableCell>
-                    <TableCell>{item.totalRecords} records</TableCell>
+                fileImports.map((file) => (
+                  <TableRow key={file.id}>
                     <TableCell>
-                      {item.reviewRequired > 0 ? (
-                        <Badge variant="destructive">Review Required</Badge>
-                      ) : (
-                        <Badge variant="secondary">Completed</Badge>
-                      )}
+                      <div className="flex items-center gap-2">
+                        <FileSpreadsheet className="h-4 w-4 text-blue-600" />
+                        <span className="font-medium">{file.original_filename}</span>
+                      </div>
                     </TableCell>
-                    <TableCell>Recently imported</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={getDomainInfo(file.domain).color}>
+                        {getDomainInfo(file.domain).label}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{file.record_count} records</TableCell>
+                    <TableCell>
+                      <Badge variant={file.status === 'completed' ? 'secondary' : 'destructive'}>
+                        {file.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{new Date(file.upload_date).toLocaleDateString()}</TableCell>
                   </TableRow>
                 ))
               )}
