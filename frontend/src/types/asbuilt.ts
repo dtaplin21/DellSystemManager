@@ -155,6 +155,8 @@ export interface PanelAsbuiltSummary {
 // Import response
 export interface ImportResponse {
   importedRows: number;
+  detectedPanels?: string[];
+  detectedDomain?: string;
   unmappedHeaders: string[];
   confidenceScore: number;
   requiresReview: boolean;

@@ -60,24 +60,13 @@ const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
   onImportComplete
 }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [selectedDomain, setSelectedDomain] = useState<AsbuiltDomain>('panel_placement');
   const [importStep, setImportStep] = useState<string>('pending');
   const [importProgress, setImportProgress] = useState(0);
   const [importResult, setImportResult] = useState<ImportResponse | null>(null);
-  const [fieldMappings, setFieldMappings] = useState<FieldMapping[]>([]);
-  const [unmappedHeaders, setUnmappedHeaders] = useState<string[]>([]);
+  const [detectedPanels, setDetectedPanels] = useState<string[]>([]);
+  const [detectedDomains, setDetectedDomains] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Domain options
-  const domainOptions = [
-    { value: 'panel_placement', label: 'Panel Placement' },
-    { value: 'panel_seaming', label: 'Panel Seaming' },
-    { value: 'non_destructive', label: 'Non-Destructive Testing' },
-    { value: 'trial_weld', label: 'Trial Weld' },
-    { value: 'repairs', label: 'Repairs' },
-    { value: 'destructive', label: 'Destructive Testing' }
-  ];
 
   // Import steps
   const importSteps: ImportStep[] = [
@@ -88,21 +77,15 @@ const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
       status: 'pending'
     },
     {
-      id: 'mapping',
-      title: 'AI Field Mapping',
-      description: 'Review AI-generated field mappings',
-      status: 'pending'
-    },
-    {
-      id: 'validation',
-      title: 'Data Validation',
-      description: 'Validate imported data',
+      id: 'analysis',
+      title: 'AI Analysis',
+      description: 'AI analyzes file and detects panels',
       status: 'pending'
     },
     {
       id: 'import',
       title: 'Import Complete',
-      description: 'Data successfully imported',
+      description: 'Data imported to panel sidebars',
       status: 'pending'
     }
   ];
@@ -148,8 +131,7 @@ const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
       const formData = new FormData();
       formData.append('excelFile', selectedFile);
       formData.append('projectId', projectId);
-      formData.append('panelId', panelId);
-      formData.append('domain', selectedDomain);
+      // Remove domain parameter - let AI auto-detect
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003'}/api/asbuilt/import`, {
         method: 'POST',
@@ -163,8 +145,20 @@ const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
         throw new Error(`Import failed: ${response.statusText}`);
       }
 
-      const result: ImportResponse = await response.json();
+      const result = await response.json() as ImportResponse & {
+        detectedPanels?: string[];
+        detectedDomains?: string[];
+      };
       setImportResult(result);
+      
+      // Extract detected panels and domains from result
+      if (result.detectedPanels) {
+        setDetectedPanels(result.detectedPanels);
+      }
+      if (result.detectedDomains) {
+        setDetectedDomains(result.detectedDomains);
+      }
+      
       setImportProgress(100);
       setImportStep('completed');
 
@@ -177,12 +171,7 @@ const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [selectedFile, projectId, panelId, selectedDomain, onImportComplete]);
-
-  // Handle domain change
-  const handleDomainChange = useCallback((value: string) => {
-    setSelectedDomain(value as AsbuiltDomain);
-  }, []);
+  }, [selectedFile, projectId, panelId, onImportComplete]);
 
   // Reset modal state
   const handleClose = useCallback(() => {
@@ -190,8 +179,8 @@ const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
     setImportStep('pending');
     setImportProgress(0);
     setImportResult(null);
-    setFieldMappings([]);
-    setUnmappedHeaders([]);
+    setDetectedPanels([]);
+    setDetectedDomains([]);
     setError(null);
     onClose();
   }, [onClose]);
@@ -199,8 +188,8 @@ const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
   // Download template
   const downloadTemplate = useCallback(() => {
     // TODO: Generate and download domain-specific template
-    console.log('Download template for domain:', selectedDomain);
-  }, [selectedDomain]);
+    console.log('Download template for auto-detected domains');
+  }, []);
 
   // Preview data
   const previewData = useCallback(() => {
@@ -292,20 +281,10 @@ const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
           )}
         </div>
 
-        <div className="space-y-3">
-          <Label htmlFor="domain-select">Domain</Label>
-          <Select value={selectedDomain} onValueChange={handleDomainChange}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select domain" />
-            </SelectTrigger>
-            <SelectContent>
-              {domainOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <p className="text-sm text-blue-800">
+            <strong>AI Auto-Detection:</strong> The AI will automatically detect which panels and data types are in your Excel file.
+          </p>
         </div>
 
         <div className="flex gap-3">
@@ -343,43 +322,35 @@ const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
         <div className="grid grid-cols-2 gap-4">
           <div className="text-center p-4 bg-green-50 rounded-lg">
             <CheckCircle className="h-8 w-8 text-green-600 mx-auto mb-2" />
-            <p className="font-medium text-green-800">{importResult.importedRows}</p>
+            <p className="font-medium text-green-800">{importResult.importedRows || 0}</p>
             <p className="text-sm text-green-600">Records Imported</p>
           </div>
           <div className="text-center p-4 bg-blue-50 rounded-lg">
             <div className="h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">
               <span className="text-sm font-medium text-blue-800">
-                {Math.round(importResult.confidenceScore * 100)}%
+                {detectedPanels.length}
               </span>
             </div>
-            <p className="text-sm text-blue-600">AI Confidence</p>
+            <p className="text-sm text-blue-600">Panels Detected</p>
           </div>
         </div>
 
-        {importResult.unmappedHeaders.length > 0 && (
-          <div className="p-4 bg-yellow-50 rounded-lg">
-            <h4 className="font-medium text-yellow-800 mb-2">Unmapped Headers</h4>
+        {detectedPanels.length > 0 && (
+          <div className="p-4 bg-green-50 rounded-lg">
+            <h4 className="font-medium text-green-800 mb-2">Data Imported to Panels:</h4>
             <div className="flex flex-wrap gap-2">
-              {importResult.unmappedHeaders.map((header) => (
-                <Badge key={header} variant="outline" className="text-yellow-700">
-                  {header}
+              {detectedPanels.map((panel) => (
+                <Badge key={panel} variant="outline" className="text-green-700">
+                  {panel}
                 </Badge>
               ))}
             </div>
-            <p className="text-sm text-yellow-600 mt-2">
-              These headers couldn&apos;t be automatically mapped. Consider reviewing the data.
+            <p className="text-sm text-green-600 mt-2">
+              Click on any panel in the layout to view the imported data in the sidebar.
             </p>
           </div>
         )}
 
-        {importResult.requiresReview && (
-          <div className="p-4 bg-orange-50 rounded-lg">
-            <AlertCircle className="h-5 w-5 text-orange-600 inline mr-2" />
-            <span className="text-orange-800 font-medium">
-              Some records require review before final approval.
-            </span>
-          </div>
-        )}
       </div>
     );
   };
@@ -449,3 +420,4 @@ const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
 };
 
 export default ExcelImportModal;
+

@@ -111,7 +111,7 @@ router.use(auth);
  */
 router.post('/import', upload.single('excelFile'), async (req, res) => {
   try {
-    const { projectId, domain, confidenceThreshold = 0.8 } = req.body;
+    const { projectId } = req.body;
     const userId = req.user.id;
 
     // Check if file was uploaded
@@ -137,11 +137,11 @@ router.post('/import', upload.single('excelFile'), async (req, res) => {
 
     console.log(`📁 Processing Excel file: ${excelFile.originalname} (${excelFile.size} bytes)`);
 
-    // Process the Excel file using AI import service
+    // Process the Excel file using AI import service (auto-detect domain and panels)
     const importResult = await asbuiltImportAI.importExcelData(
       excelFile.buffer, // multer stores file in buffer
       projectId,
-      domain,
+      null, // Let AI auto-detect domain
       userId
     );
 
