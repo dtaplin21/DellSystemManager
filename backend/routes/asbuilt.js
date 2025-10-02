@@ -4,12 +4,30 @@ const AsbuiltService = require('../services/asbuiltService');
 const AsbuiltImportAI = require('../services/asbuiltImportAI');
 const AsbuiltValidationService = require('../services/asbuiltValidationService');
 const { auth } = require('../middlewares/auth');
-// const fileUpload = require('express-fileupload');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 
 // Initialize services
 const asbuiltService = new AsbuiltService();
 const asbuiltImportAI = new AsbuiltImportAI();
 const asbuiltValidationService = new AsbuiltValidationService();
+
+// Configure multer for file uploads
+const storage = multer.memoryStorage(); // Use memory storage for Excel processing
+const upload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  fileFilter: (req, file, cb) => {
+    const allowedFileTypes = ['.xlsx', '.xls'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowedFileTypes.includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only Excel files (.xlsx, .xls) are allowed.'));
+    }
+  }
+});
 
 // Test endpoint without authentication (for debugging only)
 router.get('/_test/:projectId/:panelId', async (req, res) => {
@@ -85,50 +103,43 @@ router.get('/_test/:projectId/:panelId', async (req, res) => {
 
 // Apply middleware
 router.use(auth);
-// Temporarily disabled fileUpload middleware to fix server startup
-// router.use(fileUpload({
-//   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
-//   abortOnLimit: true,
-//   useTempFiles: false,
-//   debug: process.env.NODE_ENV === 'development'
-// }));
 
 /**
  * @route POST /api/asbuilt/import
  * @desc Import Excel workbook and create asbuilt records
  * @access Private
  */
-router.post('/import', async (req, res) => {
+router.post('/import', upload.single('excelFile'), async (req, res) => {
   try {
     const { projectId, domain, confidenceThreshold = 0.8 } = req.body;
     const userId = req.user.id;
 
     // Check if file was uploaded
-    if (!req.files || !req.files.excelFile) {
+    if (!req.file) {
       return res.status(400).json({
         error: 'No Excel file provided',
         message: 'Please upload an Excel file for import'
       });
     }
 
-    const excelFile = req.files.excelFile;
+    const excelFile = req.file;
     
     // Validate file type
     if (!excelFile.mimetype.includes('spreadsheet') && 
         !excelFile.mimetype.includes('excel') &&
-        !excelFile.name.endsWith('.xlsx') &&
-        !excelFile.name.endsWith('.xls')) {
+        !excelFile.originalname.endsWith('.xlsx') &&
+        !excelFile.originalname.endsWith('.xls')) {
       return res.status(400).json({
         error: 'Invalid file type',
         message: 'Please upload a valid Excel file (.xlsx or .xls)'
       });
     }
 
-    console.log(`📁 Processing Excel file: ${excelFile.name} (${excelFile.size} bytes)`);
+    console.log(`📁 Processing Excel file: ${excelFile.originalname} (${excelFile.size} bytes)`);
 
     // Process the Excel file using AI import service
     const importResult = await asbuiltImportAI.importExcelData(
-      excelFile.data,
+      excelFile.buffer, // multer stores file in buffer
       projectId,
       domain,
       userId
