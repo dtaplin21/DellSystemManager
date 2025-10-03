@@ -425,17 +425,76 @@ class AsbuiltImportAI {
         throw new Error('Excel file must have at least headers and one data row');
       }
 
-      const headers = jsonData[0];
-      const dataRows = jsonData.slice(1);
+      // Find the actual data table (headers not always in row 0)
+      const { headers, dataRows, headerRowIndex } = this.findDataTable(jsonData);
 
       console.log(`📊 Parsed Excel file: ${headers.length} columns, ${dataRows.length} rows`);
-      console.log(`📊 Headers:`, headers);
+      console.log(`📊 Headers found at row ${headerRowIndex}:`, headers);
 
-      return { headers, dataRows, sheetName };
+      return { headers, dataRows, sheetName, headerRowIndex };
     } catch (error) {
       console.error('Error parsing Excel file:', error);
       throw new Error(`Failed to parse Excel file: ${error.message}`);
     }
+  }
+
+  /**
+   * Find the actual data table in Excel (headers might not be in row 0)
+   */
+  findDataTable(jsonData) {
+    console.log('🔍 Searching for data table headers...');
+    
+    // Look for rows that contain common header patterns (search deeper)
+    for (let i = 0; i < Math.min(50, jsonData.length); i++) {
+      const row = jsonData[i];
+      const nonEmptyCells = row.filter(cell => cell && cell.toString().trim() !== '');
+      
+      if (nonEmptyCells.length >= 4) { // Need at least 4 columns for meaningful data
+        // Check if this looks like data table headers (not form headers)
+        const exactDataTableHeaders = [
+          'date', 'panel #', 'length', 'width', 'roll number', 'panel location / comment'
+        ];
+        
+        // Count how many cells exactly match data table headers
+        const matchingHeaders = nonEmptyCells.filter(cell => {
+          const cellLower = cell.toString().toLowerCase().trim();
+          return exactDataTableHeaders.some(header => cellLower === header);
+        }).length;
+        
+        // Also check for partial matches for flexibility
+        const partialMatches = nonEmptyCells.filter(cell => {
+          const cellLower = cell.toString().toLowerCase().trim();
+          return cellLower.includes('panel') && cellLower.includes('#') ||
+                 cellLower.includes('roll') && cellLower.includes('number') ||
+                 cellLower.includes('location') && cellLower.includes('comment');
+        }).length;
+        
+        // Need at least 4 matching headers to be considered a data table
+        const hasHeaders = (matchingHeaders + partialMatches) >= 4;
+        
+        if (hasHeaders) {
+          console.log(`✅ Found headers at row ${i}: [${nonEmptyCells.join(', ')}]`);
+          
+          // Use this row as headers, and subsequent rows as data
+          const headers = row;
+          const dataRows = jsonData.slice(i + 1);
+          
+          // Filter out empty rows from data
+          const filteredDataRows = dataRows.filter(row => 
+            row.some(cell => cell && cell.toString().trim() !== '')
+          );
+          
+          return { headers, dataRows: filteredDataRows, headerRowIndex: i };
+        }
+      }
+    }
+    
+    // Fallback: use first row as headers (original behavior)
+    console.log('⚠️ No clear headers found, using first row as headers');
+    const headers = jsonData[0] || [];
+    const dataRows = jsonData.slice(1);
+    
+    return { headers, dataRows, headerRowIndex: 0 };
   }
 
   /**

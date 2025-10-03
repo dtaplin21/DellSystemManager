@@ -37,11 +37,23 @@ class PanelLookupService {
       }
       
       // Search for panel by panelNumber
-      const panel = panels.find(p => 
-        p.panelNumber === panelNumber || 
-        p.id === panelNumber ||
-        p.panelNumber?.toString() === panelNumber?.toString()
-      );
+      const panel = panels.find(p => {
+        const dbPanelNumber = p.panelNumber?.toString() || '';
+        const searchPanelNumber = panelNumber?.toString() || '';
+        
+        // Exact match
+        if (dbPanelNumber === searchPanelNumber) return true;
+        
+        // Handle P- prefix format difference: P-001 vs P001
+        const normalizedDb = dbPanelNumber.replace(/^P-?/, 'P');
+        const normalizedSearch = searchPanelNumber.replace(/^P-?/, 'P');
+        if (normalizedDb === normalizedSearch) return true;
+        
+        // ID match
+        if (p.id === panelNumber) return true;
+        
+        return false;
+      });
       
       if (panel) {
         console.log(`✅ [PANEL_LOOKUP] Found panel: ${panel.id} for panel number: ${panelNumber}`);
@@ -53,9 +65,13 @@ class PanelLookupService {
         const pn = p.panelNumber?.toString().toLowerCase() || '';
         const search = panelNumber?.toString().toLowerCase() || '';
         
-        return pn.includes(search) || 
-               search.includes(pn) ||
-               pn.replace(/[^a-z0-9]/g, '') === search.replace(/[^a-z0-9]/g, '');
+        // Normalize both for P- prefix comparison
+        const normalizedPn = pn.replace(/^p-?/, 'p');
+        const normalizedSearch = search.replace(/^p-?/, 'p');
+        
+        return normalizedPn.includes(normalizedSearch) || 
+               normalizedSearch.includes(normalizedPn) ||
+               normalizedPn.replace(/[^a-z0-9]/g, '') === normalizedSearch.replace(/[^a-z0-9]/g, '');
       });
       
       if (fuzzyMatch) {
