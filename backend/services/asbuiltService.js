@@ -447,6 +447,14 @@ class AsbuiltService {
       return result.rows[0];
     } catch (error) {
       console.error('❌ [SERVICE] Error creating file record:', error);
+      
+      // Check if it's a missing table error
+      if (error.message.includes('relation "uploaded_files" does not exist') || 
+          error.message.includes('table "uploaded_files" does not exist')) {
+        console.error('❌ [SERVICE] uploaded_files table does not exist. Please run the database migration.');
+        throw new Error('Database migration required: uploaded_files table does not exist. Please run the migration in your Supabase dashboard.');
+      }
+      
       throw new Error(`Failed to create file record: ${error.message}`);
     }
   }
@@ -471,6 +479,14 @@ class AsbuiltService {
       return result.rows;
     } catch (error) {
       console.error('❌ [SERVICE] Error fetching project files:', error);
+      
+      // Check if it's a missing table error
+      if (error.message.includes('relation "uploaded_files" does not exist') || 
+          error.message.includes('table "uploaded_files" does not exist')) {
+        console.log('⚠️ [SERVICE] uploaded_files table does not exist. Returning empty array.');
+        return []; // Return empty array instead of throwing error
+      }
+      
       throw new Error(`Failed to get project files: ${error.message}`);
     }
   }
