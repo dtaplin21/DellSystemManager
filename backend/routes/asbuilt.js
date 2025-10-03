@@ -154,6 +154,14 @@ router.post('/import', upload.single('excelFile'), async (req, res) => {
       userId
     );
 
+    console.log(`🔍 Import result from AI:`, {
+      hasRecords: !!importResult.records,
+      recordsLength: importResult.records?.length || 0,
+      detectedPanels: importResult.detectedPanels?.length || 0,
+      detectedDomain: importResult.detectedDomain,
+      confidenceScore: importResult.confidenceScore
+    });
+
     // STEP 3: Save file record to database
     const fileRecord = await asbuiltService.createFileRecord({
       projectId,
@@ -171,11 +179,22 @@ router.post('/import', upload.single('excelFile'), async (req, res) => {
     // STEP 4: Insert records with source_file_id (CORRECT TABLE)
     if (importResult.records && importResult.records.length > 0) {
       try {
+        console.log(`📝 Preparing to insert ${importResult.records.length} records...`);
+        
         // Add source_file_id to all records before inserting
         const recordsWithSource = importResult.records.map(record => ({
           ...record,
           sourceDocId: fileRecord.id // Link to the file record
         }));
+
+        console.log(`📝 Sample record structure:`, {
+          projectId: recordsWithSource[0]?.projectId,
+          panelId: recordsWithSource[0]?.panelId,
+          domain: recordsWithSource[0]?.domain,
+          sourceDocId: recordsWithSource[0]?.sourceDocId,
+          hasRawData: !!recordsWithSource[0]?.rawData,
+          hasMappedData: !!recordsWithSource[0]?.mappedData
+        });
 
         const insertedRecords = await asbuiltService.bulkInsertRecords(recordsWithSource);
         console.log(`✅ Successfully inserted ${insertedRecords.length} records with source file tracking`);
@@ -185,10 +204,12 @@ router.post('/import', upload.single('excelFile'), async (req, res) => {
         importResult.databaseRecords = insertedRecords;
         importResult.fileId = fileRecord.id;
       } catch (dbError) {
-        console.error('Database insertion failed:', dbError);
+        console.error('❌ Database insertion failed:', dbError);
         importResult.databaseError = dbError.message;
         importResult.importedRows = 0;
       }
+    } else {
+      console.log(`⚠️ No records to insert. importResult.records:`, importResult.records);
     }
 
     res.json(importResult);

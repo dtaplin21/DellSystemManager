@@ -248,7 +248,7 @@ class AsbuiltService {
       for (const record of records) {
         const result = await client.query(`
           INSERT INTO asbuilt_records (
-            project_id, panel_id, domain, source_doc_id,
+            project_id, panel_id, domain, source_file_id,
             raw_data, mapped_data, ai_confidence,
             requires_review, created_by
           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
