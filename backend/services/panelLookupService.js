@@ -10,80 +10,70 @@ class PanelLookupService {
   }
 
   /**
+   * Extract numeric value from panel number
+   */
+  extractNumericValue(panelNumber) {
+    const match = panelNumber.toString().match(/\d+/);
+    return match ? parseInt(match[0], 10) : null;
+  }
+
+  /**
+   * Normalize panel number to standard format P###
+   */
+  normalizePanelNumber(panelNumber) {
+    const numeric = this.extractNumericValue(panelNumber);
+    return numeric !== null ? `P${numeric.toString().padStart(3, '0')}` : null;
+  }
+
+  /**
    * Find panel ID by panel number from the panel layout system
+   * Handles multiple panel number formats: 8, 08, 008, P8, P-8, P-008, etc.
    */
   async findPanelIdByNumber(panelNumber, projectId) {
     try {
-      console.log(`🔍 [PANEL_LOOKUP] Looking for panel number: ${panelNumber} in project: ${projectId}`);
+      console.log(`🔍 [PANEL_LOOKUP] Looking for: "${panelNumber}" in project: ${projectId}`);
       
-      // Query the panel_layouts table to find the panel
-      const query = `
-        SELECT panels 
-        FROM panel_layouts 
-        WHERE project_id = $1
-      `;
-      
+      const query = `SELECT panels FROM panel_layouts WHERE project_id = $1`;
       const result = await this.pool.query(query, [projectId]);
       
-      if (result.rows.length === 0) {
-        console.log(`❌ [PANEL_LOOKUP] No panel layout found for project: ${projectId}`);
+      if (result.rows.length === 0 || !Array.isArray(result.rows[0].panels)) {
+        console.log(`❌ [PANEL_LOOKUP] No panel layout found`);
         return null;
       }
       
       const panels = result.rows[0].panels;
-      if (!Array.isArray(panels)) {
-        console.log(`❌ [PANEL_LOOKUP] Invalid panels data structure for project: ${projectId}`);
-        return null;
-      }
+      const searchNormalized = this.normalizePanelNumber(panelNumber);
       
-      // Search for panel by panelNumber
+      console.log(`🔍 [PANEL_LOOKUP] Normalized search: "${panelNumber}" → "${searchNormalized}"`);
+      
+      // Find by exact numeric match
       const panel = panels.find(p => {
-        const dbPanelNumber = p.panelNumber?.toString() || '';
-        const searchPanelNumber = panelNumber?.toString() || '';
+        const dbNormalized = this.normalizePanelNumber(p.panelNumber);
+        const match = dbNormalized === searchNormalized;
         
-        // Exact match
-        if (dbPanelNumber === searchPanelNumber) return true;
+        if (match) {
+          console.log(`✅ [PANEL_LOOKUP] MATCH: "${p.panelNumber}" → "${dbNormalized}" === "${searchNormalized}"`);
+        }
         
-        // Handle P- prefix format difference: P-001 vs P001
-        const normalizedDb = dbPanelNumber.replace(/^P-?/, 'P');
-        const normalizedSearch = searchPanelNumber.replace(/^P-?/, 'P');
-        if (normalizedDb === normalizedSearch) return true;
-        
-        // ID match
-        if (p.id === panelNumber) return true;
-        
-        return false;
+        return match;
       });
       
       if (panel) {
-        console.log(`✅ [PANEL_LOOKUP] Found panel: ${panel.id} for panel number: ${panelNumber}`);
+        console.log(`✅ [PANEL_LOOKUP] Found panel ID: ${panel.id}`);
         return panel.id;
       }
       
-      // Try fuzzy matching for common variations
-      const fuzzyMatch = panels.find(p => {
-        const pn = p.panelNumber?.toString().toLowerCase() || '';
-        const search = panelNumber?.toString().toLowerCase() || '';
-        
-        // Normalize both for P- prefix comparison
-        const normalizedPn = pn.replace(/^p-?/, 'p');
-        const normalizedSearch = search.replace(/^p-?/, 'p');
-        
-        return normalizedPn.includes(normalizedSearch) || 
-               normalizedSearch.includes(normalizedPn) ||
-               normalizedPn.replace(/[^a-z0-9]/g, '') === normalizedSearch.replace(/[^a-z0-9]/g, '');
-      });
+      console.log(`❌ [PANEL_LOOKUP] No match found for "${searchNormalized}"`);
+      console.log(`🔍 [PANEL_LOOKUP] Available panels:`, panels.map(p => ({
+        id: p.id,
+        panelNumber: p.panelNumber,
+        normalized: this.normalizePanelNumber(p.panelNumber)
+      })));
       
-      if (fuzzyMatch) {
-        console.log(`✅ [PANEL_LOOKUP] Found panel (fuzzy match): ${fuzzyMatch.id} for panel number: ${panelNumber}`);
-        return fuzzyMatch.id;
-      }
-      
-      console.log(`❌ [PANEL_LOOKUP] No panel found for panel number: ${panelNumber}`);
       return null;
       
     } catch (error) {
-      console.error(`❌ [PANEL_LOOKUP] Error finding panel:`, error);
+      console.error(`❌ [PANEL_LOOKUP] Error:`, error);
       return null;
     }
   }

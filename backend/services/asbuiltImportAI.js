@@ -566,14 +566,56 @@ class AsbuiltImportAI {
   }
 
   /**
-   * Find best field match using fuzzy matching
+   * Find best field match using fuzzy matching with explicit priority rules
    */
   findBestFieldMatch(header, domain) {
     const headerLower = header.toLowerCase().replace(/[^a-z0-9]/g, '');
+    
+    // Explicit priority mappings for panel fields (CRITICAL FIX)
+    const explicitMappings = {
+      'panel': 'panelNumber',
+      'panel#': 'panelNumber',
+      'panelnumber': 'panelNumber',
+      'panelnum': 'panelNumber',
+      'panelno': 'panelNumber',
+      'panels': 'panelNumbers',
+      'panelnumbers': 'panelNumbers',
+      'panel_nums': 'panelNumbers',
+      'panel_ids': 'panelNumbers'
+    };
+    
+    // Explicit exclusions (these should NOT map to panelNumber)
+    const explicitExclusions = {
+      'rollnumber': 'customData',
+      'roll_number': 'customData',
+      'rollnum': 'customData',
+      'rollno': 'customData',
+      'roll': 'customData'
+    };
+    
+    // Check explicit exclusions first (highest priority)
+    if (explicitExclusions[headerLower]) {
+      console.log(`🎯 [FIELD_MAPPING] Explicit exclusion: "${header}" → "${explicitExclusions[headerLower]}"`);
+      return { 
+        field: explicitExclusions[headerLower], 
+        confidence: 1.0,
+        isCustomField: true
+      };
+    }
+    
+    // Check explicit mappings second
+    if (explicitMappings[headerLower]) {
+      console.log(`🎯 [FIELD_MAPPING] Explicit match: "${header}" → "${explicitMappings[headerLower]}"`);
+      return { 
+        field: explicitMappings[headerLower], 
+        confidence: 1.0 
+      };
+    }
+    
     let bestMatch = null;
     let bestScore = 0;
 
-    // Check canonical fields first
+    // Check canonical fields
     this.canonicalFields[domain].forEach(field => {
       const fieldLower = field.toLowerCase().replace(/[^a-z0-9]/g, '');
       const score = this.calculateSimilarity(headerLower, fieldLower);
@@ -599,6 +641,12 @@ class AsbuiltImportAI {
           });
         }
       });
+    }
+
+    if (bestMatch) {
+      console.log(`🎯 [FIELD_MAPPING] Fuzzy match: "${header}" → "${bestMatch.field}" (confidence: ${bestMatch.confidence.toFixed(2)})`);
+    } else {
+      console.log(`❌ [FIELD_MAPPING] No match found for: "${header}"`);
     }
 
     return bestMatch;
@@ -648,6 +696,12 @@ class AsbuiltImportAI {
     dataRows.forEach((row, rowIndex) => {
       if (row.every(cell => !cell)) return; // Skip empty rows
 
+      // Validate data row (filter out headers and invalid data)
+      if (!this.isValidDataRow(row, mappings)) {
+        console.log(`🚫 [DATA_VALIDATION] Skipping invalid row ${rowIndex + 1}:`, row);
+        return;
+      }
+
       const record = {
         rawData: {},
         mappedData: {},
@@ -682,6 +736,40 @@ class AsbuiltImportAI {
 
     console.log(`🔄 Transformed ${transformedRecords.length} records for domain: ${domain}`);
     return transformedRecords;
+  }
+
+  /**
+   * Validate if a data row contains valid data (not headers or material descriptions)
+   */
+  isValidDataRow(row, mappings) {
+    // Filter out header rows that got imported as data
+    const headerKeywords = ['date', 'panel', 'width', 'length', 'roll', 'number', 'location', 'comment'];
+    
+    const cellValues = mappings.map(m => row[m.columnIndex]?.toString().toLowerCase() || '');
+    const matchingHeaders = cellValues.filter(val => 
+      headerKeywords.some(keyword => val === keyword)
+    ).length;
+    
+    // If more than half the cells match header keywords, it's likely a header row
+    if (matchingHeaders > mappings.length / 2) {
+      console.log(`🚫 [DATA_VALIDATION] Skipping header row:`, cellValues);
+      return false;
+    }
+    
+    // Filter out material description rows
+    if (cellValues.some(val => val.includes('geomembrane') || val.includes('mil black'))) {
+      console.log(`🚫 [DATA_VALIDATION] Skipping material description row:`, cellValues);
+      return false;
+    }
+    
+    // Filter out rows with mostly empty cells
+    const nonEmptyCells = cellValues.filter(val => val.trim() !== '').length;
+    if (nonEmptyCells < 2) {
+      console.log(`🚫 [DATA_VALIDATION] Skipping row with too few data cells:`, cellValues);
+      return false;
+    }
+    
+    return true;
   }
 
   /**
