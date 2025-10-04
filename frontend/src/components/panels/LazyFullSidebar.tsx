@@ -205,13 +205,10 @@ export function LazyFullSidebar({ projectId, onClose, onError }: LazyFullSidebar
             type: selectedPanel?.type || 'standard',
             status: 'active',
           },
-          asbuiltData: {
-            panelPlacement: [],
-            panelSeaming: [],
-            nonDestructive: [],
-            trialWeld: [],
-            repairs: [],
-            destructive: [],
+          panelData: {
+            specifications: [],
+            measurements: [],
+            status: [],
           },
           rightNeighborPeek: {
             panelNumber: 'P-002',

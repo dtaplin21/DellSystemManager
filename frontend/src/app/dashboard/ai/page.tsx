@@ -293,7 +293,7 @@ export default function AIPage() {
               <div className="text-center">
                 <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
                 <h2 className="text-xl font-semibold mb-2">Authentication Required</h2>
-                <p className="text-gray-600 mb-4">Please log in to access the AI Assistant.</p>
+                <p className="text-gray-600 mb-4">Please log in to access the AI Panel Generation.</p>
                 <Button onClick={() => router.push('/login')}>
                   Go to Login
                 </Button>
@@ -308,7 +308,7 @@ export default function AIPage() {
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">AI Assistant</h1>
+        <h1 className="text-3xl font-bold">AI Panel Generation</h1>
         <div className="flex items-center space-x-2">
           <span className="text-sm text-gray-600">Finish update:</span>
           <span className="text-sm font-semibold">{requirementsConfidence.toFixed(1)}%</span>

@@ -164,7 +164,7 @@ Quality Control:
 ## How to Use These Templates
 
 1. **Create Documents**: Use these templates to create documents with your specific project information
-2. **Upload to System**: Upload the documents through the AI assistant interface
+2. **Upload to System**: Upload the documents through the AI panel generation interface
 3. **Generate Layout**: Use the "Generate AI Layout" feature to create panel layouts based on your documents
 4. **Review and Adjust**: Review the generated layout and make any necessary adjustments
 

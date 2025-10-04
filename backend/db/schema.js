@@ -1,14 +1,5 @@
 const { pgTable, uuid, varchar, text, timestamp, integer, decimal, boolean, json, serial, jsonb, pgEnum } = require('drizzle-orm/pg-core');
 
-// Asbuilt domain enum
-const asbuiltDomain = pgEnum('asbuilt_domain', [
-  'panel_placement',
-  'panel_seaming',
-  'non_destructive',
-  'trial_weld',
-  'repairs',
-  'destructive'
-]);
 
 // Users table
 const users = pgTable('users', {
@@ -113,21 +104,6 @@ const panelLayoutRequirements = pgTable('panel_layout_requirements', {
   createdAt: timestamp('created_at').defaultNow(),
 });
 
-// Asbuilt records table
-const asbuiltRecords = pgTable('asbuilt_records', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  projectId: uuid('project_id').notNull(),
-  panelId: varchar('panel_id', { length: 255 }).notNull(), // ✅ FIXED: Changed from uuid to varchar
-  domain: asbuiltDomain('domain').notNull(),
-  sourceDocId: uuid('source_doc_id'),
-  rawData: jsonb('raw_data').notNull(),
-  mappedData: jsonb('mapped_data').notNull(),
-  aiConfidence: decimal('ai_confidence', { precision: 3, scale: 2 }),
-  requiresReview: boolean('requires_review').default(false),
-  createdAt: timestamp('created_at').defaultNow(),
-  updatedAt: timestamp('updated_at').defaultNow(),
-  createdBy: uuid('created_by'),
-});
 
 module.exports = {
   users,
@@ -137,6 +113,4 @@ module.exports = {
   qcData,
   notifications,
   panelLayoutRequirements, // Add to exports
-  asbuiltRecords,
-  asbuiltDomain,
 };

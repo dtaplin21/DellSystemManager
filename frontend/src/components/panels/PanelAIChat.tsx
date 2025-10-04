@@ -280,7 +280,7 @@ export default function PanelAIChat({ projectInfo, panels, setPanels }: PanelAIC
           value={inputMessage}
           onChange={(e) => setInputMessage(e.target.value)}
           onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-          placeholder="Ask the AI assistant for help..."
+          placeholder="Ask the AI panel generation system for help..."
           className="flex-1 p-2 border rounded-l"
           disabled={isLoading}
         />

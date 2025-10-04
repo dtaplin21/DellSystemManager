@@ -21,8 +21,6 @@ export const config = {
   
   // API endpoints
   endpoints: {
-    asbuilt: (projectId: string, panelId: string) => 
-      `${config.backend.baseUrl}/api/asbuilt/${projectId}/${panelId}`,
     projects: (projectId: string) => 
       `${config.backend.baseUrl}/api/projects/${projectId}`,
     panelLayout: (projectId: string) => 

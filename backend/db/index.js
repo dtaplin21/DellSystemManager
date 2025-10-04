@@ -158,36 +158,6 @@ async function applyMigrations() {
     await client.query(createIndex);
     console.log('✅ panel_layouts index created/verified');
     
-    // Create asbuilt_records table if it doesn't exist
-    const createAsbuiltTable = `
-      CREATE TABLE IF NOT EXISTS asbuilt_records (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        project_id UUID NOT NULL,
-        panel_id UUID NOT NULL,
-        domain VARCHAR(50) NOT NULL CHECK (domain IN ('panel_placement', 'panel_seaming', 'non_destructive', 'trial_weld', 'repairs', 'destructive')),
-        source_doc_id UUID,
-        raw_data JSONB NOT NULL,
-        mapped_data JSONB NOT NULL,
-        ai_confidence DECIMAL(3,2) CHECK (ai_confidence >= 0 AND ai_confidence <= 1),
-        requires_review BOOLEAN DEFAULT false,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-        created_by UUID
-      );
-    `;
-    
-    await client.query(createAsbuiltTable);
-    console.log('✅ asbuilt_records table created/verified');
-    
-    // Create indexes for asbuilt_records
-    const createAsbuiltIndexes = `
-      CREATE INDEX IF NOT EXISTS idx_asbuilt_project_panel ON asbuilt_records(project_id, panel_id);
-      CREATE INDEX IF NOT EXISTS idx_asbuilt_domain ON asbuilt_records(domain);
-      CREATE INDEX IF NOT EXISTS idx_asbuilt_created_at ON asbuilt_records(created_at);
-    `;
-    
-    await client.query(createAsbuiltIndexes);
-    console.log('✅ asbuilt_records indexes created/verified');
     
     client.release();
     console.log('✅ Database migrations completed successfully');

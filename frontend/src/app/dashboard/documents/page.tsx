@@ -29,7 +29,7 @@ export default function DocumentsPage() {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'documents' | 'ai-analysis' | 'asbuilt'>('documents');
+  const [activeTab, setActiveTab] = useState<'documents' | 'ai-analysis'>('documents');
 
   
   // ✅ FIXED: Move early return after all hooks
@@ -243,12 +243,6 @@ export default function DocumentsPage() {
             >
               🤖 AI Analysis
             </button>
-            <button 
-              className={`tab-button ${activeTab === 'asbuilt' ? 'active' : ''}`}
-              onClick={() => setActiveTab('asbuilt')}
-            >
-              🏗️ As-Built Data
-            </button>
           </div>
           <button 
             onClick={() => setShowUploadModal(true)}
@@ -325,53 +319,12 @@ export default function DocumentsPage() {
               )}
             </div>
           </>
-        ) : activeTab === 'ai-analysis' ? (
+        ) : (
           <div className="ai-analysis-section">
             <AIAnalysis 
               projectId={selectedProjectId} 
               documents={documents}
             />
-          </div>
-        ) : (
-          <div className="asbuilt-section">
-            <div className="asbuilt-header">
-              <h2>As-Built Data Management</h2>
-              <p>Manage and view as-built records for panels, seaming, testing, and more.</p>
-            </div>
-            
-            <div className="asbuilt-stats">
-              <div className="stat-card">
-                <h3>Total Records</h3>
-                <p className="stat-number">0</p>
-                <p className="stat-label">No data available</p>
-              </div>
-              <div className="stat-card">
-                <h3>Domains</h3>
-                <p className="stat-number">6</p>
-                <p className="stat-label">Panel Placement, Seaming, Testing, etc.</p>
-              </div>
-              <div className="stat-card">
-                <h3>Status</h3>
-                <p className="stat-number">Empty</p>
-                <p className="stat-label">Ready for data import</p>
-              </div>
-            </div>
-            
-            <div className="asbuilt-actions">
-              <button className="btn-action primary">
-                📊 Import Excel Data
-              </button>
-              <button className="btn-action secondary">
-                ✏️ Manual Entry
-              </button>
-              <button className="btn-action secondary">
-                📋 View All Records
-              </button>
-            </div>
-            
-            <div className="asbuilt-message">
-              <p>No as-built data has been imported yet. Use the panel layout tool to start collecting data, or import existing Excel files.</p>
-            </div>
           </div>
         )}
 

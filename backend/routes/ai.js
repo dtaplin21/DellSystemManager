@@ -112,7 +112,7 @@ Please provide a comprehensive answer based on the available information. If you
         messages: [
           {
             role: "system",
-            content: "You are an AI assistant specialized in geosynthetic engineering and quality control. Provide detailed, technical answers based on the provided documents and context."
+            content: "You are an AI panel generation system specialized in geosynthetic engineering and quality control. Provide detailed, technical answers based on the provided documents and context."
           },
           {
             role: "user",
@@ -144,7 +144,7 @@ Please provide a general answer based on the available information. If you need 
           messages: [
             {
               role: "system",
-              content: "You are an AI assistant specialized in geosynthetic engineering and quality control. Provide helpful answers based on available information."
+              content: "You are an AI panel generation system specialized in geosynthetic engineering and quality control. Provide helpful answers based on available information."
             },
             {
               role: "user",
