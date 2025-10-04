@@ -20,6 +20,7 @@ import {
 } from '@/types/asbuilt';
 import ExcelImportModal from './excel-import-modal';
 import ManualEntryModal from './manual-entry-modal';
+import FileViewerModal from './file-viewer-modal';
 import { getSupabaseClient } from '@/lib/supabase';
 import { getAsbuiltSafe } from '@/lib/safe-api';
 import config from '@/lib/config';
@@ -64,6 +65,8 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
   const [activeDomain, setActiveDomain] = useState<AsbuiltDomain | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showManualEntryModal, setShowManualEntryModal] = useState(false);
+  const [showFileViewer, setShowFileViewer] = useState(false);
+  const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
 
   // Debug effect to track component lifecycle
   useEffect(() => {
@@ -248,6 +251,14 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
   const renderRecordItem = (record: AsbuiltRecord, index: number) => {
     const isReviewRequired = record.requiresReview;
     const confidence = record.aiConfidence || 0;
+    const hasSourceFile = record.sourceFileId;
+
+    const handleViewFile = () => {
+      if (record.sourceFileId) {
+        setSelectedFileId(record.sourceFileId);
+        setShowFileViewer(true);
+      }
+    };
 
     return (
       <div key={record.id} className="p-3 border rounded-lg mb-2 bg-white">
@@ -295,6 +306,20 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
             </div>
           )}
         </div>
+        
+        {hasSourceFile && (
+          <div className="mt-3 pt-2 border-t">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleViewFile}
+              className="w-full flex items-center gap-2"
+            >
+              <FileText className="h-4 w-4" />
+              View Source File
+            </Button>
+          </div>
+        )}
       </div>
     );
   };
@@ -543,6 +568,15 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
         projectId={projectId}
         panelId={panelId}
         onEntryComplete={handleManualEntryComplete}
+      />
+
+      <FileViewerModal
+        isOpen={showFileViewer}
+        onClose={() => {
+          setShowFileViewer(false);
+          setSelectedFileId(null);
+        }}
+        fileId={selectedFileId || ''}
       />
       </div>
     </>

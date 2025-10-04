@@ -545,6 +545,25 @@ class AsbuiltService {
       throw new Error(`Failed to get file: ${error.message}`);
     }
   }
+
+  /**
+   * Get all records associated with a specific file
+   */
+  async getRecordsByFileId(fileId) {
+    try {
+      const query = `
+        SELECT * FROM asbuilt_records 
+        WHERE source_file_id = $1
+        ORDER BY created_at DESC
+      `;
+      
+      const result = await this.pool.query(query, [fileId]);
+      return result.rows;
+    } catch (error) {
+      console.error('❌ [SERVICE] Error fetching records by file ID:', error);
+      throw new Error(`Failed to get records: ${error.message}`);
+    }
+  }
 }
 
 module.exports = AsbuiltService;

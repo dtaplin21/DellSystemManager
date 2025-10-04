@@ -189,6 +189,11 @@ async function getAsbuiltFile(filename) {
   }
 }
 
+// Get as-built file path by filename (for downloads)
+function getAsbuiltFilePath(filename) {
+  return path.join(ASBUILT_FILES_DIR, filename);
+}
+
 module.exports = {
   saveDocument,
   saveExcel,
@@ -197,6 +202,7 @@ module.exports = {
   deleteFile,
   readStoredFile,
   getAsbuiltFile,
+  getAsbuiltFilePath,
   UPLOAD_DIR,
   DOCUMENTS_DIR,
   EXCEL_DIR,

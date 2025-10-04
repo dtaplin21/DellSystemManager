@@ -19,6 +19,7 @@ export interface BaseRecord {
   projectId: ID;
   panelId: ID;              // strict filter for sidebar folders
   sourceDocId?: ID;
+  sourceFileId?: ID;        // Link to uploaded file
   createdAt: ISO;
   updatedAt?: ISO;
   createdBy?: ID;

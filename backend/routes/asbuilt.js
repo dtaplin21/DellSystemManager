@@ -78,8 +78,21 @@ router.get('/_test/:projectId/:panelId', async (req, res) => {
             console.warn('Unknown domain:', domain);
             return;
         }
+        
+        // Map database fields to frontend fields
+        const mappedRecord = {
+          ...record,
+          sourceFileId: record.source_file_id, // Map database field to frontend field
+          mappedData: record.mapped_data,
+          rawData: record.raw_data,
+          aiConfidence: parseFloat(record.ai_confidence || '0'),
+          requiresReview: record.requires_review || false,
+          createdAt: record.created_at,
+          updatedAt: record.updated_at
+        };
+        
         if (groupedRecords[mappedKey]) {
-          groupedRecords[mappedKey].push(record);
+          groupedRecords[mappedKey].push(mappedRecord);
         }
       });
     }
@@ -657,6 +670,71 @@ router.get('/files/:fileId', async (req, res) => {
     console.error('Error fetching file:', error);
     res.status(500).json({ 
       error: 'Failed to fetch file',
+      message: error.message 
+    });
+  }
+});
+
+/**
+ * @route GET /api/asbuilt/files/:fileId/records
+ * @desc Get all records associated with a specific file
+ * @access Private
+ */
+router.get('/files/:fileId/records', async (req, res) => {
+  try {
+    const { fileId } = req.params;
+    const records = await asbuiltService.getRecordsByFileId(fileId);
+    res.json(records);
+  } catch (error) {
+    console.error('Error fetching file records:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch file records',
+      message: error.message 
+    });
+  }
+});
+
+/**
+ * @route GET /api/asbuilt/files/:fileId/download
+ * @desc Download the original file
+ * @access Private
+ */
+router.get('/files/:fileId/download', async (req, res) => {
+  try {
+    const { fileId } = req.params;
+    const file = await asbuiltService.getFileById(fileId);
+    
+    if (!file) {
+      return res.status(404).json({ 
+        error: 'File not found',
+        message: 'The requested file does not exist' 
+      });
+    }
+    
+    const FileStorageService = require('../services/storage');
+    const filePath = FileStorageService.getAsbuiltFilePath(file.filename);
+    
+    // Check if file exists on disk
+    const fs = require('fs');
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ 
+        error: 'File not found on disk',
+        message: 'The file exists in database but not on disk' 
+      });
+    }
+    
+    // Set headers for file download
+    res.setHeader('Content-Disposition', `attachment; filename="${file.originalName}"`);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    
+    // Stream the file
+    const fileStream = fs.createReadStream(filePath);
+    fileStream.pipe(res);
+    
+  } catch (error) {
+    console.error('Error downloading file:', error);
+    res.status(500).json({ 
+      error: 'Failed to download file',
       message: error.message 
     });
   }
