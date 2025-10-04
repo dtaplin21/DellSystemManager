@@ -24,19 +24,8 @@ async function testAsbuiltSyncing() {
     if (panelId) {
       console.log(`✅ [TEST] Found existing panel: ${panelId}`);
     } else {
-      console.log(`🔧 [TEST] Creating new panel for: ${testPanelNumber}`);
-      const newPanelId = await panelLookup.createPanelIfNotExists(testPanelNumber, testProjectId, {
-        width: 100,
-        height: 100,
-        shape: 'rectangle'
-      });
-      
-      if (newPanelId) {
-        console.log(`✅ [TEST] Created new panel: ${newPanelId}`);
-      } else {
-        console.log(`❌ [TEST] Failed to create panel`);
-        return;
-      }
+      console.log(`⚠️ [TEST] Panel not found in layout: ${testPanelNumber} - skipping test`);
+      return;
     }
     
     console.log('🔍 [TEST] Step 2: Testing as-built record creation...');

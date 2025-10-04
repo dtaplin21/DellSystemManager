@@ -969,22 +969,8 @@ class AsbuiltImportAI {
         return panelId;
       }
       
-      // If panel doesn't exist, create it automatically
-      console.log(`🔍 [ASBUILT_IMPORT] Panel not found, creating new panel: ${panelNumber}`);
-      const newPanelId = await this.panelLookup.createPanelIfNotExists(panelNumber, projectId, {
-        // Add some default properties based on domain
-        ...(domain === 'panel_placement' && record.mappedData.dimensions ? {
-          width: record.mappedData.dimensions.width || 100,
-          height: record.mappedData.dimensions.length || 100
-        } : {})
-      });
-      
-      if (newPanelId) {
-        console.log(`✅ [ASBUILT_IMPORT] Created new panel: ${newPanelId} for panel number: ${panelNumber}`);
-        return newPanelId;
-      }
-      
-      console.error(`❌ [ASBUILT_IMPORT] Failed to find or create panel for: ${panelNumber}`);
+      // If panel doesn't exist, skip this record (no auto-creation)
+      console.log(`⚠️ [ASBUILT_IMPORT] Panel not found in layout, skipping record for panel number: ${panelNumber}`);
       return null;
       
     } catch (error) {
