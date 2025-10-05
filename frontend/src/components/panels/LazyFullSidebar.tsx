@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useFullscreenState } from '@/contexts/PanelContext';
 import { usePerformanceMonitoring } from '@/hooks/usePerformanceMonitoring';
-import sidebarDataCache from '@/services/SidebarDataCache';
 import { Panel } from '@/types/panel';
 
 // Lazy load the full sidebar component
@@ -158,10 +157,8 @@ export function LazyFullSidebar({ projectId, onClose, onError }: LazyFullSidebar
     setRetryCount(prev => prev + 1);
     setIsLoading(true);
     
-    // Clear cache for this panel to force fresh data
-    if (selectedPanelId && projectId) {
-      sidebarDataCache.delete(selectedPanelId, projectId);
-    }
+    // Reset data when panel changes
+    setData(null);
   }, [selectedPanelId, projectId]);
 
   // Handle errors - stable callback without performance dependency
@@ -187,9 +184,8 @@ export function LazyFullSidebar({ projectId, onClose, onError }: LazyFullSidebar
         setIsLoading(true);
         setError(null);
 
-        // Check cache first
-        const cachedData = sidebarDataCache.get(selectedPanelId, projectId);
-        if (cachedData) {
+        // Check if we already have data for this panel
+        if (data) {
           setIsLoading(false);
           return;
         }
@@ -223,10 +219,8 @@ export function LazyFullSidebar({ projectId, onClose, onError }: LazyFullSidebar
           },
         };
 
-        // Cache the data - only if we have valid IDs
-        if (selectedPanelId && projectId) {
-          sidebarDataCache.set(selectedPanelId, projectId, mockData);
-        }
+        // Store the data in component state
+        setData(mockData);
         
         setIsLoading(false);
       } catch (err) {

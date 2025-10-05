@@ -1,0 +1,201 @@
+const { Pool } = require('pg');
+const { v4: uuidv4 } = require('uuid');
+require('dotenv').config();
+
+class AsbuiltService {
+  constructor() {
+    this.pool = new Pool({
+      connectionString: process.env.DATABASE_URL || process.env.SUPABASE_DATABASE_URL,
+      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+    });
+  }
+
+  /**
+   * Create a new as-built record
+   */
+  async createRecord(recordData) {
+    const client = await this.pool.connect();
+    try {
+      const {
+        projectId,
+        panelId,
+        domain,
+        sourceDocId,
+        rawData,
+        mappedData,
+        aiConfidence,
+        requiresReview,
+        createdBy
+      } = recordData;
+
+      const query = `
+        INSERT INTO asbuilt_records (
+          id, project_id, panel_id, domain, source_doc_id, 
+          raw_data, mapped_data, ai_confidence, requires_review, created_by
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        RETURNING *
+      `;
+
+      const values = [
+        uuidv4(),
+        projectId,
+        panelId,
+        domain,
+        sourceDocId,
+        JSON.stringify(rawData),
+        JSON.stringify(mappedData),
+        aiConfidence,
+        requiresReview || false,
+        createdBy
+      ];
+
+      const result = await client.query(query, values);
+      return result.rows[0];
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Get all records for a specific panel
+   */
+  async getPanelRecords(projectId, panelId) {
+    const client = await this.pool.connect();
+    try {
+      const query = `
+        SELECT * FROM asbuilt_records 
+        WHERE project_id = $1 AND panel_id = $2
+        ORDER BY created_at DESC
+      `;
+      
+      const result = await client.query(query, [projectId, panelId]);
+      return result.rows;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Get records by domain
+   */
+  async getRecordsByDomain(projectId, domain) {
+    const client = await this.pool.connect();
+    try {
+      const query = `
+        SELECT * FROM asbuilt_records 
+        WHERE project_id = $1 AND domain = $2
+        ORDER BY created_at DESC
+      `;
+      
+      const result = await client.query(query, [projectId, domain]);
+      return result.rows;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Get project summary statistics
+   */
+  async getProjectSummary(projectId) {
+    const client = await this.pool.connect();
+    try {
+      const query = `
+        SELECT 
+          domain,
+          COUNT(*) as record_count,
+          AVG(ai_confidence) as avg_confidence,
+          COUNT(CASE WHEN requires_review = true THEN 1 END) as review_count
+        FROM asbuilt_records 
+        WHERE project_id = $1
+        GROUP BY domain
+        ORDER BY domain
+      `;
+      
+      const result = await client.query(query, [projectId]);
+      return result.rows;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Update a record
+   */
+  async updateRecord(recordId, updateData) {
+    const client = await this.pool.connect();
+    try {
+      const {
+        mappedData,
+        aiConfidence,
+        requiresReview
+      } = updateData;
+
+      const query = `
+        UPDATE asbuilt_records 
+        SET 
+          mapped_data = $1,
+          ai_confidence = $2,
+          requires_review = $3,
+          updated_at = NOW()
+        WHERE id = $4
+        RETURNING *
+      `;
+
+      const values = [
+        JSON.stringify(mappedData),
+        aiConfidence,
+        requiresReview,
+        recordId
+      ];
+
+      const result = await client.query(query, values);
+      return result.rows[0];
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Delete a record
+   */
+  async deleteRecord(recordId) {
+    const client = await this.pool.connect();
+    try {
+      const query = 'DELETE FROM asbuilt_records WHERE id = $1 RETURNING *';
+      const result = await client.query(query, [recordId]);
+      return result.rows[0];
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Get all records for a project
+   */
+  async getProjectRecords(projectId, limit = 100, offset = 0) {
+    const client = await this.pool.connect();
+    try {
+      const query = `
+        SELECT * FROM asbuilt_records 
+        WHERE project_id = $1
+        ORDER BY created_at DESC
+        LIMIT $2 OFFSET $3
+      `;
+      
+      const result = await client.query(query, [projectId, limit, offset]);
+      return result.rows;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Close the database connection
+   */
+  async close() {
+    await this.pool.end();
+  }
+}
+
+module.exports = AsbuiltService;

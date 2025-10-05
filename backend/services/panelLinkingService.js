@@ -214,7 +214,7 @@ class PanelLinkingService {
         userId
       );
       
-      console.log(`📊 [PANEL_LINKING] Import result: ${importResult.importedRows || 0} records`);
+      console.log(`📊 [PANEL_LINKING] Import result:`, importResult);
       
       // Insert records into database
       let recordsLinked = 0;
@@ -225,7 +225,7 @@ class PanelLinkingService {
             recordsLinked++;
             console.log(`✅ [PANEL_LINKING] Created ${domain} record for panel ${record.panelId}`);
           } catch (insertError) {
-            console.error(`❌ [PANEL_LINKING] Error inserting record:`, insertError.message);
+            console.error(`❌ [PANEL_LINKING] Failed to create record:`, insertError);
           }
         }
       }

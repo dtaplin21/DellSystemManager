@@ -1,6 +1,5 @@
 const PanelLookupService = require('./panelLookupService');
-const AsbuiltService = require('./asbuiltService');
-const AsbuiltImportAI = require('./asbuiltImportAI');
+// As-built services removed - functionality simplified
 const { Pool } = require('pg');
 require('dotenv').config();
 
