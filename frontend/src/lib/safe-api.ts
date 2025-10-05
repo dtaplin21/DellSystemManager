@@ -1,6 +1,6 @@
 import { AsbuiltRecord, AsbuiltSummary, AsbuiltImportResult } from '@/types/asbuilt';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8003';
+const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003';
 
 class SafeAPI {
   private async makeRequest<T>(

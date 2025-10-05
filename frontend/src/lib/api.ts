@@ -127,6 +127,8 @@ export async function makeAuthenticatedRequest(url: string, options: RequestInit
         ...options.headers,
       };
       
+      console.log('🔍 [AUTH] Development headers:', headers);
+      
       const response = await fetch(`${BACKEND_URL}${url}`, {
         ...options,
         headers
@@ -195,7 +197,7 @@ export async function fetchProjectById(id: string): Promise<any> {
     
     // First attempt: with authentication
     try {
-      const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/projects/${id}`);
+      const response = await makeAuthenticatedRequest(`/api/projects/${id}`);
       
       console.log('🔍 [DEBUG] fetchProjectById response status:', response.status);
       console.log('🔍 [DEBUG] fetchProjectById response ok:', response.ok);
@@ -313,7 +315,7 @@ export async function fetchProjectById(id: string): Promise<any> {
 
 export async function fetchProjects(): Promise<any> {
   try {
-    const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/projects`);
+    const response = await makeAuthenticatedRequest('/api/projects');
     
     if (!response.ok) {
       if (response.status === 401) {
@@ -466,7 +468,7 @@ export async function fetchNotifications(): Promise<any> {
 
 export async function fetchProjectStats(): Promise<any> {
   try {
-    const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/projects/stats`);
+    const response = await makeAuthenticatedRequest('/api/projects/stats');
     
     if (!response.ok) {
       throw new Error('Failed to fetch project stats');
@@ -591,7 +593,7 @@ export async function createProject(data: {
   endDate?: string;
   area?: string;
 }): Promise<any> {
-  const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/projects`, {
+  const response = await makeAuthenticatedRequest('/api/projects', {
     method: 'POST',
     body: JSON.stringify(data)
   });
@@ -605,7 +607,7 @@ export async function createProject(data: {
 }
 
 export async function deleteProject(projectId: string): Promise<void> {
-  const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/projects/${projectId}`, {
+  const response = await makeAuthenticatedRequest(`/api/projects/${projectId}`, {
     method: 'DELETE',
   });
 
@@ -626,7 +628,7 @@ export async function updateProject(projectId: string, data: {
   panels?: any[];
 }): Promise<any> {
   try {
-    const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/projects/${projectId}`, {
+    const response = await makeAuthenticatedRequest(`/api/projects/${projectId}`, {
       method: 'PATCH',
       body: JSON.stringify(data)
     });
