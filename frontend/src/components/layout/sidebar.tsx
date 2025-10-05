@@ -57,6 +57,12 @@ export default function Sidebar() {
       current: Boolean(isActive('/dashboard/documents'))
     },
     {
+      name: 'As-Built Data',
+      href: '/dashboard/documents/asbuilt',
+      icon: FileSpreadsheet,
+      current: Boolean(isActive('/dashboard/documents/asbuilt'))
+    },
+    {
       section: 'Development',
       current: false, // Section header is never active
       items: [

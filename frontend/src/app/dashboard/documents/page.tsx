@@ -29,7 +29,7 @@ export default function DocumentsPage() {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'documents' | 'ai-analysis'>('documents');
+  const [activeTab, setActiveTab] = useState<'documents' | 'ai-analysis' | 'asbuilt'>('documents');
 
   
   // ✅ FIXED: Move early return after all hooks
@@ -243,6 +243,12 @@ export default function DocumentsPage() {
             >
               🤖 AI Analysis
             </button>
+            <button 
+              className={`tab-button ${activeTab === 'asbuilt' ? 'active' : ''}`}
+              onClick={() => setActiveTab('asbuilt')}
+            >
+              🏗️ As-Built Data
+            </button>
           </div>
           <button 
             onClick={() => setShowUploadModal(true)}
@@ -319,12 +325,53 @@ export default function DocumentsPage() {
               )}
             </div>
           </>
-        ) : (
+        ) : activeTab === 'ai-analysis' ? (
           <div className="ai-analysis-section">
             <AIAnalysis 
               projectId={selectedProjectId} 
               documents={documents}
             />
+          </div>
+        ) : (
+          <div className="asbuilt-section">
+            <div className="asbuilt-header">
+              <h2>As-Built Data Management</h2>
+              <p>Manage and view as-built records for panels, seaming, testing, and more.</p>
+            </div>
+            
+            <div className="asbuilt-stats">
+              <div className="stat-card">
+                <h3>Total Records</h3>
+                <p className="stat-number">0</p>
+                <p className="stat-label">No data available</p>
+              </div>
+              <div className="stat-card">
+                <h3>Domains</h3>
+                <p className="stat-number">6</p>
+                <p className="stat-label">Panel Placement, Seaming, Testing, etc.</p>
+              </div>
+              <div className="stat-card">
+                <h3>Status</h3>
+                <p className="stat-number">Empty</p>
+                <p className="stat-label">Ready for data import</p>
+              </div>
+            </div>
+            
+            <div className="asbuilt-actions">
+              <button className="btn-action primary">
+                📊 Import Excel Data
+              </button>
+              <button className="btn-action secondary">
+                ✏️ Manual Entry
+              </button>
+              <button className="btn-action secondary">
+                📋 View All Records
+              </button>
+            </div>
+            
+            <div className="asbuilt-message">
+              <p>No as-built data has been imported yet. Use the panel layout tool to start collecting data, or import existing Excel files.</p>
+            </div>
           </div>
         )}
 
@@ -366,6 +413,125 @@ export default function DocumentsPage() {
           </div>
         )}
       </div>
+      
+      <style jsx>{`
+        .asbuilt-section {
+          padding: 2rem;
+          background: #f8fafc;
+          border-radius: 12px;
+          margin-top: 1rem;
+        }
+        
+        .asbuilt-header {
+          text-align: center;
+          margin-bottom: 2rem;
+        }
+        
+        .asbuilt-header h2 {
+          font-size: 2rem;
+          font-weight: 700;
+          color: #1e293b;
+          margin-bottom: 0.5rem;
+        }
+        
+        .asbuilt-header p {
+          color: #64748b;
+          font-size: 1.1rem;
+        }
+        
+        .asbuilt-stats {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+          gap: 1.5rem;
+          margin-bottom: 2rem;
+        }
+        
+        .stat-card {
+          background: white;
+          padding: 1.5rem;
+          border-radius: 12px;
+          text-align: center;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+          border: 1px solid #e2e8f0;
+        }
+        
+        .stat-card h3 {
+          font-size: 0.875rem;
+          font-weight: 600;
+          color: #64748b;
+          margin-bottom: 0.5rem;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+        }
+        
+        .stat-number {
+          font-size: 2.5rem;
+          font-weight: 700;
+          color: #1e293b;
+          margin-bottom: 0.25rem;
+        }
+        
+        .stat-label {
+          font-size: 0.875rem;
+          color: #64748b;
+        }
+        
+        .asbuilt-actions {
+          display: flex;
+          gap: 1rem;
+          justify-content: center;
+          margin-bottom: 2rem;
+          flex-wrap: wrap;
+        }
+        
+        .btn-action {
+          padding: 0.75rem 1.5rem;
+          border-radius: 8px;
+          font-weight: 600;
+          font-size: 0.875rem;
+          border: none;
+          cursor: pointer;
+          transition: all 0.2s;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+        }
+        
+        .btn-action.primary {
+          background: #3b82f6;
+          color: white;
+        }
+        
+        .btn-action.primary:hover {
+          background: #2563eb;
+          transform: translateY(-1px);
+        }
+        
+        .btn-action.secondary {
+          background: white;
+          color: #64748b;
+          border: 1px solid #d1d5db;
+        }
+        
+        .btn-action.secondary:hover {
+          background: #f9fafb;
+          border-color: #9ca3af;
+        }
+        
+        .asbuilt-message {
+          background: #f1f5f9;
+          padding: 1.5rem;
+          border-radius: 8px;
+          text-align: center;
+          border: 1px solid #e2e8f0;
+        }
+        
+        .asbuilt-message p {
+          color: #64748b;
+          margin: 0;
+          font-size: 1rem;
+        }
+      `}</style>
     </div>
   );
 }
