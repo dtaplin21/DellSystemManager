@@ -20,11 +20,14 @@ import {
 } from 'lucide-react';
 import { AsbuiltRecord, AsbuiltSummary, ASBUILT_DOMAINS } from '@/types/asbuilt';
 import { safeAPI } from '@/lib/safe-api';
+import { makeAuthenticatedRequest } from '@/lib/api';
 
 export default function AsbuiltPage() {
   const searchParams = useSearchParams();
   const projectId = searchParams.get('projectId') || '';
   
+  const [projects, setProjects] = useState<any[]>([]);
+  const [selectedProject, setSelectedProject] = useState<any>(null);
   const [records, setRecords] = useState<AsbuiltRecord[]>([]);
   const [summary, setSummary] = useState<AsbuiltSummary | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -33,21 +36,54 @@ export default function AsbuiltPage() {
   const [selectedDomain, setSelectedDomain] = useState<string>('all');
   const [showImportModal, setShowImportModal] = useState(false);
 
-  // Fetch data on component mount
+  // Fetch projects on component mount
   useEffect(() => {
-    if (projectId) {
+    fetchProjects();
+  }, []);
+
+  // Fetch as-built data when project is selected
+  useEffect(() => {
+    if (selectedProject) {
       fetchData();
     }
-  }, [projectId]);
+  }, [selectedProject]);
+
+  const fetchProjects = async () => {
+    try {
+      setIsLoading(true);
+      const response = await makeAuthenticatedRequest('/api/projects');
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Projects fetched successfully:', data);
+        setProjects(data);
+        
+        // Auto-select first project if none selected
+        if (data.length > 0 && !selectedProject) {
+          setSelectedProject(data[0]);
+        }
+      } else {
+        console.error('Failed to fetch projects:', response.status, response.statusText);
+        setProjects([]);
+      }
+    } catch (error) {
+      console.error('Error fetching projects:', error);
+      setProjects([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const fetchData = async () => {
+    if (!selectedProject) return;
+    
     setIsLoading(true);
     setError(null);
     
     try {
       const [recordsData, summaryData] = await Promise.all([
-        safeAPI.getProjectRecords(projectId),
-        safeAPI.getProjectSummary(projectId)
+        safeAPI.getProjectRecords(selectedProject.id),
+        safeAPI.getProjectSummary(selectedProject.id)
       ]);
       
       setRecords(recordsData);
@@ -87,14 +123,54 @@ export default function AsbuiltPage() {
     return <Badge className="bg-red-100 text-red-800">Low</Badge>;
   };
 
-  if (!projectId) {
+  if (projects.length === 0 && !isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No Project Selected</h3>
-          <p className="text-gray-500">Please select a project to view as-built data.</p>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No Projects Available</h3>
+          <p className="text-gray-500 mb-4">No projects found. Please create a project first.</p>
+          <Button
+            onClick={() => window.location.href = '/dashboard/projects'}
+            className="bg-blue-600 hover:bg-blue-700"
+          >
+            Go to Projects
+          </Button>
         </div>
+      </div>
+    );
+  }
+
+  if (!selectedProject) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">As-Built Data</h1>
+            <p className="text-gray-600 mt-1">Select a project to view as-built records.</p>
+          </div>
+        </div>
+        
+        <Card>
+          <CardHeader>
+            <CardTitle>Select Project</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {projects.map((project) => (
+                <div
+                  key={project.id}
+                  onClick={() => setSelectedProject(project)}
+                  className="p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 hover:border-blue-300 transition-colors"
+                >
+                  <h3 className="font-medium text-gray-900">{project.name}</h3>
+                  <p className="text-sm text-gray-500 mt-1">{project.description}</p>
+                  <p className="text-xs text-gray-400 mt-2">Location: {project.location}</p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }

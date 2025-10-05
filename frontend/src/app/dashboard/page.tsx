@@ -26,6 +26,7 @@ export default function Dashboard() {
         const response = await makeAuthenticatedRequest('/api/projects');
         if (response.ok) {
           const data = await response.json();
+          console.log('✅ Projects fetched successfully:', data);
           setProjects(data);
         } else {
           console.error('Failed to fetch projects:', response.status, response.statusText);

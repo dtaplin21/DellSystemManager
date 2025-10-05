@@ -11,6 +11,53 @@ const auth = async (req, res, next) => {
       userAgent: req.headers?.['user-agent']?.substring(0, 50) + '...'
     });
     
+    // Check if we're in development mode and allow bypass
+    if (process.env.NODE_ENV === 'development' && req.headers['x-dev-bypass'] === 'true') {
+      console.log('🔧 [DEV] Development bypass enabled - creating mock user');
+      
+      // Get the actual user ID from the database
+      const { Pool } = require('pg');
+      const pool = new Pool({
+        connectionString: process.env.DATABASE_URL || process.env.SUPABASE_DATABASE_URL,
+        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+      });
+      
+      try {
+        const client = await pool.connect();
+        const result = await client.query('SELECT id FROM users WHERE email = $1', ['dev@example.com']);
+        client.release();
+        await pool.end();
+        
+        if (result.rows.length > 0) {
+          req.user = {
+            id: result.rows[0].id,
+            email: 'dev@example.com',
+            displayName: 'Development User',
+            company: 'Development Company',
+            subscription: 'premium',
+            isAdmin: true,
+            profileImageUrl: null,
+          };
+          console.log('🔧 [DEV] Using real user ID:', req.user.id);
+          return next();
+        }
+      } catch (error) {
+        console.error('🔧 [DEV] Error getting user ID:', error);
+      }
+      
+      // Fallback to mock user
+      req.user = {
+        id: 'dev-user-123',
+        email: 'dev@example.com',
+        displayName: 'Development User',
+        company: 'Development Company',
+        subscription: 'premium',
+        isAdmin: true,
+        profileImageUrl: null,
+      };
+      return next();
+    }
+    
     // Enhanced debugging for authorization header
     if (req.headers?.authorization) {
       console.log('🔐 [AUTH] Authorization header details:', {

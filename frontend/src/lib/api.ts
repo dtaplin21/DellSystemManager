@@ -116,6 +116,32 @@ export async function makeAuthenticatedRequest(url: string, options: RequestInit
       cache: options.cache
     });
     
+    // Check if we're in development mode
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    
+    if (isDevelopment) {
+      console.log('🔧 [DEV] Development mode - using bypass header');
+      const headers = {
+        'Content-Type': 'application/json',
+        'x-dev-bypass': 'true',
+        ...options.headers,
+      };
+      
+      const response = await fetch(`${BACKEND_URL}${url}`, {
+        ...options,
+        headers
+      });
+      
+      console.log('🔍 [AUTH] Development response received:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        headers: Object.fromEntries(response.headers.entries())
+      });
+      
+      return response;
+    }
+    
     // Get the current session
     const { data: { session } } = await getSupabaseClient().auth.getSession();
     console.log('🔍 [AUTH] Session status:', {

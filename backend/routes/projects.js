@@ -20,16 +20,7 @@ const validateProject = (projectData) => {
 };
 
 // Get all projects for the current user
-router.get('/', async (req, res, next) => {
-  // Apply auth middleware for production
-  try {
-    await auth(req, res, () => {});
-  } catch (error) {
-    return res.status(401).json({ 
-      message: 'Access denied. No token provided.',
-      code: 'NO_TOKEN'
-    });
-  }
+router.get('/', auth, async (req, res, next) => {
   
   try {
     console.log('Projects route: Fetching projects for user:', req.user.id);
