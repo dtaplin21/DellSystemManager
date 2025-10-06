@@ -27,80 +27,116 @@ export function useSupabaseAuth() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isClient, setIsClient] = useState(false);
+
+  // Detect client-side hydration
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   useEffect(() => {
-    // Get initial session
-    getSession();
+    // Only run authentication logic on client side
+    if (!isClient) {
+      return;
+    }
 
-    // Fallback: ensure loading is set to false after 15 seconds
-    const fallbackTimeout = setTimeout(() => {
-      setLoading(false);
-    }, 15000);
+    let mounted = true;
 
-    // Listen for auth changes
-    const { data: { subscription } } = getSupabaseClient().auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('🔍 Auth state change:', event, session ? 'session present' : 'no session');
-        setSession(session);
-        
-        if (session?.user) {
-          await loadUserProfile(session.user);
+    const initializeAuth = async () => {
+      try {
+        // Check if we're in development mode
+        const isDevelopment = process.env.NODE_ENV === 'development';
+        console.log('🔧 [AUTH] Development mode:', isDevelopment);
+        console.log('🔧 [AUTH] NODE_ENV:', process.env.NODE_ENV);
+        console.log('🔧 [AUTH] isClient:', isClient);
+
+        if (isDevelopment) {
+          // In development mode, create a mock user for testing
+          console.log('🔧 [AUTH] Development mode - creating mock user');
+          const mockUser: AuthUser = {
+            id: 'dev-user-123',
+            email: 'dev@example.com',
+            displayName: 'Development User',
+            company: 'Development Company',
+            position: 'Developer',
+            subscription: 'premium',
+            profileImageUrl: null,
+          };
+          
+          if (mounted) {
+            setUser(mockUser);
+            setSession(null); // No real session in dev mode
+            setLoading(false);
+          }
+          return;
+        }
+
+        // Production mode - use real authentication
+        const timeoutPromise = new Promise<null>((_, reject) => {
+          setTimeout(() => reject(new Error('Session timeout')), 10000);
+        });
+
+        const currentSession = await Promise.race([
+          getCurrentSession(),
+          timeoutPromise
+        ]).catch(err => {
+          console.error('Session retrieval failed:', err);
+          return null;
+        });
+
+        if (!mounted) return;
+
+        setSession(currentSession);
+
+        if (currentSession?.user) {
+          await loadUserProfile(currentSession.user);
         } else {
           setUser(null);
         }
-        // Don't set loading to false here - let getSession handle it
+      } catch (error) {
+        console.error('Auth initialization error:', error);
+        if (mounted) {
+          setUser(null);
+          setSession(null);
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
       }
-    );
+    };
+
+    initializeAuth();
+
+    // Only set up auth state change listener in production mode
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    let subscription: any = null;
+    
+    if (!isDevelopment) {
+      const { data: { subscription: authSubscription } } = getSupabaseClient().auth.onAuthStateChange(
+        async (event, newSession) => {
+          if (!mounted) return;
+
+          setSession(newSession);
+
+          if (newSession?.user) {
+            await loadUserProfile(newSession.user);
+          } else {
+            setUser(null);
+          }
+        }
+      );
+      subscription = authSubscription;
+    }
 
     return () => {
-      subscription.unsubscribe();
-      clearTimeout(fallbackTimeout);
-    };
-  }, []);
-
-  const getSession = async () => {
-    console.log('🔍 [useSupabaseAuth] getSession called');
-    try {
-      const client = getSupabaseClient();
-      console.log('🔍 [useSupabaseAuth] Supabase client type:', client.auth ? 'real' : 'mock');
-      
-      // Add timeout protection
-      const timeoutPromise = new Promise<null>((_, reject) => {
-        setTimeout(() => {
-          reject(new Error('Session retrieval timeout'));
-        }, 10000); // 10 second timeout
-      });
-      
-      console.log('🔍 [useSupabaseAuth] Calling getCurrentSession...');
-      // Race between session retrieval and timeout
-      const session = await Promise.race([
-        getCurrentSession(),
-        timeoutPromise
-      ]);
-      
-      console.log('🔍 [useSupabaseAuth] Session result:', session ? 'session found' : 'no session');
-      console.log('🔍 [useSupabaseAuth] Session details:', { 
-        hasSession: !!session, 
-        hasUser: !!session?.user,
-        userEmail: session?.user?.email 
-      });
-      setSession(session);
-      
-      if (session?.user) {
-        console.log('🔍 [useSupabaseAuth] Loading user profile...');
-        await loadUserProfile(session.user);
-      } else {
-        console.log('🔍 [useSupabaseAuth] No user in session');
-        setUser(null);
+      mounted = false;
+      if (subscription) {
+        subscription.unsubscribe();
       }
-    } catch (error) {
-      console.error('🔍 [useSupabaseAuth] Error getting session:', error);
-      // Set loading to false even on error to prevent infinite loading
-    } finally {
-      console.log('🔍 [useSupabaseAuth] Setting loading to false');
-      setLoading(false);
-    }
-  };
+    };
+  }, [isClient]);
+
 
   const loadUserProfile = async (supabaseUser: User) => {
     try {
@@ -228,36 +264,36 @@ export function useSupabaseAuth() {
 
   // Function to manually refresh session using Supabase's native refresh
   const refreshSession = useCallback(async () => {
+    if (!isClient) return null;
+
     try {
-      console.log('🔄 Manually refreshing session...');
       const { data: refreshed, error } = await getSupabaseClient().auth.refreshSession();
       
       if (error) {
-        console.error('❌ Error refreshing session:', error);
+        console.error('Error refreshing session:', error);
         return null;
       }
       
       if (refreshed.session) {
-        console.log('✅ Session refreshed successfully');
         setSession(refreshed.session);
         if (refreshed.session.user) {
           await loadUserProfile(refreshed.session.user);
         }
         return refreshed.session;
-      } else {
-        console.log('⚠️ No session returned from refresh');
-        return null;
       }
+
+      return null;
     } catch (error) {
-      console.error('❌ Error refreshing session:', error);
+      console.error('Error refreshing session:', error);
       return null;
     }
-  }, []);
+  }, [isClient]);
 
   // Function to clear session and force fresh login
   const clearSessionAndRedirect = useCallback(async () => {
+    if (!isClient) return;
+
     try {
-      console.log('🧹 Clearing session and redirecting to login...');
       await getSupabaseClient().auth.signOut();
       setUser(null);
       setSession(null);
@@ -267,13 +303,13 @@ export function useSupabaseAuth() {
     } catch (error) {
       console.error('Error clearing session:', error);
     }
-  }, []);
+  }, [isClient]);
 
   return {
     user,
     session,
-    loading,
-    isAuthenticated: !!user,
+    loading: !isClient || loading,
+    isAuthenticated: isClient && !!user,
     signUp,
     signIn,
     signOut,

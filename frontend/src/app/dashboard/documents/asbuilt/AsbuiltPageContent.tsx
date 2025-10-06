@@ -25,6 +25,7 @@ import { AsbuiltRecord, AsbuiltSummary, ASBUILT_DOMAINS } from '@/types/asbuilt'
 import { safeAPI } from '@/lib/safe-api';
 import { makeAuthenticatedRequest } from '@/lib/api';
 import { useAsbuiltData } from '@/contexts/AsbuiltDataContext';
+import { useProjects } from '@/contexts/ProjectsProvider';
 import FileViewerModal from '@/components/shared/FileViewerModal';
 import { FileMetadata } from '@/contexts/AsbuiltDataContext';
 
@@ -32,7 +33,9 @@ export default function AsbuiltPageContent() {
   const searchParams = useSearchParams();
   const projectId = searchParams.get('projectId') || '';
   
-  // Use shared context
+  console.log('🔍 [ASBUILT] Component render - projectId:', projectId);
+  
+  // Use shared contexts
   const {
     projectSummary,
     projectRecords,
@@ -45,7 +48,15 @@ export default function AsbuiltPageContent() {
     getFilesForDomain
   } = useAsbuiltData();
   
-  const [projects, setProjects] = useState<any[]>([]);
+  const {
+    projects,
+    selectedProject: contextSelectedProject,
+    isLoading: projectsLoading,
+    error: projectsError,
+    selectProject,
+    clearSelection
+  } = useProjects();
+  
   const [selectedProject, setSelectedProject] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDomain, setSelectedDomain] = useState<string>('all');
@@ -54,10 +65,15 @@ export default function AsbuiltPageContent() {
   const [selectedFile, setSelectedFile] = useState<FileMetadata | null>(null);
   const [activeTab, setActiveTab] = useState<'records' | 'files'>('records');
 
-  // Fetch projects on component mount
+  // Handle URL-based project selection
   useEffect(() => {
-    fetchProjects();
-  }, []);
+    if (projectId && projects.length > 0) {
+      const project = projects.find(p => p.id === projectId);
+      if (project && project.id !== selectedProject?.id) {
+        setSelectedProject(project);
+      }
+    }
+  }, [projectId, projects, selectedProject]);
 
   // Refresh data when project is selected
   useEffect(() => {
@@ -66,28 +82,6 @@ export default function AsbuiltPageContent() {
     }
   }, [selectedProject, projectId, refreshAllData]);
 
-  const fetchProjects = async () => {
-    try {
-      const response = await makeAuthenticatedRequest('/api/projects');
-      
-      if (response.ok) {
-        const data = await response.json();
-        console.log('✅ Projects fetched successfully:', data);
-        setProjects(data);
-        
-        // Auto-select first project if none selected
-        if (data.length > 0 && !selectedProject) {
-          setSelectedProject(data[0]);
-        }
-      } else {
-        console.error('Failed to fetch projects:', response.status, response.statusText);
-        setProjects([]);
-      }
-    } catch (error) {
-      console.error('Error fetching projects:', error);
-      setProjects([]);
-    }
-  };
 
   const handleFileView = (file: FileMetadata) => {
     setSelectedFile(file);
@@ -134,7 +128,18 @@ export default function AsbuiltPageContent() {
     return <Badge className="bg-red-100 text-red-800">Low</Badge>;
   };
 
-  if (projects.length === 0 && !isLoading) {
+  console.log('🔍 [ASBUILT] Loading states check:');
+  console.log('🔍 [ASBUILT] projects.length:', projects.length);
+  console.log('🔍 [ASBUILT] projectsLoading:', projectsLoading);
+  console.log('🔍 [ASBUILT] isLoading (context):', isLoading);
+  console.log('🔍 [ASBUILT] contextError:', contextError);
+  console.log('🔍 [ASBUILT] projectsError:', projectsError);
+  console.log('🔍 [ASBUILT] projects.length === 0:', projects.length === 0);
+  console.log('🔍 [ASBUILT] !projectsLoading:', !projectsLoading);
+  console.log('🔍 [ASBUILT] Condition (projects.length === 0 && !projectsLoading):', projects.length === 0 && !projectsLoading);
+  
+  if (projects.length === 0 && !projectsLoading) {
+    console.log('🔍 [ASBUILT] Showing no projects available message');
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
@@ -152,13 +157,13 @@ export default function AsbuiltPageContent() {
     );
   }
 
-  if (contextError) {
+  if (contextError || projectsError) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <AlertCircle className="h-12 w-12 text-red-400 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">Error Loading Data</h3>
-          <p className="text-red-600 mb-4">{contextError}</p>
+          <p className="text-red-600 mb-4">{contextError || projectsError}</p>
           <Button
             onClick={() => refreshAllData(projectId)}
             className="bg-blue-600 hover:bg-blue-700"
@@ -170,9 +175,19 @@ export default function AsbuiltPageContent() {
     );
   }
 
-  if (!selectedProject) {
+  if (!contextSelectedProject) {
+    console.log('🔍 [ASBUILT] Rendering project selection UI');
+    console.log('🔍 [ASBUILT] Projects state:', projects);
+    console.log('🔍 [ASBUILT] Projects length:', projects.length);
+    console.log('🔍 [ASBUILT] SelectedProject (local):', selectedProject);
+    console.log('🔍 [ASBUILT] ContextSelectedProject:', contextSelectedProject);
+    console.log('🔍 [ASBUILT] About to return JSX for project selection');
+    
     return (
       <div className="space-y-6">
+        <div className="p-4 bg-red-500 text-white text-xl font-bold">
+          DEBUG: This should be visible if JSX is rendering!
+        </div>
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">As-Built Data</h1>
@@ -182,21 +197,40 @@ export default function AsbuiltPageContent() {
         
         <Card>
           <CardHeader>
-            <CardTitle>Select Project</CardTitle>
+            <CardTitle>Select Project ({projects.length} available)</CardTitle>
           </CardHeader>
           <CardContent>
+            <div className="mb-4 p-2 bg-yellow-100 rounded">
+              <p className="text-sm">Debug: {projects.length} projects loaded</p>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {projects.map((project) => (
-                <div
-                  key={project.id}
-                  onClick={() => setSelectedProject(project)}
-                  className="p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 hover:border-blue-300 transition-colors"
-                >
-                  <h3 className="font-medium text-gray-900">{project.name}</h3>
-                  <p className="text-sm text-gray-500 mt-1">{project.description}</p>
-                  <p className="text-xs text-gray-400 mt-2">Location: {project.location}</p>
+              {(() => {
+                console.log('🔍 [ASBUILT] About to map projects:', projects);
+                return null;
+              })()}
+              {projects.length === 0 ? (
+                <div className="col-span-2 text-center py-8">
+                  <p className="text-gray-500">No projects available</p>
                 </div>
-              ))}
+              ) : (
+                projects.map((project, index) => {
+                  console.log(`🔍 [ASBUILT] Rendering project ${index}:`, project);
+                  return (
+                    <div
+                      key={project.id}
+                      onClick={() => {
+                        console.log('🔍 [ASBUILT] Project clicked:', project.name);
+                        selectProject(project.id);
+                      }}
+                      className="p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 hover:border-blue-300 transition-colors"
+                    >
+                      <h3 className="font-medium text-gray-900">{project.name}</h3>
+                      <p className="text-sm text-gray-500 mt-1">{project.description}</p>
+                      <p className="text-xs text-gray-400 mt-2">Location: {project.location}</p>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </CardContent>
         </Card>
@@ -204,15 +238,33 @@ export default function AsbuiltPageContent() {
     );
   }
 
+  console.log('🔍 [ASBUILT] Rendering main content with selected project');
+  console.log('🔍 [ASBUILT] SelectedProject:', selectedProject);
+  console.log('🔍 [ASBUILT] Projects:', projects);
+  
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">As-Built Data</h1>
-          <p className="text-gray-600 mt-1">Manage and view as-built records for panels, seaming, testing, and more.</p>
+          <p className="text-gray-600 mt-1">
+            Manage and view as-built records for panels, seaming, testing, and more.
+            {contextSelectedProject && (
+              <span className="ml-2 text-blue-600 font-medium">
+                • {contextSelectedProject.name}
+              </span>
+            )}
+          </p>
         </div>
         <div className="flex items-center gap-3">
+        <Button
+          variant="outline"
+          onClick={() => clearSelection()}
+          className="text-gray-600 hover:text-gray-800"
+        >
+          Change Project
+        </Button>
           <Button
             variant="outline"
             onClick={() => refreshAllData(projectId)}
