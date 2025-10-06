@@ -20,10 +20,12 @@ import {
 } from '@/types/asbuilt';
 import ExcelImportModal from './excel-import-modal';
 import ManualEntryModal from './manual-entry-modal';
-import FileViewerModal from './file-viewer-modal';
 import { getSupabaseClient } from '@/lib/supabase';
 import { getAsbuiltSafe } from '@/lib/safe-api';
 import config from '@/lib/config';
+import { useAsbuiltData } from '@/contexts/AsbuiltDataContext';
+import FileViewerModal from '@/components/shared/FileViewerModal';
+import { FileMetadata } from '@/contexts/AsbuiltDataContext';
 
 interface PanelSidebarProps {
   isOpen: boolean;
@@ -59,14 +61,27 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
     panelId,
     panelNumber
   });
-  const [asbuiltData, setAsbuiltData] = useState<PanelAsbuiltSummary | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  
+  // Use shared context
+  const {
+    panelData,
+    fileMetadata,
+    isLoading,
+    error: contextError,
+    getFilesForPanel,
+    getFilesForDomain,
+    getPanelSummary,
+    refreshPanelData
+  } = useAsbuiltData();
+  
   const [activeDomain, setActiveDomain] = useState<AsbuiltDomain | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showManualEntryModal, setShowManualEntryModal] = useState(false);
   const [showFileViewer, setShowFileViewer] = useState(false);
-  const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<FileMetadata | null>(null);
+  
+  // Get panel data from shared context
+  const asbuiltData = getPanelSummary(panelId);
 
   // Debug effect to track component lifecycle
   useEffect(() => {
@@ -122,60 +137,22 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
     }
   ];
 
-  // Fetch asbuilt data for the selected panel
-  const fetchAsbuiltData = useCallback(async () => {
-    if (!projectId || !panelId) return;
-
-    console.log('🔍 [PanelSidebar] Fetching asbuilt data for:', { projectId, panelId });
-    setLoading(true);
-    setError(null);
-
-    try {
-      // Use the safe API function with centralized configuration
-      const data: PanelAsbuiltSummary = await getAsbuiltSafe(projectId, panelId);
-      console.log('🔍 [PanelSidebar] Data received:', data);
-      setAsbuiltData(data);
-      setError(null); // Clear any previous errors
-    } catch (err) {
-      console.error('🔍 [PanelSidebar] Error fetching asbuilt data:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch data';
-      setError(errorMessage);
-      
-      // Set fallback data to prevent complete failure
-      setAsbuiltData({
-        panelId: panelId,
-        panelNumber: panelNumber,
-        totalRecords: 0,
-        domains: [],
-        lastUpdated: new Date().toISOString(),
-        confidence: 0
-      });
-      
-      // Show helpful message for empty data
-      if (err instanceof Error && err.message.includes('404')) {
-        setError('No as-built data found for this panel. Data will appear here once imported or manually entered.');
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [projectId, panelId]);
-
-  // Fetch data when component mounts or panel changes
+  // Refresh panel data when component mounts or panel changes
   useEffect(() => {
     if (isOpen && projectId && panelId) {
-      fetchAsbuiltData();
+      refreshPanelData(projectId, panelId);
     }
-  }, [isOpen, projectId, panelId, fetchAsbuiltData]);
+  }, [isOpen, projectId, panelId, refreshPanelData]);
 
   // Handle import completion
   const handleImportComplete = useCallback(() => {
-    fetchAsbuiltData(); // Refresh data after import
-  }, [fetchAsbuiltData]);
+    refreshPanelData(projectId, panelId); // Refresh data after import
+  }, [projectId, panelId, refreshPanelData]);
 
   // Handle manual entry completion
   const handleManualEntryComplete = useCallback(() => {
-    fetchAsbuiltData(); // Refresh data after manual entry
-  }, [fetchAsbuiltData]);
+    refreshPanelData(projectId, panelId); // Refresh data after manual entry
+  }, [projectId, panelId, refreshPanelData]);
 
   // Get record count for a domain - with robust error handling
   const getRecordCount = (domain: AsbuiltDomain): number => {
@@ -221,18 +198,17 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
     }
   };
 
+  // Handle file view
+  const handleViewFile = (file: FileMetadata) => {
+    setSelectedFile(file);
+    setShowFileViewer(true);
+  };
+
   // Render record item
   const renderRecordItem = (record: AsbuiltRecord, index: number) => {
     const isReviewRequired = record.requiresReview;
     const confidence = record.aiConfidence || 0;
     const hasSourceFile = record.sourceDocId;
-
-    const handleViewFile = () => {
-      if (record.sourceDocId) {
-        setSelectedFileId(record.sourceDocId);
-        setShowFileViewer(true);
-      }
-    };
 
     return (
       <div key={record.id} className="p-3 border rounded-lg mb-2 bg-white">
@@ -286,7 +262,14 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
             <Button 
               variant="outline" 
               size="sm" 
-              onClick={handleViewFile}
+              onClick={() => {
+                // Find the file in the shared context
+                const files = getFilesForPanel(panelId);
+                const file = files.find(f => f.sourceDocId === record.sourceDocId);
+                if (file) {
+                  handleViewFile(file);
+                }
+              }}
               className="w-full flex items-center gap-2"
             >
               <FileText className="h-4 w-4" />
@@ -390,17 +373,17 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-6">
-        {loading ? (
+        {isLoading ? (
           <div className="flex items-center justify-center py-8">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
             <span className="ml-2 text-gray-600">Loading panel data...</span>
           </div>
-        ) : error ? (
+        ) : contextError ? (
           <div className="text-center py-8">
             <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-2" />
             <p className="text-red-600 mb-2">Failed to load panel data</p>
-            <p className="text-sm text-gray-600 mb-4">{error}</p>
-            <Button onClick={fetchAsbuiltData} variant="outline">
+            <p className="text-sm text-gray-600 mb-4">{contextError}</p>
+            <Button onClick={() => refreshPanelData(projectId, panelId)} variant="outline">
               Retry
             </Button>
           </div>
@@ -423,6 +406,7 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
                 {domainConfigs.map((config) => {
                   const recordCount = getRecordCount(config.key);
                   const records = getRecords(config.key);
+                  const files = getFilesForDomain(panelId, config.key);
 
                   return (
                     <AccordionItem key={config.key} value={config.key} className="border-2 border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow">
@@ -439,6 +423,11 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
                             <Badge variant="secondary" className="text-sm px-3 py-1">
                               {recordCount} records
                             </Badge>
+                            {files.length > 0 && (
+                              <Badge variant="outline" className="text-sm px-3 py-1">
+                                {files.length} files
+                              </Badge>
+                            )}
                             <div className="text-gray-400">
                               <ChevronRight className="h-5 w-5 transition-transform" />
                             </div>
@@ -446,7 +435,7 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
                         </div>
                       </AccordionTrigger>
                       <AccordionContent className="px-6 pb-6 bg-gray-50 rounded-b-xl">
-                        {recordCount === 0 ? (
+                        {recordCount === 0 && files.length === 0 ? (
                           <div className="text-center py-8 text-gray-500">
                             <div className="text-6xl mb-4">📁</div>
                             <p className="text-lg font-medium mb-2">No {config.name.toLowerCase()} records found</p>
@@ -461,8 +450,44 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
                             </div>
                           </div>
                         ) : (
-                          <div className="space-y-3">
-                            {records.map((record, index) => renderRecordItem(record, index))}
+                          <div className="space-y-4">
+                            {/* Records */}
+                            {records.length > 0 && (
+                              <div className="space-y-3">
+                                <h4 className="font-medium text-gray-900">Records</h4>
+                                {records.map((record, index) => renderRecordItem(record, index))}
+                              </div>
+                            )}
+                            
+                            {/* Files */}
+                            {files.length > 0 && (
+                              <div className="space-y-3">
+                                <h4 className="font-medium text-gray-900">Files</h4>
+                                <div className="grid grid-cols-1 gap-2">
+                                  {files.map((file) => (
+                                    <div key={file.id} className="flex items-center justify-between p-3 bg-white border rounded-lg">
+                                      <div className="flex items-center gap-3">
+                                        <FileText className="h-5 w-5 text-gray-500" />
+                                        <div>
+                                          <p className="text-sm font-medium text-gray-900">{file.fileName}</p>
+                                          <p className="text-xs text-gray-500">
+                                            {new Date(file.uploadedAt).toLocaleDateString()}
+                                          </p>
+                                        </div>
+                                      </div>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleViewFile(file)}
+                                      >
+                                        <Eye className="h-4 w-4 mr-2" />
+                                        View
+                                      </Button>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         )}
                       </AccordionContent>
@@ -522,9 +547,12 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
         isOpen={showFileViewer}
         onClose={() => {
           setShowFileViewer(false);
-          setSelectedFileId(null);
+          setSelectedFile(null);
         }}
-        fileId={selectedFileId || ''}
+        file={selectedFile}
+        showDataMapping={true}
+        panelId={panelId}
+        domain={selectedFile?.domain}
       />
       </div>
     </>
