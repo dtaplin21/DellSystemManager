@@ -339,7 +339,7 @@ export async function fetchPanelLayout(projectId: string): Promise<any> {
     // First attempt: with authentication
     try {
       console.log('🔍 [API] Making authenticated request to backend...');
-      const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/panels/layout/${projectId}`, {
+      const response = await makeAuthenticatedRequest(`/api/panels/layout/${projectId}`, {
         cache: 'no-store'
       });
       
@@ -856,7 +856,7 @@ export async function createCheckoutSession(plan: 'basic' | 'premium'): Promise<
 
 export async function fetchDocuments(projectId: string): Promise<any> {
   try {
-    const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/documents/${projectId}`);
+    const response = await makeAuthenticatedRequest(`/api/documents/${projectId}`);
     
     if (!response.ok) {
       if (response.status === 401) {

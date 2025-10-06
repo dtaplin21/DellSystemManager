@@ -177,7 +177,15 @@ export default function AsbuiltPageContent() {
     );
   }
 
+  console.log('🔍 [ASBUILT] === CONDITIONAL RENDERING CHECK ===');
+  console.log('🔍 [ASBUILT] contextSelectedProject value:', contextSelectedProject);
+  console.log('🔍 [ASBUILT] contextSelectedProject type:', typeof contextSelectedProject);
+  console.log('🔍 [ASBUILT] !contextSelectedProject:', !contextSelectedProject);
+  console.log('🔍 [ASBUILT] contextSelectedProject === null:', contextSelectedProject === null);
+  console.log('🔍 [ASBUILT] contextSelectedProject === undefined:', contextSelectedProject === undefined);
+  
   if (!contextSelectedProject) {
+    console.log('🔍 [ASBUILT] ✅ Taking project selection branch');
     console.log('🔍 [ASBUILT] Rendering project selection UI');
     console.log('🔍 [ASBUILT] Projects state:', projects);
     console.log('🔍 [ASBUILT] Projects length:', projects.length);
@@ -240,8 +248,10 @@ export default function AsbuiltPageContent() {
     );
   }
 
+  console.log('🔍 [ASBUILT] ❌ Taking main content branch (project selected)');
   console.log('🔍 [ASBUILT] Rendering main content with selected project');
-  console.log('🔍 [ASBUILT] SelectedProject:', selectedProject);
+  console.log('🔍 [ASBUILT] SelectedProject (local):', selectedProject);
+  console.log('🔍 [ASBUILT] ContextSelectedProject:', contextSelectedProject);
   console.log('🔍 [ASBUILT] Projects:', projects);
   
   return (
