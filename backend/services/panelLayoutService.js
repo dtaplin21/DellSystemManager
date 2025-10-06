@@ -139,6 +139,7 @@ class PanelLayoutService {
           .where(eq(panelLayouts.projectId, projectId));
       } else {
         await db.insert(panelLayouts).values({
+          id: require('uuid').v4(), // Generate UUID for the panel layout
           projectId,
           panels: currentPanels, // JSONB handles serialization automatically
           width: project.layoutWidth || 1000,
