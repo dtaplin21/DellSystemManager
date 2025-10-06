@@ -64,7 +64,7 @@ const FileViewerModal: React.FC<FileViewerModalProps> = ({
     
     try {
       // Fetch file metadata
-      const fileResponse = await fetch(`${config.backendUrl}/api/asbuilt/files/${fileId}`, {
+      const fileResponse = await fetch(`${config.backend.baseUrl}/api/asbuilt/files/${fileId}`, {
         credentials: 'include'
       });
       
@@ -76,7 +76,7 @@ const FileViewerModal: React.FC<FileViewerModalProps> = ({
       setFileData(fileData);
       
       // Fetch records associated with this file
-      const recordsResponse = await fetch(`${config.backendUrl}/api/asbuilt/files/${fileId}/records`, {
+      const recordsResponse = await fetch(`${config.backend.baseUrl}/api/asbuilt/files/${fileId}/records`, {
         credentials: 'include'
       });
       
@@ -113,7 +113,7 @@ const FileViewerModal: React.FC<FileViewerModalProps> = ({
     if (!fileData) return;
     
     try {
-      const response = await fetch(`${config.backendUrl}/api/asbuilt/files/${fileId}/download`, {
+      const response = await fetch(`${config.backend.baseUrl}/api/asbuilt/files/${fileId}/download`, {
         credentials: 'include'
       });
       

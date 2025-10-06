@@ -143,12 +143,12 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
       
       // Set fallback data to prevent complete failure
       setAsbuiltData({
-        panelPlacement: [],
-        panelSeaming: [],
-        nonDestructive: [],
-        trialWeld: [],
-        repairs: [],
-        destructive: []
+        panelId: panelId,
+        panelNumber: panelNumber,
+        totalRecords: 0,
+        domains: [],
+        lastUpdated: new Date().toISOString(),
+        confidence: 0
       });
       
       // Show helpful message for empty data
@@ -182,22 +182,8 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
     if (!asbuiltData) return 0;
     
     try {
-      switch (domain) {
-        case 'panel_placement':
-          return Array.isArray(asbuiltData.panelPlacement) ? asbuiltData.panelPlacement.length : 0;
-        case 'panel_seaming':
-          return Array.isArray(asbuiltData.panelSeaming) ? asbuiltData.panelSeaming.length : 0;
-        case 'non_destructive':
-          return Array.isArray(asbuiltData.nonDestructive) ? asbuiltData.nonDestructive.length : 0;
-        case 'trial_weld':
-          return Array.isArray(asbuiltData.trialWeld) ? asbuiltData.trialWeld.length : 0;
-        case 'repairs':
-          return Array.isArray(asbuiltData.repairs) ? asbuiltData.repairs.length : 0;
-        case 'destructive':
-          return Array.isArray(asbuiltData.destructive) ? asbuiltData.destructive.length : 0;
-        default:
-          return 0;
-      }
+      // Check if the domain exists in the domains array
+      return asbuiltData.domains.includes(domain) ? 1 : 0;
     } catch (error) {
       console.error('Error getting record count for domain:', domain, error);
       return 0;
@@ -209,22 +195,10 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
     if (!asbuiltData) return [];
     
     try {
-      switch (domain) {
-        case 'panel_placement':
-          return Array.isArray(asbuiltData.panelPlacement) ? asbuiltData.panelPlacement : [];
-        case 'panel_seaming':
-          return Array.isArray(asbuiltData.panelSeaming) ? asbuiltData.panelSeaming : [];
-        case 'non_destructive':
-          return Array.isArray(asbuiltData.nonDestructive) ? asbuiltData.nonDestructive : [];
-        case 'trial_weld':
-          return Array.isArray(asbuiltData.trialWeld) ? asbuiltData.trialWeld : [];
-        case 'repairs':
-          return Array.isArray(asbuiltData.repairs) ? asbuiltData.repairs : [];
-        case 'destructive':
-          return Array.isArray(asbuiltData.destructive) ? asbuiltData.destructive : [];
-        default:
-          return [];
-      }
+      // Since PanelAsbuiltSummary doesn't contain individual domain records,
+      // we return an empty array for now. This would need to be enhanced
+      // to fetch actual records from the API if needed.
+      return [];
     } catch (error) {
       console.error('Error getting records for domain:', domain, error);
       return [];
@@ -251,11 +225,11 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
   const renderRecordItem = (record: AsbuiltRecord, index: number) => {
     const isReviewRequired = record.requiresReview;
     const confidence = record.aiConfidence || 0;
-    const hasSourceFile = record.sourceFileId;
+    const hasSourceFile = record.sourceDocId;
 
     const handleViewFile = () => {
-      if (record.sourceFileId) {
-        setSelectedFileId(record.sourceFileId);
+      if (record.sourceDocId) {
+        setSelectedFileId(record.sourceDocId);
         setShowFileViewer(true);
       }
     };
@@ -324,35 +298,9 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
     );
   };
 
-  // Render right neighbor peek
+  // Render right neighbor peek - removed as it's not part of PanelAsbuiltSummary
   const renderRightNeighborPeek = () => {
-    if (!asbuiltData?.rightNeighborPeek) return null;
-
-    const { panelNumber: neighborPanel, quickStatus, link } = asbuiltData.rightNeighborPeek;
-
-    return (
-      <div className="mb-4 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
-        <div className="flex items-center justify-between">
-          <div>
-            <h4 className="font-medium text-blue-900">Right Neighbor Panel</h4>
-            <p className="text-sm text-blue-700">P-{neighborPanel}</p>
-          </div>
-          <Button 
-            variant="outline" 
-            size="sm"
-            className="text-blue-700 border-blue-300 hover:bg-blue-100"
-            onClick={() => window.open(link, '_blank')}
-          >
-            View
-          </Button>
-        </div>
-        <div className="mt-2">
-          <Badge variant="outline" className="text-xs">
-            {quickStatus}
-          </Badge>
-        </div>
-      </div>
-    );
+    return null;
   };
 
   // If in mini mode, render just the expand arrow

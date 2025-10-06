@@ -1,4 +1,4 @@
-import { AsbuiltRecord, AsbuiltSummary, AsbuiltImportResult } from '@/types/asbuilt';
+import { AsbuiltRecord, AsbuiltSummary, AsbuiltImportResult, PanelAsbuiltSummary, AsbuiltDomain } from '@/types/asbuilt';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003';
 
@@ -121,7 +121,53 @@ class SafeAPI {
   async healthCheck(): Promise<{ status: string; timestamp: string }> {
     return this.makeRequest<{ status: string; timestamp: string }>('/api/health');
   }
+
+  // Panel-specific as-built summary (combines panel records with project summary)
+  async getAsbuiltSafe(projectId: string, panelId: string): Promise<PanelAsbuiltSummary> {
+    try {
+      // Get panel-specific records
+      const panelRecords = await this.getPanelRecords(projectId, panelId);
+      
+      // Get project summary for additional context
+      const projectSummary = await this.getProjectSummary(projectId);
+      
+      // Extract unique domains from panel records
+      const uniqueDomains = new Set(panelRecords.map(record => record.domain));
+      const domains = Array.from(uniqueDomains) as AsbuiltDomain[];
+      
+      // Calculate panel-specific metrics
+      const totalRecords = panelRecords.length;
+      const confidence = totalRecords > 0 
+        ? panelRecords.reduce((sum, record) => sum + record.aiConfidence, 0) / totalRecords 
+        : 0;
+      
+      return {
+        panelId,
+        panelNumber: panelId, // This could be enhanced to get actual panel number
+        totalRecords,
+        domains,
+        lastUpdated: new Date().toISOString(),
+        confidence
+      };
+    } catch (error) {
+      console.error('Error in getAsbuiltSafe:', error);
+      // Return empty summary on error
+      return {
+        panelId,
+        panelNumber: panelId,
+        totalRecords: 0,
+        domains: [],
+        lastUpdated: new Date().toISOString(),
+        confidence: 0
+      };
+    }
+  }
 }
 
 export const safeAPI = new SafeAPI();
+
+// Export the getAsbuiltSafe function for direct import
+export const getAsbuiltSafe = (projectId: string, panelId: string) => 
+  safeAPI.getAsbuiltSafe(projectId, panelId);
+
 export default safeAPI;

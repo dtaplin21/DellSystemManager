@@ -32,8 +32,8 @@ import {
 } from '@/components/ui/table';
 import { 
   AsbuiltDomain, 
-  ImportResponse, 
-  FieldMapping 
+  AsbuiltImportResult, 
+  AsbuiltFieldMapping 
 } from '@/types/asbuilt';
 import { getSupabaseClient } from '@/lib/supabase';
 
@@ -62,7 +62,7 @@ const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [importStep, setImportStep] = useState<string>('pending');
   const [importProgress, setImportProgress] = useState(0);
-  const [importResult, setImportResult] = useState<ImportResponse | null>(null);
+  const [importResult, setImportResult] = useState<AsbuiltImportResult | null>(null);
   const [detectedPanels, setDetectedPanels] = useState<string[]>([]);
   const [detectedDomains, setDetectedDomains] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -145,7 +145,7 @@ const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
         throw new Error(`Import failed: ${response.statusText}`);
       }
 
-      const result = await response.json() as ImportResponse & {
+      const result = await response.json() as AsbuiltImportResult & {
         detectedPanels?: string[];
         detectedDomains?: string[];
       };
