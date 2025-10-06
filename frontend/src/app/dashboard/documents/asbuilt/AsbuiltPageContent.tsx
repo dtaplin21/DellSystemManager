@@ -30,6 +30,8 @@ import FileViewerModal from '@/components/shared/FileViewerModal';
 import { FileMetadata } from '@/contexts/AsbuiltDataContext';
 
 export default function AsbuiltPageContent() {
+  console.log('🚀 [ASBUILT] AsbuiltPageContent component is rendering!');
+  
   const searchParams = useSearchParams();
   const projectId = searchParams.get('projectId') || '';
   

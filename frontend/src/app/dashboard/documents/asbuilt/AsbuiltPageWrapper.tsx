@@ -9,16 +9,7 @@ export default function AsbuiltPageWrapper() {
   const searchParams = useSearchParams();
   const projectId = searchParams.get('projectId') || '';
 
-  if (!projectId) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No Project Selected</h3>
-          <p className="text-gray-500 mb-4">Please select a project to view as-built data.</p>
-        </div>
-      </div>
-    );
-  }
+  // Always render AsbuiltPageContent - it will handle project selection internally
 
   return (
     <AsbuiltDataProvider projectId={projectId}>
