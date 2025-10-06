@@ -8,11 +8,25 @@ class SafeAPI {
     options: RequestInit = {}
   ): Promise<T> {
     try {
+      // Check if we're in development mode (running on localhost)
+      const isDevelopment = process.env.NODE_ENV === 'development' || 
+                           (typeof window !== 'undefined' && window.location.hostname === 'localhost');
+      
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        ...(options.headers as Record<string, string>),
+      };
+      
+      // Add development bypass header if in development mode
+      if (isDevelopment) {
+        headers['x-dev-bypass'] = 'true';
+        console.log('🔧 [SAFE-API] Development mode - using bypass header for:', endpoint);
+      } else {
+        console.log('🔧 [SAFE-API] Production mode - no bypass header for:', endpoint);
+      }
+      
       const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-        headers: {
-          'Content-Type': 'application/json',
-          ...options.headers,
-        },
+        headers,
         credentials: 'include',
         ...options,
       });

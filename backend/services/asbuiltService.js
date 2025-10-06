@@ -100,7 +100,8 @@ class AsbuiltService {
   async getProjectSummary(projectId) {
     const client = await this.pool.connect();
     try {
-      const query = `
+      // Get domain statistics
+      const domainQuery = `
         SELECT 
           domain,
           COUNT(*) as record_count,
@@ -112,8 +113,34 @@ class AsbuiltService {
         ORDER BY domain
       `;
       
-      const result = await client.query(query, [projectId]);
-      return result.rows;
+      const domainResult = await client.query(domainQuery, [projectId]);
+      
+      // Get overall statistics
+      const totalQuery = `
+        SELECT 
+          COUNT(*) as total_records,
+          AVG(ai_confidence) as avg_confidence,
+          COUNT(CASE WHEN requires_review = true THEN 1 END) as review_required
+        FROM asbuilt_records 
+        WHERE project_id = $1
+      `;
+      
+      const totalResult = await client.query(totalQuery, [projectId]);
+      const totalStats = totalResult.rows[0];
+      
+      // Build domain counts object
+      const domainCounts = {};
+      domainResult.rows.forEach(row => {
+        domainCounts[row.domain] = parseInt(row.record_count);
+      });
+      
+      return {
+        totalRecords: parseInt(totalStats.total_records) || 0,
+        averageConfidence: parseFloat(totalStats.avg_confidence) || 0,
+        reviewRequired: parseInt(totalStats.review_required) || 0,
+        domainCounts: domainCounts,
+        recordsByDomain: domainResult.rows
+      };
     } finally {
       client.release();
     }

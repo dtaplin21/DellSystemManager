@@ -7,6 +7,33 @@ const { auth } = require('../middlewares/auth');
 const asbuiltService = new AsbuiltService();
 
 /**
+ * @route GET /api/asbuilt/:projectId/summary
+ * @desc Get project summary statistics
+ * @access Private
+ */
+router.get('/:projectId/summary', auth, async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    
+    console.log(`📊 [ASBUILT] Fetching summary for project ${projectId}`);
+    
+    const summary = await asbuiltService.getProjectSummary(projectId);
+    
+    res.json({
+      success: true,
+      summary
+    });
+  } catch (error) {
+    console.error('❌ [ASBUILT] Error fetching summary:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch summary',
+      message: error.message
+    });
+  }
+});
+
+/**
  * @route GET /api/asbuilt/:projectId/:panelId
  * @desc Get all as-built records for a specific panel
  * @access Private
@@ -170,32 +197,6 @@ router.delete('/:recordId', auth, async (req, res) => {
   }
 });
 
-/**
- * @route GET /api/asbuilt/:projectId/summary
- * @desc Get project summary statistics
- * @access Private
- */
-router.get('/:projectId/summary', auth, async (req, res) => {
-  try {
-    const { projectId } = req.params;
-    
-    console.log(`📊 [ASBUILT] Fetching summary for project ${projectId}`);
-    
-    const summary = await asbuiltService.getProjectSummary(projectId);
-    
-    res.json({
-      success: true,
-      summary
-    });
-  } catch (error) {
-    console.error('❌ [ASBUILT] Error fetching summary:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch summary',
-      message: error.message
-    });
-  }
-});
 
 /**
  * @route POST /api/asbuilt/import
