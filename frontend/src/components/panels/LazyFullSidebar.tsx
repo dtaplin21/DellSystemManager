@@ -111,6 +111,7 @@ export function LazyFullSidebar({ projectId, onClose, onError }: LazyFullSidebar
   const [error, setError] = useState<Error | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  const [data, setData] = useState<any>(null);
   
   // Add render count for debugging - removed to prevent noise
   // const renderCount = useRef(0);
