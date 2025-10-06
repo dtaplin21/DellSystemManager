@@ -111,7 +111,6 @@ export function LazyFullSidebar({ projectId, onClose, onError }: LazyFullSidebar
   const [error, setError] = useState<Error | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
-  const [data, setData] = useState<any>(null);
   
   // Add render count for debugging - removed to prevent noise
   // const renderCount = useRef(0);
@@ -157,9 +156,6 @@ export function LazyFullSidebar({ projectId, onClose, onError }: LazyFullSidebar
     setError(null);
     setRetryCount(prev => prev + 1);
     setIsLoading(true);
-    
-    // Reset data when panel changes
-    setData(null);
   }, [selectedPanelId, projectId]);
 
   // Handle errors - stable callback without performance dependency
@@ -172,69 +168,8 @@ export function LazyFullSidebar({ projectId, onClose, onError }: LazyFullSidebar
     onError?.(error);
   }, [onError]); // Remove performance from dependencies to prevent loop
 
-  // Preload sidebar data when panel is selected - FIXED with proper dependencies
-  useEffect(() => {
-    // Early return with stable primitive values
-    if (!selectedPanelId || !isFullscreenVisible || !projectId) {
-      return;
-    }
-
-    const preloadData = async () => {
-      try {
-        // Remove performance calls to prevent dependency loop
-        setIsLoading(true);
-        setError(null);
-
-        // Check if we already have data for this panel
-        if (data) {
-          setIsLoading(false);
-          return;
-        }
-
-        // Simulate API call (replace with actual API call)
-        await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 1000));
-        
-        // Mock data (replace with actual data fetching)
-        const mockData = {
-          panelDetails: {
-            id: selectedPanelId,
-            name: selectedPanel?.panelNumber || selectedPanelId,
-            type: selectedPanel?.type || 'standard',
-            status: 'active',
-          },
-          panelData: {
-            specifications: [],
-            measurements: [],
-            status: [],
-          },
-          rightNeighborPeek: {
-            panelNumber: 'P-002',
-            quickStatus: 'Complete',
-            link: `/dashboard/projects/${projectId}/panels/P-002`,
-          },
-          metadata: {
-            panelId: selectedPanelId,
-            projectId,
-            lastUpdated: Date.now(),
-            dataSize: 1024,
-          },
-        };
-
-        // Store the data in component state
-        setData(mockData);
-        
-        setIsLoading(false);
-      } catch (err) {
-        const error = err instanceof Error ? err : new Error('Failed to load sidebar data');
-        console.error('Sidebar error:', error);
-        setError(error);
-        setIsLoading(false);
-        onError?.(error);
-      }
-    };
-
-    preloadData();
-  }, [selectedPanelId, projectId, isFullscreenVisible]); // Only include stable primitive values
+  // The PanelSidebar component handles its own data fetching
+  // No need for preloading here since the sidebar manages its own state
 
   // DEBUGGING: Removed debug useEffects to prevent infinite loop
 
@@ -254,40 +189,7 @@ export function LazyFullSidebar({ projectId, onClose, onError }: LazyFullSidebar
     );
   }
 
-  // Show loading state
-  if (isLoading) {
-    return (
-      <div className="fixed left-0 top-0 h-full w-96 bg-white border-r border-gray-200 shadow-2xl z-[99999] overflow-hidden flex flex-col">
-        <div className="flex-shrink-0 flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
-          <div className="flex items-center gap-4">
-            <Loader2 className="h-8 w-8 text-blue-500 animate-spin" />
-            <div>
-              <h2 className="text-xl font-bold text-gray-900">Loading Panel Data</h2>
-              <p className="text-gray-600">Please wait while we load the panel information...</p>
-            </div>
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleClose}
-            className="h-8 w-8 p-0"
-          >
-            ×
-          </Button>
-        </div>
-        
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <Loader2 className="h-12 w-12 text-blue-500 animate-spin mx-auto mb-4" />
-            <p className="text-gray-600">Loading panel {selectedPanel.panelNumber || selectedPanel.id}...</p>
-            {retryCount > 0 && (
-              <p className="text-sm text-gray-500 mt-2">Retry attempt {retryCount}</p>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // The PanelSidebar component handles its own loading state
 
   // Render the actual sidebar with safety checks
   return (
