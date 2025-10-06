@@ -61,6 +61,9 @@ export function useSupabaseAuth() {
   const getSession = async () => {
     console.log('🔍 [useSupabaseAuth] getSession called');
     try {
+      const client = getSupabaseClient();
+      console.log('🔍 [useSupabaseAuth] Supabase client type:', client.auth ? 'real' : 'mock');
+      
       // Add timeout protection
       const timeoutPromise = new Promise<null>((_, reject) => {
         setTimeout(() => {
@@ -76,6 +79,11 @@ export function useSupabaseAuth() {
       ]);
       
       console.log('🔍 [useSupabaseAuth] Session result:', session ? 'session found' : 'no session');
+      console.log('🔍 [useSupabaseAuth] Session details:', { 
+        hasSession: !!session, 
+        hasUser: !!session?.user,
+        userEmail: session?.user?.email 
+      });
       setSession(session);
       
       if (session?.user) {
@@ -83,6 +91,7 @@ export function useSupabaseAuth() {
         await loadUserProfile(session.user);
       } else {
         console.log('🔍 [useSupabaseAuth] No user in session');
+        setUser(null);
       }
     } catch (error) {
       console.error('🔍 [useSupabaseAuth] Error getting session:', error);

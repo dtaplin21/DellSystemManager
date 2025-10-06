@@ -1,10 +1,8 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
 // Create a simple mock client for development
 const createMockClient = (): SupabaseClient => {
+  console.log('🔧 [SUPABASE] Creating mock client - Supabase not configured or SSR');
   return {
     auth: {
       getSession: () => Promise.resolve({ data: { session: null }, error: null }),
@@ -30,13 +28,26 @@ const getSupabaseClient = (): SupabaseClient => {
     return supabase;
   }
 
+  // Get environment variables at runtime
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  console.log('🔧 [SUPABASE] Creating client with:', {
+    hasUrl: !!supabaseUrl,
+    hasKey: !!supabaseAnonKey,
+    isClient: typeof window !== 'undefined',
+    url: supabaseUrl ? supabaseUrl.substring(0, 30) + '...' : 'missing'
+  });
+
   // Only create client on the client side
   if (typeof window === 'undefined') {
+    console.log('🔧 [SUPABASE] Server-side rendering - using mock client');
     return createMockClient();
   }
 
   try {
     if (supabaseUrl && supabaseAnonKey) {
+      console.log('🔧 [SUPABASE] Creating real Supabase client');
       supabase = createClient(supabaseUrl, supabaseAnonKey, {
         auth: {
           autoRefreshToken: true,
@@ -44,11 +55,13 @@ const getSupabaseClient = (): SupabaseClient => {
           detectSessionInUrl: true,
         }
       });
+      console.log('✅ [SUPABASE] Real client created successfully');
     } else {
+      console.log('🔧 [SUPABASE] Missing credentials - using mock client');
       supabase = createMockClient();
     }
   } catch (error) {
-    console.error('Error creating Supabase client:', error);
+    console.error('❌ [SUPABASE] Error creating client:', error);
     supabase = createMockClient();
   }
 
