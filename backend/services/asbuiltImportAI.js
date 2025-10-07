@@ -35,6 +35,7 @@ class AsbuiltImportAI {
 
       console.log(`📊 [ASBUILT_AI] Found ${dataRows.length} data rows`);
       console.log(`📋 [ASBUILT_AI] Headers:`, headers);
+      console.log(`📋 [ASBUILT_AI] First data row:`, jsonData[1]);
 
       // Process each row
       const records = [];
@@ -97,6 +98,33 @@ class AsbuiltImportAI {
     let panelId = null;
     if (mappedData.panelNumber) {
       panelId = `panel-${mappedData.panelNumber.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+      console.log(`🎯 [ASBUILT_AI] Generated panelId: ${panelId} from panelNumber: ${mappedData.panelNumber}`);
+    } else {
+      console.log(`⚠️ [ASBUILT_AI] No panelNumber found in mappedData:`, mappedData);
+      console.log(`🔍 [ASBUILT_AI] Available headers:`, Object.keys(rawData));
+      
+      // Fallback: try to extract panel ID from any column that might contain panel info
+      for (const [key, value] of Object.entries(rawData)) {
+        if (value && typeof value === 'string' && (
+          key.toLowerCase().includes('panel') || 
+          key.toLowerCase().includes('id') ||
+          /^p\d+$/i.test(value) || // Pattern like P1, P2, etc.
+          /^\d+$/.test(value) // Just numbers
+        )) {
+          console.log(`🔄 [ASBUILT_AI] Fallback: Using ${key} = ${value} as panel identifier`);
+          panelId = `panel-${value.toString().toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+          mappedData.panelNumber = value;
+          break;
+        }
+      }
+      
+      // If still no panel ID, generate a default one for this row
+      if (!panelId) {
+        const rowHash = JSON.stringify(row).slice(0, 8);
+        panelId = `panel-unknown-${rowHash}`;
+        mappedData.panelNumber = `Unknown-${rowHash}`;
+        console.log(`🔧 [ASBUILT_AI] Generated fallback panelId: ${panelId}`);
+      }
     }
 
     return {
@@ -228,18 +256,25 @@ class AsbuiltImportAI {
     let totalConfidence = 0;
     let mappedFields = 0;
 
+    console.log(`🔍 [ASBUILT_AI] Mapping fields for domain with ${Object.keys(fieldMapping).length} mappings`);
+    console.log(`🔍 [ASBUILT_AI] Available raw data keys:`, Object.keys(rawData));
+
     for (const [rawKey, mappedKey] of Object.entries(fieldMapping)) {
       const confidence = this.findBestMatch(rawKey, Object.keys(rawData));
+      console.log(`🔍 [ASBUILT_AI] Looking for '${rawKey}' -> '${mappedKey}', confidence: ${confidence.toFixed(2)}`);
+      
       if (confidence > 0.5) {
         const bestMatch = this.findBestMatchKey(rawKey, Object.keys(rawData));
         if (bestMatch && rawData[bestMatch] !== undefined && rawData[bestMatch] !== null && rawData[bestMatch] !== '') {
           mappedData[mappedKey] = rawData[bestMatch];
           totalConfidence += confidence;
           mappedFields++;
+          console.log(`✅ [ASBUILT_AI] Mapped '${bestMatch}' -> '${mappedKey}' = '${rawData[bestMatch]}'`);
         }
       }
     }
 
+    console.log(`📊 [ASBUILT_AI] Final mapped data:`, mappedData);
     return mappedFields > 0 ? totalConfidence / mappedFields : 0;
   }
 

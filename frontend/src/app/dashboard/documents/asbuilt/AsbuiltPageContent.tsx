@@ -27,6 +27,7 @@ import { makeAuthenticatedRequest } from '@/lib/api';
 import { useAsbuiltData } from '@/contexts/AsbuiltDataContext';
 import { useProjects } from '@/contexts/ProjectsProvider';
 import FileViewerModal from '@/components/shared/FileViewerModal';
+import ExcelImportModal from '@/components/panel-layout/excel-import-modal';
 import { FileMetadata } from '@/contexts/AsbuiltDataContext';
 
 export default function AsbuiltPageContent() {
@@ -88,6 +89,14 @@ export default function AsbuiltPageContent() {
   const handleFileView = (file: FileMetadata) => {
     setSelectedFile(file);
     setShowFileViewer(true);
+  };
+
+  const handleImportComplete = () => {
+    console.log('🔍 [ASBUILT] Import completed, refreshing data...');
+    if (contextSelectedProject) {
+      refreshAllData(contextSelectedProject.id);
+    }
+    setShowImportModal(false);
   };
 
   const filteredRecords = projectRecords.filter(record => {
@@ -603,30 +612,15 @@ export default function AsbuiltPageContent() {
         </TabsContent>
       </Tabs>
 
-      {/* Import Modal Placeholder */}
-      {showImportModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Import As-Built Data</h3>
-            <p className="text-gray-600 mb-6">
-              This feature will allow you to import Excel files with as-built data.
-            </p>
-            <div className="flex justify-end gap-3">
-              <Button
-                variant="outline"
-                onClick={() => setShowImportModal(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={() => setShowImportModal(false)}
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                Import
-              </Button>
-            </div>
-          </div>
-        </div>
+      {/* Excel Import Modal */}
+      {showImportModal && contextSelectedProject && (
+        <ExcelImportModal
+          isOpen={showImportModal}
+          onClose={() => setShowImportModal(false)}
+          projectId={contextSelectedProject.id}
+          panelId="project-wide" // Import for all panels in the project
+          onImportComplete={handleImportComplete}
+        />
       )}
 
       {/* File Viewer Modal */}

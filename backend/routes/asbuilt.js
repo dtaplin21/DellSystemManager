@@ -1,10 +1,33 @@
 const express = require('express');
+const multer = require('multer');
 const router = express.Router();
 const AsbuiltService = require('../services/asbuiltService');
+const AsbuiltImportAI = require('../services/asbuiltImportAI');
+const FileService = require('../services/fileService');
 const { auth } = require('../middlewares/auth');
 
 // Initialize the as-built service
 const asbuiltService = new AsbuiltService();
+const asbuiltImportAI = new AsbuiltImportAI();
+
+// Configure multer for Excel file uploads
+const storage = multer.memoryStorage();
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.includes('spreadsheet') || 
+        file.mimetype.includes('excel') ||
+        file.originalname.endsWith('.xlsx') ||
+        file.originalname.endsWith('.xls')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only Excel files are allowed'), false);
+    }
+  }
+});
 
 /**
  * @route GET /api/asbuilt/:projectId/summary
@@ -200,42 +223,99 @@ router.delete('/:recordId', auth, async (req, res) => {
 
 /**
  * @route POST /api/asbuilt/import
- * @desc Import Excel data for as-built records
+ * @desc Import Excel file and create as-built records
  * @access Private
  */
-router.post('/import', auth, async (req, res) => {
+router.post('/import', auth, upload.single('excelFile'), async (req, res) => {
   try {
-    const { projectId, panelId, domain, records } = req.body;
+    const { projectId, importScope } = req.body;
+    const userId = req.user?.id;
     
-    console.log(`📥 [ASBUILT] Importing ${records?.length || 0} records for project ${projectId}`);
+    console.log(`📥 [ASBUILT] Import request for project ${projectId}, scope: ${importScope}`);
     
-    const createdRecords = [];
+    // Check if file was uploaded
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        error: 'No Excel file provided',
+        message: 'Please upload an Excel file for import'
+      });
+    }
     
-    for (const recordData of records || []) {
+    const excelFile = req.file;
+    console.log(`📁 [ASBUILT] Processing Excel file: ${excelFile.originalname} (${excelFile.size} bytes)`);
+    
+    // For project-wide imports, we'll process all domains
+    const domains = importScope === 'project-wide' 
+      ? ['panel_specs', 'seaming', 'testing', 'trial_weld', 'repairs', 'destructive']
+      : ['panel_specs']; // Default domain
+    
+    const allCreatedRecords = [];
+    const detectedPanels = new Set();
+    const processedDomains = [];
+    
+    for (const domain of domains) {
       try {
-        const record = await asbuiltService.createRecord({
-          ...recordData,
+        console.log(`🤖 [ASBUILT] Processing domain: ${domain}`);
+        
+        // Process the Excel file using AI import service
+        const importResult = await asbuiltImportAI.importExcelData(
+          excelFile.buffer,
           projectId,
-          panelId,
-          createdBy: req.user?.id
-        });
-        createdRecords.push(record);
-      } catch (recordError) {
-        console.warn(`⚠️ [ASBUILT] Failed to create record:`, recordError.message);
+          domain,
+          userId
+        );
+        
+        if (importResult.records && importResult.records.length > 0) {
+          console.log(`📊 [ASBUILT] AI processed ${importResult.records.length} records for ${domain}`);
+          
+          // Insert records into database
+          for (const recordData of importResult.records) {
+            try {
+              const record = await asbuiltService.createRecord({
+                ...recordData,
+                projectId,
+                createdBy: userId
+              });
+              allCreatedRecords.push(record);
+              
+              // Track detected panels
+              if (recordData.mappedData?.panelNumber) {
+                detectedPanels.add(recordData.mappedData.panelNumber);
+              }
+            } catch (recordError) {
+              console.warn(`⚠️ [ASBUILT] Failed to create record for ${domain}:`, recordError.message);
+            }
+          }
+          
+          if (importResult.detectedPanels) {
+            importResult.detectedPanels.forEach(panel => detectedPanels.add(panel));
+          }
+          
+          processedDomains.push(domain);
+        }
+      } catch (domainError) {
+        console.warn(`⚠️ [ASBUILT] Error processing domain ${domain}:`, domainError.message);
       }
     }
     
+    console.log(`✅ [ASBUILT] Import completed: ${allCreatedRecords.length} records created`);
+    console.log(`🎯 [ASBUILT] Detected panels:`, Array.from(detectedPanels));
+    
     res.json({
       success: true,
-      records: createdRecords,
-      count: createdRecords.length,
-      message: `Successfully imported ${createdRecords.length} records`
+      records: allCreatedRecords,
+      count: allCreatedRecords.length,
+      detectedPanels: Array.from(detectedPanels),
+      processedDomains,
+      message: `Successfully imported ${allCreatedRecords.length} records across ${processedDomains.length} domains`
     });
+    
   } catch (error) {
-    console.error('❌ [ASBUILT] Error importing records:', error);
+    console.error('❌ [ASBUILT] Error importing Excel file:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to import records',
+      error: 'Failed to import Excel file',
       message: error.message
     });
   }

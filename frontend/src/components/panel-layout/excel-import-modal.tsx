@@ -131,6 +131,9 @@ const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
       const formData = new FormData();
       formData.append('excelFile', selectedFile);
       formData.append('projectId', projectId);
+      if (panelId === 'project-wide') {
+        formData.append('importScope', 'project-wide');
+      }
       // Remove domain parameter - let AI auto-detect
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003'}/api/asbuilt/import`, {
@@ -364,7 +367,10 @@ const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
             Import Excel Data
           </DialogTitle>
           <DialogDescription>
-            Upload an Excel file to import as-built information for panel P-{panelId}
+            {panelId === 'project-wide' 
+              ? 'Upload an Excel file to import as-built information for all panels in this project'
+              : `Upload an Excel file to import as-built information for panel P-${panelId}`
+            }
           </DialogDescription>
         </DialogHeader>
 
