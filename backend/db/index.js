@@ -158,6 +158,38 @@ async function applyMigrations() {
     await client.query(createIndex);
     console.log('✅ panel_layouts index created/verified');
     
+    // Create file_metadata table if it doesn't exist
+    const createFileMetadataTable = `
+      CREATE TABLE IF NOT EXISTS file_metadata (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        file_name TEXT NOT NULL,
+        file_type VARCHAR(50) NOT NULL,
+        file_size INTEGER NOT NULL,
+        project_id UUID NOT NULL,
+        uploaded_by UUID,
+        domain VARCHAR(50),
+        panel_id UUID,
+        metadata JSONB,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+    `;
+    
+    await client.query(createFileMetadataTable);
+    console.log('✅ file_metadata table created/verified');
+    
+    // Create indexes for file_metadata
+    const createFileMetadataIndexes = [
+      `CREATE INDEX IF NOT EXISTS idx_file_metadata_project_id ON file_metadata(project_id);`,
+      `CREATE INDEX IF NOT EXISTS idx_file_metadata_panel_id ON file_metadata(panel_id);`,
+      `CREATE INDEX IF NOT EXISTS idx_file_metadata_domain ON file_metadata(domain);`,
+      `CREATE INDEX IF NOT EXISTS idx_file_metadata_created_at ON file_metadata(created_at);`
+    ];
+    
+    for (const indexQuery of createFileMetadataIndexes) {
+      await client.query(indexQuery);
+    }
+    console.log('✅ file_metadata indexes created/verified');
     
     client.release();
     console.log('✅ Database migrations completed successfully');

@@ -9,7 +9,7 @@ export interface FileMetadata {
   id: string;
   fileName: string;
   fileType: 'excel' | 'pdf' | 'image';
-  panelId: string;
+  panelId: string | null; // Allow null for project-wide files
   domain: AsbuiltDomain;
   uploadedAt: string;
   fileSize: number;
@@ -91,13 +91,15 @@ export const AsbuiltDataProvider: React.FC<AsbuiltDataProviderProps> = ({
 
   // Get files for a specific panel
   const getFilesForPanel = useCallback((panelId: string): FileMetadata[] => {
-    return Array.from(fileMetadata.values()).filter(file => file.panelId === panelId);
+    return Array.from(fileMetadata.values()).filter(file => 
+      file.panelId === panelId || file.panelId === null // Include project-wide files
+    );
   }, [fileMetadata]);
 
   // Get files for a specific panel and domain
   const getFilesForDomain = useCallback((panelId: string, domain: AsbuiltDomain): FileMetadata[] => {
     return Array.from(fileMetadata.values()).filter(
-      file => file.panelId === panelId && file.domain === domain
+      file => (file.panelId === panelId || file.panelId === null) && file.domain === domain
     );
   }, [fileMetadata]);
 
@@ -116,16 +118,49 @@ export const AsbuiltDataProvider: React.FC<AsbuiltDataProviderProps> = ({
     try {
       console.log('🔄 [AsbuiltContext] Refreshing project data for:', projectId);
       
-      const [recordsData, summaryData] = await Promise.all([
+      const [recordsData, summaryData, filesData] = await Promise.all([
         safeAPI.getProjectRecords(projectId),
-        safeAPI.getProjectSummary(projectId)
+        safeAPI.getProjectSummary(projectId),
+        safeAPI.getProjectFileMetadata(projectId)
       ]);
       
-      setProjectRecords(recordsData);
+      // Transform records data from snake_case to camelCase
+      const transformedRecords = recordsData.map((record: any) => ({
+        ...record,
+        panelId: record.panel_id,
+        projectId: record.project_id,
+        sourceDocId: record.source_doc_id,
+        rawData: record.raw_data,
+        mappedData: record.mapped_data,
+        aiConfidence: record.ai_confidence,
+        requiresReview: record.requires_review,
+        createdAt: record.created_at,
+        updatedAt: record.updated_at,
+        createdBy: record.created_by
+      }));
+      
+      setProjectRecords(transformedRecords);
       setProjectSummary(summaryData);
       
+      // Convert file metadata to Map format
+      const filesMap = new Map();
+      filesData.forEach((file: any) => {
+        filesMap.set(file.id, {
+          id: file.id,
+          fileName: file.file_name,
+          fileType: file.file_type,
+          panelId: file.panel_id,
+          domain: file.domain,
+          uploadedAt: file.created_at,
+          fileSize: file.file_size,
+          projectId: file.project_id,
+          metadata: file.metadata
+        });
+      });
+      setFileMetadata(filesMap);
+      
       // Extract unique panels from records and update panel data
-      const uniquePanels = new Set(recordsData.map(record => record.panelId));
+      const uniquePanels = new Set(transformedRecords.map(record => record.panelId));
       const panelDataPromises = Array.from(uniquePanels).map(panelId => 
         safeAPI.getAsbuiltSafe(projectId, panelId)
       );

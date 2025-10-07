@@ -3,10 +3,10 @@ const multer = require('multer');
 const router = express.Router();
 const AsbuiltService = require('../services/asbuiltService');
 const AsbuiltImportAI = require('../services/asbuiltImportAI');
-const FileService = require('../services/fileService');
+const { supabase } = require('../lib/supabase-server');
 const { auth } = require('../middlewares/auth');
 
-// Initialize the as-built service
+// Initialize the services
 const asbuiltService = new AsbuiltService();
 const asbuiltImportAI = new AsbuiltImportAI();
 
@@ -51,6 +51,42 @@ router.get('/:projectId/summary', auth, async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to fetch summary',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * @route GET /api/asbuilt/:projectId/files
+ * @desc Get all file metadata for a project
+ * @access Private
+ */
+router.get('/:projectId/files', auth, async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    
+    console.log(`📁 [ASBUILT] Fetching file metadata for project ${projectId}`);
+    
+    const { data: files, error } = await supabase
+      .from('file_metadata')
+      .select('*')
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      throw error;
+    }
+    
+    res.json({
+      success: true,
+      files: files || [],
+      count: files?.length || 0
+    });
+  } catch (error) {
+    console.error('❌ [ASBUILT] Error fetching file metadata:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch file metadata',
       message: error.message
     });
   }
@@ -253,6 +289,7 @@ router.post('/import', auth, upload.single('excelFile'), async (req, res) => {
     const allCreatedRecords = [];
     const detectedPanels = new Set();
     const processedDomains = [];
+    let fileMetadata = null;
     
     for (const domain of domains) {
       try {
@@ -272,6 +309,19 @@ router.post('/import', auth, upload.single('excelFile'), async (req, res) => {
           // Insert records into database
           for (const recordData of importResult.records) {
             try {
+              // Validate required fields before database insertion
+              if (!recordData.panelId) {
+                console.error(`❌ [ASBUILT] Record missing panelId:`, recordData);
+                continue;
+              }
+              
+              if (!recordData.projectId) {
+                console.error(`❌ [ASBUILT] Record missing projectId:`, recordData);
+                continue;
+              }
+              
+              console.log(`💾 [ASBUILT] Creating record with panelId: ${recordData.panelId}`);
+              
               const record = await asbuiltService.createRecord({
                 ...recordData,
                 projectId,
@@ -283,8 +333,11 @@ router.post('/import', auth, upload.single('excelFile'), async (req, res) => {
               if (recordData.mappedData?.panelNumber) {
                 detectedPanels.add(recordData.mappedData.panelNumber);
               }
+              
+              console.log(`✅ [ASBUILT] Successfully created record: ${record.id}`);
             } catch (recordError) {
-              console.warn(`⚠️ [ASBUILT] Failed to create record for ${domain}:`, recordError.message);
+              console.error(`❌ [ASBUILT] Failed to create record for ${domain}:`, recordError.message);
+              console.error(`❌ [ASBUILT] Record data:`, JSON.stringify(recordData, null, 2));
             }
           }
           
@@ -299,6 +352,47 @@ router.post('/import', auth, upload.single('excelFile'), async (req, res) => {
       }
     }
     
+    // Create file metadata entry for the imported Excel file
+    if (allCreatedRecords.length > 0 || processedDomains.length > 0) {
+      try {
+        console.log(`📁 [ASBUILT] Creating file metadata for imported Excel file`);
+        
+        // Create file metadata directly in database
+        const { data: fileData, error: fileError } = await supabase
+          .from('file_metadata')
+          .insert({
+            file_name: excelFile.originalname,
+            file_type: 'excel',
+            file_size: excelFile.size,
+            project_id: projectId,
+            uploaded_by: userId,
+            domain: processedDomains[0] || 'general',
+            panel_id: null, // Project-wide file
+            metadata: {
+              importedRecords: allCreatedRecords.length,
+              processedDomains: processedDomains,
+              detectedPanels: Array.from(detectedPanels),
+              importScope: importScope,
+              importDate: new Date().toISOString()
+            },
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .select()
+          .single();
+          
+        if (fileError) {
+          throw fileError;
+        }
+        
+        fileMetadata = fileData;
+        
+        console.log(`✅ [ASBUILT] Created file metadata:`, fileMetadata.id);
+      } catch (fileError) {
+        console.error(`❌ [ASBUILT] Error creating file metadata:`, fileError.message);
+      }
+    }
+    
     console.log(`✅ [ASBUILT] Import completed: ${allCreatedRecords.length} records created`);
     console.log(`🎯 [ASBUILT] Detected panels:`, Array.from(detectedPanels));
     
@@ -308,6 +402,7 @@ router.post('/import', auth, upload.single('excelFile'), async (req, res) => {
       count: allCreatedRecords.length,
       detectedPanels: Array.from(detectedPanels),
       processedDomains,
+      fileMetadata: fileMetadata,
       message: `Successfully imported ${allCreatedRecords.length} records across ${processedDomains.length} domains`
     });
     

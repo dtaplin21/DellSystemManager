@@ -64,6 +64,13 @@ class SafeAPI {
     return response.records || [];
   }
 
+  async getProjectFileMetadata(projectId: string): Promise<any[]> {
+    const response = await this.makeRequest<{ success: boolean; files: any[] }>(
+      `/api/asbuilt/${projectId}/files`
+    );
+    return response.files || [];
+  }
+
   async createRecord(projectId: string, panelId: string, recordData: Partial<AsbuiltRecord>): Promise<AsbuiltRecord> {
     const response = await this.makeRequest<{ success: boolean; record: AsbuiltRecord }>(
       `/api/asbuilt/${projectId}/${panelId}`,
