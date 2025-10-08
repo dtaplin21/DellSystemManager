@@ -1,491 +1,656 @@
 const xlsx = require('xlsx');
-const { v4: uuidv4 } = require('uuid');
+const { Pool } = require('pg');
+const OpenAI = require('openai');
+require('dotenv').config();
 
 class AsbuiltImportAI {
   constructor() {
-    this.domains = [
-      'panel_placement',
-      'panel_seaming', 
-      'non_destructive',
-      'trial_weld',
-      'repairs',
-      'destructive',
-      'panel_specs',  // Add missing domains
-      'seaming',
-      'testing'
-    ];
+    this.pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false }
+    });
+
+    // Initialize OpenAI (use GPT-3.5-turbo for cost efficiency)
+    this.openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY
+    });
+
+    // Canonical field definitions per domain
+    this.canonicalFields = {
+      panel_placement: ['panelNumber', 'dateTime', 'location', 'coordinates', 'notes'],
+      panel_seaming: ['panelNumber', 'seamId', 'dateTime', 'seamType', 'temperature', 'operator'],
+      non_destructive: ['panelNumber', 'testId', 'testType', 'result', 'dateTime', 'inspector'],
+      trial_weld: ['panelNumber', 'weldId', 'material', 'temperature', 'result', 'dateTime'],
+      repairs: ['panelNumber', 'repairId', 'issueType', 'description', 'dateTime', 'technician'],
+      destructive: ['panelNumber', 'sampleId', 'testType', 'result', 'dateTime', 'lab']
+    };
+
+    // Explicit mapping rules (fast path)
+    this.explicitMappings = {
+      panel_placement: {
+        'panel #': 'panelNumber',
+        'panel number': 'panelNumber',
+        'panel id': 'panelNumber',
+        'panel': 'panelNumber',
+        'date': 'dateTime',
+        'datetime': 'dateTime',
+        'date/time': 'dateTime',
+        'location': 'location',
+        'notes': 'notes',
+        'comments': 'notes'
+      },
+      panel_seaming: {
+        'panel #': 'panelNumber',
+        'panel number': 'panelNumber',
+        'panels': 'panelNumber',
+        'seam id': 'seamId',
+        'date': 'dateTime',
+        'datetime': 'dateTime',
+        'seam type': 'seamType',
+        'temperature': 'temperature',
+        'temp': 'temperature',
+        'operator': 'operator',
+        'seamer': 'operator'
+      },
+      non_destructive: {
+        'panel #': 'panelNumber',
+        'panel number': 'panelNumber',
+        'test id': 'testId',
+        'test type': 'testType',
+        'result': 'result',
+        'date': 'dateTime',
+        'inspector': 'inspector',
+        'operator': 'inspector'
+      },
+      trial_weld: {
+        'panel #': 'panelNumber',
+        'weld id': 'weldId',
+        'material': 'material',
+        'temperature': 'temperature',
+        'result': 'result',
+        'pass/fail': 'result',
+        'date': 'dateTime'
+      },
+      repairs: {
+        'panel #': 'panelNumber',
+        'panel number': 'panelNumber',
+        'repair id': 'repairId',
+        'issue type': 'issueType',
+        'type': 'issueType',
+        'description': 'description',
+        'desc': 'description',
+        'date': 'dateTime',
+        'technician': 'technician',
+        'tech': 'technician'
+      },
+      destructive: {
+        'panel #': 'panelNumber',
+        'panel number': 'panelNumber',
+        'sample id': 'sampleId',
+        'test type': 'testType',
+        'result': 'result',
+        'date': 'dateTime',
+        'lab': 'lab',
+        'technician': 'technician'
+      }
+    };
   }
 
   /**
-   * Import Excel data and return structured records
+   * Main import function - Production ready
    */
   async importExcelData(fileBuffer, projectId, domain, userId) {
     try {
-      console.log(`🤖 [ASBUILT_AI] Processing Excel file for domain: ${domain}`);
-      
-      // Parse Excel file
-      const workbook = xlsx.read(fileBuffer, { type: 'buffer' });
-      const sheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[sheetName];
-      const jsonData = xlsx.utils.sheet_to_json(worksheet, { header: 1 });
+      console.log(`🤖 [AI] Starting import for project ${projectId}, domain: ${domain}`);
 
-      if (jsonData.length < 2) {
-        throw new Error('Excel file must have at least a header row and one data row');
+      // Step 1: Parse Excel file
+      const { headers, dataRows } = this.parseExcelFile(fileBuffer);
+      console.log(`📊 [AI] Parsed ${dataRows.length} rows with ${headers.length} columns`);
+
+      // Step 2: Detect domain if not provided
+      const detectedDomain = domain || await this.detectDomain(headers, dataRows);
+      console.log(`🎯 [AI] Using domain: ${detectedDomain}`);
+
+      // Step 3: Map headers to canonical fields
+      const { mappings, confidence, usedAI } = await this.mapHeaders(headers, detectedDomain, dataRows);
+      console.log(`📋 [AI] Mapped ${mappings.length} fields (confidence: ${(confidence * 100).toFixed(1)}%, AI: ${usedAI})`);
+
+      // Step 4: Validate mappings
+      if (!this.hasRequiredFields(mappings, detectedDomain)) {
+        throw new Error(`Missing required fields for domain ${detectedDomain}. Required: panelNumber, dateTime`);
       }
 
-      const headers = jsonData[0];
-      const dataRows = jsonData.slice(1);
-
-      console.log(`📊 [ASBUILT_AI] Found ${dataRows.length} data rows`);
-      console.log(`📋 [ASBUILT_AI] Headers:`, headers);
-      console.log(`📋 [ASBUILT_AI] First 3 data rows:`, jsonData.slice(1, 4));
-      console.log(`📋 [ASBUILT_AI] All headers (raw):`, headers.map((h, i) => `[${i}] "${h}"`));
-
-      // Detect the most appropriate domain based on content
-      const detectedDomain = this.detectDomainFromContent(headers, dataRows);
-      console.log(`🎯 [ASBUILT_AI] Detected domain: ${detectedDomain} (requested: ${domain})`);
-
-      // Process each row
+      // Step 5: Process rows with validation
       const records = [];
-      const detectedPanels = new Set();
+      const errors = [];
 
       for (let i = 0; i < dataRows.length; i++) {
-        const row = dataRows[i];
-        if (!row || row.every(cell => !cell)) continue; // Skip empty rows
-
         try {
-          const processedRecord = await this.processRow(row, headers, detectedDomain, projectId, userId);
-          if (processedRecord) {
-            records.push(processedRecord);
-            if (processedRecord.mappedData.panelNumber) {
-              detectedPanels.add(processedRecord.mappedData.panelNumber);
-            }
+          const record = await this.processRow(
+            dataRows[i], 
+            headers, 
+            mappings, 
+            detectedDomain, 
+            projectId, 
+            userId
+          );
+
+          if (record) {
+            records.push(record);
           }
-        } catch (rowError) {
-          console.warn(`⚠️ [ASBUILT_AI] Error processing row ${i + 1}:`, rowError.message);
+        } catch (error) {
+          errors.push({ row: i + 2, error: error.message }); // +2 for header and 0-index
+          console.warn(`⚠️ [AI] Row ${i + 2} error: ${error.message}`);
         }
       }
 
-      console.log(`✅ [ASBUILT_AI] Successfully processed ${records.length} records`);
-      console.log(`🎯 [ASBUILT_AI] Detected panels:`, Array.from(detectedPanels));
+      console.log(`✅ [AI] Processed ${records.length} valid records, ${errors.length} errors`);
+
+      // Step 6: Detect duplicate import
+      const isDuplicate = await this.checkDuplicateImport(projectId, records);
+      if (isDuplicate) {
+        console.warn(`⚠️ [AI] Potential duplicate import detected`);
+      }
 
       return {
         success: true,
         records,
         importedRows: records.length,
-        detectedPanels: Array.from(detectedPanels),
-        detectedDomains: [detectedDomain],
-        confidence: this.calculateOverallConfidence(records)
+        errors,
+        detectedDomain,
+        confidence,
+        usedAI,
+        isDuplicate
       };
 
     } catch (error) {
-      console.error(`❌ [ASBUILT_AI] Error importing Excel data:`, error);
+      console.error(`❌ [AI] Import failed:`, error);
       throw error;
     }
   }
 
   /**
-   * Detect the most appropriate domain based on Excel content
+   * Parse Excel file with robust error handling
    */
-  detectDomainFromContent(headers, dataRows) {
-    const headerText = headers.join(' ').toLowerCase();
-    const sampleData = dataRows.slice(0, 3).flat().join(' ').toLowerCase();
-    const contentText = `${headerText} ${sampleData}`;
-    
-    console.log(`🔍 [ASBUILT_AI] Analyzing content for domain detection:`, contentText.substring(0, 200));
-    
-    // Domain detection patterns
-    const domainPatterns = {
-      'panel_specs': [
-        'panel', 'spec', 'specification', 'material', 'thickness', 'width', 'length', 'area', 'weight'
-      ],
-      'seaming': [
-        'seam', 'seaming', 'weld', 'temperature', 'speed', 'pressure', 'operator'
-      ],
-      'testing': [
-        'test', 'testing', 'inspection', 'result', 'value', 'unit', 'method', 'inspector'
-      ],
-      'destructive': [
-        'destructive', 'sample', 'lab', 'technician', 'standard', 'break', 'tensile', 'strength'
-      ],
-      'trial_weld': [
-        'trial', 'weld', 'material', 'thickness', 'temperature', 'pressure'
-      ],
-      'repairs': [
-        'repair', 'fix', 'issue', 'problem', 'maintenance', 'technician'
-      ],
-      'panel_placement': [
-        'placement', 'location', 'coordinates', 'x', 'y', 'position'
-      ]
-    };
-    
-    let bestDomain = 'panel_specs'; // Default fallback
-    let bestScore = 0;
-    
-    for (const [domain, patterns] of Object.entries(domainPatterns)) {
-      let score = 0;
-      for (const pattern of patterns) {
-        if (contentText.includes(pattern)) {
-          score++;
-        }
-      }
-      
-      if (score > bestScore) {
-        bestScore = score;
-        bestDomain = domain;
-      }
-      
-      console.log(`🎯 [ASBUILT_AI] Domain '${domain}' score: ${score}`);
+  parseExcelFile(fileBuffer) {
+    const workbook = xlsx.read(fileBuffer, { type: 'buffer' });
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
+    const jsonData = xlsx.utils.sheet_to_json(worksheet, { header: 1, defval: null });
+
+    if (jsonData.length < 2) {
+      throw new Error('Excel file must contain at least a header row and one data row');
     }
-    
-    console.log(`🏆 [ASBUILT_AI] Selected domain: ${bestDomain} (score: ${bestScore})`);
-    return bestDomain;
+
+    // Find the actual header row (might not be row 0)
+    let headerRowIndex = 0;
+    for (let i = 0; i < Math.min(10, jsonData.length); i++) {
+      const row = jsonData[i];
+      const nonEmptyCells = row.filter(cell => cell && cell.toString().trim() !== '');
+      
+      // Check if this looks like a header row
+      if (nonEmptyCells.length >= 3 && this.looksLikeHeaderRow(row)) {
+        headerRowIndex = i;
+        break;
+      }
+    }
+
+    const headers = jsonData[headerRowIndex];
+    const dataRows = jsonData.slice(headerRowIndex + 1).filter(row => 
+      row.some(cell => cell && cell.toString().trim() !== '')
+    );
+
+    console.log(`📋 [AI] Found headers at row ${headerRowIndex + 1}:`, headers);
+
+    return { headers, dataRows };
   }
 
   /**
-   * Process a single row of data
+   * Check if a row looks like headers
    */
-  async processRow(row, headers, domain, projectId, userId) {
-    console.log(`🔍 [ASBUILT_AI] Processing row for domain ${domain}:`, row);
+  looksLikeHeaderRow(row) {
+    const headerKeywords = ['panel', 'date', 'id', 'number', 'type', 'name', 'location', 'test', 'result'];
+    const cellsWithKeywords = row.filter(cell => {
+      if (!cell) return false;
+      const cellStr = cell.toString().toLowerCase();
+      return headerKeywords.some(keyword => cellStr.includes(keyword));
+    });
+
+    return cellsWithKeywords.length >= 2;
+  }
+
+  /**
+   * Detect domain using rules first, AI if uncertain
+   */
+  async detectDomain(headers, dataRows) {
+    const headerText = headers.join(' ').toLowerCase();
     
+    // Rule-based detection (fast path)
+    const domainScores = {
+      panel_placement: 0,
+      panel_seaming: 0,
+      non_destructive: 0,
+      trial_weld: 0,
+      repairs: 0,
+      destructive: 0
+    };
+
+    // Score each domain
+    if (headerText.includes('location') || headerText.includes('coordinates')) {
+      domainScores.panel_placement += 3;
+    }
+    if (headerText.includes('seam') || headerText.includes('weld')) {
+      domainScores.panel_seaming += 3;
+      domainScores.trial_weld += 2;
+    }
+    if (headerText.includes('test') || headerText.includes('inspection')) {
+      domainScores.non_destructive += 2;
+    }
+    if (headerText.includes('trial')) {
+      domainScores.trial_weld += 3;
+    }
+    if (headerText.includes('repair') || headerText.includes('fix')) {
+      domainScores.repairs += 3;
+    }
+    if (headerText.includes('destructive') || headerText.includes('sample') || headerText.includes('lab')) {
+      domainScores.destructive += 3;
+    }
+
+    const bestDomain = Object.entries(domainScores)
+      .sort(([,a], [,b]) => b - a)[0];
+
+    // If confidence is low, use AI
+    if (bestDomain[1] < 2) {
+      console.log(`🤖 [AI] Low confidence domain detection, using Claude...`);
+      return await this.aiDetectDomain(headers, dataRows);
+    }
+
+    return bestDomain[0];
+  }
+
+  /**
+   * AI-powered domain detection (fallback)
+   */
+  async aiDetectDomain(headers, dataRows) {
+    const sampleRows = dataRows.slice(0, 3);
+    
+    const prompt = `You are analyzing construction geomembrane data. Determine the domain.
+
+Headers: ${JSON.stringify(headers)}
+Sample rows: ${JSON.stringify(sampleRows)}
+
+Possible domains:
+- panel_placement: Panel location and installation data
+- panel_seaming: Welding and seaming information
+- non_destructive: Non-destructive testing results
+- trial_weld: Trial welding test data
+- repairs: Repair and maintenance records
+- destructive: Destructive testing and lab results
+
+Return ONLY the domain name, nothing else.`;
+
+    const completion = await this.openai.chat.completions.create({
+      model: "gpt-3.5-turbo",
+      max_tokens: 50,
+      messages: [{ role: "user", content: prompt }]
+    });
+
+    const domain = completion.choices[0].message.content.trim();
+    console.log(`🤖 [AI] ChatGPT detected domain: ${domain}`);
+    
+    return domain;
+  }
+
+  /**
+   * Map headers using explicit rules first, then AI
+   */
+  async mapHeaders(headers, domain, dataRows) {
+    console.log(`📋 [AI] Mapping headers for domain: ${domain}`);
+    
+    const mappings = [];
+    const domainMappings = this.explicitMappings[domain] || {};
+    let unmappedHeaders = [];
+
+    // Try explicit mappings first (fast and free)
+    headers.forEach((header, index) => {
+      if (!header) return;
+
+      const headerClean = header.toString().trim().toLowerCase();
+      
+      if (domainMappings[headerClean]) {
+        mappings.push({
+          sourceHeader: header,
+          sourceIndex: index,
+          canonicalField: domainMappings[headerClean],
+          confidence: 1.0,
+          method: 'explicit'
+        });
+        console.log(`✅ [AI] Explicit mapping: "${header}" → "${domainMappings[headerClean]}"`);
+      } else {
+        unmappedHeaders.push({ header, index });
+      }
+    });
+
+    // Calculate confidence
+    const explicitConfidence = mappings.length / headers.filter(h => h).length;
+
+    // If confidence is high enough, use explicit mappings only
+    if (explicitConfidence >= 0.7 || unmappedHeaders.length === 0) {
+      console.log(`✅ [AI] Using explicit mappings only (${(explicitConfidence * 100).toFixed(1)}% confidence)`);
+      return {
+        mappings,
+        confidence: explicitConfidence,
+        usedAI: false
+      };
+    }
+
+    // Otherwise, use AI for unmapped headers
+    console.log(`🤖 [AI] Using Claude for ${unmappedHeaders.length} unmapped headers...`);
+    const aiMappings = await this.aiMapHeaders(unmappedHeaders, domain, dataRows);
+    
+    return {
+      mappings: [...mappings, ...aiMappings],
+      confidence: 0.95, // AI-backed mapping has high confidence
+      usedAI: true
+    };
+  }
+
+  /**
+   * AI-powered header mapping
+   */
+  async aiMapHeaders(unmappedHeaders, domain, dataRows) {
+    const canonicalFields = this.canonicalFields[domain];
+    const sampleData = dataRows.slice(0, 3);
+
+    const headersToMap = unmappedHeaders.map(h => ({
+      header: h.header,
+      index: h.index,
+      sampleData: sampleData.map(row => row[h.index])
+    }));
+
+    const prompt = `You are a geomembrane construction data specialist. Map these Excel headers to canonical fields.
+
+Domain: ${domain}
+Canonical fields available: ${JSON.stringify(canonicalFields)}
+
+Unmapped headers and sample data:
+${JSON.stringify(headersToMap, null, 2)}
+
+CRITICAL RULES:
+1. Map "Panel #" or "Panel Number" → panelNumber (NEVER "Roll Number")
+2. Map "Date" or "DateTime" → dateTime
+3. Ignore columns with material descriptions like "geomembrane", "thickness specifications"
+4. Return ONLY valid mappings, omit headers that don't match any canonical field
+5. Return JSON format: { "sourceHeader": "canonicalField" }
+
+Return ONLY valid JSON, no explanation.`;
+
+    const completion = await this.openai.chat.completions.create({
+      model: "gpt-3.5-turbo",
+      max_tokens: 1024,
+      messages: [{ role: "user", content: prompt }]
+    });
+
+    const aiMappings = JSON.parse(completion.choices[0].message.content);
+    
+    const result = Object.entries(aiMappings).map(([sourceHeader, canonicalField]) => {
+      const headerInfo = unmappedHeaders.find(h => h.header === sourceHeader);
+      return {
+        sourceHeader,
+        sourceIndex: headerInfo?.index,
+        canonicalField,
+        confidence: 0.95,
+        method: 'ai'
+      };
+    });
+
+    console.log(`🤖 [AI] Mapped ${result.length} fields using ChatGPT`);
+    return result;
+  }
+
+  /**
+   * Check if required fields are present
+   */
+  hasRequiredFields(mappings, domain) {
+    const required = ['panelNumber', 'dateTime'];
+    const mappedFields = mappings.map(m => m.canonicalField);
+    
+    const hasRequired = required.every(field => mappedFields.includes(field));
+    
+    if (!hasRequired) {
+      console.error(`❌ [AI] Missing required fields. Have: ${mappedFields.join(', ')}`);
+    }
+    
+    return hasRequired;
+  }
+
+  /**
+   * Process a single row with strict validation
+   */
+  async processRow(row, headers, mappings, domain, projectId, userId) {
+    // Validate row is not a header or metadata
+    if (!this.isValidDataRow(row, headers)) {
+      return null;
+    }
+
     const rawData = {};
     const mappedData = {};
 
-    // Map raw data
+    // Build raw data
     headers.forEach((header, index) => {
-      if (header && row[index] !== undefined) {
+      if (header && row[index] !== undefined && row[index] !== null && row[index] !== '') {
         rawData[header] = row[index];
       }
     });
-    
-    console.log(`📝 [ASBUILT_AI] Raw data mapped:`, rawData);
 
-    // AI-powered field mapping based on domain
-    const fieldMapping = this.getFieldMapping(domain);
-    const confidence = this.mapFields(rawData, mappedData, fieldMapping);
+    // Build mapped data
+    mappings.forEach(mapping => {
+      const value = row[mapping.sourceIndex];
+      if (value !== undefined && value !== null && value !== '') {
+        mappedData[mapping.canonicalField] = this.normalizeValue(value, mapping.canonicalField);
+      }
+    });
 
-    // Generate panel ID - always use UUID for database compatibility
-    let panelId = null;
-    let panelIdentifier = null;
-    
-    if (mappedData.panelNumber) {
-      panelIdentifier = mappedData.panelNumber;
-      // Generate UUID for database, but keep human-readable identifier in mapped data
-      panelId = require('uuid').v4();
-      console.log(`🎯 [ASBUILT_AI] Generated panelId: ${panelId} from panelNumber: ${panelIdentifier}`);
-    } else {
-      console.log(`⚠️ [ASBUILT_AI] No panelNumber found in mappedData:`, mappedData);
-      console.log(`🔍 [ASBUILT_AI] Available headers:`, Object.keys(rawData));
-      
-      // Fallback: try to extract panel identifier from any column that might contain panel info
-      for (const [key, value] of Object.entries(rawData)) {
-        if (value && typeof value === 'string' && (
-          key.toLowerCase().includes('panel') || 
-          key.toLowerCase().includes('id') ||
-          /^p\d+$/i.test(value) || // Pattern like P1, P2, etc.
-          /^\d+$/.test(value) // Just numbers
-        )) {
-          console.log(`🔄 [ASBUILT_AI] Fallback: Using ${key} = ${value} as panel identifier`);
-          panelIdentifier = value;
-          panelId = require('uuid').v4();
-          mappedData.panelNumber = value;
-          break;
-        }
-      }
-      
-      // If still no panel identifier found, generate a default one
-      if (!panelId) {
-        panelId = require('uuid').v4();
-        panelIdentifier = `Unknown-${panelId.slice(0, 8)}`;
-        mappedData.panelNumber = panelIdentifier;
-        console.log(`🔧 [ASBUILT_AI] Generated fallback panelId: ${panelId} with identifier: ${panelIdentifier}`);
-      }
+    // CRITICAL: Get actual panel ID from database
+    const panelNumber = mappedData.panelNumber;
+    if (!panelNumber) {
+      throw new Error('Missing panel number');
     }
+
+    const panelId = await this.findPanelId(projectId, panelNumber);
+    if (!panelId) {
+      throw new Error(`Panel not found in layout: ${panelNumber}`);
+    }
+
+    console.log(`✅ [AI] Mapped panel ${panelNumber} → ${panelId}`);
 
     return {
       projectId,
       panelId,
       domain,
-      sourceDocId: null, // Will be set by the calling service
       rawData,
       mappedData,
-      aiConfidence: confidence,
-      requiresReview: confidence < 0.7,
+      aiConfidence: 0.95,
+      requiresReview: false,
       createdBy: userId
     };
   }
 
   /**
-   * Get field mapping configuration for a domain
+   * Validate that row is actual data (not header/metadata)
    */
-  getFieldMapping(domain) {
-    const mappings = {
-      panel_placement: {
-        'panel number': 'panelNumber',
-        'panel id': 'panelNumber',
-        'panel_id': 'panelNumber',
-        'panel': 'panelNumber',
-        'date': 'date',
-        'time': 'time',
-        'datetime': 'dateTime',
-        'location': 'location',
-        'coordinates': 'coordinates',
-        'x': 'xCoordinate',
-        'y': 'yCoordinate',
-        'length': 'length',
-        'width': 'width',
-        'area': 'area',
-        'notes': 'notes'
-      },
-      panel_seaming: {
-        'panel number': 'panelNumber',
-        'panel id': 'panelNumber',
-        'seam id': 'seamId',
-        'seam_id': 'seamId',
-        'seam type': 'seamType',
-        'seam_type': 'seamType',
-        'length': 'length',
-        'width': 'width',
-        'temperature': 'temperature',
-        'speed': 'speed',
-        'pressure': 'pressure',
-        'date': 'date',
-        'time': 'time',
-        'operator': 'operator',
-        'notes': 'notes'
-      },
-      non_destructive: {
-        'panel number': 'panelNumber',
-        'panel id': 'panelNumber',
-        'test id': 'testId',
-        'test_id': 'testId',
-        'test type': 'testType',
-        'test_type': 'testType',
-        'result': 'result',
-        'value': 'value',
-        'unit': 'unit',
-        'date': 'date',
-        'time': 'time',
-        'inspector': 'inspector',
-        'notes': 'notes'
-      },
-      trial_weld: {
-        'panel number': 'panelNumber',
-        'panel id': 'panelNumber',
-        'weld id': 'weldId',
-        'weld_id': 'weldId',
-        'material': 'material',
-        'thickness': 'thickness',
-        'temperature': 'temperature',
-        'pressure': 'pressure',
-        'speed': 'speed',
-        'result': 'result',
-        'date': 'date',
-        'time': 'time',
-        'operator': 'operator',
-        'notes': 'notes'
-      },
-      repairs: {
-        'panel number': 'panelNumber',
-        'panel id': 'panelNumber',
-        'repair id': 'repairId',
-        'repair_id': 'repairId',
-        'issue type': 'issueType',
-        'issue_type': 'issueType',
-        'description': 'description',
-        'location': 'location',
-        'method': 'method',
-        'material': 'material',
-        'date': 'date',
-        'time': 'time',
-        'technician': 'technician',
-        'status': 'status',
-        'notes': 'notes'
-      },
-      destructive: {
-        'panel number': 'panelNumber',
-        'panel id': 'panelNumber',
-        'sample id': 'sampleId',
-        'sample_id': 'sampleId',
-        'test type': 'testType',
-        'test_type': 'testType',
-        'result': 'result',
-        'value': 'value',
-        'unit': 'unit',
-        'standard': 'standard',
-        'date': 'date',
-        'time': 'time',
-        'lab': 'lab',
-        'technician': 'technician',
-        'notes': 'notes'
-      },
-      panel_specs: {
-        'panel number': 'panelNumber',
-        'panel id': 'panelNumber',
-        'panel_id': 'panelNumber',
-        'panel': 'panelNumber',
-        'specification': 'specification',
-        'spec': 'specification',
-        'material': 'material',
-        'thickness': 'thickness',
-        'width': 'width',
-        'length': 'length',
-        'area': 'area',
-        'weight': 'weight',
-        'date': 'date',
-        'time': 'time',
-        'notes': 'notes'
-      },
-      seaming: {
-        'panel number': 'panelNumber',
-        'panel id': 'panelNumber',
-        'panel_id': 'panelNumber',
-        'seam id': 'seamId',
-        'seam_id': 'seamId',
-        'seam type': 'seamType',
-        'seam_type': 'seamType',
-        'length': 'length',
-        'width': 'width',
-        'temperature': 'temperature',
-        'speed': 'speed',
-        'pressure': 'pressure',
-        'date': 'date',
-        'time': 'time',
-        'operator': 'operator',
-        'notes': 'notes'
-      },
-      testing: {
-        'panel number': 'panelNumber',
-        'panel id': 'panelNumber',
-        'panel_id': 'panelNumber',
-        'test id': 'testId',
-        'test_id': 'testId',
-        'test type': 'testType',
-        'test_type': 'testType',
-        'result': 'result',
-        'value': 'value',
-        'unit': 'unit',
-        'method': 'method',
-        'date': 'date',
-        'time': 'time',
-        'inspector': 'inspector',
-        'notes': 'notes'
-      }
-    };
+  isValidDataRow(row, headers) {
+    const cellValues = row.map(cell => cell ? cell.toString().toLowerCase() : '');
+    
+    // Check if row matches header keywords
+    const headerKeywords = headers.map(h => h ? h.toString().toLowerCase() : '');
+    let headerMatches = 0;
+    
+    cellValues.forEach(cell => {
+      if (headerKeywords.includes(cell)) headerMatches++;
+    });
 
-    return mappings[domain] || {};
-  }
-
-  /**
-   * Map fields using AI-like logic
-   */
-  mapFields(rawData, mappedData, fieldMapping) {
-    let totalConfidence = 0;
-    let mappedFields = 0;
-
-    console.log(`🔍 [ASBUILT_AI] Mapping fields for domain with ${Object.keys(fieldMapping).length} mappings`);
-    console.log(`🔍 [ASBUILT_AI] Available raw data keys:`, Object.keys(rawData));
-
-    for (const [rawKey, mappedKey] of Object.entries(fieldMapping)) {
-      const confidence = this.findBestMatch(rawKey, Object.keys(rawData));
-      console.log(`🔍 [ASBUILT_AI] Looking for '${rawKey}' -> '${mappedKey}', confidence: ${confidence.toFixed(2)}`);
-      
-      if (confidence > 0.5) {
-        const bestMatch = this.findBestMatchKey(rawKey, Object.keys(rawData));
-        if (bestMatch && rawData[bestMatch] !== undefined && rawData[bestMatch] !== null && rawData[bestMatch] !== '') {
-          mappedData[mappedKey] = rawData[bestMatch];
-          totalConfidence += confidence;
-          mappedFields++;
-          console.log(`✅ [ASBUILT_AI] Mapped '${bestMatch}' -> '${mappedKey}' = '${rawData[bestMatch]}'`);
-        }
-      }
+    if (headerMatches > headers.length / 3) {
+      console.log(`🚫 [AI] Skipping header row`);
+      return false;
     }
 
-    // Calculate base confidence based on data availability
-    const dataFields = Object.keys(rawData).length;
-    const baseConfidence = Math.min(0.3, dataFields * 0.05); // Minimum 5% per field, max 30%
-    
-    // Calculate final confidence
-    const mappedConfidence = mappedFields > 0 ? totalConfidence / mappedFields : 0;
-    const finalConfidence = Math.min(0.95, mappedConfidence + baseConfidence);
-    
-    console.log(`📊 [ASBUILT_AI] Final mapped data:`, mappedData);
-    console.log(`📊 [ASBUILT_AI] Confidence calculation: mapped=${mappedConfidence.toFixed(2)}, base=${baseConfidence.toFixed(2)}, final=${finalConfidence.toFixed(2)}`);
-    
-    return finalConfidence;
-  }
+    // Check for material descriptions
+    const materialKeywords = ['geomembrane', 'mil', 'black', 'hdpe', 'lldpe', 'specification'];
+    const hasMaterialDescription = cellValues.some(cell => 
+      materialKeywords.some(keyword => cell.includes(keyword))
+    );
 
-  /**
-   * Find best match for a field name
-   */
-  findBestMatch(target, candidates) {
-    if (!candidates || candidates.length === 0) return 0;
-
-    const targetLower = target.toLowerCase();
-    let bestScore = 0;
-
-    for (const candidate of candidates) {
-      const candidateLower = candidate.toLowerCase();
-      
-      // Exact match
-      if (candidateLower === targetLower) return 1.0;
-      
-      // Contains match
-      if (candidateLower.includes(targetLower) || targetLower.includes(candidateLower)) {
-        bestScore = Math.max(bestScore, 0.8);
-      }
-      
-      // Word boundary match
-      const targetWords = targetLower.split(/[\s_-]+/);
-      const candidateWords = candidateLower.split(/[\s_-]+/);
-      
-      let wordMatches = 0;
-      for (const targetWord of targetWords) {
-        for (const candidateWord of candidateWords) {
-          if (candidateWord.includes(targetWord) || targetWord.includes(candidateWord)) {
-            wordMatches++;
-            break;
-          }
-        }
-      }
-      
-      if (wordMatches > 0) {
-        const wordScore = wordMatches / Math.max(targetWords.length, candidateWords.length);
-        bestScore = Math.max(bestScore, wordScore * 0.7);
-      }
+    if (hasMaterialDescription) {
+      console.log(`🚫 [AI] Skipping material description row`);
+      return false;
     }
 
-    return bestScore;
-  }
-
-  /**
-   * Find the best matching key
-   */
-  findBestMatchKey(target, candidates) {
-    if (!candidates || candidates.length === 0) return null;
-
-    let bestKey = null;
-    let bestScore = 0;
-
-    for (const candidate of candidates) {
-      const score = this.findBestMatch(target, [candidate]);
-      if (score > bestScore) {
-        bestScore = score;
-        bestKey = candidate;
-      }
+    // Require at least 3 non-empty cells
+    const nonEmptyCells = cellValues.filter(cell => cell.trim() !== '');
+    if (nonEmptyCells.length < 3) {
+      console.log(`🚫 [AI] Skipping sparse row`);
+      return false;
     }
 
-    return bestScore > 0.5 ? bestKey : null;
+    return true;
   }
 
   /**
-   * Calculate overall confidence for all records
+   * Find panel ID from database (CRITICAL)
    */
-  calculateOverallConfidence(records) {
-    if (records.length === 0) return 0;
+  async findPanelId(projectId, panelNumber) {
+    try {
+      // Query panel_layouts to find the panel
+      const query = `
+        SELECT panels 
+        FROM panel_layouts 
+        WHERE project_id = $1
+      `;
+      
+      const result = await this.pool.query(query, [projectId]);
+      
+      if (result.rows.length === 0 || !result.rows[0].panels) {
+        console.error(`❌ [AI] No panel layout found for project ${projectId}`);
+        return null;
+      }
+
+      const panels = result.rows[0].panels;
+      
+      // Normalize panel number for comparison
+      const normalizedSearch = this.normalizePanelNumber(panelNumber);
+      
+      // Find matching panel
+      const panel = panels.find(p => {
+        const normalizedDb = this.normalizePanelNumber(p.panelNumber);
+        return normalizedDb === normalizedSearch;
+      });
+
+      if (panel) {
+        console.log(`✅ [AI] Found panel: ${panelNumber} → ${panel.id}`);
+        return panel.id;
+      }
+
+      console.error(`❌ [AI] Panel not found: ${panelNumber} (normalized: ${normalizedSearch})`);
+      console.log(`Available panels:`, panels.map(p => ({
+        id: p.id,
+        panelNumber: p.panelNumber,
+        normalized: this.normalizePanelNumber(p.panelNumber)
+      })));
+      
+      return null;
+
+    } catch (error) {
+      console.error(`❌ [AI] Error finding panel:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Normalize panel number for comparison
+   */
+  normalizePanelNumber(panelNumber) {
+    if (!panelNumber) return null;
     
-    const totalConfidence = records.reduce((sum, record) => sum + (record.aiConfidence || 0), 0);
-    return totalConfidence / records.length;
+    // Extract numeric value
+    const match = panelNumber.toString().match(/\d+/);
+    if (!match) return null;
+    
+    const numeric = parseInt(match[0], 10);
+    
+    // Return standard format: P###
+    return `P${numeric.toString().padStart(3, '0')}`;
+  }
+
+  /**
+   * Normalize field values
+   */
+  normalizeValue(value, fieldName) {
+    if (value === null || value === undefined) return null;
+
+    const strValue = value.toString().trim();
+
+    // Date fields
+    if (fieldName.includes('date') || fieldName.includes('Date') || fieldName.includes('Time')) {
+      const date = new Date(strValue);
+      return isNaN(date.getTime()) ? strValue : date.toISOString();
+    }
+
+    // Numeric fields
+    if (['temperature', 'pressure', 'speed', 'thickness', 'length', 'width'].includes(fieldName)) {
+      const num = parseFloat(strValue);
+      return isNaN(num) ? strValue : num;
+    }
+
+    // Pass/Fail fields
+    if (fieldName === 'result') {
+      const lower = strValue.toLowerCase();
+      if (lower.includes('pass')) return 'Pass';
+      if (lower.includes('fail')) return 'Fail';
+      return strValue;
+    }
+
+    return strValue;
+  }
+
+  /**
+   * Check for duplicate imports
+   */
+  async checkDuplicateImport(projectId, records) {
+    if (records.length === 0) return false;
+
+    try {
+      // Check if similar records already exist
+      const sampleRecord = records[0];
+      const query = `
+        SELECT COUNT(*) as count
+        FROM asbuilt_records
+        WHERE project_id = $1
+        AND domain = $2
+        AND created_at > NOW() - INTERVAL '1 hour'
+      `;
+
+      const result = await this.pool.query(query, [
+        projectId,
+        sampleRecord.domain
+      ]);
+
+      const recentCount = parseInt(result.rows[0].count);
+      
+      // If there are recent imports of similar size, it might be a duplicate
+      return recentCount >= records.length * 0.5;
+
+    } catch (error) {
+      console.error(`Error checking duplicates:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Close database connection
+   */
+  async close() {
+    await this.pool.end();
   }
 }
 
