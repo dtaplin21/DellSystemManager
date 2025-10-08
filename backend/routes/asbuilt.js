@@ -281,10 +281,10 @@ router.post('/import', auth, upload.single('excelFile'), async (req, res) => {
     const excelFile = req.file;
     console.log(`📁 [ASBUILT] Processing Excel file: ${excelFile.originalname} (${excelFile.size} bytes)`);
     
-    // For project-wide imports, we'll process all domains
+    // For project-wide imports, process the file once and let AI detect the domain
     const domains = importScope === 'project-wide' 
-      ? ['panel_specs', 'seaming', 'testing', 'trial_weld', 'repairs', 'destructive']
-      : ['panel_specs']; // Default domain
+      ? ['auto-detect'] // Let AI detect the domain from content
+      : ['panel_specs']; // Default domain for single imports
     
     const allCreatedRecords = [];
     const detectedPanels = new Set();
@@ -299,7 +299,7 @@ router.post('/import', auth, upload.single('excelFile'), async (req, res) => {
         const importResult = await asbuiltImportAI.importExcelData(
           excelFile.buffer,
           projectId,
-          domain,
+          domain === 'auto-detect' ? 'panel_specs' : domain, // Pass default for auto-detect
           userId
         );
         
@@ -345,7 +345,12 @@ router.post('/import', auth, upload.single('excelFile'), async (req, res) => {
             importResult.detectedPanels.forEach(panel => detectedPanels.add(panel));
           }
           
-          processedDomains.push(domain);
+          // Use the detected domain from AI instead of the requested domain
+          if (importResult.detectedDomains && importResult.detectedDomains.length > 0) {
+            processedDomains.push(...importResult.detectedDomains);
+          } else {
+            processedDomains.push(domain);
+          }
         }
       } catch (domainError) {
         console.warn(`⚠️ [ASBUILT] Error processing domain ${domain}:`, domainError.message);

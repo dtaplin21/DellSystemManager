@@ -41,6 +41,10 @@ class AsbuiltImportAI {
       console.log(`📋 [ASBUILT_AI] First 3 data rows:`, jsonData.slice(1, 4));
       console.log(`📋 [ASBUILT_AI] All headers (raw):`, headers.map((h, i) => `[${i}] "${h}"`));
 
+      // Detect the most appropriate domain based on content
+      const detectedDomain = this.detectDomainFromContent(headers, dataRows);
+      console.log(`🎯 [ASBUILT_AI] Detected domain: ${detectedDomain} (requested: ${domain})`);
+
       // Process each row
       const records = [];
       const detectedPanels = new Set();
@@ -50,7 +54,7 @@ class AsbuiltImportAI {
         if (!row || row.every(cell => !cell)) continue; // Skip empty rows
 
         try {
-          const processedRecord = await this.processRow(row, headers, domain, projectId, userId);
+          const processedRecord = await this.processRow(row, headers, detectedDomain, projectId, userId);
           if (processedRecord) {
             records.push(processedRecord);
             if (processedRecord.mappedData.panelNumber) {
@@ -70,7 +74,7 @@ class AsbuiltImportAI {
         records,
         importedRows: records.length,
         detectedPanels: Array.from(detectedPanels),
-        detectedDomains: [domain],
+        detectedDomains: [detectedDomain],
         confidence: this.calculateOverallConfidence(records)
       };
 
@@ -78,6 +82,64 @@ class AsbuiltImportAI {
       console.error(`❌ [ASBUILT_AI] Error importing Excel data:`, error);
       throw error;
     }
+  }
+
+  /**
+   * Detect the most appropriate domain based on Excel content
+   */
+  detectDomainFromContent(headers, dataRows) {
+    const headerText = headers.join(' ').toLowerCase();
+    const sampleData = dataRows.slice(0, 3).flat().join(' ').toLowerCase();
+    const contentText = `${headerText} ${sampleData}`;
+    
+    console.log(`🔍 [ASBUILT_AI] Analyzing content for domain detection:`, contentText.substring(0, 200));
+    
+    // Domain detection patterns
+    const domainPatterns = {
+      'panel_specs': [
+        'panel', 'spec', 'specification', 'material', 'thickness', 'width', 'length', 'area', 'weight'
+      ],
+      'seaming': [
+        'seam', 'seaming', 'weld', 'temperature', 'speed', 'pressure', 'operator'
+      ],
+      'testing': [
+        'test', 'testing', 'inspection', 'result', 'value', 'unit', 'method', 'inspector'
+      ],
+      'destructive': [
+        'destructive', 'sample', 'lab', 'technician', 'standard', 'break', 'tensile', 'strength'
+      ],
+      'trial_weld': [
+        'trial', 'weld', 'material', 'thickness', 'temperature', 'pressure'
+      ],
+      'repairs': [
+        'repair', 'fix', 'issue', 'problem', 'maintenance', 'technician'
+      ],
+      'panel_placement': [
+        'placement', 'location', 'coordinates', 'x', 'y', 'position'
+      ]
+    };
+    
+    let bestDomain = 'panel_specs'; // Default fallback
+    let bestScore = 0;
+    
+    for (const [domain, patterns] of Object.entries(domainPatterns)) {
+      let score = 0;
+      for (const pattern of patterns) {
+        if (contentText.includes(pattern)) {
+          score++;
+        }
+      }
+      
+      if (score > bestScore) {
+        bestScore = score;
+        bestDomain = domain;
+      }
+      
+      console.log(`🎯 [ASBUILT_AI] Domain '${domain}' score: ${score}`);
+    }
+    
+    console.log(`🏆 [ASBUILT_AI] Selected domain: ${bestDomain} (score: ${bestScore})`);
+    return bestDomain;
   }
 
   /**
@@ -339,8 +401,18 @@ class AsbuiltImportAI {
       }
     }
 
+    // Calculate base confidence based on data availability
+    const dataFields = Object.keys(rawData).length;
+    const baseConfidence = Math.min(0.3, dataFields * 0.05); // Minimum 5% per field, max 30%
+    
+    // Calculate final confidence
+    const mappedConfidence = mappedFields > 0 ? totalConfidence / mappedFields : 0;
+    const finalConfidence = Math.min(0.95, mappedConfidence + baseConfidence);
+    
     console.log(`📊 [ASBUILT_AI] Final mapped data:`, mappedData);
-    return mappedFields > 0 ? totalConfidence / mappedFields : 0;
+    console.log(`📊 [ASBUILT_AI] Confidence calculation: mapped=${mappedConfidence.toFixed(2)}, base=${baseConfidence.toFixed(2)}, final=${finalConfidence.toFixed(2)}`);
+    
+    return finalConfidence;
   }
 
   /**
