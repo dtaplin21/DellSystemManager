@@ -299,7 +299,7 @@ router.post('/import', auth, upload.single('excelFile'), async (req, res) => {
         const importResult = await asbuiltImportAI.importExcelData(
           excelFile.buffer,
           projectId,
-          domain === 'auto-detect' ? 'panel_specs' : domain, // Pass default for auto-detect
+          domain === 'auto-detect' ? null : domain, // Let AI auto-detect the domain
           userId
         );
         

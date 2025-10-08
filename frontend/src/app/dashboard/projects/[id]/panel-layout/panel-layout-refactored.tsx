@@ -13,6 +13,7 @@ import {
 import { PanelLayoutRefactored as PanelLayoutComponent } from '@/components/panels/PanelLayoutRefactored';
 import CreatePanelModal from '@/components/panels/CreatePanelModal';
 import PanelSidebar from '@/components/panel-layout/panel-sidebar';
+import { AsbuiltDataProvider } from '@/contexts/AsbuiltDataContext';
 // FullscreenLayout is now handled inside PanelLayoutComponent
 // Removed useFullscreenState import - will be handled inside PanelLayoutComponent
 import { Panel } from '@/types/panel';
@@ -308,8 +309,9 @@ export default function PanelLayoutRefactored() {
 
   // Error boundary wrapper
   return (
-    <PanelLayoutErrorBoundary>
-      <div className="h-full w-full flex flex-col">
+    <AsbuiltDataProvider projectId={projectId}>
+      <PanelLayoutErrorBoundary>
+        <div className="h-full w-full flex flex-col">
         
         {/* Loading state */}
         {isLoading && (
@@ -387,7 +389,8 @@ export default function PanelLayoutRefactored() {
         )}
         
         {/* Fullscreen Layout is now handled inside PanelLayoutComponent */}
-      </div>
-    </PanelLayoutErrorBoundary>
+        </div>
+      </PanelLayoutErrorBoundary>
+    </AsbuiltDataProvider>
   );
 }

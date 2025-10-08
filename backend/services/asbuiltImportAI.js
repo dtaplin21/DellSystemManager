@@ -17,7 +17,7 @@ class AsbuiltImportAI {
 
     // Canonical field definitions per domain
     this.canonicalFields = {
-      panel_placement: ['panelNumber', 'dateTime', 'location', 'coordinates', 'notes', 'weatherComments'],
+      panel_placement: ['panelNumber', 'dateTime', 'location', 'coordinates', 'notes', 'weatherComments', 'length', 'width'],
       panel_seaming: ['panelNumber', 'seamId', 'dateTime', 'seamType', 'temperature', 'operator', 'seamerInitials', 'machineNumber', 'wedgeTemp', 'vboxPassFail'],
       non_destructive: ['panelNumber', 'testId', 'testType', 'result', 'dateTime', 'inspector', 'operatorInitials', 'vboxPassFail'],
       trial_weld: ['panelNumber', 'weldId', 'material', 'temperature', 'result', 'dateTime', 'passFail'],
@@ -38,8 +38,13 @@ class AsbuiltImportAI {
         'location': 'location',
         'notes': 'notes',
         'comments': 'notes',
+        'panel location / comment': 'location',
+        'panel location': 'location',
+        'comment': 'notes',
         'weather': 'weatherComments',
-        'weather comments': 'weatherComments'
+        'weather comments': 'weatherComments',
+        'length': 'length',
+        'width': 'width'
       },
       panel_seaming: {
         'panel #': 'panelNumber',
@@ -112,7 +117,10 @@ class AsbuiltImportAI {
    */
   async importExcelData(fileBuffer, projectId, domain, userId) {
     try {
+      console.log(`🤖 [AI] ===== STARTING IMPORT =====`);
       console.log(`🤖 [AI] Starting import for project ${projectId}, domain: ${domain}`);
+      console.log(`🤖 [AI] Domain type: ${typeof domain}, value: ${JSON.stringify(domain)}`);
+      console.log(`🤖 [AI] File buffer size: ${fileBuffer.length} bytes`);
 
       // Step 1: Parse Excel file
       const { headers, dataRows } = this.parseExcelFile(fileBuffer);
@@ -195,7 +203,7 @@ class AsbuiltImportAI {
 
     // Find the actual header row (might not be row 0)
     let headerRowIndex = 0;
-    for (let i = 0; i < Math.min(10, jsonData.length); i++) {
+    for (let i = 0; i < Math.min(20, jsonData.length); i++) {
       const row = jsonData[i];
       const nonEmptyCells = row.filter(cell => cell && cell.toString().trim() !== '');
       
@@ -246,7 +254,7 @@ class AsbuiltImportAI {
     };
 
     // Score each domain
-    if (headerText.includes('location') || headerText.includes('coordinates')) {
+    if (headerText.includes('location') || headerText.includes('coordinates') || headerText.includes('panel placement') || headerText.includes('roll number')) {
       domainScores.panel_placement += 3;
     }
     if (headerText.includes('seam') || headerText.includes('weld')) {
@@ -269,12 +277,16 @@ class AsbuiltImportAI {
     const bestDomain = Object.entries(domainScores)
       .sort(([,a], [,b]) => b - a)[0];
 
+    console.log(`🎯 [AI] Domain scores:`, domainScores);
+    console.log(`🎯 [AI] Best domain: ${bestDomain[0]} (score: ${bestDomain[1]})`);
+
     // If confidence is low, use AI (if available)
     if (bestDomain[1] < 2 && this.anthropic) {
       console.log(`🤖 [AI] Low confidence domain detection, using Claude...`);
       return await this.aiDetectDomain(headers, dataRows);
     }
 
+    console.log(`✅ [AI] Using domain: ${bestDomain[0]}`);
     return bestDomain[0];
   }
 
@@ -284,7 +296,7 @@ class AsbuiltImportAI {
   async aiDetectDomain(headers, dataRows) {
     if (!this.anthropic) {
       console.warn('⚠️ [AI] Claude not configured, using fallback');
-      return 'panel_seaming';
+      return 'panel_placement';
     }
 
     const sampleRows = dataRows.slice(0, 3);
@@ -510,22 +522,35 @@ Return ONLY valid JSON, no explanation.`;
       return false;
     }
 
-    // Check for material descriptions
-    const materialKeywords = ['geomembrane', 'mil', 'black', 'hdpe', 'lldpe', 'specification'];
-    const hasMaterialDescription = cellValues.some(cell => 
-      materialKeywords.some(keyword => cell.includes(keyword))
+    // Check for material descriptions or project info
+    const metadataKeywords = ['geomembrane', 'mil', 'black', 'hdpe', 'lldpe', 'specification', 'project name:', 'project location:', 'project description:', 'project manager:', 'supervisor:', 'engineer:', 'contractor:', 'contact:', 'material:'];
+    const hasMetadata = cellValues.some(cell => 
+      metadataKeywords.some(keyword => cell.includes(keyword))
     );
 
-    if (hasMaterialDescription) {
-      console.log(`🚫 [AI] Skipping material description row`);
+    if (hasMetadata) {
+      console.log(`🚫 [AI] Skipping metadata row`);
       return false;
     }
 
-    // Require at least 2 non-empty cells
+    // Require at least 3 non-empty cells for panel placement data
     const nonEmptyCells = cellValues.filter(cell => cell.trim() !== '');
-    if (nonEmptyCells.length < 2) {
+    if (nonEmptyCells.length < 3) {
       console.log(`🚫 [AI] Skipping sparse row`);
       return false;
+    }
+
+    // Check if row has numeric panel number (indicating it's data)
+    const hasNumericPanel = row.some(cell => {
+      if (!cell) return false;
+      const str = cell.toString().trim();
+      // Check for numeric values that could be panel numbers
+      return /^\d+$/.test(str) && parseInt(str) > 0 && parseInt(str) < 1000;
+    });
+
+    if (hasNumericPanel) {
+      console.log(`✅ [AI] Valid data row with panel number`);
+      return true;
     }
 
     return true;
@@ -557,7 +582,12 @@ Return ONLY valid JSON, no explanation.`;
         return panel.id;
       }
 
-      console.error(`❌ [AI] Panel not found: ${panelNumber}`);
+      console.error(`❌ [AI] Panel not found: ${panelNumber} (normalized: ${normalizedSearch})`);
+      console.log(`Available panels:`, panels.slice(0, 5).map(p => ({ 
+        id: p.id, 
+        panelNumber: p.panelNumber, 
+        normalized: this.normalizePanelNumber(p.panelNumber) 
+      })));
       return null;
 
     } catch (error) {
@@ -572,7 +602,15 @@ Return ONLY valid JSON, no explanation.`;
   normalizePanelNumber(panelNumber) {
     if (!panelNumber) return null;
     
-    const match = panelNumber.toString().match(/\d+/);
+    const str = panelNumber.toString().trim().toUpperCase();
+    
+    // If already in P001 format, return as is
+    if (str.match(/^P\d+$/)) {
+      return str;
+    }
+    
+    // Extract numeric value and convert to P001 format
+    const match = str.match(/\d+/);
     if (!match) return null;
     
     const numeric = parseInt(match[0], 10);
