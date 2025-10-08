@@ -214,18 +214,24 @@ class PanelLinkingService {
         userId
       );
       
-      console.log(`📊 [PANEL_LINKING] Import result:`, importResult);
+      console.log(`📊 [PANEL_LINKING] Import result:`, {
+        success: importResult.success,
+        records: importResult.records?.length || 0,
+        errors: importResult.errors?.length || 0,
+        confidence: importResult.confidence,
+        usedAI: importResult.usedAI
+      });
       
       // Insert records into database
       let recordsLinked = 0;
-      if (importResult.records && importResult.records.length > 0) {
+      if (importResult.success && importResult.records && importResult.records.length > 0) {
         for (const record of importResult.records) {
           try {
-            const insertedRecord = await this.asbuiltService.createRecord(record);
+            await this.asbuiltService.createRecord(record);
             recordsLinked++;
             console.log(`✅ [PANEL_LINKING] Created ${domain} record for panel ${record.panelId}`);
           } catch (insertError) {
-            console.error(`❌ [PANEL_LINKING] Failed to create record:`, insertError);
+            console.error(`❌ [PANEL_LINKING] Failed to create record:`, insertError.message);
           }
         }
       }

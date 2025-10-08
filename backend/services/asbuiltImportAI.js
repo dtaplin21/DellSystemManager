@@ -1,6 +1,6 @@
 const xlsx = require('xlsx');
 const { Pool } = require('pg');
-const OpenAI = require('openai');
+const Anthropic = require('@anthropic-ai/sdk');
 require('dotenv').config();
 
 class AsbuiltImportAI {
@@ -10,22 +10,22 @@ class AsbuiltImportAI {
       ssl: { rejectUnauthorized: false }
     });
 
-    // Initialize OpenAI (use GPT-3.5-turbo for cost efficiency)
-    this.openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY
-    });
+    // Initialize Claude Haiku (fast & cheap)
+    this.anthropic = process.env.ANTHROPIC_API_KEY ? new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY
+    }) : null;
 
     // Canonical field definitions per domain
     this.canonicalFields = {
-      panel_placement: ['panelNumber', 'dateTime', 'location', 'coordinates', 'notes'],
-      panel_seaming: ['panelNumber', 'seamId', 'dateTime', 'seamType', 'temperature', 'operator'],
-      non_destructive: ['panelNumber', 'testId', 'testType', 'result', 'dateTime', 'inspector'],
-      trial_weld: ['panelNumber', 'weldId', 'material', 'temperature', 'result', 'dateTime'],
-      repairs: ['panelNumber', 'repairId', 'issueType', 'description', 'dateTime', 'technician'],
-      destructive: ['panelNumber', 'sampleId', 'testType', 'result', 'dateTime', 'lab']
+      panel_placement: ['panelNumber', 'dateTime', 'location', 'coordinates', 'notes', 'weatherComments'],
+      panel_seaming: ['panelNumber', 'seamId', 'dateTime', 'seamType', 'temperature', 'operator', 'seamerInitials', 'machineNumber', 'wedgeTemp', 'vboxPassFail'],
+      non_destructive: ['panelNumber', 'testId', 'testType', 'result', 'dateTime', 'inspector', 'operatorInitials', 'vboxPassFail'],
+      trial_weld: ['panelNumber', 'weldId', 'material', 'temperature', 'result', 'dateTime', 'passFail'],
+      repairs: ['panelNumber', 'repairId', 'issueType', 'description', 'dateTime', 'technician', 'repairId'],
+      destructive: ['panelNumber', 'sampleId', 'testType', 'result', 'dateTime', 'lab', 'testerInitials', 'passFail']
     };
 
-    // Explicit mapping rules (fast path)
+    // Explicit mapping rules (fast path - no AI needed)
     this.explicitMappings = {
       panel_placement: {
         'panel #': 'panelNumber',
@@ -37,7 +37,9 @@ class AsbuiltImportAI {
         'date/time': 'dateTime',
         'location': 'location',
         'notes': 'notes',
-        'comments': 'notes'
+        'comments': 'notes',
+        'weather': 'weatherComments',
+        'weather comments': 'weatherComments'
       },
       panel_seaming: {
         'panel #': 'panelNumber',
@@ -50,7 +52,13 @@ class AsbuiltImportAI {
         'temperature': 'temperature',
         'temp': 'temperature',
         'operator': 'operator',
-        'seamer': 'operator'
+        'seamer': 'operator',
+        'seamer initials': 'seamerInitials',
+        'machine number': 'machineNumber',
+        'machine #': 'machineNumber',
+        'wedge temp': 'wedgeTemp',
+        'vbox': 'vboxPassFail',
+        'pass/fail': 'vboxPassFail'
       },
       non_destructive: {
         'panel #': 'panelNumber',
@@ -60,7 +68,9 @@ class AsbuiltImportAI {
         'result': 'result',
         'date': 'dateTime',
         'inspector': 'inspector',
-        'operator': 'inspector'
+        'operator': 'inspector',
+        'operator initials': 'operatorInitials',
+        'vbox': 'vboxPassFail'
       },
       trial_weld: {
         'panel #': 'panelNumber',
@@ -68,7 +78,7 @@ class AsbuiltImportAI {
         'material': 'material',
         'temperature': 'temperature',
         'result': 'result',
-        'pass/fail': 'result',
+        'pass/fail': 'passFail',
         'date': 'dateTime'
       },
       repairs: {
@@ -91,7 +101,8 @@ class AsbuiltImportAI {
         'result': 'result',
         'date': 'dateTime',
         'lab': 'lab',
-        'technician': 'technician'
+        'technician': 'testerInitials',
+        'pass/fail': 'passFail'
       }
     };
   }
@@ -117,7 +128,7 @@ class AsbuiltImportAI {
 
       // Step 4: Validate mappings
       if (!this.hasRequiredFields(mappings, detectedDomain)) {
-        throw new Error(`Missing required fields for domain ${detectedDomain}. Required: panelNumber, dateTime`);
+        throw new Error(`Missing required fields for domain ${detectedDomain}. Required: panelNumber`);
       }
 
       // Step 5: Process rows with validation
@@ -139,14 +150,14 @@ class AsbuiltImportAI {
             records.push(record);
           }
         } catch (error) {
-          errors.push({ row: i + 2, error: error.message }); // +2 for header and 0-index
+          errors.push({ row: i + 2, error: error.message });
           console.warn(`⚠️ [AI] Row ${i + 2} error: ${error.message}`);
         }
       }
 
       console.log(`✅ [AI] Processed ${records.length} valid records, ${errors.length} errors`);
 
-      // Step 6: Detect duplicate import
+      // Step 6: Check for duplicate import
       const isDuplicate = await this.checkDuplicateImport(projectId, records);
       if (isDuplicate) {
         console.warn(`⚠️ [AI] Potential duplicate import detected`);
@@ -188,7 +199,6 @@ class AsbuiltImportAI {
       const row = jsonData[i];
       const nonEmptyCells = row.filter(cell => cell && cell.toString().trim() !== '');
       
-      // Check if this looks like a header row
       if (nonEmptyCells.length >= 3 && this.looksLikeHeaderRow(row)) {
         headerRowIndex = i;
         break;
@@ -259,8 +269,8 @@ class AsbuiltImportAI {
     const bestDomain = Object.entries(domainScores)
       .sort(([,a], [,b]) => b - a)[0];
 
-    // If confidence is low, use AI
-    if (bestDomain[1] < 2) {
+    // If confidence is low, use AI (if available)
+    if (bestDomain[1] < 2 && this.anthropic) {
       console.log(`🤖 [AI] Low confidence domain detection, using Claude...`);
       return await this.aiDetectDomain(headers, dataRows);
     }
@@ -272,6 +282,11 @@ class AsbuiltImportAI {
    * AI-powered domain detection (fallback)
    */
   async aiDetectDomain(headers, dataRows) {
+    if (!this.anthropic) {
+      console.warn('⚠️ [AI] Claude not configured, using fallback');
+      return 'panel_seaming';
+    }
+
     const sampleRows = dataRows.slice(0, 3);
     
     const prompt = `You are analyzing construction geomembrane data. Determine the domain.
@@ -289,14 +304,14 @@ Possible domains:
 
 Return ONLY the domain name, nothing else.`;
 
-    const completion = await this.openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
+    const message = await this.anthropic.messages.create({
+      model: "claude-3-5-haiku-20241022",
       max_tokens: 50,
       messages: [{ role: "user", content: prompt }]
     });
 
-    const domain = completion.choices[0].message.content.trim();
-    console.log(`🤖 [AI] ChatGPT detected domain: ${domain}`);
+    const domain = message.content[0].text.trim();
+    console.log(`🤖 [AI] Claude detected domain: ${domain}`);
     
     return domain;
   }
@@ -334,12 +349,12 @@ Return ONLY the domain name, nothing else.`;
     // Calculate confidence
     const explicitConfidence = mappings.length / headers.filter(h => h).length;
 
-    // If confidence is high enough, use explicit mappings only
-    if (explicitConfidence >= 0.7 || unmappedHeaders.length === 0) {
-      console.log(`✅ [AI] Using explicit mappings only (${(explicitConfidence * 100).toFixed(1)}% confidence)`);
+    // If confidence is high enough OR no AI available, use explicit mappings only
+    if (explicitConfidence >= 0.6 || unmappedHeaders.length === 0 || !this.anthropic) {
+      console.log(`✅ [AI] Using explicit mappings (${(explicitConfidence * 100).toFixed(1)}% confidence)`);
       return {
         mappings,
-        confidence: explicitConfidence,
+        confidence: Math.max(explicitConfidence, 0.7), // Minimum 70% for explicit
         usedAI: false
       };
     }
@@ -350,7 +365,7 @@ Return ONLY the domain name, nothing else.`;
     
     return {
       mappings: [...mappings, ...aiMappings],
-      confidence: 0.95, // AI-backed mapping has high confidence
+      confidence: 0.95,
       usedAI: true
     };
   }
@@ -385,13 +400,13 @@ CRITICAL RULES:
 
 Return ONLY valid JSON, no explanation.`;
 
-    const completion = await this.openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
+    const message = await this.anthropic.messages.create({
+      model: "claude-3-5-haiku-20241022",
       max_tokens: 1024,
       messages: [{ role: "user", content: prompt }]
     });
 
-    const aiMappings = JSON.parse(completion.choices[0].message.content);
+    const aiMappings = JSON.parse(message.content[0].text);
     
     const result = Object.entries(aiMappings).map(([sourceHeader, canonicalField]) => {
       const headerInfo = unmappedHeaders.find(h => h.header === sourceHeader);
@@ -404,7 +419,7 @@ Return ONLY valid JSON, no explanation.`;
       };
     });
 
-    console.log(`🤖 [AI] Mapped ${result.length} fields using ChatGPT`);
+    console.log(`🤖 [AI] Mapped ${result.length} fields using Claude`);
     return result;
   }
 
@@ -412,13 +427,13 @@ Return ONLY valid JSON, no explanation.`;
    * Check if required fields are present
    */
   hasRequiredFields(mappings, domain) {
-    const required = ['panelNumber', 'dateTime'];
+    const required = ['panelNumber'];
     const mappedFields = mappings.map(m => m.canonicalField);
     
     const hasRequired = required.every(field => mappedFields.includes(field));
     
     if (!hasRequired) {
-      console.error(`❌ [AI] Missing required fields. Have: ${mappedFields.join(', ')}`);
+      console.error(`❌ [AI] Missing required field: panelNumber. Have: ${mappedFields.join(', ')}`);
     }
     
     return hasRequired;
@@ -506,9 +521,9 @@ Return ONLY valid JSON, no explanation.`;
       return false;
     }
 
-    // Require at least 3 non-empty cells
+    // Require at least 2 non-empty cells
     const nonEmptyCells = cellValues.filter(cell => cell.trim() !== '');
-    if (nonEmptyCells.length < 3) {
+    if (nonEmptyCells.length < 2) {
       console.log(`🚫 [AI] Skipping sparse row`);
       return false;
     }
@@ -521,13 +536,7 @@ Return ONLY valid JSON, no explanation.`;
    */
   async findPanelId(projectId, panelNumber) {
     try {
-      // Query panel_layouts to find the panel
-      const query = `
-        SELECT panels 
-        FROM panel_layouts 
-        WHERE project_id = $1
-      `;
-      
+      const query = `SELECT panels FROM panel_layouts WHERE project_id = $1`;
       const result = await this.pool.query(query, [projectId]);
       
       if (result.rows.length === 0 || !result.rows[0].panels) {
@@ -536,11 +545,8 @@ Return ONLY valid JSON, no explanation.`;
       }
 
       const panels = result.rows[0].panels;
-      
-      // Normalize panel number for comparison
       const normalizedSearch = this.normalizePanelNumber(panelNumber);
       
-      // Find matching panel
       const panel = panels.find(p => {
         const normalizedDb = this.normalizePanelNumber(p.panelNumber);
         return normalizedDb === normalizedSearch;
@@ -551,13 +557,7 @@ Return ONLY valid JSON, no explanation.`;
         return panel.id;
       }
 
-      console.error(`❌ [AI] Panel not found: ${panelNumber} (normalized: ${normalizedSearch})`);
-      console.log(`Available panels:`, panels.map(p => ({
-        id: p.id,
-        panelNumber: p.panelNumber,
-        normalized: this.normalizePanelNumber(p.panelNumber)
-      })));
-      
+      console.error(`❌ [AI] Panel not found: ${panelNumber}`);
       return null;
 
     } catch (error) {
@@ -572,13 +572,10 @@ Return ONLY valid JSON, no explanation.`;
   normalizePanelNumber(panelNumber) {
     if (!panelNumber) return null;
     
-    // Extract numeric value
     const match = panelNumber.toString().match(/\d+/);
     if (!match) return null;
     
     const numeric = parseInt(match[0], 10);
-    
-    // Return standard format: P###
     return `P${numeric.toString().padStart(3, '0')}`;
   }
 
@@ -597,13 +594,13 @@ Return ONLY valid JSON, no explanation.`;
     }
 
     // Numeric fields
-    if (['temperature', 'pressure', 'speed', 'thickness', 'length', 'width'].includes(fieldName)) {
+    if (['temperature', 'pressure', 'speed', 'thickness', 'length', 'width', 'wedgeTemp'].includes(fieldName)) {
       const num = parseFloat(strValue);
       return isNaN(num) ? strValue : num;
     }
 
     // Pass/Fail fields
-    if (fieldName === 'result') {
+    if (fieldName === 'result' || fieldName === 'vboxPassFail' || fieldName === 'passFail') {
       const lower = strValue.toLowerCase();
       if (lower.includes('pass')) return 'Pass';
       if (lower.includes('fail')) return 'Fail';
@@ -620,7 +617,6 @@ Return ONLY valid JSON, no explanation.`;
     if (records.length === 0) return false;
 
     try {
-      // Check if similar records already exist
       const sampleRecord = records[0];
       const query = `
         SELECT COUNT(*) as count
@@ -630,14 +626,9 @@ Return ONLY valid JSON, no explanation.`;
         AND created_at > NOW() - INTERVAL '1 hour'
       `;
 
-      const result = await this.pool.query(query, [
-        projectId,
-        sampleRecord.domain
-      ]);
-
+      const result = await this.pool.query(query, [projectId, sampleRecord.domain]);
       const recentCount = parseInt(result.rows[0].count);
       
-      // If there are recent imports of similar size, it might be a duplicate
       return recentCount >= records.length * 0.5;
 
     } catch (error) {
