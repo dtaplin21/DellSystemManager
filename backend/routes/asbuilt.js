@@ -30,6 +30,39 @@ const upload = multer({
 });
 
 /**
+ * @route GET /api/asbuilt/records/:recordId
+ * @desc Get a single as-built record by ID
+ * @access Private
+ */
+router.get('/records/:recordId', auth, async (req, res) => {
+  try {
+    const { recordId } = req.params;
+    
+    console.log(`👁️ [ASBUILT] Fetching record ${recordId}`);
+    
+    const record = await asbuiltService.getRecordById(recordId);
+    
+    if (!record) {
+      return res.status(404).json({
+        success: false,
+        error: 'Record not found'
+      });
+    }
+    
+    res.json({
+      success: true,
+      record
+    });
+  } catch (error) {
+    console.error('❌ [ASBUILT] Error fetching record:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch record'
+    });
+  }
+});
+
+/**
  * @route GET /api/asbuilt/:projectId/summary
  * @desc Get project summary statistics
  * @access Private

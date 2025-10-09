@@ -206,12 +206,50 @@ class AsbuiltService {
       const query = `
         SELECT * FROM asbuilt_records 
         WHERE project_id = $1
-        ORDER BY created_at DESC
+        ORDER BY 
+          CASE 
+            WHEN mapped_data->>'panelNumber' ~ '^[0-9]+$' 
+            THEN (mapped_data->>'panelNumber')::integer 
+            ELSE 999999 
+          END ASC,
+          created_at DESC
         LIMIT $2 OFFSET $3
       `;
       
       const result = await client.query(query, [projectId, limit, offset]);
       return result.rows;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Get a single as-built record by ID
+   */
+  async getRecordById(recordId) {
+    const client = await this.pool.connect();
+    try {
+      const query = `
+        SELECT * FROM asbuilt_records 
+        WHERE id = $1
+      `;
+      
+      const result = await client.query(query, [recordId]);
+      
+      if (result.rows.length === 0) {
+        return null;
+      }
+      
+      const record = result.rows[0];
+      
+      // Parse JSON fields (they come as strings from PostgreSQL)
+      record.raw_data = typeof record.raw_data === 'string' ? JSON.parse(record.raw_data) : record.raw_data;
+      record.mapped_data = typeof record.mapped_data === 'string' ? JSON.parse(record.mapped_data) : record.mapped_data;
+      
+      return record;
+    } catch (error) {
+      console.error('Error fetching record by ID:', error);
+      throw error;
     } finally {
       client.release();
     }

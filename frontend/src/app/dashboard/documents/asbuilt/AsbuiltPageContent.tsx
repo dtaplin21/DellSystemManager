@@ -27,8 +27,10 @@ import { makeAuthenticatedRequest } from '@/lib/api';
 import { useAsbuiltData } from '@/contexts/AsbuiltDataContext';
 import { useProjects } from '@/contexts/ProjectsProvider';
 import FileViewerModal from '@/components/shared/FileViewerModal';
+import RecordViewerModal from '@/components/shared/RecordViewerModal';
 import ExcelImportModal from '@/components/panel-layout/excel-import-modal';
 import { FileMetadata } from '@/contexts/AsbuiltDataContext';
+import { getAsbuiltRecordDetails } from '@/lib/safe-api';
 
 export default function AsbuiltPageContent() {
   console.log('🚀 [ASBUILT] AsbuiltPageContent component is rendering!');
@@ -66,6 +68,9 @@ export default function AsbuiltPageContent() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [showFileViewer, setShowFileViewer] = useState(false);
   const [selectedFile, setSelectedFile] = useState<FileMetadata | null>(null);
+  const [showRecordViewer, setShowRecordViewer] = useState(false);
+  const [selectedRecord, setSelectedRecord] = useState<AsbuiltRecord | null>(null);
+  const [loadingRecord, setLoadingRecord] = useState(false);
   const [activeTab, setActiveTab] = useState<'records' | 'files'>('records');
 
   // Handle URL-based project selection
@@ -89,6 +94,21 @@ export default function AsbuiltPageContent() {
   const handleFileView = (file: FileMetadata) => {
     setSelectedFile(file);
     setShowFileViewer(true);
+  };
+
+  const handleRecordView = async (recordId: string) => {
+    setLoadingRecord(true);
+    try {
+      console.log('🔍 [ASBUILT] Fetching record details for:', recordId);
+      const record = await getAsbuiltRecordDetails(recordId);
+      setSelectedRecord(record);
+      setShowRecordViewer(true);
+    } catch (error) {
+      console.error('❌ [ASBUILT] Failed to load record:', error);
+      // TODO: Show error toast/notification
+    } finally {
+      setLoadingRecord(false);
+    }
   };
 
   const handleImportComplete = () => {
@@ -487,9 +507,10 @@ export default function AsbuiltPageContent() {
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  onClick={() => console.log('View record:', record.id)}
+                                  onClick={() => handleRecordView(record.id)}
+                                  disabled={loadingRecord}
                                 >
-                                  View
+                                  {loadingRecord ? 'Loading...' : 'View'}
                                 </Button>
                                 <Button
                                   variant="outline"
@@ -634,6 +655,17 @@ export default function AsbuiltPageContent() {
         showDataMapping={true}
         panelId={selectedFile?.panelId}
         domain={selectedFile?.domain}
+      />
+
+      {/* Record Viewer Modal */}
+      <RecordViewerModal
+        isOpen={showRecordViewer}
+        onClose={() => {
+          setShowRecordViewer(false);
+          setSelectedRecord(null);
+        }}
+        record={selectedRecord}
+        loading={loadingRecord}
       />
     </div>
   );

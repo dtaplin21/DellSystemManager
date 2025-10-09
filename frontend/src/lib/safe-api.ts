@@ -1,4 +1,5 @@
 import { AsbuiltRecord, AsbuiltSummary, AsbuiltImportResult, PanelAsbuiltSummary, AsbuiltDomain } from '@/types/asbuilt';
+import { makeAuthenticatedRequest } from './api';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003';
 
@@ -176,5 +177,46 @@ export const safeAPI = new SafeAPI();
 // Export the getAsbuiltSafe function for direct import
 export const getAsbuiltSafe = (projectId: string, panelId: string) => 
   safeAPI.getAsbuiltSafe(projectId, panelId);
+
+/**
+ * Get a single as-built record by ID
+ */
+export async function getAsbuiltRecordDetails(recordId: string): Promise<AsbuiltRecord> {
+  try {
+    console.log('🔍 [API] Fetching record details for:', recordId);
+    
+    const response = await makeAuthenticatedRequest(`/api/asbuilt/records/${recordId}`);
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch record: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    
+    if (!data.success) {
+      throw new Error(data.error || 'Failed to fetch record');
+    }
+    
+    // Transform snake_case to camelCase to match frontend types
+    const record = data.record;
+    return {
+      id: record.id,
+      projectId: record.project_id,
+      panelId: record.panel_id,
+      domain: record.domain,
+      sourceDocId: record.source_doc_id,
+      rawData: record.raw_data,
+      mappedData: record.mapped_data,
+      aiConfidence: parseFloat(record.ai_confidence),
+      requiresReview: record.requires_review,
+      createdBy: record.created_by,
+      createdAt: record.created_at,
+      updatedAt: record.updated_at
+    };
+  } catch (error) {
+    console.error('❌ [API] Error fetching record details:', error);
+    throw error;
+  }
+}
 
 export default safeAPI;

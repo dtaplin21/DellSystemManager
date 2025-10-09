@@ -465,8 +465,13 @@ Return ONLY valid JSON, no explanation.`;
       return false;
     }
     
-    // Check for material descriptions or project info
-    const metadataKeywords = ['geomembrane', 'mil', 'black', 'hdpe', 'lldpe', 'specification', 'project name:', 'project location:', 'project description:', 'project manager:', 'supervisor:', 'engineer:', 'contractor:', 'contact:', 'material:', 'wpwm mod'];
+    // Check for material descriptions or project info (enhanced keyword matching)
+    const metadataKeywords = [
+      'geomembrane', 'mil', 'black', 'hdpe', 'lldpe', 'specification',
+      'project name:', 'project location:', 'project description:', 'project manager:',
+      'supervisor:', 'engineer:', 'contractor:', 'contact:', 'material:',
+      'wpwm mod', 'wpwm mod 6', 'wpwm-mod', 'project:', 'job #:', 'date:'
+    ];
     const hasMetadata = cellValues.some(cell => 
       metadataKeywords.some(keyword => cell.includes(keyword))
     );
@@ -483,23 +488,22 @@ Return ONLY valid JSON, no explanation.`;
       return false;
     }
     
-    // Check if row has numeric panel number (indicating it's data)
-    const hasNumericPanel = row.some(cell => {
+    // LAZY LOADING: Only process rows with valid numeric panel numbers
+    const hasValidPanelNumber = row.some(cell => {
       if (!cell) return false;
       const str = cell.toString().trim();
-      // Check for numeric values that could be panel numbers
+      // Must be a pure number between 1-999 (reasonable panel range)
       return /^\d+$/.test(str) && parseInt(str) > 0 && parseInt(str) < 1000;
     });
     
-    if (hasNumericPanel) {
-      console.log(`✅ [AI] Valid data row with panel number`);
+    if (hasValidPanelNumber) {
+      console.log(`✅ [AI] Valid data row with numeric panel number`);
       return true;
     }
     
-    // If no numeric panel found but row has enough data, still allow it
-    // (might be a valid row with text panel numbers)
-    console.log(`⚠️ [AI] Row without numeric panel number, allowing anyway`);
-    return true;
+    // Reject rows without valid numeric panel numbers (lazy loading approach)
+    console.log(`🚫 [AI] Skipping row - no valid numeric panel number`);
+    return false;
   }
 
   /**
@@ -525,10 +529,9 @@ Return ONLY valid JSON, no explanation.`;
     // Validate row is not a header or metadata
     
     // Validate row is actual data (not header/metadata)
-    // Temporarily disabled for debugging
-    // if (!this.isValidDataRow(row, headers)) {
-    //   return null;
-    // }
+    if (!this.isValidDataRow(row, headers)) {
+      return null;
+    }
 
     const rawData = {};
     const mappedData = {};
