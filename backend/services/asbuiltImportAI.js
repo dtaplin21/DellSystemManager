@@ -203,12 +203,18 @@ class AsbuiltImportAI {
 
     // Find the actual header row (might not be row 0)
     let headerRowIndex = 0;
-    for (let i = 0; i < Math.min(20, jsonData.length); i++) {
+    for (let i = 0; i < Math.min(30, jsonData.length); i++) {
       const row = jsonData[i];
       const nonEmptyCells = row.filter(cell => cell && cell.toString().trim() !== '');
       
+      // Debug header detection
+      if (nonEmptyCells.length > 0 && i < 10) {
+        console.log(`🔍 [AI] Row ${i}: nonEmpty=${nonEmptyCells.length}, looksLikeHeader=${this.looksLikeHeaderRow(row)}`);
+      }
+      
       if (nonEmptyCells.length >= 3 && this.looksLikeHeaderRow(row)) {
         headerRowIndex = i;
+        console.log(`✅ [AI] Found header row at index ${i}`);
         break;
       }
     }
@@ -219,6 +225,8 @@ class AsbuiltImportAI {
     );
 
     console.log(`📋 [AI] Found headers at row ${headerRowIndex + 1}:`, headers);
+    console.log(`📊 [AI] Total data rows found: ${dataRows.length}`);
+    console.log(`📊 [AI] First 3 data rows:`, dataRows.slice(0, 3));
 
     return { headers, dataRows };
   }
@@ -234,7 +242,10 @@ class AsbuiltImportAI {
       return headerKeywords.some(keyword => cellStr.includes(keyword));
     });
 
-    return cellsWithKeywords.length >= 2;
+    // More strict check: require at least 3 header keywords and no null cells in key positions
+    const nonNullCells = row.filter(cell => cell !== null && cell !== undefined && cell.toString().trim() !== '');
+    
+    return cellsWithKeywords.length >= 3 && nonNullCells.length >= 4;
   }
 
   /**
@@ -436,6 +447,62 @@ Return ONLY valid JSON, no explanation.`;
   }
 
   /**
+   * Validate that row is actual data (not header/metadata)
+   */
+  isValidDataRow(row, headers) {
+    const cellValues = row.map(cell => cell ? cell.toString().toLowerCase() : '');
+    
+    // Check if row matches header keywords
+    const headerKeywords = headers.map(h => h ? h.toString().toLowerCase() : '');
+    let headerMatches = 0;
+    
+    cellValues.forEach(cell => {
+      if (headerKeywords.includes(cell)) headerMatches++;
+    });
+    
+    if (headerMatches > headers.length / 3) {
+      console.log(`🚫 [AI] Skipping header row`);
+      return false;
+    }
+    
+    // Check for material descriptions or project info
+    const metadataKeywords = ['geomembrane', 'mil', 'black', 'hdpe', 'lldpe', 'specification', 'project name:', 'project location:', 'project description:', 'project manager:', 'supervisor:', 'engineer:', 'contractor:', 'contact:', 'material:', 'wpwm mod'];
+    const hasMetadata = cellValues.some(cell => 
+      metadataKeywords.some(keyword => cell.includes(keyword))
+    );
+    
+    if (hasMetadata) {
+      console.log(`🚫 [AI] Skipping metadata row`);
+      return false;
+    }
+    
+    // Require at least 3 non-empty cells for panel placement data
+    const nonEmptyCells = cellValues.filter(cell => cell.trim() !== '');
+    if (nonEmptyCells.length < 3) {
+      console.log(`🚫 [AI] Skipping sparse row`);
+      return false;
+    }
+    
+    // Check if row has numeric panel number (indicating it's data)
+    const hasNumericPanel = row.some(cell => {
+      if (!cell) return false;
+      const str = cell.toString().trim();
+      // Check for numeric values that could be panel numbers
+      return /^\d+$/.test(str) && parseInt(str) > 0 && parseInt(str) < 1000;
+    });
+    
+    if (hasNumericPanel) {
+      console.log(`✅ [AI] Valid data row with panel number`);
+      return true;
+    }
+    
+    // If no numeric panel found but row has enough data, still allow it
+    // (might be a valid row with text panel numbers)
+    console.log(`⚠️ [AI] Row without numeric panel number, allowing anyway`);
+    return true;
+  }
+
+  /**
    * Check if required fields are present
    */
   hasRequiredFields(mappings, domain) {
@@ -456,9 +523,12 @@ Return ONLY valid JSON, no explanation.`;
    */
   async processRow(row, headers, mappings, domain, projectId, userId) {
     // Validate row is not a header or metadata
-    if (!this.isValidDataRow(row, headers)) {
-      return null;
-    }
+    
+    // Validate row is actual data (not header/metadata)
+    // Temporarily disabled for debugging
+    // if (!this.isValidDataRow(row, headers)) {
+    //   return null;
+    // }
 
     const rawData = {};
     const mappedData = {};
@@ -625,8 +695,15 @@ Return ONLY valid JSON, no explanation.`;
 
     const strValue = value.toString().trim();
 
-    // Date fields
+    // Date fields - handle Excel date serial numbers
     if (fieldName.includes('date') || fieldName.includes('Date') || fieldName.includes('Time')) {
+      // Check if it's an Excel serial date number
+      if (!isNaN(strValue) && parseFloat(strValue) > 25569) { // Excel epoch starts at 25569
+        const excelDate = parseFloat(strValue);
+        const date = new Date((excelDate - 25569) * 86400 * 1000);
+        return isNaN(date.getTime()) ? strValue : date.toISOString();
+      }
+      
       const date = new Date(strValue);
       return isNaN(date.getTime()) ? strValue : date.toISOString();
     }
