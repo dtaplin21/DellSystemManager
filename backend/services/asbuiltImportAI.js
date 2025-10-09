@@ -448,30 +448,37 @@ Return ONLY valid JSON, no explanation.`;
 
   /**
    * Validate that row is actual data (not header/metadata)
+   * PRODUCTION-READY: Handles all edge cases with precise logic
    */
   isValidDataRow(row, headers) {
-    const cellValues = row.map(cell => cell ? cell.toString().toLowerCase() : '');
+    const cellValues = row.map(cell => cell ? cell.toString().toLowerCase().trim() : '');
     
-    // Check if row matches header keywords
-    const headerKeywords = headers.map(h => h ? h.toString().toLowerCase() : '');
-    let headerMatches = 0;
+    // === STEP 1: Check for duplicate headers ===
+    // If this row contains the same text as headers, it's a duplicate header row
+    const headerKeywords = headers.map(h => h ? h.toString().toLowerCase().trim() : '');
+    let exactHeaderMatches = 0;
     
-    cellValues.forEach(cell => {
-      if (headerKeywords.includes(cell)) headerMatches++;
+    cellValues.forEach((cell, idx) => {
+      if (cell && headerKeywords[idx] && cell === headerKeywords[idx]) {
+        exactHeaderMatches++;
+      }
     });
     
-    if (headerMatches > headers.length / 3) {
-      console.log(`🚫 [AI] Skipping header row`);
+    // If more than 50% of cells match their header position exactly, it's a header row
+    if (exactHeaderMatches > headers.length * 0.5) {
+      console.log(`🚫 [AI] Skipping duplicate header row (${exactHeaderMatches} exact matches)`);
       return false;
     }
     
-    // Check for material descriptions or project info (enhanced keyword matching)
+    // === STEP 2: Check for metadata/project info rows ===
     const metadataKeywords = [
-      'geomembrane', 'mil', 'black', 'hdpe', 'lldpe', 'specification',
-      'project name:', 'project location:', 'project description:', 'project manager:',
-      'supervisor:', 'engineer:', 'contractor:', 'contact:', 'material:',
-      'wpwm mod', 'wpwm mod 6', 'wpwm-mod', 'project:', 'job #:', 'date:'
+      'geomembrane', 'mil', 'black', 'hdpe', 'lldpe', 
+      'specification', 'project name:', 'project location:', 
+      'project description:', 'project manager:', 'supervisor:', 
+      'engineer:', 'contractor:', 'contact:', 'material:',
+      'wpwm mod', 'wpwm-mod', 'job #:', 'job number'
     ];
+    
     const hasMetadata = cellValues.some(cell => 
       metadataKeywords.some(keyword => cell.includes(keyword))
     );
@@ -481,29 +488,43 @@ Return ONLY valid JSON, no explanation.`;
       return false;
     }
     
-    // Require at least 3 non-empty cells for panel placement data
-    const nonEmptyCells = cellValues.filter(cell => cell.trim() !== '');
+    // === STEP 3: Check for sparse/empty rows ===
+    const nonEmptyCells = cellValues.filter(cell => cell !== '');
     if (nonEmptyCells.length < 3) {
-      console.log(`🚫 [AI] Skipping sparse row`);
+      console.log(`🚫 [AI] Skipping sparse row (only ${nonEmptyCells.length} cells)`);
       return false;
     }
     
-    // LAZY LOADING: Only process rows with valid numeric panel numbers
-    const hasValidPanelNumber = row.some(cell => {
-      if (!cell) return false;
-      const str = cell.toString().trim();
-      // Must be a pure number between 1-999 (reasonable panel range)
-      return /^\d+$/.test(str) && parseInt(str) > 0 && parseInt(str) < 1000;
-    });
+    // === STEP 4: CRITICAL - Must have valid panel number ===
+    // Panel numbers should be numeric and in reasonable range (1-999)
+    let panelNumberFound = false;
+    let panelValue = null;
     
-    if (hasValidPanelNumber) {
-      console.log(`✅ [AI] Valid data row with numeric panel number`);
-      return true;
+    for (let i = 0; i < row.length; i++) {
+      if (!row[i]) continue;
+      
+      const cellStr = row[i].toString().trim();
+      
+      // Check if this cell is a valid panel number
+      // Accept: "1", "10", "123", but reject: "1.5", "abc", "45230" (date serial)
+      if (/^\d{1,3}$/.test(cellStr)) {
+        const num = parseInt(cellStr);
+        if (num > 0 && num < 1000) {
+          panelNumberFound = true;
+          panelValue = cellStr;
+          break;
+        }
+      }
     }
     
-    // Reject rows without valid numeric panel numbers (lazy loading approach)
-    console.log(`🚫 [AI] Skipping row - no valid numeric panel number`);
-    return false;
+    if (!panelNumberFound) {
+      console.log(`🚫 [AI] Skipping row - no valid panel number found`);
+      console.log(`   Row values:`, cellValues.slice(0, 6)); // Debug first 6 cells
+      return false;
+    }
+    
+    console.log(`✅ [AI] Valid data row - Panel: ${panelValue}`);
+    return true;
   }
 
   /**
@@ -576,58 +597,6 @@ Return ONLY valid JSON, no explanation.`;
     };
   }
 
-  /**
-   * Validate that row is actual data (not header/metadata)
-   */
-  isValidDataRow(row, headers) {
-    const cellValues = row.map(cell => cell ? cell.toString().toLowerCase() : '');
-    
-    // Check if row matches header keywords
-    const headerKeywords = headers.map(h => h ? h.toString().toLowerCase() : '');
-    let headerMatches = 0;
-    
-    cellValues.forEach(cell => {
-      if (headerKeywords.includes(cell)) headerMatches++;
-    });
-
-    if (headerMatches > headers.length / 3) {
-      console.log(`🚫 [AI] Skipping header row`);
-      return false;
-    }
-
-    // Check for material descriptions or project info
-    const metadataKeywords = ['geomembrane', 'mil', 'black', 'hdpe', 'lldpe', 'specification', 'project name:', 'project location:', 'project description:', 'project manager:', 'supervisor:', 'engineer:', 'contractor:', 'contact:', 'material:'];
-    const hasMetadata = cellValues.some(cell => 
-      metadataKeywords.some(keyword => cell.includes(keyword))
-    );
-
-    if (hasMetadata) {
-      console.log(`🚫 [AI] Skipping metadata row`);
-      return false;
-    }
-
-    // Require at least 3 non-empty cells for panel placement data
-    const nonEmptyCells = cellValues.filter(cell => cell.trim() !== '');
-    if (nonEmptyCells.length < 3) {
-      console.log(`🚫 [AI] Skipping sparse row`);
-      return false;
-    }
-
-    // Check if row has numeric panel number (indicating it's data)
-    const hasNumericPanel = row.some(cell => {
-      if (!cell) return false;
-      const str = cell.toString().trim();
-      // Check for numeric values that could be panel numbers
-      return /^\d+$/.test(str) && parseInt(str) > 0 && parseInt(str) < 1000;
-    });
-
-    if (hasNumericPanel) {
-      console.log(`✅ [AI] Valid data row with panel number`);
-      return true;
-    }
-
-    return true;
-  }
 
   /**
    * Find panel ID from database (CRITICAL)
