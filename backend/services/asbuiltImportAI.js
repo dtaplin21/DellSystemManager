@@ -189,7 +189,42 @@ class AsbuiltImportAI {
   }
 
   /**
-   * Parse Excel file with robust error handling
+   * Detect if Excel sheet has multiple data tables
+   */
+  detectMultipleTables(jsonData) {
+    const headerRows = [];
+    
+    for (let i = 0; i < jsonData.length; i++) {
+      const row = jsonData[i];
+      if (this.looksLikeHeaderRow(row)) {
+        headerRows.push(i);
+      }
+    }
+    
+    console.log(`📊 [AI] Found ${headerRows.length} header rows at positions:`, headerRows);
+    
+    // If multiple headers found, check if they're duplicates
+    if (headerRows.length > 1) {
+      const firstHeader = jsonData[headerRows[0]].map(h => h?.toString().toLowerCase().trim());
+      const isDuplicateHeader = headerRows.every(idx => {
+        const header = jsonData[idx].map(h => h?.toString().toLowerCase().trim());
+        return JSON.stringify(header) === JSON.stringify(firstHeader);
+      });
+      
+      if (isDuplicateHeader) {
+        console.log(`⚠️ [AI] Multiple sections detected with identical headers`);
+        return { multiTable: true, headerRows, isDuplicate: true };
+      } else {
+        console.log(`⚠️ [AI] Multiple different tables detected`);
+        return { multiTable: true, headerRows, isDuplicate: false };
+      }
+    }
+    
+    return { multiTable: false, headerRows };
+  }
+
+  /**
+   * Parse Excel file with multi-table detection
    */
   parseExcelFile(fileBuffer) {
     const workbook = xlsx.read(fileBuffer, { type: 'buffer' });
@@ -201,16 +236,31 @@ class AsbuiltImportAI {
       throw new Error('Excel file must contain at least a header row and one data row');
     }
 
+    console.log(`📊 [AI] Total rows in Excel: ${jsonData.length}`);
+
+    // Detect multiple tables
+    const tableDetection = this.detectMultipleTables(jsonData);
+    
+    if (tableDetection.multiTable && tableDetection.isDuplicate) {
+      // Multiple sections with same headers - handle deduplication
+      console.log(`📊 [AI] Multi-section file detected, processing with deduplication...`);
+      return this.parseMultiSectionFile(jsonData, tableDetection.headerRows);
+    } else {
+      // Single table or multiple different tables - use first table only
+      console.log(`📊 [AI] Single table file detected, processing normally...`);
+      return this.parseSingleTableFile(jsonData);
+    }
+  }
+
+  /**
+   * Parse single-table Excel file (current behavior)
+   */
+  parseSingleTableFile(jsonData) {
     // Find the actual header row (might not be row 0)
     let headerRowIndex = 0;
     for (let i = 0; i < Math.min(30, jsonData.length); i++) {
       const row = jsonData[i];
       const nonEmptyCells = row.filter(cell => cell && cell.toString().trim() !== '');
-      
-      // Debug header detection
-      if (nonEmptyCells.length > 0 && i < 10) {
-        console.log(`🔍 [AI] Row ${i}: nonEmpty=${nonEmptyCells.length}, looksLikeHeader=${this.looksLikeHeaderRow(row)}`);
-      }
       
       if (nonEmptyCells.length >= 3 && this.looksLikeHeaderRow(row)) {
         headerRowIndex = i;
@@ -224,11 +274,61 @@ class AsbuiltImportAI {
       row.some(cell => cell && cell.toString().trim() !== '')
     );
 
-    console.log(`📋 [AI] Found headers at row ${headerRowIndex + 1}:`, headers);
-    console.log(`📊 [AI] Total data rows found: ${dataRows.length}`);
-    console.log(`📊 [AI] First 3 data rows:`, dataRows.slice(0, 3));
+    console.log(`📋 [AI] Headers:`, headers);
+    console.log(`📊 [AI] Data rows: ${dataRows.length}`);
 
     return { headers, dataRows };
+  }
+
+  /**
+   * Parse multi-section Excel file with deduplication
+   */
+  parseMultiSectionFile(jsonData, headerRows) {
+    console.log(`📊 [AI] Processing ${headerRows.length} sections...`);
+    
+    const headers = jsonData[headerRows[0]];
+    const allDataRows = [];
+    const seenPanels = new Set();
+    
+    // Process each section
+    for (let i = 0; i < headerRows.length; i++) {
+      const sectionStart = headerRows[i] + 1;
+      const sectionEnd = i < headerRows.length - 1 ? headerRows[i + 1] : jsonData.length;
+      
+      console.log(`📊 [AI] Section ${i + 1}: rows ${sectionStart}-${sectionEnd}`);
+      
+      // Extract data rows for this section
+      const sectionData = jsonData.slice(sectionStart, sectionEnd).filter(row => 
+        row.some(cell => cell && cell.toString().trim() !== '')
+      );
+      
+      // Deduplicate by panel number (keep first occurrence)
+      for (const row of sectionData) {
+        // Find panel number column dynamically
+        const panelIndex = headers.findIndex(h => 
+          h && h.toString().toLowerCase().includes('panel')
+        );
+        
+        if (panelIndex === -1) continue;
+        
+        const panelCell = row[panelIndex];
+        if (!panelCell) continue;
+        
+        const panelNum = panelCell.toString().trim();
+        
+        if (!seenPanels.has(panelNum)) {
+          seenPanels.add(panelNum);
+          allDataRows.push(row);
+          console.log(`✅ [AI] Keeping panel ${panelNum} from section ${i + 1}`);
+        } else {
+          console.log(`🚫 [AI] Skipping duplicate panel ${panelNum} from section ${i + 1}`);
+        }
+      }
+    }
+    
+    console.log(`📊 [AI] Total unique panels after deduplication: ${allDataRows.length}`);
+    
+    return { headers, dataRows: allDataRows };
   }
 
   /**
