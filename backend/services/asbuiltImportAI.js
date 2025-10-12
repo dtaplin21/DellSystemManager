@@ -139,14 +139,15 @@ class AsbuiltImportAI {
         throw new Error(`Missing required fields for domain ${detectedDomain}. Required: panelNumber`);
       }
 
-      // Step 5: Process rows with validation
-      const records = [];
-      const errors = [];
+    // Step 5: Process rows with validation
+    const records = [];
+    const errors = [];
+    const seenPanelKeys = new Set();
 
-      for (let i = 0; i < dataRows.length; i++) {
-        try {
-          const record = await this.processRow(
-            dataRows[i], 
+    for (let i = 0; i < dataRows.length; i++) {
+      try {
+        const record = await this.processRow(
+          dataRows[i], 
             headers, 
             mappings, 
             detectedDomain, 
@@ -155,6 +156,19 @@ class AsbuiltImportAI {
           );
 
           if (record) {
+            const dedupeKey = record.panelId
+              ? `${record.domain}:${record.panelId}`
+              : `${record.domain}:${this.normalizePanelNumber(record?.mappedData?.panelNumber)}`;
+
+            if (dedupeKey && seenPanelKeys.has(dedupeKey)) {
+              console.log(`🚫 [AI] Skipping duplicate record for panel key ${dedupeKey}`);
+              continue;
+            }
+
+            if (dedupeKey) {
+              seenPanelKeys.add(dedupeKey);
+            }
+
             records.push(record);
           }
         } catch (error) {
@@ -281,6 +295,119 @@ class AsbuiltImportAI {
   }
 
   /**
+   * Rank potential panel number columns so we can prefer numeric identifiers over comment columns.
+   */
+  getPanelCandidateIndices(headers) {
+    if (!headers || headers.length === 0) {
+      return [];
+    }
+
+    const candidates = [];
+
+    headers.forEach((header, index) => {
+      if (!header) return;
+
+      const normalized = header.toString().toLowerCase().trim();
+      if (!normalized.includes('panel')) return;
+
+      let score = 1; // base score when column references "panel"
+
+      if (/panel\s*#/.test(normalized)) score += 4;
+      if (normalized.includes('#')) score += 2;
+      if (normalized.includes('number') || normalized.includes('no.')) score += 3;
+      if (normalized.includes('id')) score += 2;
+      if (normalized === 'panel') score += 2;
+
+      if (normalized.includes('location') || normalized.includes('comment') || normalized.includes('notes')) {
+        score -= 4;
+      }
+
+      if (score > 0) {
+        candidates.push({ index, score });
+      }
+    });
+
+    return candidates
+      .sort((a, b) => b.score - a.score)
+      .map(candidate => candidate.index);
+  }
+
+  /**
+   * Helper to get the most likely panel number column
+   */
+  getPanelColumnIndex(headers) {
+    const candidates = this.getPanelCandidateIndices(headers);
+    return candidates.length ? candidates[0] : -1;
+  }
+
+  /**
+   * Determine priority of a mapping based on source and metadata.
+   */
+  getMappingPriority(mapping) {
+    if (!mapping) return -Infinity;
+    if (mapping.method === 'explicit') return 3;
+    if (mapping.method === 'ai') return 2;
+    return mapping.confidence || 0;
+  }
+
+  /**
+   * Decide if a new mapping should replace the existing one.
+   */
+  shouldReplaceMapping(existing, candidate) {
+    const existingPriority = this.getMappingPriority(existing);
+    const candidatePriority = this.getMappingPriority(candidate);
+
+    if (candidatePriority > existingPriority) return true;
+    if (candidatePriority < existingPriority) return false;
+
+    const existingHasIndex = Number.isInteger(existing.sourceIndex);
+    const candidateHasIndex = Number.isInteger(candidate.sourceIndex);
+
+    if (!existingHasIndex && candidateHasIndex) return true;
+    if (existingHasIndex && candidateHasIndex && candidate.sourceIndex < existing.sourceIndex) return true;
+
+    return false;
+  }
+
+  /**
+   * Add a mapping to the tracker, replacing lower priority mappings when needed.
+   */
+  addMapping(mappingTracker, mapping) {
+    if (mapping.sourceIndex === undefined || mapping.sourceIndex === null) {
+      console.log(`🚫 [AI] Skipping mapping for "${mapping.sourceHeader}" due to missing source index`);
+      return false;
+    }
+
+    const key = mapping.canonicalField;
+    const existing = mappingTracker.get(key);
+
+    if (!existing) {
+      mappingTracker.set(key, mapping);
+      return true;
+    }
+
+    if (this.shouldReplaceMapping(existing, mapping)) {
+      console.log(`🔁 [AI] Replacing mapping for "${key}" with column "${mapping.sourceHeader}"`);
+      mappingTracker.set(key, mapping);
+      return true;
+    }
+
+    console.log(`🚫 [AI] Skipping ${mapping.method} mapping for "${mapping.sourceHeader}" → "${key}" (better mapping already exists)`);
+    return false;
+  }
+
+  /**
+   * Return final mappings sorted in worksheet order.
+   */
+  getSortedMappings(mappingTracker) {
+    return Array.from(mappingTracker.values()).sort((a, b) => {
+      if (a.sourceIndex === undefined) return 1;
+      if (b.sourceIndex === undefined) return -1;
+      return a.sourceIndex - b.sourceIndex;
+    });
+  }
+
+  /**
    * Parse multi-section Excel file with deduplication
    */
   parseMultiSectionFile(jsonData, headerRows) {
@@ -289,6 +416,23 @@ class AsbuiltImportAI {
     const headers = jsonData[headerRows[0]];
     const allDataRows = [];
     const seenPanels = new Set();
+    const panelCandidateIndices = this.getPanelCandidateIndices(headers);
+    const panelHeaderIndices = headers.reduce((indices, header, index) => {
+      if (!header) return indices;
+      const normalized = header.toString().toLowerCase().trim();
+      if (normalized.includes('panel')) {
+        indices.push(index);
+      }
+      return indices;
+    }, []);
+    const dedupeIndices = panelCandidateIndices.length ? panelCandidateIndices : panelHeaderIndices;
+    const canDedupe = dedupeIndices.length > 0;
+    
+    if (!canDedupe) {
+      console.warn(`⚠️ [AI] Could not identify a reliable panel number column; skipping deduplication`);
+    } else if (panelCandidateIndices.length === 0) {
+      console.warn(`⚠️ [AI] Falling back to generic panel column detection for deduplication`);
+    }
     
     // Process each section
     for (let i = 0; i < headerRows.length; i++) {
@@ -304,24 +448,38 @@ class AsbuiltImportAI {
       
       // Deduplicate by panel number (keep first occurrence)
       for (const row of sectionData) {
-        // Find panel number column dynamically
-        const panelIndex = headers.findIndex(h => 
-          h && h.toString().toLowerCase().includes('panel')
-        );
-        
-        if (panelIndex === -1) continue;
-        
-        const panelCell = row[panelIndex];
-        if (!panelCell) continue;
-        
-        const panelNum = panelCell.toString().trim();
-        
-        if (!seenPanels.has(panelNum)) {
-          seenPanels.add(panelNum);
+        if (!canDedupe) {
           allDataRows.push(row);
-          console.log(`✅ [AI] Keeping panel ${panelNum} from section ${i + 1}`);
+          continue;
+        }
+
+        let rawPanelValue = null;
+        let normalizedPanelValue = null;
+
+        for (const index of dedupeIndices) {
+          const cell = row[index];
+          if (cell === undefined || cell === null || cell === '') continue;
+
+          const normalized = this.getNormalizedPanelValue(cell);
+          if (!normalized) continue;
+
+          rawPanelValue = cell.toString().trim();
+          normalizedPanelValue = normalized;
+          break;
+        }
+
+        if (!normalizedPanelValue) {
+          allDataRows.push(row);
+          console.log(`⚠️ [AI] Unable to normalize panel number in section ${i + 1}; keeping row`);
+          continue;
+        }
+        
+        if (!seenPanels.has(normalizedPanelValue)) {
+          seenPanels.add(normalizedPanelValue);
+          allDataRows.push(row);
+          console.log(`✅ [AI] Keeping panel ${rawPanelValue} (normalized ${normalizedPanelValue}) from section ${i + 1}`);
         } else {
-          console.log(`🚫 [AI] Skipping duplicate panel ${panelNum} from section ${i + 1}`);
+          console.log(`🚫 [AI] Skipping duplicate panel ${rawPanelValue} (normalized ${normalizedPanelValue}) from section ${i + 1}`);
         }
       }
     }
@@ -445,9 +603,10 @@ Return ONLY the domain name, nothing else.`;
   async mapHeaders(headers, domain, dataRows) {
     console.log(`📋 [AI] Mapping headers for domain: ${domain}`);
     
-    const mappings = [];
+    const mappingTracker = new Map();
     const domainMappings = this.explicitMappings[domain] || {};
     let unmappedHeaders = [];
+    const totalHeaderCount = headers.filter(h => h).length || 1;
 
     // Try explicit mappings first (fast and free)
     headers.forEach((header, index) => {
@@ -456,13 +615,14 @@ Return ONLY the domain name, nothing else.`;
       const headerClean = header.toString().trim().toLowerCase();
       
       if (domainMappings[headerClean]) {
-        mappings.push({
+        const mapping = {
           sourceHeader: header,
           sourceIndex: index,
           canonicalField: domainMappings[headerClean],
           confidence: 1.0,
           method: 'explicit'
-        });
+        };
+        this.addMapping(mappingTracker, mapping);
         console.log(`✅ [AI] Explicit mapping: "${header}" → "${domainMappings[headerClean]}"`);
       } else {
         unmappedHeaders.push({ header, index });
@@ -470,13 +630,14 @@ Return ONLY the domain name, nothing else.`;
     });
 
     // Calculate confidence
-    const explicitConfidence = mappings.length / headers.filter(h => h).length;
+    const explicitMappings = this.getSortedMappings(mappingTracker);
+    const explicitConfidence = explicitMappings.length / totalHeaderCount;
 
     // If confidence is high enough OR no AI available, use explicit mappings only
     if (explicitConfidence >= 0.6 || unmappedHeaders.length === 0 || !this.anthropic) {
       console.log(`✅ [AI] Using explicit mappings (${(explicitConfidence * 100).toFixed(1)}% confidence)`);
       return {
-        mappings,
+        mappings: explicitMappings,
         confidence: Math.max(explicitConfidence, 0.7), // Minimum 70% for explicit
         usedAI: false
       };
@@ -485,9 +646,12 @@ Return ONLY the domain name, nothing else.`;
     // Otherwise, use AI for unmapped headers
     console.log(`🤖 [AI] Using Claude for ${unmappedHeaders.length} unmapped headers...`);
     const aiMappings = await this.aiMapHeaders(unmappedHeaders, domain, dataRows);
+
+    aiMappings.forEach(mapping => this.addMapping(mappingTracker, mapping));
+    const finalMappings = this.getSortedMappings(mappingTracker);
     
     return {
-      mappings: [...mappings, ...aiMappings],
+      mappings: finalMappings,
       confidence: 0.95,
       usedAI: true
     };
@@ -531,16 +695,33 @@ Return ONLY valid JSON, no explanation.`;
 
     const aiMappings = JSON.parse(message.content[0].text);
     
-    const result = Object.entries(aiMappings).map(([sourceHeader, canonicalField]) => {
-      const headerInfo = unmappedHeaders.find(h => h.header === sourceHeader);
-      return {
-        sourceHeader,
-        sourceIndex: headerInfo?.index,
-        canonicalField,
-        confidence: 0.95,
-        method: 'ai'
-      };
-    });
+    const result = Object.entries(aiMappings)
+      .map(([sourceHeader, canonicalField]) => {
+        const sanitizedCanonical = canonicalField?.toString().trim();
+        if (!sanitizedCanonical || !canonicalFields.includes(sanitizedCanonical)) {
+          console.log(`⚠️ [AI] Ignoring unsupported canonical field "${canonicalField}" for header "${sourceHeader}"`);
+          return null;
+        }
+
+        const headerInfo = unmappedHeaders.find(h => {
+          if (!h.header) return false;
+          return h.header.toString().trim().toLowerCase() === sourceHeader.toString().trim().toLowerCase();
+        });
+
+        if (!headerInfo) {
+          console.log(`⚠️ [AI] Could not match AI-mapped header "${sourceHeader}" to original headers`);
+          return null;
+        }
+
+        return {
+          sourceHeader: headerInfo.header,
+          sourceIndex: headerInfo.index,
+          canonicalField: sanitizedCanonical,
+          confidence: 0.95,
+          method: 'ai'
+        };
+      })
+      .filter(Boolean);
 
     console.log(`🤖 [AI] Mapped ${result.length} fields using Claude`);
     return result;
@@ -596,24 +777,51 @@ Return ONLY valid JSON, no explanation.`;
     }
     
     // === STEP 4: CRITICAL - Must have valid panel number ===
-    // Panel numbers should be numeric and in reasonable range (1-999)
+    // Prefer columns that look like panel identifiers (e.g. "Panel #", "Panel Number")
+    const panelCandidateIndices = this.getPanelCandidateIndices(headers);
+    const fallbackPanelIndices = panelCandidateIndices.length
+      ? panelCandidateIndices
+      : headers.reduce((indices, header, index) => {
+          if (!header) return indices;
+          const normalized = header.toString().toLowerCase().trim();
+          if (normalized.includes('panel')) {
+            indices.push(index);
+          }
+          return indices;
+        }, []);
+
     let panelNumberFound = false;
     let panelValue = null;
-    
-    for (let i = 0; i < row.length; i++) {
-      if (!row[i]) continue;
-      
-      const cellStr = row[i].toString().trim();
-      
-      // Check if this cell is a valid panel number
-      // Accept: "1", "10", "123", but reject: "1.5", "abc", "45230" (date serial)
-      if (/^\d{1,3}$/.test(cellStr)) {
-        const num = parseInt(cellStr);
-        if (num > 0 && num < 1000) {
-          panelNumberFound = true;
-          panelValue = cellStr;
-          break;
-        }
+    let normalizedPanel = null;
+
+    const attemptIndices = fallbackPanelIndices.length ? fallbackPanelIndices : [];
+
+    for (const index of attemptIndices) {
+      const cell = row[index];
+      if (cell === undefined || cell === null || cell === '') continue;
+
+      const normalized = this.getNormalizedPanelValue(cell);
+      if (!normalized) continue;
+
+      panelNumberFound = true;
+      panelValue = cell.toString().trim();
+      normalizedPanel = normalized;
+      break;
+    }
+
+    // Fallback for legacy sheets where headers are unreliable
+    if (!panelNumberFound) {
+      for (let i = 0; i < row.length; i++) {
+        const cell = row[i];
+        if (cell === undefined || cell === null || cell === '') continue;
+
+        const normalized = this.getNormalizedPanelValue(cell);
+        if (!normalized) continue;
+
+        panelNumberFound = true;
+        panelValue = cell.toString().trim();
+        normalizedPanel = normalized;
+        break;
       }
     }
     
@@ -623,7 +831,7 @@ Return ONLY valid JSON, no explanation.`;
       return false;
     }
     
-    console.log(`✅ [AI] Valid data row - Panel: ${panelValue}`);
+    console.log(`✅ [AI] Valid data row - Panel: ${panelValue} (normalized ${normalizedPanel})`);
     return true;
   }
 
@@ -739,6 +947,25 @@ Return ONLY valid JSON, no explanation.`;
   }
 
   /**
+   * Normalize a raw cell value and only return it when it represents a plausible panel number.
+   */
+  getNormalizedPanelValue(value) {
+    if (value === null || value === undefined) {
+      return null;
+    }
+
+    const normalized = this.normalizePanelNumber(value);
+    if (!normalized) return null;
+
+    const numericPortion = parseInt(normalized.slice(1), 10);
+    if (Number.isNaN(numericPortion) || numericPortion <= 0 || numericPortion >= 1000) {
+      return null;
+    }
+
+    return normalized;
+  }
+
+  /**
    * Normalize panel number for comparison
    */
   normalizePanelNumber(panelNumber) {
@@ -766,6 +993,11 @@ Return ONLY valid JSON, no explanation.`;
     if (value === null || value === undefined) return null;
 
     const strValue = value.toString().trim();
+
+    if (fieldName === 'panelNumber') {
+      const normalizedPanel = this.normalizePanelNumber(strValue);
+      return normalizedPanel || strValue.toUpperCase();
+    }
 
     // Date fields - handle Excel date serial numbers
     if (fieldName.includes('date') || fieldName.includes('Date') || fieldName.includes('Time')) {
