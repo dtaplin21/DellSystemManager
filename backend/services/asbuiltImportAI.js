@@ -15,7 +15,7 @@ class AsbuiltImportAI {
       apiKey: process.env.ANTHROPIC_API_KEY
     }) : null;
 
-    // Canonical field definitions per domain
+    // Canonical field definitions per domain for the file
     this.canonicalFields = {
       panel_placement: ['panelNumber', 'dateTime', 'location', 'coordinates', 'notes', 'weatherComments', 'length', 'width'],
       panel_seaming: ['panelNumber', 'seamId', 'dateTime', 'seamType', 'temperature', 'operator', 'seamerInitials', 'machineNumber', 'wedgeTemp', 'vboxPassFail'],
