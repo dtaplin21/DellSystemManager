@@ -1,42 +1,1621 @@
-Checking Supabase credentials...
-SUPABASE_URL: ✓ Present
-SUPABASE_SERVICE_ROLE_KEY: ✓ Present
-SUPABASE_KEY (fallback): ✗ Missing
-DATABASE_URL: ✓ Present
-Environment Variables:
-SUPABASE_URL: exists
-SUPABASE_KEY: missing
-DATABASE_URL: exists
 Stripe client initialized successfully
 ✅ connected-workflow.js route file loaded
-✅ /api/connected-workflow route registered
-✅ /api/asbuilt route registered
-WebSocket server initialized
-Server running on http://0.0.0.0:8003
-AI services status: { aiServiceAvailable: true, openaiServiceAvailable: true }
-🔌 Attempting to connect to database...
-🔌 Connection string preview: postgresql://postgres.chfdozvsvltdmglcuoqf:Qualitydata790@[HIDDEN]
-New client connected to database
-Client acquired from pool
-✅ Successfully connected to Supabase PostgreSQL database
-🔌 Connection details: {
-  host: 'aws-0-us-east-2.pooler.supabase.com',
-  port: 6543,
-  database: 'postgres',
-  user: 'postgres.chfdozvsvltdmglcuoqf',
-  ssl: 'enabled'
+[2025-10-13T00:19:21.265Z] [INFO] WebSocket server initialized
+[2025-10-13T00:19:21.266Z] [INFO] Server running on http://0.0.0.0:8003
+[2025-10-13T00:19:21.266Z] [INFO] AI services status {"aiServiceAvailable":true,"openaiServiceAvailable":true}
+[2025-10-13T00:19:21.807Z] [INFO] Successfully connected to PostgreSQL database {"host":"aws-0-us-east-2.pooler.supabase.com","database":"postgres","port":6543,"ssl":"enabled"}
+[2025-10-13T00:19:21.933Z] [INFO] Connected to PostgreSQL database
+[2025-10-13T00:19:21.933Z] [INFO] Applying database migrations
+[2025-10-13T00:19:22.376Z] [INFO] Database migrations completed successfully
+[2025-10-13T00:19:53.769Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+🔍 [ASBUILT] Fetching records for project 49e74875-5d29-4027-a817-d53602e68e4c
+[2025-10-13T00:20:23.055Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+🔍 [ASBUILT] Fetching records for project 49e74875-5d29-4027-a817-d53602e68e4c
+[2025-10-13T00:22:46.262Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+🔍 [ASBUILT] Fetching records for project 49e74875-5d29-4027-a817-d53602e68e4c
+[2025-10-13T00:23:32.589Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+[2025-10-13T00:23:32.656Z] [ERROR] Unhandled application error {"path":"/api/asbuilt/import","method":"POST","error":{"name":"MulterError","code":"LIMIT_UNEXPECTED_FILE","message":"Unexpected field","stack":"MulterError: Unexpected field\n    at wrappedFileFilter (/Users/dtaplin21/DellSystemManager/backend/node_modules/multer/index.js:40:19)\n    at Multipart.<anonymous> (/Users/dtaplin21/DellSystemManager/backend/node_modules/multer/lib/make-middleware.js:132:7)\n    at Multipart.emit (node:events:518:28)\n    at HeaderParser.cb (/Users/dtaplin21/DellSystemManager/backend/node_modules/busboy/lib/types/multipart.js:358:14)\n    at HeaderParser.push (/Users/dtaplin21/DellSystemManager/backend/node_modules/busboy/lib/types/multipart.js:162:20)\n    at SBMH.ssCb [as _cb] (/Users/dtaplin21/DellSystemManager/backend/node_modules/busboy/lib/types/multipart.js:394:37)\n    at feed (/Users/dtaplin21/DellSystemManager/backend/node_modules/streamsearch/lib/sbmh.js:200:10)\n    at SBMH.push (/Users/dtaplin21/DellSystemManager/backend/node_modules/streamsearch/lib/sbmh.js:104:16)\n    at Multipart._write (/Users/dtaplin21/DellSystemManager/backend/node_modules/busboy/lib/types/multipart.js:567:19)\n    at writeOrBuffer (node:internal/streams/writable:572:12)\n    at _write (node:internal/streams/writable:501:10)\n    at Writable.write (node:internal/streams/writable:510:10)\n    at IncomingMessage.ondata (node:internal/streams/readable:1009:22)\n    at IncomingMessage.emit (node:events:518:28)\n    at Readable.read (node:internal/streams/readable:782:10)\n    at flow (node:internal/streams/readable:1283:53)"}}
+[2025-10-13T00:24:13.797Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+📥 [ASBUILT] Import request for project 49e74875-5d29-4027-a817-d53602e68e4c, scope: project-wide
+📁 [ASBUILT] Processing Excel file: 3589cf62-d099-4751-9388-6efef50edc44.xlsx (57201 bytes)
+🤖 [ASBUILT] Processing domain: auto-detect
+🤖 [AI] ===== STARTING IMPORT =====
+🤖 [AI] Starting import for project 49e74875-5d29-4027-a817-d53602e68e4c, domain: null
+🤖 [AI] Domain type: object, value: null
+🤖 [AI] File buffer size: 57201 bytes
+📊 [AI] Total rows in Excel: 649
+📊 [AI] Found 11 header rows at positions: [
+   20,  79, 138, 197,
+  256, 315, 374, 433,
+  492, 551, 610
+]
+⚠️ [AI] Multiple sections detected with identical headers
+📊 [AI] Multi-section file detected, processing with deduplication...
+📊 [AI] Processing 11 sections...
+📊 [AI] Section 1: rows 21-79
+✅ [AI] Keeping panel 1 (normalized P001) from section 1
+✅ [AI] Keeping panel 2 (normalized P002) from section 1
+✅ [AI] Keeping panel 3 (normalized P003) from section 1
+✅ [AI] Keeping panel 4 (normalized P004) from section 1
+✅ [AI] Keeping panel 5 (normalized P005) from section 1
+✅ [AI] Keeping panel 6 (normalized P006) from section 1
+✅ [AI] Keeping panel 7 (normalized P007) from section 1
+⚠️ [AI] Unable to normalize panel number in section 1; keeping row
+⚠️ [AI] Unable to normalize panel number in section 1; keeping row
+⚠️ [AI] Unable to normalize panel number in section 1; keeping row
+🚫 [AI] Skipping duplicate panel WPWM MOD 6 (normalized P006) from section 1
+⚠️ [AI] Unable to normalize panel number in section 1; keeping row
+⚠️ [AI] Unable to normalize panel number in section 1; keeping row
+⚠️ [AI] Unable to normalize panel number in section 1; keeping row
+✅ [AI] Keeping panel 60 mil black geomembrane (normalized P060) from section 1
+📊 [AI] Section 2: rows 80-138
+✅ [AI] Keeping panel 8 (normalized P008) from section 2
+✅ [AI] Keeping panel 9 (normalized P009) from section 2
+✅ [AI] Keeping panel 10 (normalized P010) from section 2
+✅ [AI] Keeping panel 11 (normalized P011) from section 2
+✅ [AI] Keeping panel 12 (normalized P012) from section 2
+✅ [AI] Keeping panel 13 (normalized P013) from section 2
+✅ [AI] Keeping panel 14 (normalized P014) from section 2
+⚠️ [AI] Unable to normalize panel number in section 2; keeping row
+⚠️ [AI] Unable to normalize panel number in section 2; keeping row
+⚠️ [AI] Unable to normalize panel number in section 2; keeping row
+🚫 [AI] Skipping duplicate panel WPWM MOD 6 (normalized P006) from section 2
+⚠️ [AI] Unable to normalize panel number in section 2; keeping row
+⚠️ [AI] Unable to normalize panel number in section 2; keeping row
+⚠️ [AI] Unable to normalize panel number in section 2; keeping row
+🚫 [AI] Skipping duplicate panel 60 mil black geomembrane (normalized P060) from section 2
+📊 [AI] Section 3: rows 139-197
+✅ [AI] Keeping panel 15 (normalized P015) from section 3
+✅ [AI] Keeping panel 16 (normalized P016) from section 3
+✅ [AI] Keeping panel 17 (normalized P017) from section 3
+✅ [AI] Keeping panel 18 (normalized P018) from section 3
+✅ [AI] Keeping panel 19 (normalized P019) from section 3
+✅ [AI] Keeping panel 20 (normalized P020) from section 3
+✅ [AI] Keeping panel 21 (normalized P021) from section 3
+⚠️ [AI] Unable to normalize panel number in section 3; keeping row
+⚠️ [AI] Unable to normalize panel number in section 3; keeping row
+⚠️ [AI] Unable to normalize panel number in section 3; keeping row
+🚫 [AI] Skipping duplicate panel WPWM MOD 6 (normalized P006) from section 3
+⚠️ [AI] Unable to normalize panel number in section 3; keeping row
+⚠️ [AI] Unable to normalize panel number in section 3; keeping row
+⚠️ [AI] Unable to normalize panel number in section 3; keeping row
+🚫 [AI] Skipping duplicate panel 60 mil black geomembrane (normalized P060) from section 3
+📊 [AI] Section 4: rows 198-256
+✅ [AI] Keeping panel 22 (normalized P022) from section 4
+✅ [AI] Keeping panel 23 (normalized P023) from section 4
+✅ [AI] Keeping panel 24 (normalized P024) from section 4
+✅ [AI] Keeping panel 25 (normalized P025) from section 4
+⚠️ [AI] Unable to normalize panel number in section 4; keeping row
+⚠️ [AI] Unable to normalize panel number in section 4; keeping row
+⚠️ [AI] Unable to normalize panel number in section 4; keeping row
+🚫 [AI] Skipping duplicate panel WPWM MOD 6 (normalized P006) from section 4
+⚠️ [AI] Unable to normalize panel number in section 4; keeping row
+⚠️ [AI] Unable to normalize panel number in section 4; keeping row
+⚠️ [AI] Unable to normalize panel number in section 4; keeping row
+🚫 [AI] Skipping duplicate panel 60 mil black geomembrane (normalized P060) from section 4
+📊 [AI] Section 5: rows 257-315
+✅ [AI] Keeping panel 26 (normalized P026) from section 5
+✅ [AI] Keeping panel 27 (normalized P027) from section 5
+✅ [AI] Keeping panel 28 (normalized P028) from section 5
+✅ [AI] Keeping panel 29 (normalized P029) from section 5
+✅ [AI] Keeping panel 30 (normalized P030) from section 5
+✅ [AI] Keeping panel 31 (normalized P031) from section 5
+✅ [AI] Keeping panel 32 (normalized P032) from section 5
+⚠️ [AI] Unable to normalize panel number in section 5; keeping row
+⚠️ [AI] Unable to normalize panel number in section 5; keeping row
+⚠️ [AI] Unable to normalize panel number in section 5; keeping row
+🚫 [AI] Skipping duplicate panel WPWM MOD 6 (normalized P006) from section 5
+⚠️ [AI] Unable to normalize panel number in section 5; keeping row
+⚠️ [AI] Unable to normalize panel number in section 5; keeping row
+⚠️ [AI] Unable to normalize panel number in section 5; keeping row
+🚫 [AI] Skipping duplicate panel 60 mil black geomembrane (normalized P060) from section 5
+📊 [AI] Section 6: rows 316-374
+✅ [AI] Keeping panel 33 (normalized P033) from section 6
+⚠️ [AI] Unable to normalize panel number in section 6; keeping row
+⚠️ [AI] Unable to normalize panel number in section 6; keeping row
+⚠️ [AI] Unable to normalize panel number in section 6; keeping row
+🚫 [AI] Skipping duplicate panel WPWM MOD 6 (normalized P006) from section 6
+⚠️ [AI] Unable to normalize panel number in section 6; keeping row
+⚠️ [AI] Unable to normalize panel number in section 6; keeping row
+⚠️ [AI] Unable to normalize panel number in section 6; keeping row
+🚫 [AI] Skipping duplicate panel 60 mil black geomembrane (normalized P060) from section 6
+📊 [AI] Section 7: rows 375-433
+✅ [AI] Keeping panel 34 (normalized P034) from section 7
+✅ [AI] Keeping panel 35 (normalized P035) from section 7
+⚠️ [AI] Unable to normalize panel number in section 7; keeping row
+⚠️ [AI] Unable to normalize panel number in section 7; keeping row
+⚠️ [AI] Unable to normalize panel number in section 7; keeping row
+🚫 [AI] Skipping duplicate panel WPWM MOD 6 (normalized P006) from section 7
+⚠️ [AI] Unable to normalize panel number in section 7; keeping row
+⚠️ [AI] Unable to normalize panel number in section 7; keeping row
+⚠️ [AI] Unable to normalize panel number in section 7; keeping row
+🚫 [AI] Skipping duplicate panel 60 mil black geomembrane (normalized P060) from section 7
+📊 [AI] Section 8: rows 434-492
+✅ [AI] Keeping panel 36 (normalized P036) from section 8
+✅ [AI] Keeping panel 37 (normalized P037) from section 8
+✅ [AI] Keeping panel 38 (normalized P038) from section 8
+✅ [AI] Keeping panel 39 (normalized P039) from section 8
+✅ [AI] Keeping panel 40 (normalized P040) from section 8
+⚠️ [AI] Unable to normalize panel number in section 8; keeping row
+⚠️ [AI] Unable to normalize panel number in section 8; keeping row
+⚠️ [AI] Unable to normalize panel number in section 8; keeping row
+🚫 [AI] Skipping duplicate panel WPWM MOD 6 (normalized P006) from section 8
+⚠️ [AI] Unable to normalize panel number in section 8; keeping row
+⚠️ [AI] Unable to normalize panel number in section 8; keeping row
+⚠️ [AI] Unable to normalize panel number in section 8; keeping row
+🚫 [AI] Skipping duplicate panel 60 mil black geomembrane (normalized P060) from section 8
+📊 [AI] Section 9: rows 493-551
+✅ [AI] Keeping panel 41 (normalized P041) from section 9
+✅ [AI] Keeping panel 42 (normalized P042) from section 9
+✅ [AI] Keeping panel 43 (normalized P043) from section 9
+✅ [AI] Keeping panel 44 (normalized P044) from section 9
+✅ [AI] Keeping panel 45 (normalized P045) from section 9
+✅ [AI] Keeping panel 46 (normalized P046) from section 9
+⚠️ [AI] Unable to normalize panel number in section 9; keeping row
+⚠️ [AI] Unable to normalize panel number in section 9; keeping row
+⚠️ [AI] Unable to normalize panel number in section 9; keeping row
+🚫 [AI] Skipping duplicate panel WPWM MOD 6 (normalized P006) from section 9
+⚠️ [AI] Unable to normalize panel number in section 9; keeping row
+⚠️ [AI] Unable to normalize panel number in section 9; keeping row
+⚠️ [AI] Unable to normalize panel number in section 9; keeping row
+🚫 [AI] Skipping duplicate panel 60 mil black geomembrane (normalized P060) from section 9
+📊 [AI] Section 10: rows 552-610
+✅ [AI] Keeping panel 47 (normalized P047) from section 10
+✅ [AI] Keeping panel 48 (normalized P048) from section 10
+✅ [AI] Keeping panel 49 (normalized P049) from section 10
+✅ [AI] Keeping panel 50 (normalized P050) from section 10
+✅ [AI] Keeping panel 51 (normalized P051) from section 10
+✅ [AI] Keeping panel 52 (normalized P052) from section 10
+✅ [AI] Keeping panel 53 (normalized P053) from section 10
+✅ [AI] Keeping panel 54 (normalized P054) from section 10
+⚠️ [AI] Unable to normalize panel number in section 10; keeping row
+⚠️ [AI] Unable to normalize panel number in section 10; keeping row
+⚠️ [AI] Unable to normalize panel number in section 10; keeping row
+🚫 [AI] Skipping duplicate panel WPWM MOD 6 (normalized P006) from section 10
+⚠️ [AI] Unable to normalize panel number in section 10; keeping row
+⚠️ [AI] Unable to normalize panel number in section 10; keeping row
+⚠️ [AI] Unable to normalize panel number in section 10; keeping row
+🚫 [AI] Skipping duplicate panel 60 mil black geomembrane (normalized P060) from section 10
+📊 [AI] Section 11: rows 611-649
+✅ [AI] Keeping panel 55 (normalized P055) from section 11
+✅ [AI] Keeping panel 56 (normalized P056) from section 11
+✅ [AI] Keeping panel 57 (normalized P057) from section 11
+✅ [AI] Keeping panel 58 (normalized P058) from section 11
+✅ [AI] Keeping panel 59 (normalized P059) from section 11
+🚫 [AI] Skipping duplicate panel 60 (normalized P060) from section 11
+✅ [AI] Keeping panel 61 (normalized P061) from section 11
+✅ [AI] Keeping panel 62 (normalized P062) from section 11
+✅ [AI] Keeping panel 63 (normalized P063) from section 11
+📊 [AI] Total unique panels after deduplication: 123
+📊 [AI] Parsed 123 rows with 11 columns
+🎯 [AI] Domain scores: {
+  panel_placement: 3,
+  panel_seaming: 0,
+  non_destructive: 0,
+  trial_weld: 0,
+  repairs: 0,
+  destructive: 0
 }
-✅ Database test query successful: {
-  currentTime: 2025-09-29T19:13:01.573Z,
-  version: 'PostgreSQL 15.8 on aarch64-unknown-linux-gnu, comp...'
-}
-Connected to PostgreSQL database
-🔧 Applying database migrations...
-Client acquired from pool
-✅ panel_layouts table created/verified
-✅ panel_layouts index created/verified
-✅ asbuilt_records table created/verified
-✅ asbuilt_records indexes created/verified
-✅ Database migrations completed successfully
-Client removed from pool
-Client was removed due to pool ending
+🎯 [AI] Best domain: panel_placement (score: 3)
+✅ [AI] Using domain: panel_placement
+🎯 [AI] Using domain: panel_placement
+📋 [AI] Mapping headers for domain: panel_placement
+✅ [AI] Explicit mapping: "Date" → "dateTime"
+✅ [AI] Explicit mapping: "Panel #" → "panelNumber"
+✅ [AI] Explicit mapping: "Length" → "length"
+✅ [AI] Explicit mapping: "Width" → "width"
+✅ [AI] Explicit mapping: "Panel Location / Comment" → "location"
+✅ [AI] Using explicit mappings (83.3% confidence)
+📋 [AI] Mapped 5 fields (confidence: 83.3%, AI: false)
+✅ [AI] Valid data row - Panel: 1 (normalized P001)
+❌ [AI] Panel not found: P001 (normalized: P001)
+Available panels: [
+  {
+    id: '221adb42-3af2-49cb-8e13-8c9db56d19a5',
+    panelNumber: '54/62',
+    normalized: 'P054'
+  },
+  {
+    id: '32eee112-f152-4e21-8892-44905b2135a4',
+    panelNumber: 'P002',
+    normalized: 'P002'
+  },
+  {
+    id: '15b37040-8eaf-4057-815e-b827aab43814',
+    panelNumber: 'P003',
+    normalized: 'P003'
+  },
+  {
+    id: '221ba6ee-a774-4951-966f-d7aa0bc54ff7',
+    panelNumber: 'P004',
+    normalized: 'P004'
+  },
+  {
+    id: '59d23e26-ba2c-4663-b87f-41b3db6b7c21',
+    panelNumber: 'P005',
+    normalized: 'P005'
+  }
+]
+⚠️ [AI] Row 2 error: Panel not found in layout: P001
+✅ [AI] Valid data row - Panel: 2 (normalized P002)
+✅ [AI] Found panel: P002 → 32eee112-f152-4e21-8892-44905b2135a4
+✅ [AI] Mapped panel P002 → 32eee112-f152-4e21-8892-44905b2135a4
+✅ [AI] Valid data row - Panel: 3 (normalized P003)
+✅ [AI] Found panel: P003 → 15b37040-8eaf-4057-815e-b827aab43814
+✅ [AI] Mapped panel P003 → 15b37040-8eaf-4057-815e-b827aab43814
+✅ [AI] Valid data row - Panel: 4 (normalized P004)
+✅ [AI] Found panel: P004 → 221ba6ee-a774-4951-966f-d7aa0bc54ff7
+✅ [AI] Mapped panel P004 → 221ba6ee-a774-4951-966f-d7aa0bc54ff7
+✅ [AI] Valid data row - Panel: 5 (normalized P005)
+✅ [AI] Found panel: P005 → 59d23e26-ba2c-4663-b87f-41b3db6b7c21
+✅ [AI] Mapped panel P005 → 59d23e26-ba2c-4663-b87f-41b3db6b7c21
+✅ [AI] Valid data row - Panel: 6 (normalized P006)
+✅ [AI] Found panel: P006 → 7358095d-9a64-4c59-b37b-59d2c2bf86b5
+✅ [AI] Mapped panel P006 → 7358095d-9a64-4c59-b37b-59d2c2bf86b5
+✅ [AI] Valid data row - Panel: 7 (normalized P007)
+✅ [AI] Found panel: P007 → ebec06bc-9136-47e6-90f8-ed65af453688
+✅ [AI] Mapped panel P007 → ebec06bc-9136-47e6-90f8-ed65af453688
+🚫 [AI] Skipping sparse row (only 2 cells)
+🚫 [AI] Skipping metadata row
+🚫 [AI] Skipping sparse row (only 1 cells)
+🚫 [AI] Skipping metadata row
+🚫 [AI] Skipping metadata row
+🚫 [AI] Skipping metadata row
+🚫 [AI] Skipping metadata row
+✅ [AI] Valid data row - Panel: 8 (normalized P008)
+✅ [AI] Found panel: P008 → 28d256ff-7e3e-4136-a42e-fe1575b00016
+✅ [AI] Mapped panel P008 → 28d256ff-7e3e-4136-a42e-fe1575b00016
+✅ [AI] Valid data row - Panel: 9 (normalized P009)
+❌ [AI] Panel not found: P009 (normalized: P009)
+Available panels: [
+  {
+    id: '221adb42-3af2-49cb-8e13-8c9db56d19a5',
+    panelNumber: '54/62',
+    normalized: 'P054'
+  },
+  {
+    id: '32eee112-f152-4e21-8892-44905b2135a4',
+    panelNumber: 'P002',
+    normalized: 'P002'
+  },
+  {
+    id: '15b37040-8eaf-4057-815e-b827aab43814',
+    panelNumber: 'P003',
+    normalized: 'P003'
+  },
+  {
+    id: '221ba6ee-a774-4951-966f-d7aa0bc54ff7',
+    panelNumber: 'P004',
+    normalized: 'P004'
+  },
+  {
+    id: '59d23e26-ba2c-4663-b87f-41b3db6b7c21',
+    panelNumber: 'P005',
+    normalized: 'P005'
+  }
+]
+⚠️ [AI] Row 17 error: Panel not found in layout: P009
+✅ [AI] Valid data row - Panel: 10 (normalized P010)
+✅ [AI] Found panel: P010 → 010a8018-d5c4-4eee-ba43-4641349accde
+✅ [AI] Mapped panel P010 → 010a8018-d5c4-4eee-ba43-4641349accde
+✅ [AI] Valid data row - Panel: 11 (normalized P011)
+✅ [AI] Found panel: P011 → 1924b3df-eb8c-4a37-bd9f-debfec67f929
+✅ [AI] Mapped panel P011 → 1924b3df-eb8c-4a37-bd9f-debfec67f929
+✅ [AI] Valid data row - Panel: 12 (normalized P012)
+✅ [AI] Found panel: P012 → d7843a72-ccb7-4558-8300-67bb266ef9f1
+✅ [AI] Mapped panel P012 → d7843a72-ccb7-4558-8300-67bb266ef9f1
+✅ [AI] Valid data row - Panel: 13 (normalized P013)
+✅ [AI] Found panel: P013 → 3ac35238-2424-431c-be42-7eeff868e87b
+✅ [AI] Mapped panel P013 → 3ac35238-2424-431c-be42-7eeff868e87b
+✅ [AI] Valid data row - Panel: 14 (normalized P014)
+✅ [AI] Found panel: P014 → dcadff14-48bb-460d-a071-91ee25337555
+✅ [AI] Mapped panel P014 → dcadff14-48bb-460d-a071-91ee25337555
+🚫 [AI] Skipping sparse row (only 2 cells)
+🚫 [AI] Skipping metadata row
+🚫 [AI] Skipping sparse row (only 1 cells)
+🚫 [AI] Skipping metadata row
+🚫 [AI] Skipping metadata row
+🚫 [AI] Skipping metadata row
+✅ [AI] Valid data row - Panel: 15 (normalized P015)
+❌ [AI] Panel not found: P015 (normalized: P015)
+Available panels: [
+  {
+    id: '221adb42-3af2-49cb-8e13-8c9db56d19a5',
+    panelNumber: '54/62',
+    normalized: 'P054'
+  },
+  {
+    id: '32eee112-f152-4e21-8892-44905b2135a4',
+    panelNumber: 'P002',
+    normalized: 'P002'
+  },
+  {
+    id: '15b37040-8eaf-4057-815e-b827aab43814',
+    panelNumber: 'P003',
+    normalized: 'P003'
+  },
+  {
+    id: '221ba6ee-a774-4951-966f-d7aa0bc54ff7',
+    panelNumber: 'P004',
+    normalized: 'P004'
+  },
+  {
+    id: '59d23e26-ba2c-4663-b87f-41b3db6b7c21',
+    panelNumber: 'P005',
+    normalized: 'P005'
+  }
+]
+⚠️ [AI] Row 29 error: Panel not found in layout: P015
+✅ [AI] Valid data row - Panel: 16 (normalized P016)
+❌ [AI] Panel not found: P016 (normalized: P016)
+Available panels: [
+  {
+    id: '221adb42-3af2-49cb-8e13-8c9db56d19a5',
+    panelNumber: '54/62',
+    normalized: 'P054'
+  },
+  {
+    id: '32eee112-f152-4e21-8892-44905b2135a4',
+    panelNumber: 'P002',
+    normalized: 'P002'
+  },
+  {
+    id: '15b37040-8eaf-4057-815e-b827aab43814',
+    panelNumber: 'P003',
+    normalized: 'P003'
+  },
+  {
+    id: '221ba6ee-a774-4951-966f-d7aa0bc54ff7',
+    panelNumber: 'P004',
+    normalized: 'P004'
+  },
+  {
+    id: '59d23e26-ba2c-4663-b87f-41b3db6b7c21',
+    panelNumber: 'P005',
+    normalized: 'P005'
+  }
+]
+⚠️ [AI] Row 30 error: Panel not found in layout: P016
+✅ [AI] Valid data row - Panel: 17 (normalized P017)
+❌ [AI] Panel not found: P017 (normalized: P017)
+Available panels: [
+  {
+    id: '221adb42-3af2-49cb-8e13-8c9db56d19a5',
+    panelNumber: '54/62',
+    normalized: 'P054'
+  },
+  {
+    id: '32eee112-f152-4e21-8892-44905b2135a4',
+    panelNumber: 'P002',
+    normalized: 'P002'
+  },
+  {
+    id: '15b37040-8eaf-4057-815e-b827aab43814',
+    panelNumber: 'P003',
+    normalized: 'P003'
+  },
+  {
+    id: '221ba6ee-a774-4951-966f-d7aa0bc54ff7',
+    panelNumber: 'P004',
+    normalized: 'P004'
+  },
+  {
+    id: '59d23e26-ba2c-4663-b87f-41b3db6b7c21',
+    panelNumber: 'P005',
+    normalized: 'P005'
+  }
+]
+⚠️ [AI] Row 31 error: Panel not found in layout: P017
+✅ [AI] Valid data row - Panel: 18 (normalized P018)
+✅ [AI] Found panel: P018 → 26fec916-d955-4a78-aa38-b78c29b7ee46
+✅ [AI] Mapped panel P018 → 26fec916-d955-4a78-aa38-b78c29b7ee46
+✅ [AI] Valid data row - Panel: 19 (normalized P019)
+✅ [AI] Found panel: P019 → 0388a942-2008-4bbd-99d7-83bd64326905
+✅ [AI] Mapped panel P019 → 0388a942-2008-4bbd-99d7-83bd64326905
+✅ [AI] Valid data row - Panel: 20 (normalized P020)
+✅ [AI] Found panel: P020 → 4d7e2dc0-b905-490b-a9fc-f894221c0266
+✅ [AI] Mapped panel P020 → 4d7e2dc0-b905-490b-a9fc-f894221c0266
+✅ [AI] Valid data row - Panel: 21 (normalized P021)
+✅ [AI] Found panel: P021 → d17abd24-59cb-49d5-a3b3-15cb376ad16c
+✅ [AI] Mapped panel P021 → d17abd24-59cb-49d5-a3b3-15cb376ad16c
+🚫 [AI] Skipping sparse row (only 2 cells)
+🚫 [AI] Skipping metadata row
+🚫 [AI] Skipping sparse row (only 1 cells)
+🚫 [AI] Skipping metadata row
+🚫 [AI] Skipping metadata row
+🚫 [AI] Skipping metadata row
+✅ [AI] Valid data row - Panel: 22 (normalized P022)
+✅ [AI] Found panel: P022 → 19243db5-938c-4169-97ce-efb688766522
+✅ [AI] Mapped panel P022 → 19243db5-938c-4169-97ce-efb688766522
+✅ [AI] Valid data row - Panel: 23 (normalized P023)
+✅ [AI] Found panel: P023 → 4cab721d-d857-4147-acd7-f7e09687f629
+✅ [AI] Mapped panel P023 → 4cab721d-d857-4147-acd7-f7e09687f629
+✅ [AI] Valid data row - Panel: 24 (normalized P024)
+✅ [AI] Found panel: P024 → 17e3bc7a-1bd5-435d-83a4-88fbb4295596
+✅ [AI] Mapped panel P024 → 17e3bc7a-1bd5-435d-83a4-88fbb4295596
+✅ [AI] Valid data row - Panel: 25 (normalized P025)
+❌ [AI] Panel not found: P025 (normalized: P025)
+Available panels: [
+  {
+    id: '221adb42-3af2-49cb-8e13-8c9db56d19a5',
+    panelNumber: '54/62',
+    normalized: 'P054'
+  },
+  {
+    id: '32eee112-f152-4e21-8892-44905b2135a4',
+    panelNumber: 'P002',
+    normalized: 'P002'
+  },
+  {
+    id: '15b37040-8eaf-4057-815e-b827aab43814',
+    panelNumber: 'P003',
+    normalized: 'P003'
+  },
+  {
+    id: '221ba6ee-a774-4951-966f-d7aa0bc54ff7',
+    panelNumber: 'P004',
+    normalized: 'P004'
+  },
+  {
+    id: '59d23e26-ba2c-4663-b87f-41b3db6b7c21',
+    panelNumber: 'P005',
+    normalized: 'P005'
+  }
+]
+⚠️ [AI] Row 45 error: Panel not found in layout: P025
+🚫 [AI] Skipping sparse row (only 2 cells)
+🚫 [AI] Skipping metadata row
+🚫 [AI] Skipping sparse row (only 1 cells)
+🚫 [AI] Skipping metadata row
+🚫 [AI] Skipping metadata row
+🚫 [AI] Skipping metadata row
+✅ [AI] Valid data row - Panel: 26 (normalized P026)
+❌ [AI] Panel not found: P026 (normalized: P026)
+Available panels: [
+  {
+    id: '221adb42-3af2-49cb-8e13-8c9db56d19a5',
+    panelNumber: '54/62',
+    normalized: 'P054'
+  },
+  {
+    id: '32eee112-f152-4e21-8892-44905b2135a4',
+    panelNumber: 'P002',
+    normalized: 'P002'
+  },
+  {
+    id: '15b37040-8eaf-4057-815e-b827aab43814',
+    panelNumber: 'P003',
+    normalized: 'P003'
+  },
+  {
+    id: '221ba6ee-a774-4951-966f-d7aa0bc54ff7',
+    panelNumber: 'P004',
+    normalized: 'P004'
+  },
+  {
+    id: '59d23e26-ba2c-4663-b87f-41b3db6b7c21',
+    panelNumber: 'P005',
+    normalized: 'P005'
+  }
+]
+⚠️ [AI] Row 52 error: Panel not found in layout: P026
+✅ [AI] Valid data row - Panel: 27 (normalized P027)
+❌ [AI] Panel not found: P027 (normalized: P027)
+Available panels: [
+  {
+    id: '221adb42-3af2-49cb-8e13-8c9db56d19a5',
+    panelNumber: '54/62',
+    normalized: 'P054'
+  },
+  {
+    id: '32eee112-f152-4e21-8892-44905b2135a4',
+    panelNumber: 'P002',
+    normalized: 'P002'
+  },
+  {
+    id: '15b37040-8eaf-4057-815e-b827aab43814',
+    panelNumber: 'P003',
+    normalized: 'P003'
+  },
+  {
+    id: '221ba6ee-a774-4951-966f-d7aa0bc54ff7',
+    panelNumber: 'P004',
+    normalized: 'P004'
+  },
+  {
+    id: '59d23e26-ba2c-4663-b87f-41b3db6b7c21',
+    panelNumber: 'P005',
+    normalized: 'P005'
+  }
+]
+⚠️ [AI] Row 53 error: Panel not found in layout: P027
+✅ [AI] Valid data row - Panel: 28 (normalized P028)
+✅ [AI] Found panel: P028 → 9a6e0063-72b2-4257-892a-c3710dde3c1d
+✅ [AI] Mapped panel P028 → 9a6e0063-72b2-4257-892a-c3710dde3c1d
+✅ [AI] Valid data row - Panel: 29 (normalized P029)
+❌ [AI] Panel not found: P029 (normalized: P029)
+Available panels: [
+  {
+    id: '221adb42-3af2-49cb-8e13-8c9db56d19a5',
+    panelNumber: '54/62',
+    normalized: 'P054'
+  },
+  {
+    id: '32eee112-f152-4e21-8892-44905b2135a4',
+    panelNumber: 'P002',
+    normalized: 'P002'
+  },
+  {
+    id: '15b37040-8eaf-4057-815e-b827aab43814',
+    panelNumber: 'P003',
+    normalized: 'P003'
+  },
+  {
+    id: '221ba6ee-a774-4951-966f-d7aa0bc54ff7',
+    panelNumber: 'P004',
+    normalized: 'P004'
+  },
+  {
+    id: '59d23e26-ba2c-4663-b87f-41b3db6b7c21',
+    panelNumber: 'P005',
+    normalized: 'P005'
+  }
+]
+⚠️ [AI] Row 55 error: Panel not found in layout: P029
+✅ [AI] Valid data row - Panel: 30 (normalized P030)
+❌ [AI] Panel not found: P030 (normalized: P030)
+Available panels: [
+  {
+    id: '221adb42-3af2-49cb-8e13-8c9db56d19a5',
+    panelNumber: '54/62',
+    normalized: 'P054'
+  },
+  {
+    id: '32eee112-f152-4e21-8892-44905b2135a4',
+    panelNumber: 'P002',
+    normalized: 'P002'
+  },
+  {
+    id: '15b37040-8eaf-4057-815e-b827aab43814',
+    panelNumber: 'P003',
+    normalized: 'P003'
+  },
+  {
+    id: '221ba6ee-a774-4951-966f-d7aa0bc54ff7',
+    panelNumber: 'P004',
+    normalized: 'P004'
+  },
+  {
+    id: '59d23e26-ba2c-4663-b87f-41b3db6b7c21',
+    panelNumber: 'P005',
+    normalized: 'P005'
+  }
+]
+⚠️ [AI] Row 56 error: Panel not found in layout: P030
+✅ [AI] Valid data row - Panel: 31 (normalized P031)
+❌ [AI] Panel not found: P031 (normalized: P031)
+Available panels: [
+  {
+    id: '221adb42-3af2-49cb-8e13-8c9db56d19a5',
+    panelNumber: '54/62',
+    normalized: 'P054'
+  },
+  {
+    id: '32eee112-f152-4e21-8892-44905b2135a4',
+    panelNumber: 'P002',
+    normalized: 'P002'
+  },
+  {
+    id: '15b37040-8eaf-4057-815e-b827aab43814',
+    panelNumber: 'P003',
+    normalized: 'P003'
+  },
+  {
+    id: '221ba6ee-a774-4951-966f-d7aa0bc54ff7',
+    panelNumber: 'P004',
+    normalized: 'P004'
+  },
+  {
+    id: '59d23e26-ba2c-4663-b87f-41b3db6b7c21',
+    panelNumber: 'P005',
+    normalized: 'P005'
+  }
+]
+⚠️ [AI] Row 57 error: Panel not found in layout: P031
+✅ [AI] Valid data row - Panel: 32 (normalized P032)
+❌ [AI] Panel not found: P032 (normalized: P032)
+Available panels: [
+  {
+    id: '221adb42-3af2-49cb-8e13-8c9db56d19a5',
+    panelNumber: '54/62',
+    normalized: 'P054'
+  },
+  {
+    id: '32eee112-f152-4e21-8892-44905b2135a4',
+    panelNumber: 'P002',
+    normalized: 'P002'
+  },
+  {
+    id: '15b37040-8eaf-4057-815e-b827aab43814',
+    panelNumber: 'P003',
+    normalized: 'P003'
+  },
+  {
+    id: '221ba6ee-a774-4951-966f-d7aa0bc54ff7',
+    panelNumber: 'P004',
+    normalized: 'P004'
+  },
+  {
+    id: '59d23e26-ba2c-4663-b87f-41b3db6b7c21',
+    panelNumber: 'P005',
+    normalized: 'P005'
+  }
+]
+⚠️ [AI] Row 58 error: Panel not found in layout: P032
+🚫 [AI] Skipping sparse row (only 1 cells)
+🚫 [AI] Skipping metadata row
+🚫 [AI] Skipping sparse row (only 1 cells)
+🚫 [AI] Skipping metadata row
+🚫 [AI] Skipping metadata row
+🚫 [AI] Skipping metadata row
+✅ [AI] Valid data row - Panel: 33 (normalized P033)
+❌ [AI] Panel not found: P033 (normalized: P033)
+Available panels: [
+  {
+    id: '221adb42-3af2-49cb-8e13-8c9db56d19a5',
+    panelNumber: '54/62',
+    normalized: 'P054'
+  },
+  {
+    id: '32eee112-f152-4e21-8892-44905b2135a4',
+    panelNumber: 'P002',
+    normalized: 'P002'
+  },
+  {
+    id: '15b37040-8eaf-4057-815e-b827aab43814',
+    panelNumber: 'P003',
+    normalized: 'P003'
+  },
+  {
+    id: '221ba6ee-a774-4951-966f-d7aa0bc54ff7',
+    panelNumber: 'P004',
+    normalized: 'P004'
+  },
+  {
+    id: '59d23e26-ba2c-4663-b87f-41b3db6b7c21',
+    panelNumber: 'P005',
+    normalized: 'P005'
+  }
+]
+⚠️ [AI] Row 65 error: Panel not found in layout: P033
+🚫 [AI] Skipping sparse row (only 2 cells)
+🚫 [AI] Skipping metadata row
+🚫 [AI] Skipping sparse row (only 1 cells)
+🚫 [AI] Skipping metadata row
+🚫 [AI] Skipping metadata row
+🚫 [AI] Skipping metadata row
+✅ [AI] Valid data row - Panel: 34 (normalized P034)
+❌ [AI] Panel not found: P034 (normalized: P034)
+Available panels: [
+  {
+    id: '221adb42-3af2-49cb-8e13-8c9db56d19a5',
+    panelNumber: '54/62',
+    normalized: 'P054'
+  },
+  {
+    id: '32eee112-f152-4e21-8892-44905b2135a4',
+    panelNumber: 'P002',
+    normalized: 'P002'
+  },
+  {
+    id: '15b37040-8eaf-4057-815e-b827aab43814',
+    panelNumber: 'P003',
+    normalized: 'P003'
+  },
+  {
+    id: '221ba6ee-a774-4951-966f-d7aa0bc54ff7',
+    panelNumber: 'P004',
+    normalized: 'P004'
+  },
+  {
+    id: '59d23e26-ba2c-4663-b87f-41b3db6b7c21',
+    panelNumber: 'P005',
+    normalized: 'P005'
+  }
+]
+⚠️ [AI] Row 72 error: Panel not found in layout: P034
+✅ [AI] Valid data row - Panel: 35 (normalized P035)
+❌ [AI] Panel not found: P035 (normalized: P035)
+Available panels: [
+  {
+    id: '221adb42-3af2-49cb-8e13-8c9db56d19a5',
+    panelNumber: '54/62',
+    normalized: 'P054'
+  },
+  {
+    id: '32eee112-f152-4e21-8892-44905b2135a4',
+    panelNumber: 'P002',
+    normalized: 'P002'
+  },
+  {
+    id: '15b37040-8eaf-4057-815e-b827aab43814',
+    panelNumber: 'P003',
+    normalized: 'P003'
+  },
+  {
+    id: '221ba6ee-a774-4951-966f-d7aa0bc54ff7',
+    panelNumber: 'P004',
+    normalized: 'P004'
+  },
+  {
+    id: '59d23e26-ba2c-4663-b87f-41b3db6b7c21',
+    panelNumber: 'P005',
+    normalized: 'P005'
+  }
+]
+⚠️ [AI] Row 73 error: Panel not found in layout: P035
+🚫 [AI] Skipping sparse row (only 2 cells)
+🚫 [AI] Skipping metadata row
+🚫 [AI] Skipping sparse row (only 1 cells)
+🚫 [AI] Skipping metadata row
+🚫 [AI] Skipping metadata row
+🚫 [AI] Skipping metadata row
+✅ [AI] Valid data row - Panel: 36 (normalized P036)
+❌ [AI] Panel not found: P036 (normalized: P036)
+Available panels: [
+  {
+    id: '221adb42-3af2-49cb-8e13-8c9db56d19a5',
+    panelNumber: '54/62',
+    normalized: 'P054'
+  },
+  {
+    id: '32eee112-f152-4e21-8892-44905b2135a4',
+    panelNumber: 'P002',
+    normalized: 'P002'
+  },
+  {
+    id: '15b37040-8eaf-4057-815e-b827aab43814',
+    panelNumber: 'P003',
+    normalized: 'P003'
+  },
+  {
+    id: '221ba6ee-a774-4951-966f-d7aa0bc54ff7',
+    panelNumber: 'P004',
+    normalized: 'P004'
+  },
+  {
+    id: '59d23e26-ba2c-4663-b87f-41b3db6b7c21',
+    panelNumber: 'P005',
+    normalized: 'P005'
+  }
+]
+⚠️ [AI] Row 80 error: Panel not found in layout: P036
+✅ [AI] Valid data row - Panel: 37 (normalized P037)
+❌ [AI] Panel not found: P037 (normalized: P037)
+Available panels: [
+  {
+    id: '221adb42-3af2-49cb-8e13-8c9db56d19a5',
+    panelNumber: '54/62',
+    normalized: 'P054'
+  },
+  {
+    id: '32eee112-f152-4e21-8892-44905b2135a4',
+    panelNumber: 'P002',
+    normalized: 'P002'
+  },
+  {
+    id: '15b37040-8eaf-4057-815e-b827aab43814',
+    panelNumber: 'P003',
+    normalized: 'P003'
+  },
+  {
+    id: '221ba6ee-a774-4951-966f-d7aa0bc54ff7',
+    panelNumber: 'P004',
+    normalized: 'P004'
+  },
+  {
+    id: '59d23e26-ba2c-4663-b87f-41b3db6b7c21',
+    panelNumber: 'P005',
+    normalized: 'P005'
+  }
+]
+⚠️ [AI] Row 81 error: Panel not found in layout: P037
+✅ [AI] Valid data row - Panel: 38 (normalized P038)
+❌ [AI] Panel not found: P038 (normalized: P038)
+Available panels: [
+  {
+    id: '221adb42-3af2-49cb-8e13-8c9db56d19a5',
+    panelNumber: '54/62',
+    normalized: 'P054'
+  },
+  {
+    id: '32eee112-f152-4e21-8892-44905b2135a4',
+    panelNumber: 'P002',
+    normalized: 'P002'
+  },
+  {
+    id: '15b37040-8eaf-4057-815e-b827aab43814',
+    panelNumber: 'P003',
+    normalized: 'P003'
+  },
+  {
+    id: '221ba6ee-a774-4951-966f-d7aa0bc54ff7',
+    panelNumber: 'P004',
+    normalized: 'P004'
+  },
+  {
+    id: '59d23e26-ba2c-4663-b87f-41b3db6b7c21',
+    panelNumber: 'P005',
+    normalized: 'P005'
+  }
+]
+⚠️ [AI] Row 82 error: Panel not found in layout: P038
+✅ [AI] Valid data row - Panel: 39 (normalized P039)
+❌ [AI] Panel not found: P039 (normalized: P039)
+Available panels: [
+  {
+    id: '221adb42-3af2-49cb-8e13-8c9db56d19a5',
+    panelNumber: '54/62',
+    normalized: 'P054'
+  },
+  {
+    id: '32eee112-f152-4e21-8892-44905b2135a4',
+    panelNumber: 'P002',
+    normalized: 'P002'
+  },
+  {
+    id: '15b37040-8eaf-4057-815e-b827aab43814',
+    panelNumber: 'P003',
+    normalized: 'P003'
+  },
+  {
+    id: '221ba6ee-a774-4951-966f-d7aa0bc54ff7',
+    panelNumber: 'P004',
+    normalized: 'P004'
+  },
+  {
+    id: '59d23e26-ba2c-4663-b87f-41b3db6b7c21',
+    panelNumber: 'P005',
+    normalized: 'P005'
+  }
+]
+⚠️ [AI] Row 83 error: Panel not found in layout: P039
+✅ [AI] Valid data row - Panel: 40 (normalized P040)
+❌ [AI] Panel not found: P040 (normalized: P040)
+Available panels: [
+  {
+    id: '221adb42-3af2-49cb-8e13-8c9db56d19a5',
+    panelNumber: '54/62',
+    normalized: 'P054'
+  },
+  {
+    id: '32eee112-f152-4e21-8892-44905b2135a4',
+    panelNumber: 'P002',
+    normalized: 'P002'
+  },
+  {
+    id: '15b37040-8eaf-4057-815e-b827aab43814',
+    panelNumber: 'P003',
+    normalized: 'P003'
+  },
+  {
+    id: '221ba6ee-a774-4951-966f-d7aa0bc54ff7',
+    panelNumber: 'P004',
+    normalized: 'P004'
+  },
+  {
+    id: '59d23e26-ba2c-4663-b87f-41b3db6b7c21',
+    panelNumber: 'P005',
+    normalized: 'P005'
+  }
+]
+⚠️ [AI] Row 84 error: Panel not found in layout: P040
+🚫 [AI] Skipping sparse row (only 2 cells)
+🚫 [AI] Skipping metadata row
+🚫 [AI] Skipping sparse row (only 1 cells)
+🚫 [AI] Skipping metadata row
+🚫 [AI] Skipping metadata row
+🚫 [AI] Skipping metadata row
+✅ [AI] Valid data row - Panel: 41 (normalized P041)
+❌ [AI] Panel not found: P041 (normalized: P041)
+Available panels: [
+  {
+    id: '221adb42-3af2-49cb-8e13-8c9db56d19a5',
+    panelNumber: '54/62',
+    normalized: 'P054'
+  },
+  {
+    id: '32eee112-f152-4e21-8892-44905b2135a4',
+    panelNumber: 'P002',
+    normalized: 'P002'
+  },
+  {
+    id: '15b37040-8eaf-4057-815e-b827aab43814',
+    panelNumber: 'P003',
+    normalized: 'P003'
+  },
+  {
+    id: '221ba6ee-a774-4951-966f-d7aa0bc54ff7',
+    panelNumber: 'P004',
+    normalized: 'P004'
+  },
+  {
+    id: '59d23e26-ba2c-4663-b87f-41b3db6b7c21',
+    panelNumber: 'P005',
+    normalized: 'P005'
+  }
+]
+⚠️ [AI] Row 91 error: Panel not found in layout: P041
+✅ [AI] Valid data row - Panel: 42 (normalized P042)
+❌ [AI] Panel not found: P042 (normalized: P042)
+Available panels: [
+  {
+    id: '221adb42-3af2-49cb-8e13-8c9db56d19a5',
+    panelNumber: '54/62',
+    normalized: 'P054'
+  },
+  {
+    id: '32eee112-f152-4e21-8892-44905b2135a4',
+    panelNumber: 'P002',
+    normalized: 'P002'
+  },
+  {
+    id: '15b37040-8eaf-4057-815e-b827aab43814',
+    panelNumber: 'P003',
+    normalized: 'P003'
+  },
+  {
+    id: '221ba6ee-a774-4951-966f-d7aa0bc54ff7',
+    panelNumber: 'P004',
+    normalized: 'P004'
+  },
+  {
+    id: '59d23e26-ba2c-4663-b87f-41b3db6b7c21',
+    panelNumber: 'P005',
+    normalized: 'P005'
+  }
+]
+⚠️ [AI] Row 92 error: Panel not found in layout: P042
+✅ [AI] Valid data row - Panel: 43 (normalized P043)
+❌ [AI] Panel not found: P043 (normalized: P043)
+Available panels: [
+  {
+    id: '221adb42-3af2-49cb-8e13-8c9db56d19a5',
+    panelNumber: '54/62',
+    normalized: 'P054'
+  },
+  {
+    id: '32eee112-f152-4e21-8892-44905b2135a4',
+    panelNumber: 'P002',
+    normalized: 'P002'
+  },
+  {
+    id: '15b37040-8eaf-4057-815e-b827aab43814',
+    panelNumber: 'P003',
+    normalized: 'P003'
+  },
+  {
+    id: '221ba6ee-a774-4951-966f-d7aa0bc54ff7',
+    panelNumber: 'P004',
+    normalized: 'P004'
+  },
+  {
+    id: '59d23e26-ba2c-4663-b87f-41b3db6b7c21',
+    panelNumber: 'P005',
+    normalized: 'P005'
+  }
+]
+⚠️ [AI] Row 93 error: Panel not found in layout: P043
+✅ [AI] Valid data row - Panel: 44 (normalized P044)
+❌ [AI] Panel not found: P044 (normalized: P044)
+Available panels: [
+  {
+    id: '221adb42-3af2-49cb-8e13-8c9db56d19a5',
+    panelNumber: '54/62',
+    normalized: 'P054'
+  },
+  {
+    id: '32eee112-f152-4e21-8892-44905b2135a4',
+    panelNumber: 'P002',
+    normalized: 'P002'
+  },
+  {
+    id: '15b37040-8eaf-4057-815e-b827aab43814',
+    panelNumber: 'P003',
+    normalized: 'P003'
+  },
+  {
+    id: '221ba6ee-a774-4951-966f-d7aa0bc54ff7',
+    panelNumber: 'P004',
+    normalized: 'P004'
+  },
+  {
+    id: '59d23e26-ba2c-4663-b87f-41b3db6b7c21',
+    panelNumber: 'P005',
+    normalized: 'P005'
+  }
+]
+⚠️ [AI] Row 94 error: Panel not found in layout: P044
+✅ [AI] Valid data row - Panel: 45 (normalized P045)
+❌ [AI] Panel not found: P045 (normalized: P045)
+Available panels: [
+  {
+    id: '221adb42-3af2-49cb-8e13-8c9db56d19a5',
+    panelNumber: '54/62',
+    normalized: 'P054'
+  },
+  {
+    id: '32eee112-f152-4e21-8892-44905b2135a4',
+    panelNumber: 'P002',
+    normalized: 'P002'
+  },
+  {
+    id: '15b37040-8eaf-4057-815e-b827aab43814',
+    panelNumber: 'P003',
+    normalized: 'P003'
+  },
+  {
+    id: '221ba6ee-a774-4951-966f-d7aa0bc54ff7',
+    panelNumber: 'P004',
+    normalized: 'P004'
+  },
+  {
+    id: '59d23e26-ba2c-4663-b87f-41b3db6b7c21',
+    panelNumber: 'P005',
+    normalized: 'P005'
+  }
+]
+⚠️ [AI] Row 95 error: Panel not found in layout: P045
+✅ [AI] Valid data row - Panel: 46 (normalized P046)
+❌ [AI] Panel not found: P046 (normalized: P046)
+Available panels: [
+  {
+    id: '221adb42-3af2-49cb-8e13-8c9db56d19a5',
+    panelNumber: '54/62',
+    normalized: 'P054'
+  },
+  {
+    id: '32eee112-f152-4e21-8892-44905b2135a4',
+    panelNumber: 'P002',
+    normalized: 'P002'
+  },
+  {
+    id: '15b37040-8eaf-4057-815e-b827aab43814',
+    panelNumber: 'P003',
+    normalized: 'P003'
+  },
+  {
+    id: '221ba6ee-a774-4951-966f-d7aa0bc54ff7',
+    panelNumber: 'P004',
+    normalized: 'P004'
+  },
+  {
+    id: '59d23e26-ba2c-4663-b87f-41b3db6b7c21',
+    panelNumber: 'P005',
+    normalized: 'P005'
+  }
+]
+⚠️ [AI] Row 96 error: Panel not found in layout: P046
+🚫 [AI] Skipping sparse row (only 2 cells)
+🚫 [AI] Skipping metadata row
+🚫 [AI] Skipping sparse row (only 1 cells)
+🚫 [AI] Skipping metadata row
+🚫 [AI] Skipping metadata row
+🚫 [AI] Skipping metadata row
+✅ [AI] Valid data row - Panel: 47 (normalized P047)
+❌ [AI] Panel not found: P047 (normalized: P047)
+Available panels: [
+  {
+    id: '221adb42-3af2-49cb-8e13-8c9db56d19a5',
+    panelNumber: '54/62',
+    normalized: 'P054'
+  },
+  {
+    id: '32eee112-f152-4e21-8892-44905b2135a4',
+    panelNumber: 'P002',
+    normalized: 'P002'
+  },
+  {
+    id: '15b37040-8eaf-4057-815e-b827aab43814',
+    panelNumber: 'P003',
+    normalized: 'P003'
+  },
+  {
+    id: '221ba6ee-a774-4951-966f-d7aa0bc54ff7',
+    panelNumber: 'P004',
+    normalized: 'P004'
+  },
+  {
+    id: '59d23e26-ba2c-4663-b87f-41b3db6b7c21',
+    panelNumber: 'P005',
+    normalized: 'P005'
+  }
+]
+⚠️ [AI] Row 103 error: Panel not found in layout: P047
+✅ [AI] Valid data row - Panel: 48 (normalized P048)
+❌ [AI] Panel not found: P048 (normalized: P048)
+Available panels: [
+  {
+    id: '221adb42-3af2-49cb-8e13-8c9db56d19a5',
+    panelNumber: '54/62',
+    normalized: 'P054'
+  },
+  {
+    id: '32eee112-f152-4e21-8892-44905b2135a4',
+    panelNumber: 'P002',
+    normalized: 'P002'
+  },
+  {
+    id: '15b37040-8eaf-4057-815e-b827aab43814',
+    panelNumber: 'P003',
+    normalized: 'P003'
+  },
+  {
+    id: '221ba6ee-a774-4951-966f-d7aa0bc54ff7',
+    panelNumber: 'P004',
+    normalized: 'P004'
+  },
+  {
+    id: '59d23e26-ba2c-4663-b87f-41b3db6b7c21',
+    panelNumber: 'P005',
+    normalized: 'P005'
+  }
+]
+⚠️ [AI] Row 104 error: Panel not found in layout: P048
+✅ [AI] Valid data row - Panel: 49 (normalized P049)
+❌ [AI] Panel not found: P049 (normalized: P049)
+Available panels: [
+  {
+    id: '221adb42-3af2-49cb-8e13-8c9db56d19a5',
+    panelNumber: '54/62',
+    normalized: 'P054'
+  },
+  {
+    id: '32eee112-f152-4e21-8892-44905b2135a4',
+    panelNumber: 'P002',
+    normalized: 'P002'
+  },
+  {
+    id: '15b37040-8eaf-4057-815e-b827aab43814',
+    panelNumber: 'P003',
+    normalized: 'P003'
+  },
+  {
+    id: '221ba6ee-a774-4951-966f-d7aa0bc54ff7',
+    panelNumber: 'P004',
+    normalized: 'P004'
+  },
+  {
+    id: '59d23e26-ba2c-4663-b87f-41b3db6b7c21',
+    panelNumber: 'P005',
+    normalized: 'P005'
+  }
+]
+⚠️ [AI] Row 105 error: Panel not found in layout: P049
+✅ [AI] Valid data row - Panel: 50 (normalized P050)
+❌ [AI] Panel not found: P050 (normalized: P050)
+Available panels: [
+  {
+    id: '221adb42-3af2-49cb-8e13-8c9db56d19a5',
+    panelNumber: '54/62',
+    normalized: 'P054'
+  },
+  {
+    id: '32eee112-f152-4e21-8892-44905b2135a4',
+    panelNumber: 'P002',
+    normalized: 'P002'
+  },
+  {
+    id: '15b37040-8eaf-4057-815e-b827aab43814',
+    panelNumber: 'P003',
+    normalized: 'P003'
+  },
+  {
+    id: '221ba6ee-a774-4951-966f-d7aa0bc54ff7',
+    panelNumber: 'P004',
+    normalized: 'P004'
+  },
+  {
+    id: '59d23e26-ba2c-4663-b87f-41b3db6b7c21',
+    panelNumber: 'P005',
+    normalized: 'P005'
+  }
+]
+⚠️ [AI] Row 106 error: Panel not found in layout: P050
+✅ [AI] Valid data row - Panel: 51 (normalized P051)
+❌ [AI] Panel not found: P051 (normalized: P051)
+Available panels: [
+  {
+    id: '221adb42-3af2-49cb-8e13-8c9db56d19a5',
+    panelNumber: '54/62',
+    normalized: 'P054'
+  },
+  {
+    id: '32eee112-f152-4e21-8892-44905b2135a4',
+    panelNumber: 'P002',
+    normalized: 'P002'
+  },
+  {
+    id: '15b37040-8eaf-4057-815e-b827aab43814',
+    panelNumber: 'P003',
+    normalized: 'P003'
+  },
+  {
+    id: '221ba6ee-a774-4951-966f-d7aa0bc54ff7',
+    panelNumber: 'P004',
+    normalized: 'P004'
+  },
+  {
+    id: '59d23e26-ba2c-4663-b87f-41b3db6b7c21',
+    panelNumber: 'P005',
+    normalized: 'P005'
+  }
+]
+⚠️ [AI] Row 107 error: Panel not found in layout: P051
+✅ [AI] Valid data row - Panel: 52 (normalized P052)
+❌ [AI] Panel not found: P052 (normalized: P052)
+Available panels: [
+  {
+    id: '221adb42-3af2-49cb-8e13-8c9db56d19a5',
+    panelNumber: '54/62',
+    normalized: 'P054'
+  },
+  {
+    id: '32eee112-f152-4e21-8892-44905b2135a4',
+    panelNumber: 'P002',
+    normalized: 'P002'
+  },
+  {
+    id: '15b37040-8eaf-4057-815e-b827aab43814',
+    panelNumber: 'P003',
+    normalized: 'P003'
+  },
+  {
+    id: '221ba6ee-a774-4951-966f-d7aa0bc54ff7',
+    panelNumber: 'P004',
+    normalized: 'P004'
+  },
+  {
+    id: '59d23e26-ba2c-4663-b87f-41b3db6b7c21',
+    panelNumber: 'P005',
+    normalized: 'P005'
+  }
+]
+⚠️ [AI] Row 108 error: Panel not found in layout: P052
+✅ [AI] Valid data row - Panel: 53 (normalized P053)
+❌ [AI] Panel not found: P053 (normalized: P053)
+Available panels: [
+  {
+    id: '221adb42-3af2-49cb-8e13-8c9db56d19a5',
+    panelNumber: '54/62',
+    normalized: 'P054'
+  },
+  {
+    id: '32eee112-f152-4e21-8892-44905b2135a4',
+    panelNumber: 'P002',
+    normalized: 'P002'
+  },
+  {
+    id: '15b37040-8eaf-4057-815e-b827aab43814',
+    panelNumber: 'P003',
+    normalized: 'P003'
+  },
+  {
+    id: '221ba6ee-a774-4951-966f-d7aa0bc54ff7',
+    panelNumber: 'P004',
+    normalized: 'P004'
+  },
+  {
+    id: '59d23e26-ba2c-4663-b87f-41b3db6b7c21',
+    panelNumber: 'P005',
+    normalized: 'P005'
+  }
+]
+⚠️ [AI] Row 109 error: Panel not found in layout: P053
+✅ [AI] Valid data row - Panel: 54 (normalized P054)
+✅ [AI] Found panel: P054 → 221adb42-3af2-49cb-8e13-8c9db56d19a5
+✅ [AI] Mapped panel P054 → 221adb42-3af2-49cb-8e13-8c9db56d19a5
+🚫 [AI] Skipping sparse row (only 2 cells)
+🚫 [AI] Skipping metadata row
+🚫 [AI] Skipping sparse row (only 1 cells)
+🚫 [AI] Skipping metadata row
+🚫 [AI] Skipping metadata row
+🚫 [AI] Skipping metadata row
+✅ [AI] Valid data row - Panel: 55 (normalized P055)
+❌ [AI] Panel not found: P055 (normalized: P055)
+Available panels: [
+  {
+    id: '221adb42-3af2-49cb-8e13-8c9db56d19a5',
+    panelNumber: '54/62',
+    normalized: 'P054'
+  },
+  {
+    id: '32eee112-f152-4e21-8892-44905b2135a4',
+    panelNumber: 'P002',
+    normalized: 'P002'
+  },
+  {
+    id: '15b37040-8eaf-4057-815e-b827aab43814',
+    panelNumber: 'P003',
+    normalized: 'P003'
+  },
+  {
+    id: '221ba6ee-a774-4951-966f-d7aa0bc54ff7',
+    panelNumber: 'P004',
+    normalized: 'P004'
+  },
+  {
+    id: '59d23e26-ba2c-4663-b87f-41b3db6b7c21',
+    panelNumber: 'P005',
+    normalized: 'P005'
+  }
+]
+⚠️ [AI] Row 117 error: Panel not found in layout: P055
+✅ [AI] Valid data row - Panel: 56 (normalized P056)
+❌ [AI] Panel not found: P056 (normalized: P056)
+Available panels: [
+  {
+    id: '221adb42-3af2-49cb-8e13-8c9db56d19a5',
+    panelNumber: '54/62',
+    normalized: 'P054'
+  },
+  {
+    id: '32eee112-f152-4e21-8892-44905b2135a4',
+    panelNumber: 'P002',
+    normalized: 'P002'
+  },
+  {
+    id: '15b37040-8eaf-4057-815e-b827aab43814',
+    panelNumber: 'P003',
+    normalized: 'P003'
+  },
+  {
+    id: '221ba6ee-a774-4951-966f-d7aa0bc54ff7',
+    panelNumber: 'P004',
+    normalized: 'P004'
+  },
+  {
+    id: '59d23e26-ba2c-4663-b87f-41b3db6b7c21',
+    panelNumber: 'P005',
+    normalized: 'P005'
+  }
+]
+⚠️ [AI] Row 118 error: Panel not found in layout: P056
+✅ [AI] Valid data row - Panel: 57 (normalized P057)
+❌ [AI] Panel not found: P057 (normalized: P057)
+Available panels: [
+  {
+    id: '221adb42-3af2-49cb-8e13-8c9db56d19a5',
+    panelNumber: '54/62',
+    normalized: 'P054'
+  },
+  {
+    id: '32eee112-f152-4e21-8892-44905b2135a4',
+    panelNumber: 'P002',
+    normalized: 'P002'
+  },
+  {
+    id: '15b37040-8eaf-4057-815e-b827aab43814',
+    panelNumber: 'P003',
+    normalized: 'P003'
+  },
+  {
+    id: '221ba6ee-a774-4951-966f-d7aa0bc54ff7',
+    panelNumber: 'P004',
+    normalized: 'P004'
+  },
+  {
+    id: '59d23e26-ba2c-4663-b87f-41b3db6b7c21',
+    panelNumber: 'P005',
+    normalized: 'P005'
+  }
+]
+⚠️ [AI] Row 119 error: Panel not found in layout: P057
+✅ [AI] Valid data row - Panel: 58 (normalized P058)
+❌ [AI] Panel not found: P058 (normalized: P058)
+Available panels: [
+  {
+    id: '221adb42-3af2-49cb-8e13-8c9db56d19a5',
+    panelNumber: '54/62',
+    normalized: 'P054'
+  },
+  {
+    id: '32eee112-f152-4e21-8892-44905b2135a4',
+    panelNumber: 'P002',
+    normalized: 'P002'
+  },
+  {
+    id: '15b37040-8eaf-4057-815e-b827aab43814',
+    panelNumber: 'P003',
+    normalized: 'P003'
+  },
+  {
+    id: '221ba6ee-a774-4951-966f-d7aa0bc54ff7',
+    panelNumber: 'P004',
+    normalized: 'P004'
+  },
+  {
+    id: '59d23e26-ba2c-4663-b87f-41b3db6b7c21',
+    panelNumber: 'P005',
+    normalized: 'P005'
+  }
+]
+⚠️ [AI] Row 120 error: Panel not found in layout: P058
+✅ [AI] Valid data row - Panel: 59 (normalized P059)
+❌ [AI] Panel not found: P059 (normalized: P059)
+Available panels: [
+  {
+    id: '221adb42-3af2-49cb-8e13-8c9db56d19a5',
+    panelNumber: '54/62',
+    normalized: 'P054'
+  },
+  {
+    id: '32eee112-f152-4e21-8892-44905b2135a4',
+    panelNumber: 'P002',
+    normalized: 'P002'
+  },
+  {
+    id: '15b37040-8eaf-4057-815e-b827aab43814',
+    panelNumber: 'P003',
+    normalized: 'P003'
+  },
+  {
+    id: '221ba6ee-a774-4951-966f-d7aa0bc54ff7',
+    panelNumber: 'P004',
+    normalized: 'P004'
+  },
+  {
+    id: '59d23e26-ba2c-4663-b87f-41b3db6b7c21',
+    panelNumber: 'P005',
+    normalized: 'P005'
+  }
+]
+⚠️ [AI] Row 121 error: Panel not found in layout: P059
+✅ [AI] Valid data row - Panel: 61 (normalized P061)
+❌ [AI] Panel not found: P061 (normalized: P061)
+Available panels: [
+  {
+    id: '221adb42-3af2-49cb-8e13-8c9db56d19a5',
+    panelNumber: '54/62',
+    normalized: 'P054'
+  },
+  {
+    id: '32eee112-f152-4e21-8892-44905b2135a4',
+    panelNumber: 'P002',
+    normalized: 'P002'
+  },
+  {
+    id: '15b37040-8eaf-4057-815e-b827aab43814',
+    panelNumber: 'P003',
+    normalized: 'P003'
+  },
+  {
+    id: '221ba6ee-a774-4951-966f-d7aa0bc54ff7',
+    panelNumber: 'P004',
+    normalized: 'P004'
+  },
+  {
+    id: '59d23e26-ba2c-4663-b87f-41b3db6b7c21',
+    panelNumber: 'P005',
+    normalized: 'P005'
+  }
+]
+⚠️ [AI] Row 122 error: Panel not found in layout: P061
+✅ [AI] Valid data row - Panel: 62 (normalized P062)
+❌ [AI] Panel not found: P062 (normalized: P062)
+Available panels: [
+  {
+    id: '221adb42-3af2-49cb-8e13-8c9db56d19a5',
+    panelNumber: '54/62',
+    normalized: 'P054'
+  },
+  {
+    id: '32eee112-f152-4e21-8892-44905b2135a4',
+    panelNumber: 'P002',
+    normalized: 'P002'
+  },
+  {
+    id: '15b37040-8eaf-4057-815e-b827aab43814',
+    panelNumber: 'P003',
+    normalized: 'P003'
+  },
+  {
+    id: '221ba6ee-a774-4951-966f-d7aa0bc54ff7',
+    panelNumber: 'P004',
+    normalized: 'P004'
+  },
+  {
+    id: '59d23e26-ba2c-4663-b87f-41b3db6b7c21',
+    panelNumber: 'P005',
+    normalized: 'P005'
+  }
+]
+⚠️ [AI] Row 123 error: Panel not found in layout: P062
+✅ [AI] Valid data row - Panel: 63 (normalized P063)
+❌ [AI] Panel not found: P063 (normalized: P063)
+Available panels: [
+  {
+    id: '221adb42-3af2-49cb-8e13-8c9db56d19a5',
+    panelNumber: '54/62',
+    normalized: 'P054'
+  },
+  {
+    id: '32eee112-f152-4e21-8892-44905b2135a4',
+    panelNumber: 'P002',
+    normalized: 'P002'
+  },
+  {
+    id: '15b37040-8eaf-4057-815e-b827aab43814',
+    panelNumber: 'P003',
+    normalized: 'P003'
+  },
+  {
+    id: '221ba6ee-a774-4951-966f-d7aa0bc54ff7',
+    panelNumber: 'P004',
+    normalized: 'P004'
+  },
+  {
+    id: '59d23e26-ba2c-4663-b87f-41b3db6b7c21',
+    panelNumber: 'P005',
+    normalized: 'P005'
+  }
+]
+⚠️ [AI] Row 124 error: Panel not found in layout: P063
+✅ [AI] Processed 21 valid records, 41 errors
+📊 [ASBUILT] AI processed 21 records for auto-detect
+💾 [ASBUILT] Creating record with panelId: 32eee112-f152-4e21-8892-44905b2135a4
+✅ [ASBUILT] Successfully created record: 6f76f2af-672f-4124-bf16-ba78f30b7730
+💾 [ASBUILT] Creating record with panelId: 15b37040-8eaf-4057-815e-b827aab43814
+✅ [ASBUILT] Successfully created record: ed218ad0-a6a8-4a0d-a77d-aa5a43a5c491
+💾 [ASBUILT] Creating record with panelId: 221ba6ee-a774-4951-966f-d7aa0bc54ff7
+✅ [ASBUILT] Successfully created record: a09b6de0-eed0-4959-8ea3-2e31fb01a568
+💾 [ASBUILT] Creating record with panelId: 59d23e26-ba2c-4663-b87f-41b3db6b7c21
+✅ [ASBUILT] Successfully created record: 17588991-e49e-4bb1-a768-139bce0bd265
+💾 [ASBUILT] Creating record with panelId: 7358095d-9a64-4c59-b37b-59d2c2bf86b5
+✅ [ASBUILT] Successfully created record: dec8358f-d4ab-41eb-94a9-8cbfd2a0b3d0
+💾 [ASBUILT] Creating record with panelId: ebec06bc-9136-47e6-90f8-ed65af453688
+✅ [ASBUILT] Successfully created record: 4a5cc8bd-d5fc-40bd-b222-eea4b585a88a
+💾 [ASBUILT] Creating record with panelId: 28d256ff-7e3e-4136-a42e-fe1575b00016
+✅ [ASBUILT] Successfully created record: e9584943-888b-4155-8112-fd9759799bad
+💾 [ASBUILT] Creating record with panelId: 010a8018-d5c4-4eee-ba43-4641349accde
+✅ [ASBUILT] Successfully created record: d1ff28bc-f11e-45c4-a5a6-fcadfa870bc1
+💾 [ASBUILT] Creating record with panelId: 1924b3df-eb8c-4a37-bd9f-debfec67f929
+✅ [ASBUILT] Successfully created record: 9d07b56c-6522-4f6c-ac1c-ac506b847f29
+💾 [ASBUILT] Creating record with panelId: d7843a72-ccb7-4558-8300-67bb266ef9f1
+✅ [ASBUILT] Successfully created record: 58709c72-7a72-4c03-ad24-72bd325888ab
+💾 [ASBUILT] Creating record with panelId: 3ac35238-2424-431c-be42-7eeff868e87b
+✅ [ASBUILT] Successfully created record: c16427c5-3b92-4855-8520-5f86084b7b79
+💾 [ASBUILT] Creating record with panelId: dcadff14-48bb-460d-a071-91ee25337555
+✅ [ASBUILT] Successfully created record: b47764ed-67e7-4ab4-a68c-2d58f56ba5f9
+💾 [ASBUILT] Creating record with panelId: 26fec916-d955-4a78-aa38-b78c29b7ee46
+✅ [ASBUILT] Successfully created record: 62d5c041-5cab-4d8c-9a17-99b52deb436f
+💾 [ASBUILT] Creating record with panelId: 0388a942-2008-4bbd-99d7-83bd64326905
+✅ [ASBUILT] Successfully created record: 3e5edc61-47b6-47db-8822-cfeb147331fb
+💾 [ASBUILT] Creating record with panelId: 4d7e2dc0-b905-490b-a9fc-f894221c0266
+✅ [ASBUILT] Successfully created record: c50df512-250a-4b7e-a208-bfecedb26c59
+💾 [ASBUILT] Creating record with panelId: d17abd24-59cb-49d5-a3b3-15cb376ad16c
+✅ [ASBUILT] Successfully created record: 658a7ea3-6606-4f94-a441-0ef4b0b88037
+💾 [ASBUILT] Creating record with panelId: 19243db5-938c-4169-97ce-efb688766522
+✅ [ASBUILT] Successfully created record: d43c4916-75a3-4e91-9984-585ebaac995f
+💾 [ASBUILT] Creating record with panelId: 4cab721d-d857-4147-acd7-f7e09687f629
+✅ [ASBUILT] Successfully created record: 2c6c1eb0-686a-4e11-9857-3cb96956f6a8
+💾 [ASBUILT] Creating record with panelId: 17e3bc7a-1bd5-435d-83a4-88fbb4295596
+✅ [ASBUILT] Successfully created record: d4f56203-7026-4ebf-91d2-92ea277983f0
+💾 [ASBUILT] Creating record with panelId: 9a6e0063-72b2-4257-892a-c3710dde3c1d
+✅ [ASBUILT] Successfully created record: e88eb42e-49e2-4f7e-a7ec-fe28cf865ebb
+💾 [ASBUILT] Creating record with panelId: 221adb42-3af2-49cb-8e13-8c9db56d19a5
+✅ [ASBUILT] Successfully created record: f847d7dc-934d-401f-9423-529876ac33fa
+📁 [ASBUILT] Creating file metadata for imported Excel file
+✅ [ASBUILT] Created file metadata: 3551991b-ee8f-4496-9f40-d10d6a59921b
+✅ [ASBUILT] Import completed: 21 records created
+🎯 [ASBUILT] Detected panels: [
+  'P002', 'P003', 'P004',
+  'P005', 'P006', 'P007',
+  'P008', 'P010', 'P011',
+  'P012', 'P013', 'P014',
+  'P018', 'P019', 'P020',
+  'P021', 'P022', 'P023',
+  'P024', 'P028', 'P054'
+]
+[2025-10-13T00:24:21.904Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+🔍 [ASBUILT] Fetching records for project 49e74875-5d29-4027-a817-d53602e68e4c
