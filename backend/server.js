@@ -1,38 +1,49 @@
-const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '.env') });
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
 const cookieParser = require('cookie-parser');
 const helmet = require('helmet');
 const { WebSocketServer } = require('ws');
+const config = require('./config/env');
+const logger = require('./lib/logger');
 const { setupWebSocketServer } = require('./services/websocket');
+const { connectToDatabase, applyMigrations, pool } = require('./db');
+const { isOpenAIConfigured, initAIServices } = require('./services/ai-connector');
 
-// Debug environment variables
-console.log('Environment Variables:');
-console.log('SUPABASE_URL:', process.env.SUPABASE_URL ? 'exists' : 'missing');
-console.log('SUPABASE_KEY:', process.env.SUPABASE_KEY ? 'exists' : 'missing');
-console.log('DATABASE_URL:', process.env.DATABASE_URL ? 'exists' : 'missing');
+const SERVICE_NAME = 'GeoSynth QC Pro Backend';
+const SERVICE_VERSION = '1.0.0';
 
 // Initialize Express app
 const app = express();
+app.disable('x-powered-by');
 
 // Middleware
-app.use(helmet());
-
-// Debug CORS configuration
-console.log('CORS Configuration:');
-console.log('CORS_ORIGIN:', process.env.CORS_ORIGIN);
-console.log('FRONTEND_URL:', process.env.FRONTEND_URL);
-console.log('Final origin:', process.env.CORS_ORIGIN || process.env.FRONTEND_URL || 'http://localhost:3000');
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' }
+}));
 
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: config.cors.origin,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-dev-bypass']
 }));
-app.use(morgan('dev'));
+
+const httpLoggingStream = {
+  write: (message) => {
+    const trimmed = message.trim();
+    if (!trimmed) return;
+
+    if (config.isProduction) {
+      logger.info('HTTP request', { message: trimmed });
+      return;
+    }
+
+    logger.debug('HTTP request', { message: trimmed });
+  }
+};
+
+app.use(config.isProduction ? morgan('combined', { stream: httpLoggingStream }) : morgan('dev', { stream: httpLoggingStream }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(cookieParser());
@@ -50,22 +61,27 @@ app.get('/api/health', async (req, res) => {
     
     res.status(200).json({ 
       status: 'OK', 
-      service: 'GeoSynth QC Pro Backend',
+      service: SERVICE_NAME,
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
-      environment: process.env.NODE_ENV || 'development',
-      version: '1.0.0',
+      environment: config.nodeEnv,
+      version: SERVICE_VERSION,
       database: 'connected'
     });
   } catch (error) {
-    console.error('❌ API health check failed:', error);
+    logger.error('API health check failed', {
+      error: {
+        message: error.message,
+        stack: config.isDevelopment ? error.stack : undefined
+      }
+    });
     res.status(500).json({ 
       status: 'unhealthy',
-      service: 'GeoSynth QC Pro Backend',
+      service: SERVICE_NAME,
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
-      environment: process.env.NODE_ENV || 'development',
-      version: '1.0.0',
+      environment: config.nodeEnv,
+      version: SERVICE_VERSION,
       database: 'disconnected',
       error: error.message
     });
@@ -88,28 +104,32 @@ app.use('/api/system', require('./routes/api/system'));
 app.use('/api/connected-workflow', require('./routes/connected-workflow'));
 app.use('/api/asbuilt', require('./routes/asbuilt'));
 app.use('/api/document-processing', require('./routes/documentProcessing'));
-console.log('✅ /api/connected-workflow route registered');
-console.log('✅ /api/asbuilt route registered');
-console.log('✅ /api/document-processing route registered');
+logger.debug('Routes registered', {
+  routes: [
+    '/api/connected-workflow',
+    '/api/asbuilt',
+    '/api/document-processing'
+  ]
+});
 
 // Error handler
 app.use((err, req, res, next) => {
-  console.error('=== ERROR HANDLER ===');
-  console.error('Error message:', err.message);
-  console.error('Error stack:', err.stack);
-  console.error('Error details:', {
-    name: err.name,
-    code: err.code,
-    status: err.status
+  logger.error('Unhandled application error', {
+    path: req.path,
+    method: req.method,
+    error: {
+      name: err.name,
+      code: err.code,
+      status: err.status,
+      message: err.message,
+      stack: config.isDevelopment ? err.stack : undefined
+    }
   });
   res.status(500).json({ 
     message: 'Something went wrong!',
-    error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    error: config.isDevelopment ? err.message : undefined
   });
 });
-
-// Database connection
-const { connectToDatabase, applyMigrations, pool } = require('./db');
 
 // Health check endpoint - moved here after pool import
 app.get('/health', async (req, res) => {
@@ -125,7 +145,12 @@ app.get('/health', async (req, res) => {
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    console.error('❌ Health check failed:', error);
+    logger.error('Health check failed', {
+      error: {
+        message: error.message,
+        stack: config.isDevelopment ? error.stack : undefined
+      }
+    });
     res.status(500).json({ 
       status: 'unhealthy',
       database: 'disconnected',
@@ -136,21 +161,23 @@ app.get('/health', async (req, res) => {
 });
 
 
-// Check for OpenAI API configuration
-const { isOpenAIConfigured, initAIServices } = require('./services/ai-connector');
-
 // Global error handlers for unhandled promise rejections
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('🚨 UNHANDLED PROMISE REJECTION:');
-  console.error('Promise:', promise);
-  console.error('Reason:', reason);
-  console.error('Stack:', reason?.stack);
+  logger.error('Unhandled promise rejection', {
+    reason: reason instanceof Error
+      ? { message: reason.message, stack: config.isDevelopment ? reason.stack : undefined }
+      : reason,
+    promise
+  });
 });
 
 process.on('uncaughtException', (error) => {
-  console.error('💥 UNCAUGHT EXCEPTION:');
-  console.error('Error:', error.message);
-  console.error('Stack:', error.stack);
+  logger.error('Uncaught exception', {
+    error: {
+      message: error.message,
+      stack: error.stack
+    }
+  });
   // Gracefully shutdown the server
   process.exit(1);
 });
@@ -158,23 +185,22 @@ process.on('uncaughtException', (error) => {
 // Start the server
 async function startServer() {
   // Check environment configuration
-  if (!process.env.VITE_FIREBASE_API_KEY) {
-    console.log('Firebase credentials are missing. Google authentication will not be available.');
+  if (!config.secrets.firebaseApiKey) {
+    logger.warn('Firebase credentials are missing. Google authentication will not be available.');
   }
   
-  if (!process.env.STRIPE_SECRET_KEY) {
-    console.log('STRIPE_SECRET_KEY is not set. Stripe functionality will not work.');
+  if (!config.secrets.stripe) {
+    logger.warn('STRIPE_SECRET_KEY is not set. Stripe functionality will not work.');
   }
   
-  if (!process.env.JWT_SECRET) {
-    console.log('JWT_SECRET not provided. Using a default secret (this is not secure for production)');
+  if (!config.secrets.jwt) {
+    logger.warn('JWT_SECRET is not provided. Tokens will not be signed securely.');
   }
   
   try {
     // Start HTTP server on port 8003 (avoiding conflicts with gateway on 8000 and panel service on 8001)
-    const PORT = process.env.PORT || 8003;
-    const server = app.listen(PORT, '0.0.0.0', () => {
-      console.log(`Server running on http://0.0.0.0:${PORT}`);
+    const server = app.listen(config.port, '0.0.0.0', () => {
+      logger.info(`Server running on http://0.0.0.0:${config.port}`);
     });
     
     // Initialize WebSocket server - only once
@@ -182,7 +208,7 @@ async function startServer() {
       const wss = new WebSocketServer({ server, path: '/ws' });
       setupWebSocketServer(wss);
       global.wsServer = wss;
-      console.log('WebSocket server initialized');
+      logger.info('WebSocket server initialized');
     }
     
     // Initialize AI services if OpenAI API key is available
@@ -195,27 +221,41 @@ async function startServer() {
       openaiServiceAvailable = isOpenAIConfigured();
       
       if (!openaiServiceAvailable) {
-        console.log('OpenAI API key not configured. AI features may be limited.');
+        logger.warn('OpenAI API key not configured. AI features may be limited.');
       }
     } catch (error) {
-      console.error('AI Service is not available. AI analysis features will not work.');
-      console.error(error);
+      logger.warn('AI service initialisation failed. AI analysis features may be unavailable.', {
+        error: {
+          message: error.message,
+          stack: config.isDevelopment ? error.stack : undefined
+        }
+      });
     }
     
-    console.log('AI services status:', { aiServiceAvailable, openaiServiceAvailable });
+    logger.info('AI services status', { aiServiceAvailable, openaiServiceAvailable });
     
     // Connect to database
     try {
       await connectToDatabase();
-      console.log('Connected to PostgreSQL database');
+      logger.info('Connected to PostgreSQL database');
       
       // Apply database migrations
       await applyMigrations();
     } catch (dbError) {
-      console.error('Database connection failed:', dbError);
+      logger.error('Database connection failed', {
+        error: {
+          message: dbError.message,
+          stack: config.isDevelopment ? dbError.stack : undefined
+        }
+      });
     }
   } catch (error) {
-    console.error('Failed to start server:', error);
+    logger.error('Failed to start server', {
+      error: {
+        message: error.message,
+        stack: error.stack
+      }
+    });
     process.exit(1);
   }
 }

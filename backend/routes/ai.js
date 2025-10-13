@@ -1,11 +1,17 @@
 const express = require('express');
 const router = express.Router();
 const OpenAI = require('openai');
+const config = require('../config/env');
+const logger = require('../lib/logger');
 
 // Initialize OpenAI client
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: config.secrets.openai || process.env.OPENAI_API_KEY,
 });
+
+if (!config.secrets.openai && !process.env.OPENAI_API_KEY) {
+  logger.warn('OpenAI API key is not configured. AI endpoints will be limited.');
+}
 
 // In-memory storage for job status (in production, use Redis or database)
 const jobStatus = new Map();
@@ -21,76 +27,74 @@ const requireAuth = (req, res, next) => {
 router.get('/health', (req, res) => {
   res.json({ 
     status: 'ok', 
-    openaiConfigured: !!process.env.OPENAI_API_KEY 
+    openaiConfigured: Boolean(config.secrets.openai || process.env.OPENAI_API_KEY) 
   });
 });
 
 // Query endpoint for chat functionality
 router.post('/query', requireAuth, async (req, res) => {
   try {
-    console.log('🤖 AI Query endpoint called');
-    console.log('Request body:', JSON.stringify(req.body, null, 2));
-    
     const { projectId, question, documents } = req.body;
 
+    logger.debug('AI query invoked', {
+      projectId,
+      hasQuestion: Boolean(question),
+      documentCount: Array.isArray(documents) ? documents.length : 0
+    });
+
     if (!question) {
-      console.log('❌ No question provided');
+      logger.warn('AI query missing question payload');
       return res.status(400).json({ error: 'Question is required' });
     }
 
-    // Prepare context from documents with token limit management
     let context = '';
     const references = [];
     const maxTokens = 25000; // Leave room for response tokens
     let currentTokens = 0;
-    
-    console.log(`🤖 AI Query - Processing ${documents ? documents.length : 0} documents`);
-    
-    if (documents && documents.length > 0) {
-      documents.forEach((doc, index) => {
-        console.log(`📄 Document ${index + 1}: ${doc.filename}`);
-        console.log(`   - Has text: ${!!doc.text}`);
-        console.log(`   - Text length: ${doc.text ? doc.text.length : 0} characters`);
-        
-        if (doc.text) {
-          // Estimate tokens (roughly 4 characters per token)
-          const estimatedTokens = Math.ceil(doc.text.length / 4);
-          console.log(`   - Estimated tokens: ${estimatedTokens}`);
-          
-          // If adding this document would exceed the limit, truncate it
-          let documentText = doc.text;
-          if (currentTokens + estimatedTokens > maxTokens) {
-            const maxChars = (maxTokens - currentTokens) * 4;
-            documentText = doc.text.substring(0, maxChars);
-            console.log(`   - Truncated to ${documentText.length} characters to stay within token limit`);
-          }
-          
-          if (documentText.length > 0) {
-            context += `Document: ${doc.filename}\nContent: ${documentText}\n\n`;
-            currentTokens += Math.ceil(documentText.length / 4);
-            
-            // Extract relevant excerpts for references
-            const words = documentText.split(' ');
-            if (words.length > 20) {
-              references.push({
-                docId: doc.id,
-                page: 1,
-                excerpt: words.slice(0, 20).join(' ') + '...'
-              });
-            }
-          }
-        } else {
-          console.warn(`⚠️ No text content for document: ${doc.filename}`);
+
+    if (Array.isArray(documents) && documents.length > 0) {
+      documents.forEach((doc) => {
+        if (!doc?.text) {
+          logger.debug('AI query document missing text content', {
+            filename: doc?.filename,
+            id: doc?.id
+          });
+          return;
+        }
+
+        const estimatedTokens = Math.ceil(doc.text.length / 4);
+        let documentText = doc.text;
+
+        if (currentTokens + estimatedTokens > maxTokens) {
+          const maxChars = (maxTokens - currentTokens) * 4;
+          documentText = doc.text.substring(0, Math.max(maxChars, 0));
+        }
+
+        if (!documentText) {
+          return;
+        }
+
+        context += `Document: ${doc.filename}\nContent: ${documentText}\n\n`;
+        currentTokens += Math.ceil(documentText.length / 4);
+
+        const words = documentText.split(' ');
+        if (words.length > 20) {
+          references.push({
+            docId: doc.id,
+            page: 1,
+            excerpt: words.slice(0, 20).join(' ') + '...'
+          });
         }
       });
     } else {
-      console.warn('⚠️ No documents provided for AI analysis');
+      logger.debug('AI query invoked without documents');
     }
-    
-    console.log(`📝 Total context length: ${context.length} characters`);
-    console.log(`📊 Estimated tokens: ${currentTokens}`);
 
-    // Create the prompt
+    logger.debug('AI query context prepared', {
+      contextCharacters: context.length,
+      estimatedTokens: currentTokens
+    });
+
     const prompt = `Based on the following project documents and context, please answer the user's question.
 
 Project ID: ${projectId}
@@ -102,9 +106,8 @@ User Question: ${question}
 
 Please provide a comprehensive answer based on the available information. If you need to reference specific documents, be specific about which document you're referencing.`;
 
-    console.log('🤖 Calling OpenAI API with prompt length:', prompt.length);
-    
-    // Call OpenAI API with retry logic for token limits
+    logger.debug('Calling OpenAI chat completions', { promptLength: prompt.length });
+
     let response;
     try {
       response = await openai.chat.completions.create({
@@ -123,19 +126,23 @@ Please provide a comprehensive answer based on the available information. If you
         temperature: 0.7
       });
     } catch (openaiError) {
-      console.error('❌ OpenAI API error:', openaiError.message);
-      
-      // If it's a token limit error, try with a smaller context
-      if (openaiError.message.includes('429') || openaiError.message.includes('too large')) {
-        console.log('🔄 Token limit exceeded, trying with reduced context...');
-        
-        // Create a simplified prompt with just the question and document summaries
+      logger.error('OpenAI API error', {
+        message: openaiError.message
+      });
+
+      if (openaiError.message && (openaiError.message.includes('429') || openaiError.message.includes('too large'))) {
+        logger.debug('Token limit exceeded for AI query, retrying with reduced context');
+
+        const summarizedDocuments = Array.isArray(documents)
+          ? documents.map((doc, index) => `Document ${index + 1}: ${doc.filename} (${doc.text ? doc.text.length : 0} characters)`).join('\n')
+          : 'No documents provided.';
+
         const simplifiedPrompt = `Based on the following document summaries, please answer the user's question.
 
 User Question: ${question}
 
 Document Summaries:
-${documents.map((doc, index) => `Document ${index + 1}: ${doc.filename} (${doc.text ? doc.text.length : 0} characters)`).join('\n')}
+${summarizedDocuments}
 
 Please provide a general answer based on the available information. If you need specific details from the documents, please ask the user to provide more specific questions about particular documents.`;
 
@@ -159,22 +166,27 @@ Please provide a general answer based on the available information. If you need 
       }
     }
 
-    console.log('✅ OpenAI API call successful');
-    const answer = response.choices[0].message.content;
+    const answer = response?.choices?.[0]?.message?.content || '';
+
+    logger.debug('AI query completed', {
+      tokensUsed: response?.usage?.total_tokens || 0,
+      referencesReturned: references.length
+    });
 
     res.json({
       answer,
-      references: references.slice(0, 3), // Limit to 3 references
-      tokensUsed: response.usage?.total_tokens || 0
+      references: references.slice(0, 3),
+      tokensUsed: response?.usage?.total_tokens || 0
     });
 
   } catch (error) {
-    console.error('❌ Error in AI query:', error);
-    console.error('Error stack:', error.stack);
-    console.error('Error details:', {
-      name: error.name,
-      message: error.message,
-      code: error.code
+    logger.error('Error in AI query', {
+      error: {
+        name: error.name,
+        message: error.message,
+        code: error.code,
+        stack: error.stack
+      }
     });
     res.status(500).json({ 
       error: 'Failed to process AI query',
@@ -245,7 +257,12 @@ Please provide a structured analysis in JSON format with the following sections:
     });
 
   } catch (error) {
-    console.error('Error in document analysis:', error);
+    logger.error('Error in document analysis', {
+      error: {
+        message: error.message,
+        stack: error.stack
+      }
+    });
     res.status(500).json({ 
       error: 'Failed to analyze documents',
       details: error.message 
@@ -262,7 +279,7 @@ router.post('/automate-layout', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Project ID is required' });
     }
 
-    console.log(`[AI ROUTE] Starting panel requirements-based layout generation for project ${projectId}`);
+    logger.debug(`[AI ROUTE] Starting panel requirements-based layout generation for project ${projectId}`);
 
     // Set job status to processing
     jobStatus.set(projectId, {
@@ -277,11 +294,11 @@ router.post('/automate-layout', requireAuth, async (req, res) => {
     // Generate AI layout actions using panel requirements
     const result = await enhancedAILayoutGenerator.generateLayoutActions(projectId);
 
-    console.log(`[AI ROUTE] Panel requirements-based generation result status: ${result.status}`);
+    logger.debug(`[AI ROUTE] Panel requirements-based generation result status: ${result.status}`);
 
     // Handle different response statuses
     if (result.status === 'insufficient_information') {
-      console.log('[AI ROUTE] Insufficient information - returning guidance');
+      logger.debug('[AI ROUTE] Insufficient information - returning guidance');
       
       // Update job status with guidance
       jobStatus.set(projectId, {
@@ -308,7 +325,7 @@ router.post('/automate-layout', requireAuth, async (req, res) => {
     }
 
     if (!result.success) {
-      console.warn('[AI ROUTE] Panel requirements-based generation failed');
+      logger.warn('[AI ROUTE] Panel requirements-based generation failed');
       
       // Update job status with error
       jobStatus.set(projectId, {
@@ -329,7 +346,7 @@ router.post('/automate-layout', requireAuth, async (req, res) => {
     }
 
     // Success case
-    console.log('[AI ROUTE] Panel requirements-based generation successful');
+    logger.debug('[AI ROUTE] Panel requirements-based generation successful');
     
     // Update job status with success
     jobStatus.set(projectId, {
@@ -353,7 +370,12 @@ router.post('/automate-layout', requireAuth, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('[AI ROUTE] Error in automate-layout:', error);
+    logger.error('[AI ROUTE] Error in automate-layout', {
+      error: {
+        message: error.message,
+        stack: error.stack
+      }
+    });
     
     // Update job status with error
     jobStatus.set(req.body.projectId, {
@@ -489,7 +511,12 @@ router.post('/execute-ai-layout', requireAuth, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error executing AI layout:', error);
+    logger.error('Error executing AI layout', {
+      error: {
+        message: error.message,
+        stack: error.stack
+      }
+    });
     res.status(500).json({
       error: 'Failed to execute AI layout',
       details: error.message
@@ -562,7 +589,12 @@ Please extract the data in a structured JSON format with appropriate fields for 
     });
 
   } catch (error) {
-    console.error('Error in data extraction:', error);
+    logger.error('Error in data extraction', {
+      error: {
+        message: error.message,
+        stack: error.stack
+      }
+    });
     res.status(500).json({ 
       error: 'Failed to extract data from documents',
       details: error.message 
@@ -583,8 +615,8 @@ router.post('/analyze-panel-requirements', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Document IDs are required' });
     }
 
-    console.log(`[AI ROUTE] Phase 2: Analyzing ${documentIds.length} documents for panel requirements in project ${projectId}`);
-    console.log(`[AI ROUTE] Document IDs received:`, documentIds);
+    logger.debug(`[AI ROUTE] Phase 2: Analyzing ${documentIds.length} documents for panel requirements in project ${projectId}`);
+    logger.debug(`[AI ROUTE] Document IDs received:`, documentIds);
 
     // Import enhanced services for Phase 2
     const EnhancedDocumentAnalyzer = require('../services/enhancedDocumentAnalyzer');
@@ -610,7 +642,7 @@ router.post('/analyze-panel-requirements', requireAuth, async (req, res) => {
       enhancedDocuments = await Promise.all(
         documentIds.map(async (docId) => {
           try {
-            console.log(`[AI ROUTE] Processing document ID: ${docId}`);
+            logger.debug(`[AI ROUTE] Processing document ID: ${docId}`);
             const documentText = await documentService.getDocumentText(docId);
             // Get document metadata from database
             const { db } = require('../db/index');
@@ -622,7 +654,7 @@ router.post('/analyze-panel-requirements', requireAuth, async (req, res) => {
               .from(documents)
               .where(eq(documents.id, docId));
             
-            console.log(`[AI ROUTE] Document metadata for ${docId}:`, {
+            logger.debug(`[AI ROUTE] Document metadata for ${docId}:`, {
               name: doc?.name,
               type: doc?.type,
               size: doc?.size,
@@ -638,7 +670,9 @@ router.post('/analyze-panel-requirements', requireAuth, async (req, res) => {
               size: doc?.size || 0
             };
           } catch (textError) {
-            console.warn(`[AI ROUTE] Text extraction failed for ${docId}:`, textError.message);
+            logger.warn(`[AI ROUTE] Text extraction failed for ${docId}`, {
+              message: textError.message
+            });
             return {
               id: docId,
               text: '',
@@ -650,24 +684,26 @@ router.post('/analyze-panel-requirements', requireAuth, async (req, res) => {
         })
       );
     } catch (enhanceError) {
-      console.warn('[AI ROUTE] Document enhancement failed:', enhanceError.message);
+      logger.warn('[AI ROUTE] Document enhancement failed', {
+        message: enhanceError.message
+      });
       return res.status(500).json({ error: 'Failed to fetch document content' });
     }
 
     // Phase 2: Enhanced document analysis with advanced parsing and validation
     const enhancedAnalysisResult = await enhancedDocumentAnalyzer.analyzeDocumentsEnhanced(enhancedDocuments, { projectId });
     
-    console.log(`[AI ROUTE] Phase 2: Enhanced analysis completed with confidence: ${enhancedAnalysisResult.confidence}%`);
+    logger.debug(`[AI ROUTE] Phase 2: Enhanced analysis completed with confidence: ${enhancedAnalysisResult.confidence}%`);
 
     // Phase 2: Enhanced validation with detailed results
     const validationResults = await enhancedValidationService.validateExtractedData(enhancedAnalysisResult);
     
-    console.log(`[AI ROUTE] Phase 2: Validation completed. Valid: ${validationResults.isValid}, Issues: ${validationResults.issues.length}`);
+    logger.debug(`[AI ROUTE] Phase 2: Validation completed. Valid: ${validationResults.isValid}, Issues: ${validationResults.issues.length}`);
 
     // Phase 2: Enhanced confidence calculation with detailed breakdown
     const confidenceResults = await enhancedConfidenceService.calculateEnhancedConfidence(enhancedAnalysisResult, validationResults);
     
-    console.log(`[AI ROUTE] Phase 2: Enhanced confidence calculation completed. Overall: ${confidenceResults.overall}%`);
+    logger.debug(`[AI ROUTE] Phase 2: Enhanced confidence calculation completed. Overall: ${confidenceResults.overall}%`);
 
     // Extract panel requirements from enhanced analysis
     const extractedRequirements = {
@@ -721,8 +757,8 @@ router.post('/analyze-panel-requirements', requireAuth, async (req, res) => {
     // Save extracted requirements to database
     const savedRequirements = await panelRequirementsService.upsertRequirements(projectId, extractedRequirements);
 
-    console.log(`[AI ROUTE] Panel requirements extracted and saved with confidence: ${confidenceResults.overall}%`);
-    console.log(`[AI ROUTE] Saved panel specifications:`, {
+    logger.debug(`[AI ROUTE] Panel requirements extracted and saved with confidence: ${confidenceResults.overall}%`);
+    logger.debug(`[AI ROUTE] Saved panel specifications:`, {
       panelCount: extractedRequirements.panelSpecifications.panelCount,
       actualPanels: extractedRequirements.panelSpecifications.panelSpecifications?.length || 0,
       hasPanelData: !!extractedRequirements.panelSpecifications.panelSpecifications?.length,
@@ -746,7 +782,12 @@ router.post('/analyze-panel-requirements', requireAuth, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('[AI ROUTE] Error analyzing panel requirements:', error);
+    logger.error('[AI ROUTE] Error analyzing panel requirements', {
+      error: {
+        message: error.message,
+        stack: error.stack
+      }
+    });
     res.status(500).json({
       success: false,
       error: 'Failed to analyze documents for panel requirements',
@@ -758,7 +799,7 @@ router.post('/analyze-panel-requirements', requireAuth, async (req, res) => {
 // Phase 3: Advanced AI Layout Generation Route
 router.post('/generate-advanced-layout', requireAuth, async (req, res) => {
   try {
-    console.log('[AI ROUTE] Phase 3: Advanced layout generation request received');
+    logger.debug('[AI ROUTE] Phase 3: Advanced layout generation request received');
     
     const { projectId, options = {} } = req.body;
 
@@ -769,8 +810,8 @@ router.post('/generate-advanced-layout', requireAuth, async (req, res) => {
       });
     }
 
-    console.log('[AI ROUTE] Phase 3: Generating advanced layout for project:', projectId);
-    console.log('[AI ROUTE] Phase 3: Options:', options);
+    logger.debug('[AI ROUTE] Phase 3: Generating advanced layout for project:', projectId);
+    logger.debug('[AI ROUTE] Phase 3: Options:', options);
 
     // Import Phase 3 services if not already imported
     const Phase3AILayoutGenerator = require('../services/phase3AILayoutGenerator');
@@ -779,14 +820,19 @@ router.post('/generate-advanced-layout', requireAuth, async (req, res) => {
     // Generate advanced layout using Phase 3 AI Layout Generator
     const result = await phase3AILayoutGenerator.generateAdvancedLayout(projectId, options);
 
-    console.log('[AI ROUTE] Phase 3: Advanced layout generation completed');
-    console.log('[AI ROUTE] Phase 3: Result status:', result.success);
-    console.log('[AI ROUTE] Phase 3: Panel count:', result.layout?.length || 0);
+    logger.debug('[AI ROUTE] Phase 3: Advanced layout generation completed');
+    logger.debug('[AI ROUTE] Phase 3: Result status:', result.success);
+    logger.debug('[AI ROUTE] Phase 3: Panel count:', result.layout?.length || 0);
 
     res.json(result);
 
   } catch (error) {
-    console.error('[AI ROUTE] Phase 3: Error generating advanced layout:', error);
+    logger.error('[AI ROUTE] Phase 3: Error generating advanced layout', {
+      error: {
+        message: error.message,
+        stack: error.stack
+      }
+    });
     res.status(500).json({
       success: false,
       error: 'Failed to generate advanced layout',
@@ -925,7 +971,12 @@ router.get('/test-enhanced', requireAuth, async (req, res) => {
     });
     
   } catch (error) {
-    console.error('[AI TEST] Error testing enhanced services:', error);
+    logger.error('[AI TEST] Error testing enhanced services', {
+      error: {
+        message: error.message,
+        stack: error.stack
+      }
+    });
     res.status(500).json({ 
       success: false,
       error: 'Enhanced AI services test failed',
@@ -939,31 +990,33 @@ router.post('/test-document-analysis', requireAuth, async (req, res) => {
   try {
     const { projectId, documents } = req.body;
 
-    console.log(`[TEST] Testing document analysis for project ${projectId}`);
-    console.log(`[TEST] Documents provided: ${documents?.length || 0}`);
+    logger.debug(`[TEST] Testing document analysis for project ${projectId}`);
+    logger.debug(`[TEST] Documents provided: ${documents?.length || 0}`);
 
     // Test document enhancement
     let enhancedDocuments = documents || [];
     if (enhancedDocuments.length > 0) {
-      console.log('[TEST] Testing document enhancement...');
+      logger.debug('[TEST] Testing document enhancement...');
       
       try {
         const documentService = require('../services/documentService');
         
         enhancedDocuments = await Promise.all(
           enhancedDocuments.map(async (doc) => {
-            console.log(`[TEST] Processing document: ${doc.name || doc.id}`);
+            logger.debug(`[TEST] Processing document: ${doc.name || doc.id}`);
             if (!doc.text && doc.id) {
               try {
                 const documentText = await documentService.getDocumentText(doc.id);
-                console.log(`[TEST] Extracted text length: ${documentText ? documentText.length : 0}`);
+                logger.debug(`[TEST] Extracted text length: ${documentText ? documentText.length : 0}`);
                 return {
                   ...doc,
                   text: documentText,
                   filename: doc.name || doc.filename
                 };
               } catch (textError) {
-                console.warn(`[TEST] Text extraction failed for ${doc.id}:`, textError.message);
+                logger.warn(`[TEST] Text extraction failed for ${doc.id}`, {
+                  message: textError.message
+                });
                 return doc;
               }
             }
@@ -974,7 +1027,9 @@ router.post('/test-document-analysis', requireAuth, async (req, res) => {
           })
         );
       } catch (enhanceError) {
-        console.warn('[TEST] Document enhancement failed:', enhanceError.message);
+        logger.warn('[TEST] Document enhancement failed', {
+          message: enhanceError.message
+        });
       }
     }
 
@@ -982,18 +1037,18 @@ router.post('/test-document-analysis', requireAuth, async (req, res) => {
     const panelDocumentAnalyzer = require('../services/panelDocumentAnalyzer');
     const categories = panelDocumentAnalyzer.categorizeDocuments(enhancedDocuments);
     
-    console.log('[TEST] Document categorization results:');
+    logger.debug('[TEST] Document categorization results:');
     Object.entries(categories).forEach(([category, docs]) => {
-      console.log(`[TEST] ${category}: ${docs.length} documents`);
+      logger.debug(`[TEST] ${category}: ${docs.length} documents`);
       docs.forEach(doc => {
-        console.log(`[TEST]   - ${doc.name || doc.filename} (text: ${doc.text ? 'yes' : 'no'})`);
+        logger.debug(`[TEST]   - ${doc.name || doc.filename} (text: ${doc.text ? 'yes' : 'no'})`);
       });
     });
 
     // Test AI analysis
     const analysis = await panelDocumentAnalyzer.analyzePanelDocuments(enhancedDocuments);
     
-    console.log('[TEST] AI analysis results:', {
+    logger.debug('[TEST] AI analysis results:', {
       confidence: analysis.confidence,
       panelCount: analysis.panels?.length || 0,
       rollCount: analysis.rolls?.length || 0,
@@ -1020,7 +1075,12 @@ router.post('/test-document-analysis', requireAuth, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('[TEST] Error in document analysis test:', error);
+    logger.error('[TEST] Error in document analysis test', {
+      error: {
+        message: error.message,
+        stack: error.stack
+      }
+    });
     res.status(500).json({ 
       success: false,
       error: 'Test failed',

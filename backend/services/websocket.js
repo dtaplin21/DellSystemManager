@@ -1,7 +1,7 @@
-const jwt = require('jsonwebtoken');
 const { db } = require('../db');
 const { users } = require('../db/schema');
 const { eq } = require('drizzle-orm');
+const logger = require('../lib/logger');
 
 // Store active connections
 const connections = new Map();
@@ -12,7 +12,7 @@ const rooms = new Map();
 // Setup WebSocket server
 function setupWebSocketServer(wss) {
   wss.on('connection', (ws) => {
-    console.log('WebSocket client connected');
+    logger.info('WebSocket client connected');
     
     // Store connection with a temporary ID until authenticated
     const tempConnectionId = Date.now().toString();
@@ -25,7 +25,7 @@ function setupWebSocketServer(wss) {
         const connectionInfo = getConnectionByWs(ws);
         
         if (!connectionInfo) {
-          console.error('Connection not found in connections map');
+          logger.warn('WebSocket connection not found in connections map');
           return;
         }
         
@@ -48,17 +48,22 @@ function setupWebSocketServer(wss) {
             break;
             
           default:
-            console.log(`Unhandled message type: ${data.type}`);
+            logger.debug('Unhandled WebSocket message type', { type: data.type });
         }
       } catch (error) {
-        console.error('Error handling WebSocket message:', error);
+        logger.error('Error handling WebSocket message', {
+          error: {
+            message: error.message,
+            stack: error.stack
+          }
+        });
       }
     });
     
     // Handle disconnection
     ws.on('close', () => {
       cleanupConnection(ws);
-      console.log('WebSocket client disconnected');
+      logger.info('WebSocket client disconnected');
     });
   });
 }
@@ -70,8 +75,7 @@ async function handleAuth(connectionInfo, data, tempConnectionId) {
     const userId = data.userId || (data.data && data.data.userId);
     
     if (!userId) {
-      console.error('No user ID provided for authentication');
-      console.error('Received data:', JSON.stringify(data, null, 2));
+      logger.warn('No user ID provided for WebSocket authentication', { payload: data });
       return;
     }
     
@@ -82,8 +86,7 @@ async function handleAuth(connectionInfo, data, tempConnectionId) {
       .where(eq(users.id, userId));
     
     if (!user) {
-      console.error(`User not found: ${userId}`);
-      
+      logger.warn('WebSocket authentication failed - user not found', { userId });
       // Send failure message to client
       try {
         connectionInfo.ws.send(JSON.stringify({
@@ -91,7 +94,12 @@ async function handleAuth(connectionInfo, data, tempConnectionId) {
           data: { error: 'User not found in database' }
         }));
       } catch (sendError) {
-        console.error('Failed to send auth failure message:', sendError);
+        logger.error('Failed to send WebSocket auth failure message', {
+          error: {
+            message: sendError.message,
+            stack: sendError.stack
+          }
+        });
       }
       return;
     }
@@ -110,9 +118,14 @@ async function handleAuth(connectionInfo, data, tempConnectionId) {
       message: 'Successfully authenticated'
     }));
     
-    console.log(`User ${userId} authenticated via WebSocket`);
+    logger.debug('WebSocket authentication succeeded', { userId });
   } catch (error) {
-    console.error('Authentication error:', error);
+    logger.error('WebSocket authentication error', {
+      error: {
+        message: error.message,
+        stack: error.stack
+      }
+    });
     
     // Send failure message to client
     try {
@@ -121,7 +134,12 @@ async function handleAuth(connectionInfo, data, tempConnectionId) {
         data: { error: error.message || 'Authentication failed' }
       }));
     } catch (sendError) {
-      console.error('Failed to send auth failure message:', sendError);
+      logger.error('Failed to send auth failure message', {
+        error: {
+          message: sendError.message,
+          stack: sendError.stack
+        }
+      });
     }
   }
 }
@@ -129,7 +147,7 @@ async function handleAuth(connectionInfo, data, tempConnectionId) {
 // Handle join room
 function handleJoinRoom(connectionInfo, data) {
   if (!connectionInfo.authenticated) {
-    console.error('Unauthenticated client tried to join room');
+    logger.warn('Unauthenticated WebSocket client tried to join room');
     return;
   }
   
@@ -137,8 +155,7 @@ function handleJoinRoom(connectionInfo, data) {
   const room = data.room || (data.data && data.data.room);
   
   if (!room) {
-    console.error('No room specified');
-    console.error('Received data:', JSON.stringify(data, null, 2));
+    logger.warn('No room specified for WebSocket join', { payload: data });
     return;
   }
   
@@ -149,7 +166,10 @@ function handleJoinRoom(connectionInfo, data) {
   
   rooms.get(room).add(connectionInfo.userId);
   
-  console.log(`User ${connectionInfo.userId} joined room ${room}`);
+  logger.debug('User joined WebSocket room', {
+    userId: connectionInfo.userId,
+    room
+  });
   
   // Notify user they joined the room
   connectionInfo.ws.send(JSON.stringify({
@@ -175,7 +195,10 @@ function handleLeaveRoom(connectionInfo, data) {
     rooms.delete(room);
   }
   
-  console.log(`User ${connectionInfo.userId} left room ${room}`);
+  logger.debug('User left WebSocket room', {
+    userId: connectionInfo.userId,
+    room
+  });
 }
 
 // Handle panel update

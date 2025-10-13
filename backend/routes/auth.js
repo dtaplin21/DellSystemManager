@@ -6,6 +6,8 @@ const { auth } = require('../middlewares/auth');
 const { db, supabase } = require('../db');
 const { users } = require('../db/schema');
 const { eq } = require('drizzle-orm');
+const config = require('../config/env');
+const logger = require('../lib/logger');
 
 // Simple validation functions
 const validateSignup = ({ name, email, password, company }) => {
@@ -44,7 +46,7 @@ const validateLogin = ({ email, password }) => {
 const setTokenCookie = (res, token) => {
   res.cookie('token', token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: config.isProduction,
     sameSite: 'strict',
     maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
   });
@@ -58,7 +60,7 @@ router.post('/signup', async (req, res) => {
     // Validate input
     const { error: validationError } = validateSignup({ name, email, password, company });
     if (validationError) {
-      console.log('Validation error:', validationError.details[0].message);
+      logger.debug('[AUTH:signup] Validation error', { message: validationError.details[0].message });
       return res.status(400).json({ message: validationError.details[0].message });
     }
     
@@ -75,7 +77,12 @@ router.post('/signup', async (req, res) => {
     });
     
     if (supabaseError) {
-      console.error('Supabase signup error:', supabaseError);
+      logger.error('[AUTH:signup] Supabase signup error', {
+        error: {
+          message: supabaseError.message,
+          details: supabaseError
+        }
+      });
       return res.status(400).json({ 
         message: supabaseError.message || 'Failed to create account',
         error: supabaseError
@@ -83,7 +90,7 @@ router.post('/signup', async (req, res) => {
     }
     
     if (!supabaseUser?.user) {
-      console.error('No user returned from Supabase signup');
+      logger.error('[AUTH:signup] No user returned from Supabase signup');
       return res.status(400).json({ message: 'Failed to create account' });
     }
 
@@ -104,7 +111,11 @@ router.post('/signup', async (req, res) => {
     });
 
     if (signInError) {
-      console.error('Failed to sign in after signup:', signInError);
+      logger.warn('[AUTH:signup] Failed to sign in after signup', {
+        error: {
+          message: signInError.message
+        }
+      });
       // Still return success but without session
       return res.status(201).json({ 
         user: user,
@@ -124,10 +135,18 @@ router.post('/signup', async (req, res) => {
       token: signInData?.session?.access_token,
       message: 'Account created successfully'
     };
-    console.log('Sending signup response:', { ...response, token: response.token ? '[REDACTED]' : undefined });
+    logger.debug('[AUTH:signup] Signup successful', {
+      userId: userWithoutPassword.id,
+      tokenIssued: Boolean(response.token)
+    });
     res.status(201).json(response);
   } catch (error) {
-    console.error('Signup error:', error);
+    logger.error('[AUTH:signup] Unexpected error', {
+      error: {
+        message: error.message,
+        stack: config.isDevelopment ? error.stack : undefined
+      }
+    });
     res.status(500).json({ 
       message: error.message || 'An unexpected error occurred during signup',
       error: error.toString()
@@ -139,24 +158,27 @@ router.post('/signup', async (req, res) => {
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    console.log('Login attempt for email:', email);
+    logger.debug('[AUTH:login] Login attempt', { email });
     
     // Validate input
     const { error: validationError } = validateLogin({ email, password });
     if (validationError) {
-      console.log('Validation error:', validationError.details[0].message);
+      logger.debug('[AUTH:login] Validation error', { message: validationError.details[0].message });
       return res.status(400).json({ message: validationError.details[0].message });
     }
     
     // Sign in with Supabase
-    console.log('Attempting Supabase sign in...');
     const { data: supabaseUser, error: supabaseError } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
     
     if (supabaseError) {
-      console.error('Supabase auth error:', supabaseError);
+      logger.warn('[AUTH:login] Supabase auth error', {
+        error: {
+          message: supabaseError.message
+        }
+      });
       return res.status(401).json({ 
         message: supabaseError.message || 'Invalid credentials',
         error: supabaseError
@@ -164,21 +186,21 @@ router.post('/login', async (req, res) => {
     }
     
     if (!supabaseUser?.user) {
-      console.error('No user returned from Supabase');
+      logger.warn('[AUTH:login] No user returned from Supabase', { email });
       return res.status(401).json({ message: 'Authentication failed' });
     }
     
-    console.log('Supabase auth successful, user ID:', supabaseUser.user.id);
+    logger.debug('[AUTH:login] Supabase auth successful', { userId: supabaseUser.user.id });
     
     // Get user from our database
     const [user] = await db.select().from(users).where(eq(users.id, supabaseUser.user.id));
     
     if (!user) {
-      console.error('User not found in database:', supabaseUser.user.id);
+      logger.warn('[AUTH:login] User not found in database', { userId: supabaseUser.user.id });
       return res.status(401).json({ message: 'User not found in database' });
     }
     
-    console.log('User found in database:', user.id);
+    logger.debug('[AUTH:login] User record found', { userId: user.id });
     
     // Set cookie
     setTokenCookie(res, supabaseUser.session.access_token);
@@ -189,10 +211,18 @@ router.post('/login', async (req, res) => {
       user: userWithoutPassword,
       token: supabaseUser.session.access_token 
     };
-    console.log('Sending response:', { ...response, token: '[REDACTED]' });
+    logger.debug('[AUTH:login] Login successful', {
+      userId: user.id,
+      tokenIssued: Boolean(response.token)
+    });
     res.status(200).json(response);
   } catch (error) {
-    console.error('Login error:', error);
+    logger.error('[AUTH:login] Unexpected error', {
+      error: {
+        message: error.message,
+        stack: config.isDevelopment ? error.stack : undefined
+      }
+    });
     res.status(500).json({ 
       message: error.message || 'An unexpected error occurred during login',
       error: error.toString()

@@ -5,19 +5,18 @@
  * data extraction, and QC data analysis.
  */
 
-const axios = require('axios');
-const path = require('path');
-const fs = require('fs');
+const config = require('../config/env');
+const logger = require('../lib/logger');
 
 // AI service endpoint (in a real production environment, this would be a separate service)
-const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:5000';
+const AI_SERVICE_URL = config.raw.AI_SERVICE_URL || 'http://localhost:5000';
 
 /**
  * Check if the OpenAI API Key is configured
  * @returns {boolean} Whether the OpenAI API key is available
  */
 function isOpenAIConfigured() {
-  return !!process.env.OPENAI_API_KEY;
+  return Boolean(config.secrets.openai || process.env.OPENAI_API_KEY);
 }
 
 /**
@@ -27,7 +26,7 @@ async function initAIServices() {
   // In a production app, this would verify the AI service is available
   // For now, we'll just check if the OpenAI API key is configured
   if (!isOpenAIConfigured()) {
-    console.log('OpenAI API key is not configured. Using fallback algorithms for AI features.');
+    logger.warn('OpenAI API key is not configured. Using fallback algorithms for AI features.');
   }
   
   // Set up any necessary configurations
@@ -73,7 +72,12 @@ async function analyzeDocuments(documents, question) {
       };
     }
   } catch (error) {
-    console.error('Error analyzing documents:', error);
+    logger.error('Error analyzing documents', {
+      error: {
+        message: error.message,
+        stack: error.stack
+      }
+    });
     throw new Error('Failed to analyze documents');
   }
 }
@@ -95,7 +99,7 @@ async function extractDataFromDocument(file, extractionType = 'auto') {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+          'Authorization': `Bearer ${config.secrets.openai || process.env.OPENAI_API_KEY}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -135,7 +139,12 @@ async function extractDataFromDocument(file, extractionType = 'auto') {
       };
     }
   } catch (error) {
-    console.error('Error extracting data from document:', error);
+    logger.error('Error extracting data from document', {
+      error: {
+        message: error.message,
+        stack: error.stack
+      }
+    });
     throw new Error('Failed to extract data from document');
   }
 }
@@ -207,7 +216,12 @@ async function analyzeQCData(qcData) {
       };
     }
   } catch (error) {
-    console.error('Error analyzing QC data:', error);
+    logger.error('Error analyzing QC data', {
+      error: {
+        message: error.message,
+        stack: error.stack
+      }
+    });
     throw new Error('Failed to analyze QC data');
   }
 }
@@ -227,7 +241,7 @@ async function generateRecommendations(projectData) {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+          'Authorization': `Bearer ${config.secrets.openai || process.env.OPENAI_API_KEY}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -268,7 +282,12 @@ async function generateRecommendations(projectData) {
       };
     }
   } catch (error) {
-    console.error('Error generating recommendations:', error);
+    logger.error('Error generating recommendations', {
+      error: {
+        message: error.message,
+        stack: error.stack
+      }
+    });
     throw new Error('Failed to generate recommendations');
   }
 }
@@ -374,7 +393,12 @@ async function generateProjectReport(projectData, reportType = 'summary') {
       };
     }
   } catch (error) {
-    console.error('Error generating project report:', error);
+    logger.error('Error generating project report', {
+      error: {
+        message: error.message,
+        stack: error.stack
+      }
+    });
     throw new Error('Failed to generate project report');
   }
 }
