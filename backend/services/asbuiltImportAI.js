@@ -971,19 +971,38 @@ Return ONLY valid JSON, no explanation.`;
   normalizePanelNumber(panelNumber) {
     if (!panelNumber) return null;
     
-    const str = panelNumber.toString().trim().toUpperCase();
-    
-    // If already in P001 format, return as is
-    if (str.match(/^P\d+$/)) {
-      return str;
+    let str = panelNumber.toString().trim().toUpperCase();
+
+    // Normalize common prefixes/suffixes and remove separators while preserving suffix letters
+    str = str
+      .replace(/^PANEL\s*/, 'P')
+      .replace(/^PNL\s*/, 'P')
+      .replace(/^PN\s*/, 'P')
+      .replace(/^P#/, 'P')
+      .replace(/^#/, '')
+      .replace(/[^A-Z0-9]/g, '');
+
+    // If already in canonical format (e.g. P001 or P001A)
+    if (/^P\d{1,4}[A-Z]{0,3}$/.test(str)) {
+      const [, digits, suffix] = str.match(/^P(\d{1,4})([A-Z]{0,3})$/);
+      const numeric = parseInt(digits, 10);
+      if (Number.isNaN(numeric)) return null;
+      return `P${numeric.toString().padStart(3, '0')}${suffix || ''}`;
     }
-    
-    // Extract numeric value and convert to P001 format
-    const match = str.match(/\d+/);
-    if (!match) return null;
-    
-    const numeric = parseInt(match[0], 10);
-    return `P${numeric.toString().padStart(3, '0')}`;
+
+    // Extract trailing digits with optional alpha suffix (e.g. 12A, 012B)
+    const match = str.match(/(\d{1,4})([A-Z]{0,3})$/);
+    if (!match) {
+      return null;
+    }
+
+    const numeric = parseInt(match[1], 10);
+    if (Number.isNaN(numeric)) {
+      return null;
+    }
+
+    const suffix = match[2] || '';
+    return `P${numeric.toString().padStart(3, '0')}${suffix}`;
   }
 
   /**
