@@ -1619,3 +1619,5 @@ Available panels: [
 ]
 [2025-10-13T00:24:21.904Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
 🔍 [ASBUILT] Fetching records for project 49e74875-5d29-4027-a817-d53602e68e4c
+[2025-10-13T00:25:14.285Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+🔍 [ASBUILT] Fetching records for project 49e74875-5d29-4027-a817-d53602e68e4c
