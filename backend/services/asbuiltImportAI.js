@@ -1,6 +1,8 @@
 const xlsx = require('xlsx');
 const { Pool } = require('pg');
 const OpenAI = require('openai');
+const DuplicateDetectionService = require('./duplicateDetectionService');
+const ImportAnalysisService = require('./importAnalysisService');
 require('dotenv').config({ path: '../.env' });
 
 class AsbuiltImportAI {
@@ -14,6 +16,10 @@ class AsbuiltImportAI {
     this.openai = process.env.OPENAI_API_KEY ? new OpenAI({
       apiKey: process.env.OPENAI_API_KEY
     }) : null;
+
+    // Initialize new services
+    this.duplicateDetectionService = new DuplicateDetectionService();
+    this.importAnalysisService = new ImportAnalysisService();
 
     // Canonical field definitions per domain
     this.canonicalFields = {
@@ -115,9 +121,10 @@ class AsbuiltImportAI {
   /**
    * Main import function - Production ready
    */
-  async importExcelData(fileBuffer, projectId, domain, userId) {
+  async importExcelData(fileBuffer, projectId, domain, userId, options = {}) {
+    const startTime = Date.now();
     try {
-      console.log(`🤖 [AI] ===== STARTING IMPORT =====`);
+      console.log(`🤖 [AI] ===== STARTING ENHANCED IMPORT =====`);
       console.log(`🤖 [AI] Starting import for project ${projectId}, domain: ${domain}`);
       console.log(`🤖 [AI] Domain type: ${typeof domain}, value: ${JSON.stringify(domain)}`);
       console.log(`🤖 [AI] File buffer size: ${fileBuffer.length} bytes`);
@@ -139,15 +146,15 @@ class AsbuiltImportAI {
         throw new Error(`Missing required fields for domain ${detectedDomain}. Required: panelNumber`);
       }
 
-    // Step 5: Process rows with validation
-    const records = [];
-    const errors = [];
-    const seenPanelKeys = new Set();
+      // Step 5: Process rows with validation
+      const records = [];
+      const errors = [];
+      const seenPanelKeys = new Set();
 
-    for (let i = 0; i < dataRows.length; i++) {
-      try {
-        const record = await this.processRow(
-          dataRows[i], 
+      for (let i = 0; i < dataRows.length; i++) {
+        try {
+          const record = await this.processRow(
+            dataRows[i], 
             headers, 
             mappings, 
             detectedDomain, 
@@ -179,25 +186,139 @@ class AsbuiltImportAI {
 
       console.log(`✅ [AI] Processed ${records.length} valid records, ${errors.length} errors`);
 
-      // Step 6: Check for duplicate import
-      const isDuplicate = await this.checkDuplicateImport(projectId, records);
-      if (isDuplicate) {
-        console.warn(`⚠️ [AI] Potential duplicate import detected`);
-      }
+      // Step 6: Enhanced duplicate detection
+      const panelNumbers = records.map(r => r.mappedData?.panelNumber).filter(Boolean);
+      const duplicateCheck = await this.duplicateDetectionService.checkForDuplicates(
+        projectId, 
+        panelNumbers, 
+        detectedDomain
+      );
+
+      console.log(`🔍 [AI] Duplicate check completed:`, {
+        duplicates: duplicateCheck.duplicates.length,
+        conflicts: duplicateCheck.conflicts.length
+      });
+
+      // Step 7: AI-powered similarity detection
+      const similarityCheck = await this.duplicateDetectionService.detectSimilarRecords(
+        projectId,
+        records,
+        detectedDomain
+      );
+
+      console.log(`🤖 [AI] Similarity check completed:`, {
+        similarRecords: similarityCheck.similarRecords.length,
+        confidence: similarityCheck.confidence
+      });
+
+      // Step 8: Filter out duplicates from records
+      const cleanRecords = records.filter(record => {
+        const panelNumber = record.mappedData?.panelNumber;
+        return !duplicateCheck.duplicates.some(dup => dup.panelNumber === panelNumber);
+      });
+
+      console.log(`🧹 [AI] Filtered records: ${records.length} → ${cleanRecords.length} (removed ${records.length - cleanRecords.length} duplicates)`);
+
+      // Step 9: Generate AI analysis
+      const processingTime = Date.now() - startTime;
+      const averageConfidence = records.length > 0 ? 
+        records.reduce((sum, r) => sum + (r.ai_confidence || 0), 0) / records.length : 0;
+
+      const importResult = {
+        records: cleanRecords,
+        duplicates: duplicateCheck.duplicates,
+        conflicts: duplicateCheck.conflicts,
+        processingTime,
+        aiConfidence: averageConfidence,
+        detectedDomain,
+        confidence,
+        usedAI
+      };
+
+      const fileMetadata = {
+        fileName: options.fileName || 'Unknown',
+        fileSize: fileBuffer.length,
+        fileType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        processingTime,
+        uploadedAt: new Date().toISOString()
+      };
+
+      // Step 10: Generate comprehensive AI analysis
+      const aiAnalysis = await this.duplicateDetectionService.generateImportAnalysis(
+        importResult,
+        duplicateCheck.duplicates,
+        duplicateCheck.conflicts,
+        fileMetadata
+      );
+
+      console.log(`🤖 [AI] AI analysis completed:`, {
+        summary: aiAnalysis.summary?.substring(0, 100) + '...',
+        dataQuality: aiAnalysis.dataQuality?.score,
+        recommendations: aiAnalysis.recommendations?.length
+      });
+
+      // Step 11: Create import session and summary
+      const importSession = {
+        id: `import_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        projectId,
+        fileId: options.fileId || null,
+        sessionId: `session_${Date.now()}`,
+        totalRecords: records.length,
+        duplicatesFound: duplicateCheck.duplicates.length,
+        conflictsResolved: duplicateCheck.conflicts.length
+      };
+
+      const importSummary = await this.duplicateDetectionService.createImportSummary(
+        projectId,
+        importSession,
+        aiAnalysis
+      );
+
+      console.log(`📝 [AI] Import summary created:`, {
+        sessionId: importSession.id,
+        breakdown: importSummary.breakdown
+      });
 
       return {
         success: true,
-        records,
-        importedRows: records.length,
+        records: cleanRecords,
+        duplicates: duplicateCheck.duplicates,
+        conflicts: duplicateCheck.conflicts,
+        summary: duplicateCheck.summary,
+        
+        // NEW: AI Analysis and Insights
+        aiAnalysis: {
+          summary: aiAnalysis.summary,
+          dataQuality: aiAnalysis.dataQuality,
+          duplicateDetails: aiAnalysis.duplicateAnalysis,
+          panelCoverage: aiAnalysis.panelCoverage,
+          recommendations: aiAnalysis.recommendations,
+          insights: aiAnalysis.insights,
+          processingTime: aiAnalysis.processingTime
+        },
+        
+        // NEW: Detailed breakdown
+        breakdown: {
+          totalProcessed: records.length,
+          successfullyImported: cleanRecords.length,
+          duplicatesSkipped: duplicateCheck.duplicates.length,
+          conflictsResolved: duplicateCheck.conflicts.length,
+          panelsAffected: new Set(panelNumbers).size,
+          filesProcessed: 1,
+          aiConfidence: averageConfidence
+        },
+
+        // Legacy fields for backward compatibility
+        importedRows: cleanRecords.length,
         errors,
         detectedDomain,
         confidence,
         usedAI,
-        isDuplicate
+        isDuplicate: duplicateCheck.duplicates.length > 0
       };
 
     } catch (error) {
-      console.error(`❌ [AI] Import failed:`, error);
+      console.error(`❌ [AI] Enhanced import failed:`, error);
       throw error;
     }
   }

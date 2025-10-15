@@ -323,18 +323,27 @@ router.post('/import', auth, upload.single('excelFile'), async (req, res) => {
     const detectedPanels = new Set();
     const processedDomains = [];
     let fileMetadata = null;
+    let latestImportResult = null;
     
     for (const domain of domains) {
       try {
         console.log(`🤖 [ASBUILT] Processing domain: ${domain}`);
         
-        // Process the Excel file using AI import service
+        // Process the Excel file using enhanced AI import service
         const importResult = await asbuiltImportAI.importExcelData(
           excelFile.buffer,
           projectId,
           domain === 'auto-detect' ? null : domain, // Let AI auto-detect the domain
-          userId
+          userId,
+          {
+            fileName: excelFile.originalname,
+            fileSize: excelFile.size,
+            fileType: excelFile.mimetype
+          }
         );
+        
+        // Store the latest import result for response
+        latestImportResult = importResult;
         
         if (importResult.records && importResult.records.length > 0) {
           console.log(`📊 [ASBUILT] AI processed ${importResult.records.length} records for ${domain}`);
@@ -434,6 +443,8 @@ router.post('/import', auth, upload.single('excelFile'), async (req, res) => {
     console.log(`✅ [ASBUILT] Import completed: ${allCreatedRecords.length} records created`);
     console.log(`🎯 [ASBUILT] Detected panels:`, Array.from(detectedPanels));
     
+    // Use the stored latest import result for AI analysis
+    
     res.json({
       success: true,
       records: allCreatedRecords,
@@ -441,6 +452,13 @@ router.post('/import', auth, upload.single('excelFile'), async (req, res) => {
       detectedPanels: Array.from(detectedPanels),
       processedDomains,
       fileMetadata: fileMetadata,
+      
+      // NEW: Enhanced AI Analysis Response
+      aiAnalysis: latestImportResult.aiAnalysis || null,
+      breakdown: latestImportResult.breakdown || null,
+      duplicates: latestImportResult.duplicates || [],
+      conflicts: latestImportResult.conflicts || [],
+      
       message: `Successfully imported ${allCreatedRecords.length} records across ${processedDomains.length} domains`
     });
     
