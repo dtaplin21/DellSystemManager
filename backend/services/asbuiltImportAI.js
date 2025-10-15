@@ -11,8 +11,8 @@ class AsbuiltImportAI {
     });
 
     // Initialize Claude Haiku (fast & cheap)
-    this.anthropic = process.env.ANTHROPIC_API_KEY ? new Anthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY
+    this.anthropic = process.env.ANTHROPIC_KEY ? new Anthropic({
+      apiKey: process.env.ANTHROPIC_KEY
     }) : null;
 
     // Canonical field definitions per domain
