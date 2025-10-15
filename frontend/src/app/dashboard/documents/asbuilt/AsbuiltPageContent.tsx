@@ -36,9 +36,12 @@ export default function AsbuiltPageContent() {
   console.log('🚀 [ASBUILT] AsbuiltPageContent component is rendering!');
   
   const searchParams = useSearchParams();
-  const projectId = searchParams.get('projectId') || '';
+  const urlProjectId = searchParams.get('projectId') || '';
   
-  console.log('🔍 [ASBUILT] Component render - projectId:', projectId);
+  console.log('🔍 [ASBUILT] Component render - urlProjectId:', urlProjectId);
+  console.log('🔍 [ASBUILT] searchParams:', searchParams.toString());
+  console.log('🔍 [ASBUILT] searchParams.getAll:', Array.from(searchParams.entries()));
+  console.log('🔍 [ASBUILT] window.location.href:', typeof window !== 'undefined' ? window.location.href : 'SSR');
   
   // Use shared contexts
   const {
@@ -62,6 +65,12 @@ export default function AsbuiltPageContent() {
     clearSelection
   } = useProjects();
   
+  // Use URL projectId if available, otherwise fall back to contextSelectedProject
+  const projectId = urlProjectId || contextSelectedProject?.id || '';
+  
+  console.log('🔍 [ASBUILT] Final projectId:', projectId);
+  console.log('🔍 [ASBUILT] contextSelectedProject?.id:', contextSelectedProject?.id);
+  
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDomain, setSelectedDomain] = useState<string>('all');
   const [showImportModal, setShowImportModal] = useState(false);
@@ -74,19 +83,34 @@ export default function AsbuiltPageContent() {
 
   // Handle URL-based project selection
   useEffect(() => {
-    if (projectId && projects.length > 0) {
-      const project = projects.find(p => p.id === projectId);
+    console.log('🔄 [ASBUILT] Project selection useEffect triggered:');
+    console.log('  - urlProjectId:', urlProjectId);
+    console.log('  - projectId (final):', projectId);
+    console.log('  - projects.length:', projects.length);
+    console.log('  - contextSelectedProject:', contextSelectedProject?.id);
+    
+    if (urlProjectId && projects.length > 0) {
+      const project = projects.find(p => p.id === urlProjectId);
+      console.log('  - found project:', project?.name);
       if (project && project.id !== contextSelectedProject?.id) {
+        console.log('  - selecting project:', project.id);
         selectProject(project.id);
       }
     }
-  }, [projectId, projects, contextSelectedProject, selectProject]);
+  }, [urlProjectId, projects, contextSelectedProject, selectProject]);
 
   // Refresh data when project is selected
   useEffect(() => {
+    console.log('🔄 [ASBUILT] Data refresh useEffect triggered:');
+    console.log('  - contextSelectedProject:', contextSelectedProject?.id);
+    console.log('  - projectId:', projectId);
+    console.log('  - refreshAllData function:', typeof refreshAllData);
+    
     if (contextSelectedProject && projectId) {
-      console.log('🔄 [ASBUILT] Refreshing data for project:', projectId);
+      console.log('🔄 [ASBUILT] Calling refreshAllData for project:', projectId);
       refreshAllData(projectId);
+    } else {
+      console.log('❌ [ASBUILT] Not calling refreshAllData - missing contextSelectedProject or projectId');
     }
   }, [contextSelectedProject, projectId, refreshAllData]);
 

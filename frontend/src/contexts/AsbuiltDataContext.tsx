@@ -110,7 +110,10 @@ export const AsbuiltDataProvider: React.FC<AsbuiltDataProviderProps> = ({
 
   // Refresh project data
   const refreshProjectData = useCallback(async (projectId: string) => {
-    if (!projectId) return;
+    if (!projectId) {
+      console.log('❌ [AsbuiltContext] No projectId provided to refreshProjectData');
+      return;
+    }
     
     setIsLoading(true);
     setError(null);
@@ -118,11 +121,41 @@ export const AsbuiltDataProvider: React.FC<AsbuiltDataProviderProps> = ({
     try {
       console.log('🔄 [AsbuiltContext] Refreshing project data for:', projectId);
       
-      const [recordsData, summaryData, filesData] = await Promise.all([
-        safeAPI.getProjectRecords(projectId),
-        safeAPI.getProjectSummary(projectId),
-        safeAPI.getProjectFileMetadata(projectId)
-      ]);
+      console.log('🔄 [AsbuiltContext] Starting API calls...');
+      
+      let recordsData, summaryData, filesData;
+      
+      try {
+        console.log('🔄 [AsbuiltContext] Calling getProjectRecords...');
+        recordsData = await safeAPI.getProjectRecords(projectId);
+        console.log('✅ [AsbuiltContext] getProjectRecords completed:', recordsData?.length || 0, 'records');
+      } catch (error) {
+        console.error('❌ [AsbuiltContext] getProjectRecords failed:', error);
+        throw error;
+      }
+      
+      try {
+        console.log('🔄 [AsbuiltContext] Calling getProjectSummary...');
+        summaryData = await safeAPI.getProjectSummary(projectId);
+        console.log('✅ [AsbuiltContext] getProjectSummary completed:', summaryData);
+      } catch (error) {
+        console.error('❌ [AsbuiltContext] getProjectSummary failed:', error);
+        throw error;
+      }
+      
+      try {
+        console.log('🔄 [AsbuiltContext] Calling getProjectFileMetadata...');
+        filesData = await safeAPI.getProjectFileMetadata(projectId);
+        console.log('✅ [AsbuiltContext] getProjectFileMetadata completed:', filesData?.length || 0, 'files');
+      } catch (error) {
+        console.error('❌ [AsbuiltContext] getProjectFileMetadata failed:', error);
+        throw error;
+      }
+      
+      console.log('✅ [AsbuiltContext] API calls completed:');
+      console.log('  - recordsData length:', recordsData?.length || 0);
+      console.log('  - summaryData:', summaryData);
+      console.log('  - filesData length:', filesData?.length || 0);
       
       // Transform records data from snake_case to camelCase
       const transformedRecords = recordsData.map((record: any) => ({
@@ -144,6 +177,11 @@ export const AsbuiltDataProvider: React.FC<AsbuiltDataProviderProps> = ({
       
       setProjectRecords(transformedRecords);
       setProjectSummary(summaryData);
+      
+      console.log('✅ [AsbuiltContext] Data set successfully:');
+      console.log('  - Records:', transformedRecords.length);
+      console.log('  - Summary:', summaryData);
+      console.log('  - Files:', filesData.length);
       
       // Convert file metadata to Map format
       const filesMap = new Map();
@@ -183,6 +221,7 @@ export const AsbuiltDataProvider: React.FC<AsbuiltDataProviderProps> = ({
       console.log('✅ [AsbuiltContext] Project data refreshed successfully');
     } catch (err) {
       console.error('❌ [AsbuiltContext] Error refreshing project data:', err);
+      console.error('❌ [AsbuiltContext] Error stack:', err instanceof Error ? err.stack : 'No stack trace');
       setError(err instanceof Error ? err.message : 'Failed to refresh project data');
     } finally {
       setIsLoading(false);
@@ -213,7 +252,10 @@ export const AsbuiltDataProvider: React.FC<AsbuiltDataProviderProps> = ({
 
   // Auto-refresh when projectId changes
   useEffect(() => {
+    console.log('🔄 [AsbuiltContext] Auto-refresh useEffect triggered:');
+    console.log('  - projectId:', projectId);
     if (projectId) {
+      console.log('🔄 [AsbuiltContext] Auto-refreshing data for project:', projectId);
       refreshAllData(projectId);
     }
   }, [projectId, refreshAllData]);
