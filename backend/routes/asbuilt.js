@@ -454,4 +454,82 @@ router.post('/import', auth, upload.single('excelFile'), async (req, res) => {
   }
 });
 
+/**
+ * @route DELETE /api/asbuilt/files/:fileId
+ * @desc Delete a file and its associated records
+ * @access Private
+ */
+router.delete('/files/:fileId', auth, async (req, res) => {
+  try {
+    const { fileId } = req.params;
+    const userId = req.user?.id;
+    
+    console.log(`🗑️ [ASBUILT] Deleting file ${fileId}`);
+    
+    // Get file metadata first
+    const { data: fileData, error: fileError } = await supabase
+      .from('file_metadata')
+      .select('*')
+      .eq('id', fileId)
+      .single();
+    
+    if (fileError || !fileData) {
+      return res.status(404).json({
+        success: false,
+        error: 'File not found'
+      });
+    }
+    
+    // Check if user has permission to delete this file
+    if (fileData.uploaded_by !== userId) {
+      return res.status(403).json({
+        success: false,
+        error: 'Unauthorized to delete this file'
+      });
+    }
+    
+    // Delete associated records first
+    const { error: recordsError } = await supabase
+      .from('asbuilt_records')
+      .delete()
+      .eq('source_doc_id', fileId);
+    
+    if (recordsError) {
+      console.error('❌ [ASBUILT] Error deleting associated records:', recordsError);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to delete associated records'
+      });
+    }
+    
+    // Delete file metadata
+    const { error: deleteError } = await supabase
+      .from('file_metadata')
+      .delete()
+      .eq('id', fileId);
+    
+    if (deleteError) {
+      console.error('❌ [ASBUILT] Error deleting file metadata:', deleteError);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to delete file'
+      });
+    }
+    
+    console.log(`✅ [ASBUILT] File ${fileId} and associated records deleted successfully`);
+    
+    res.json({
+      success: true,
+      message: 'File and associated records deleted successfully'
+    });
+  } catch (error) {
+    console.error('❌ [ASBUILT] Error deleting file:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to delete file',
+      message: error.message
+    });
+  }
+});
+
 module.exports = router;

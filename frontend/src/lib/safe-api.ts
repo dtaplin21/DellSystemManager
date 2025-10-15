@@ -128,6 +128,17 @@ class SafeAPI {
     return response;
   }
 
+  // Delete file
+  async deleteFile(fileId: string): Promise<{ success: boolean; message: string }> {
+    const response = await this.makeRequest<{ success: boolean; message: string }>(
+      `/api/asbuilt/files/${fileId}`,
+      {
+        method: 'DELETE',
+      }
+    );
+    return response;
+  }
+
   // Health check
   async healthCheck(): Promise<{ status: string; timestamp: string }> {
     return this.makeRequest<{ status: string; timestamp: string }>('/api/health');

@@ -19,7 +19,8 @@ import {
   Clock,
   Eye,
   FileText,
-  Image
+  Image,
+  Trash2
 } from 'lucide-react';
 import { AsbuiltRecord, AsbuiltSummary, ASBUILT_DOMAINS } from '@/types/asbuilt';
 import { safeAPI } from '@/lib/safe-api';
@@ -53,6 +54,7 @@ export default function AsbuiltPageContent() {
     error: contextError,
     refreshAllData,
     deleteRecord,
+    deleteFile,
     getFilesForPanel,
     getFilesForDomain
   } = useAsbuiltData();
@@ -149,6 +151,22 @@ export default function AsbuiltPageContent() {
     } catch (error) {
       console.error('❌ [ASBUILT] Failed to delete record:', error);
       alert('Failed to delete record. Please try again.');
+    }
+  };
+
+  const handleDeleteFile = async (fileId: string, fileName: string) => {
+    if (!confirm(`Are you sure you want to delete file "${fileName}"? This will also delete all associated records. This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      console.log('🗑️ [ASBUILT] Deleting file:', fileId);
+      await deleteFile(fileId);
+      console.log('✅ [ASBUILT] File deleted successfully');
+      // The context will automatically update the UI by removing the file from the list
+    } catch (error) {
+      console.error('❌ [ASBUILT] Failed to delete file:', error);
+      alert('Failed to delete file. Please try again.');
     }
   };
 
@@ -660,6 +678,14 @@ export default function AsbuiltPageContent() {
                             onClick={() => window.open(file.downloadUrl, '_blank')}
                           >
                             <Download className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDeleteFile(file.id, file.fileName)}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
                       </div>
