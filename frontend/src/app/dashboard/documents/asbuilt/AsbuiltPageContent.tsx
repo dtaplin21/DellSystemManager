@@ -52,6 +52,7 @@ export default function AsbuiltPageContent() {
     isLoading,
     error: contextError,
     refreshAllData,
+    deleteRecord,
     getFilesForPanel,
     getFilesForDomain
   } = useAsbuiltData();
@@ -132,6 +133,22 @@ export default function AsbuiltPageContent() {
       // TODO: Show error toast/notification
     } finally {
       setLoadingRecord(false);
+    }
+  };
+
+  const handleDeleteRecord = async (recordId: string, panelNumber: string) => {
+    if (!confirm(`Are you sure you want to delete record for panel ${panelNumber}? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      console.log('🗑️ [ASBUILT] Deleting record:', recordId);
+      await deleteRecord(recordId);
+      console.log('✅ [ASBUILT] Record deleted successfully');
+      // The context will automatically update the UI by removing the record from the list
+    } catch (error) {
+      console.error('❌ [ASBUILT] Failed to delete record:', error);
+      alert('Failed to delete record. Please try again.');
     }
   };
 
@@ -536,9 +553,10 @@ export default function AsbuiltPageContent() {
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  onClick={() => console.log('Edit record:', record.id)}
+                                  onClick={() => handleDeleteRecord(record.id, record.mappedData.panelNumber || record.panelId)}
+                                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
                                 >
-                                  Edit
+                                  Delete
                                 </Button>
                               </div>
                             </td>

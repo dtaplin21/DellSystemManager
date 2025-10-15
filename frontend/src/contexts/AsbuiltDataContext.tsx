@@ -42,6 +42,7 @@ interface AsbuiltDataContextType {
   refreshAllData: (projectId: string) => Promise<void>;
   refreshPanelData: (projectId: string, panelId: string) => Promise<void>;
   refreshProjectData: (projectId: string) => Promise<void>;
+  deleteRecord: (recordId: string) => Promise<void>;
   
   // Utility functions
   getFilesForPanel: (panelId: string) => FileMetadata[];
@@ -250,6 +251,24 @@ export const AsbuiltDataProvider: React.FC<AsbuiltDataProviderProps> = ({
     await refreshProjectData(projectId);
   }, [refreshProjectData]);
 
+  // Delete record
+  const deleteRecord = useCallback(async (recordId: string) => {
+    try {
+      console.log('🗑️ [AsbuiltContext] Deleting record:', recordId);
+      
+      await safeAPI.deleteRecord(recordId);
+      
+      // Remove record from local state
+      setProjectRecords(prev => prev.filter(record => record.id !== recordId));
+      
+      console.log('✅ [AsbuiltContext] Record deleted successfully');
+    } catch (err) {
+      console.error('❌ [AsbuiltContext] Error deleting record:', err);
+      setError(err instanceof Error ? err.message : 'Failed to delete record');
+      throw err; // Re-throw so UI can handle the error
+    }
+  }, []);
+
   // Auto-refresh when projectId changes
   useEffect(() => {
     console.log('🔄 [AsbuiltContext] Auto-refresh useEffect triggered:');
@@ -274,6 +293,7 @@ export const AsbuiltDataProvider: React.FC<AsbuiltDataProviderProps> = ({
     refreshAllData,
     refreshPanelData,
     refreshProjectData,
+    deleteRecord,
     getFilesForPanel,
     getFilesForDomain,
     getPanelSummary,

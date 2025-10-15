@@ -94,14 +94,6 @@ class SafeAPI {
     return response.record;
   }
 
-  async deleteRecord(recordId: string): Promise<void> {
-    await this.makeRequest<{ success: boolean }>(
-      `/api/asbuilt/${recordId}`,
-      {
-        method: 'DELETE',
-      }
-    );
-  }
 
   async getProjectSummary(projectId: string): Promise<AsbuiltSummary> {
     const response = await this.makeRequest<{ success: boolean; summary: AsbuiltSummary }>(
@@ -120,6 +112,17 @@ class SafeAPI {
           panelId,
           records,
         }),
+      }
+    );
+    return response;
+  }
+
+  // Delete record
+  async deleteRecord(recordId: string): Promise<{ success: boolean; message: string }> {
+    const response = await this.makeRequest<{ success: boolean; message: string }>(
+      `/api/asbuilt/${recordId}`,
+      {
+        method: 'DELETE',
       }
     );
     return response;
