@@ -1,15 +1,12 @@
-const { Pool } = require('pg');
-require('dotenv').config({ path: '../.env' }); // Load backend .env
+const { createClient } = require('@supabase/supabase-js');
+require('dotenv').config(); // Load .env from current directory
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false,
-  }
-});
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
 async function clearAllRecords() {
-  const client = await pool.connect();
   try {
     console.log('🧹 Clearing all as-built records for testing...');
     console.log('🔗 Connecting to: Supabase database');
@@ -17,29 +14,33 @@ async function clearAllRecords() {
     const projectId = '49e74875-5d29-4027-a817-d53602e68e4c';
 
     // Delete all records for the project
-    const deleteQuery = `
-      DELETE FROM asbuilt_records
-      WHERE project_id = $1
-    `;
+    const { data: deleteData, error: deleteError } = await supabase
+      .from('asbuilt_records')
+      .delete()
+      .eq('project_id', projectId);
     
-    const deleteResult = await client.query(deleteQuery, [projectId]);
-    console.log(`🗑️ Deleted ${deleteResult.rowCount} records`);
+    if (deleteError) {
+      console.error('❌ Error deleting records:', deleteError);
+      return;
+    }
+    
+    console.log(`🗑️ Deleted records for project ${projectId}`);
 
     // Show remaining records count
-    const countQuery = `
-      SELECT COUNT(*) as total_records
-      FROM asbuilt_records
-    `;
+    const { count, error: countError } = await supabase
+      .from('asbuilt_records')
+      .select('*', { count: 'exact', head: true });
     
-    const countResult = await client.query(countQuery);
-    console.log(`📊 Remaining records in database: ${countResult.rows[0].total_records}`);
+    if (countError) {
+      console.error('❌ Error counting records:', countError);
+      return;
+    }
+    
+    console.log(`📊 Remaining records in database: ${count}`);
 
     console.log('🎉 Database cleared for testing!');
   } catch (error) {
     console.error('❌ Error clearing records:', error);
-  } finally {
-    client.release();
-    await pool.end();
   }
 }
 
