@@ -365,7 +365,7 @@ class AsbuiltImportAI {
 
     if (!existingHasIndex && candidateHasIndex) return true;
     if (existingHasIndex && candidateHasIndex && candidate.sourceIndex < existing.sourceIndex) return true;
-
+    
     return false;
   }
 
@@ -377,21 +377,21 @@ class AsbuiltImportAI {
       console.log(`🚫 [AI] Skipping mapping for "${mapping.sourceHeader}" due to missing source index`);
       return false;
     }
-
+    
     const key = mapping.canonicalField;
     const existing = mappingTracker.get(key);
 
     if (!existing) {
       mappingTracker.set(key, mapping);
-      return true;
-    }
+        return true;
+      }
 
     if (this.shouldReplaceMapping(existing, mapping)) {
       console.log(`🔁 [AI] Replacing mapping for "${key}" with column "${mapping.sourceHeader}"`);
       mappingTracker.set(key, mapping);
-      return true;
+    return true;
     }
-
+    
     console.log(`🚫 [AI] Skipping ${mapping.method} mapping for "${mapping.sourceHeader}" → "${key}" (better mapping already exists)`);
     return false;
   }
@@ -549,14 +549,17 @@ class AsbuiltImportAI {
     console.log(`🎯 [AI] Domain scores:`, domainScores);
     console.log(`🎯 [AI] Best domain: ${bestDomain[0]} (score: ${bestDomain[1]})`);
 
-    // If confidence is low, use AI (if available)
-    if (bestDomain[1] < 2 && this.anthropic) {
-      console.log(`🤖 [AI] Low confidence domain detection, using Claude...`);
-      return await this.aiDetectDomain(headers, dataRows);
+    // Always use Claude if available (remove confidence check)
+    if (this.anthropic) {
+      console.log(`🤖 [AI] Using Claude for domain detection...`);
+      const claudeDomain = await this.aiDetectDomain(headers, dataRows);
+      console.log(`✅ [AI] Claude determined domain: ${claudeDomain}`);
+      return claudeDomain;
+    } else {
+      console.warn('⚠️ [AI] Claude not available, using rule-based fallback');
+      console.log(`✅ [AI] Using rule-based domain: ${bestDomain[0]}`);
+      return bestDomain[0]; // Fall back to rule-based
     }
-
-    console.log(`✅ [AI] Using domain: ${bestDomain[0]}`);
-    return bestDomain[0];
   }
 
   /**
@@ -568,31 +571,37 @@ class AsbuiltImportAI {
       return 'panel_placement';
     }
 
+    console.log(`🤖 [AI] Claude analyzing domain for headers: ${headers.join(', ')}`);
+    
     const sampleRows = dataRows.slice(0, 3);
     
-    const prompt = `You are analyzing construction geomembrane data. Determine the domain.
+    const prompt = `Analyze this construction as-built data and determine the domain type.
 
-Headers: ${JSON.stringify(headers)}
-Sample rows: ${JSON.stringify(sampleRows)}
+Headers: ${headers.join(', ')}
+Sample data rows: ${JSON.stringify(sampleRows, null, 2)}
 
-Possible domains:
-- panel_placement: Panel location and installation data
-- panel_seaming: Welding and seaming information
-- non_destructive: Non-destructive testing results
-- trial_weld: Trial welding test data
-- repairs: Repair and maintenance records
-- destructive: Destructive testing and lab results
+Domain types:
+- panel_placement: Panel installation records with location, dimensions, dates
+- panel_seaming: Seam welding records with temperature, operator, machine data
+- non_destructive: Testing records with test types, results, inspectors
+- trial_weld: Weld testing with material, temperature, pass/fail
+- repairs: Repair records with issue types, descriptions, technicians
+- destructive: Lab testing with sample IDs, test types, results
 
-Return ONLY the domain name, nothing else.`;
+Respond with ONLY the domain name (e.g., "panel_placement").`;
 
+    const startTime = Date.now();
     const message = await this.anthropic.messages.create({
       model: "claude-3-5-haiku-20241022",
       max_tokens: 50,
       messages: [{ role: "user", content: prompt }]
     });
-
+    
+    const processingTime = Date.now() - startTime;
     const domain = message.content[0].text.trim();
-    console.log(`🤖 [AI] Claude detected domain: ${domain}`);
+    
+    console.log(`🤖 [AI] Claude detected domain: ${domain} (${processingTime}ms)`);
+    console.log(`🤖 [AI] Claude response: ${message.content[0].text}`);
     
     return domain;
   }
@@ -619,7 +628,7 @@ Return ONLY the domain name, nothing else.`;
           sourceHeader: header,
           sourceIndex: index,
           canonicalField: domainMappings[headerClean],
-          confidence: 1.0,
+        confidence: 1.0,
           method: 'explicit'
         };
         this.addMapping(mappingTracker, mapping);
@@ -633,34 +642,33 @@ Return ONLY the domain name, nothing else.`;
     const explicitMappings = this.getSortedMappings(mappingTracker);
     const explicitConfidence = explicitMappings.length / totalHeaderCount;
 
-    // If confidence is high enough OR no AI available, use explicit mappings only
-    if (explicitConfidence >= 0.6 || unmappedHeaders.length === 0 || !this.anthropic) {
-      console.log(`✅ [AI] Using explicit mappings (${(explicitConfidence * 100).toFixed(1)}% confidence)`);
+    // Always use Claude for header mapping if available
+    if (this.anthropic && unmappedHeaders.length > 0) {
+      console.log(`🤖 [AI] Using Claude for ${unmappedHeaders.length} unmapped headers...`);
+      const aiMappings = await this.aiMapHeaders(unmappedHeaders, domain, dataRows);
+      aiMappings.forEach(mapping => this.addMapping(mappingTracker, mapping));
+
+    return {
+        mappings: this.getSortedMappings(mappingTracker),
+        confidence: 0.95, // High confidence when using Claude
+        usedAI: true
+      };
+    } else {
+      console.log(`✅ [AI] Using explicit mappings only (${(explicitConfidence * 100).toFixed(1)}% confidence)`);
       return {
         mappings: explicitMappings,
         confidence: Math.max(explicitConfidence, 0.7), // Minimum 70% for explicit
         usedAI: false
       };
     }
-
-    // Otherwise, use AI for unmapped headers
-    console.log(`🤖 [AI] Using Claude for ${unmappedHeaders.length} unmapped headers...`);
-    const aiMappings = await this.aiMapHeaders(unmappedHeaders, domain, dataRows);
-
-    aiMappings.forEach(mapping => this.addMapping(mappingTracker, mapping));
-    const finalMappings = this.getSortedMappings(mappingTracker);
-    
-    return {
-      mappings: finalMappings,
-      confidence: 0.95,
-      usedAI: true
-    };
   }
 
   /**
    * AI-powered header mapping
    */
   async aiMapHeaders(unmappedHeaders, domain, dataRows) {
+    console.log(`🤖 [AI] Claude mapping ${unmappedHeaders.length} headers for domain: ${domain}`);
+    
     const canonicalFields = this.canonicalFields[domain];
     const sampleData = dataRows.slice(0, 3);
 
@@ -670,30 +678,34 @@ Return ONLY the domain name, nothing else.`;
       sampleData: sampleData.map(row => row[h.index])
     }));
 
-    const prompt = `You are a geomembrane construction data specialist. Map these Excel headers to canonical fields.
+    const prompt = `Map these Excel column headers to standardized field names for ${domain} data.
 
-Domain: ${domain}
-Canonical fields available: ${JSON.stringify(canonicalFields)}
+Headers: ${unmappedHeaders.map(h => h.header).join(', ')}
+Sample data: ${JSON.stringify(sampleData.slice(0, 2), null, 2)}
 
-Unmapped headers and sample data:
-${JSON.stringify(headersToMap, null, 2)}
+Standard fields for ${domain}: ${canonicalFields.join(', ')}
 
 CRITICAL RULES:
 1. Map "Panel #" or "Panel Number" → panelNumber (NEVER "Roll Number")
 2. Map "Date" or "DateTime" → dateTime
 3. Ignore columns with material descriptions like "geomembrane", "thickness specifications"
 4. Return ONLY valid mappings, omit headers that don't match any canonical field
-5. Return JSON format: { "sourceHeader": "canonicalField" }
+5. Return JSON format: [{"header": "original", "field": "standardized", "confidence": 0.95}]
 
 Return ONLY valid JSON, no explanation.`;
 
+    const startTime = Date.now();
     const message = await this.anthropic.messages.create({
       model: "claude-3-5-haiku-20241022",
       max_tokens: 1024,
       messages: [{ role: "user", content: prompt }]
     });
-
+    
+    const processingTime = Date.now() - startTime;
     const aiMappings = JSON.parse(message.content[0].text);
+    
+    console.log(`🤖 [AI] Claude mapped headers in ${processingTime}ms`);
+    console.log(`🤖 [AI] Claude response: ${message.content[0].text}`);
     
     const result = Object.entries(aiMappings)
       .map(([sourceHeader, canonicalField]) => {
@@ -1068,7 +1080,7 @@ Return ONLY valid JSON, no explanation.`;
       const recentCount = parseInt(result.rows[0].count);
       
       return recentCount >= records.length * 0.5;
-
+      
     } catch (error) {
       console.error(`Error checking duplicates:`, error);
       return false;
