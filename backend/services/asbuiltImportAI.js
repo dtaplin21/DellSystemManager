@@ -1,6 +1,6 @@
 const xlsx = require('xlsx');
 const { Pool } = require('pg');
-const Anthropic = require('@anthropic-ai/sdk');
+const OpenAI = require('openai');
 require('dotenv').config({ path: '../.env' });
 
 class AsbuiltImportAI {
@@ -11,8 +11,8 @@ class AsbuiltImportAI {
     });
 
     // Initialize Claude Haiku (fast & cheap)
-    this.anthropic = process.env.ANTHROPIC_KEY ? new Anthropic({
-      apiKey: process.env.ANTHROPIC_KEY
+    this.openai = process.env.OPENAI_API_KEY ? new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY
     }) : null;
 
     // Canonical field definitions per domain
@@ -549,14 +549,14 @@ class AsbuiltImportAI {
     console.log(`🎯 [AI] Domain scores:`, domainScores);
     console.log(`🎯 [AI] Best domain: ${bestDomain[0]} (score: ${bestDomain[1]})`);
 
-    // Always use Claude if available (remove confidence check)
-    if (this.anthropic) {
-      console.log(`🤖 [AI] Using Claude for domain detection...`);
-      const claudeDomain = await this.aiDetectDomain(headers, dataRows);
-      console.log(`✅ [AI] Claude determined domain: ${claudeDomain}`);
-      return claudeDomain;
+    // Always use OpenAI if available (remove confidence check)
+    if (this.openai) {
+      console.log(`🤖 [AI] Using OpenAI for domain detection...`);
+      const openaiDomain = await this.aiDetectDomain(headers, dataRows);
+      console.log(`✅ [AI] OpenAI determined domain: ${openaiDomain}`);
+      return openaiDomain;
     } else {
-      console.warn('⚠️ [AI] Claude not available, using rule-based fallback');
+      console.warn('⚠️ [AI] OpenAI not available, using rule-based fallback');
       console.log(`✅ [AI] Using rule-based domain: ${bestDomain[0]}`);
       return bestDomain[0]; // Fall back to rule-based
     }
@@ -566,12 +566,12 @@ class AsbuiltImportAI {
    * AI-powered domain detection (fallback)
    */
   async aiDetectDomain(headers, dataRows) {
-    if (!this.anthropic) {
-      console.warn('⚠️ [AI] Claude not configured, using fallback');
+    if (!this.openai) {
+      console.warn('⚠️ [AI] OpenAI not configured, using fallback');
       return 'panel_placement';
     }
 
-    console.log(`🤖 [AI] Claude analyzing domain for headers: ${headers.join(', ')}`);
+    console.log(`🤖 [AI] OpenAI analyzing domain for headers: ${headers.join(', ')}`);
     
     const sampleRows = dataRows.slice(0, 3);
     
@@ -591,17 +591,17 @@ Domain types:
 Respond with ONLY the domain name (e.g., "panel_placement").`;
 
     const startTime = Date.now();
-    const message = await this.anthropic.messages.create({
-      model: "claude-3-5-haiku-20241022",
+    const completion = await this.openai.chat.completions.create({
+      model: "gpt-3.5-turbo",
       max_tokens: 50,
       messages: [{ role: "user", content: prompt }]
     });
     
     const processingTime = Date.now() - startTime;
-    const domain = message.content[0].text.trim();
+    const domain = completion.choices[0].message.content.trim();
     
-    console.log(`🤖 [AI] Claude detected domain: ${domain} (${processingTime}ms)`);
-    console.log(`🤖 [AI] Claude response: ${message.content[0].text}`);
+    console.log(`🤖 [AI] OpenAI detected domain: ${domain} (${processingTime}ms)`);
+    console.log(`🤖 [AI] OpenAI response: ${completion.choices[0].message.content}`);
     
     return domain;
   }
@@ -642,15 +642,15 @@ Respond with ONLY the domain name (e.g., "panel_placement").`;
     const explicitMappings = this.getSortedMappings(mappingTracker);
     const explicitConfidence = explicitMappings.length / totalHeaderCount;
 
-    // Always use Claude for header mapping if available
-    if (this.anthropic && unmappedHeaders.length > 0) {
-      console.log(`🤖 [AI] Using Claude for ${unmappedHeaders.length} unmapped headers...`);
+    // Always use OpenAI for header mapping if available
+    if (this.openai && unmappedHeaders.length > 0) {
+      console.log(`🤖 [AI] Using OpenAI for ${unmappedHeaders.length} unmapped headers...`);
       const aiMappings = await this.aiMapHeaders(unmappedHeaders, domain, dataRows);
       aiMappings.forEach(mapping => this.addMapping(mappingTracker, mapping));
 
     return {
         mappings: this.getSortedMappings(mappingTracker),
-        confidence: 0.95, // High confidence when using Claude
+        confidence: 0.95, // High confidence when using OpenAI
         usedAI: true
       };
     } else {
@@ -667,7 +667,7 @@ Respond with ONLY the domain name (e.g., "panel_placement").`;
    * AI-powered header mapping
    */
   async aiMapHeaders(unmappedHeaders, domain, dataRows) {
-    console.log(`🤖 [AI] Claude mapping ${unmappedHeaders.length} headers for domain: ${domain}`);
+    console.log(`🤖 [AI] OpenAI mapping ${unmappedHeaders.length} headers for domain: ${domain}`);
     
     const canonicalFields = this.canonicalFields[domain];
     const sampleData = dataRows.slice(0, 3);
@@ -695,17 +695,17 @@ CRITICAL RULES:
 Return ONLY valid JSON, no explanation.`;
 
     const startTime = Date.now();
-    const message = await this.anthropic.messages.create({
-      model: "claude-3-5-haiku-20241022",
+    const completion = await this.openai.chat.completions.create({
+      model: "gpt-3.5-turbo",
       max_tokens: 1024,
       messages: [{ role: "user", content: prompt }]
     });
     
     const processingTime = Date.now() - startTime;
-    const aiMappings = JSON.parse(message.content[0].text);
+    const aiMappings = JSON.parse(completion.choices[0].message.content);
     
-    console.log(`🤖 [AI] Claude mapped headers in ${processingTime}ms`);
-    console.log(`🤖 [AI] Claude response: ${message.content[0].text}`);
+    console.log(`🤖 [AI] OpenAI mapped headers in ${processingTime}ms`);
+    console.log(`🤖 [AI] OpenAI response: ${completion.choices[0].message.content}`);
     
     const result = Object.entries(aiMappings)
       .map(([sourceHeader, canonicalField]) => {
