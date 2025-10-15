@@ -232,3 +232,393 @@ Stripe client initialized successfully
 🎯 [ASBUILT] Detected panels: []
 [2025-10-15T00:39:46.085Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
 🔍 [ASBUILT] Fetching records for project 49e74875-5d29-4027-a817-d53602e68e4c
+[2025-10-15T00:43:19.029Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+Projects route: Fetching projects for user: 55e3a5c6-df14-4458-93ce-bd908007a598
+Projects route: Found projects: 4
+[2025-10-15T00:43:23.023Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+🔍 [PANELS] === GET /layout/:projectId START ===
+🔍 [PANELS] Request params: [Object: null prototype] {
+  projectId: '49e74875-5d29-4027-a817-d53602e68e4c'
+}
+🔍 [PANELS] Request headers: {
+  authorization: 'Missing',
+  contentType: 'application/json',
+  userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap...'
+}
+[2025-10-15T00:43:23.439Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+✅ [PANELS] Auth middleware passed, user: 55e3a5c6-df14-4458-93ce-bd908007a598
+🔍 [PANELS] Processing GET for project: 49e74875-5d29-4027-a817-d53602e68e4c
+🔍 [PANELS] Verifying project access for user: 55e3a5c6-df14-4458-93ce-bd908007a598
+🔍 [PANELS] Project found: YES
+🔍 [PANELS] Project details: {
+  id: '49e74875-5d29-4027-a817-d53602e68e4c',
+  name: 'Mining Containment Project Gamma',
+  userId: '55e3a5c6-df14-4458-93ce-bd908007a598'
+}
+🔍 [PANELS] Panel layout query result: {
+  found: true,
+  id: 'efa70fcf-a392-4018-ae83-7a0a4c8eb9d0',
+  projectId: '49e74875-5d29-4027-a817-d53602e68e4c'
+}
+🔍 [PANELS] Panels parsed successfully: {
+  count: 21,
+  isArray: true,
+  firstPanel: {
+    x: 6600,
+    y: 1100,
+    id: '221adb42-3af2-49cb-8e13-8c9db56d19a5',
+    date: '2025-09-29',
+    fill: '#87CEEB',
+    color: '#87CEEB',
+    notes: 'AI-generated panel 17',
+    shape: 'rectangle',
+    width: 24,
+    height: 1,
+    location: 'AI Generated',
+    material: 'Material type not specified - will be determined during installation',
+    rotation: 0,
+    seamsType: 'Standard 6-inch overlap',
+    thickness: 'Thickness not specified - will be determined during installation',
+    rollNumber: '1554',
+    panelNumber: '54/62'
+  },
+  lastPanel: {
+    x: 682.9156539872671,
+    y: 803.6796372586547,
+    id: '9a6e0063-72b2-4257-892a-c3710dde3c1d',
+    date: '2025-09-29',
+    fill: '#87CEEB',
+    color: '#87CEEB',
+    notes: 'AI-generated panel 34',
+    shape: 'rectangle',
+    width: 22,
+    height: 485,
+    location: 'AI Generated',
+    material: 'Material type not specified - will be determined during installation',
+    rotation: 180,
+    seamsType: 'Standard 6-inch overlap',
+    thickness: 'Thickness not specified - will be determined during installation',
+    rollNumber: '1028',
+    panelNumber: 'P028'
+  }
+}
+✅ [PANELS] Response data prepared: {
+  id: 'efa70fcf-a392-4018-ae83-7a0a4c8eb9d0',
+  projectId: '49e74875-5d29-4027-a817-d53602e68e4c',
+  panelCount: 21,
+  width: 4000,
+  height: 4000,
+  scale: 1,
+  lastUpdated: 2025-10-07T14:32:58.852Z
+}
+🔍 [PANELS] === GET /layout/:projectId END ===
+[2025-10-15T00:43:23.861Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+[2025-10-15T00:43:33.510Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+📥 [ASBUILT] Import request for project 49e74875-5d29-4027-a817-d53602e68e4c, scope: project-wide
+📁 [ASBUILT] Processing Excel file: _Panel Placement Secondary 1-63.xlsx (57201 bytes)
+🤖 [ASBUILT] Processing domain: auto-detect
+🤖 [AI] ===== STARTING IMPORT =====
+🤖 [AI] Starting import for project 49e74875-5d29-4027-a817-d53602e68e4c, domain: null
+🤖 [AI] Domain type: object, value: null
+🤖 [AI] File buffer size: 57201 bytes
+📊 [AI] Total rows in Excel: 649
+📊 [AI] Found 11 header rows at positions: [
+   20,  79, 138, 197,
+  256, 315, 374, 433,
+  492, 551, 610
+]
+⚠️ [AI] Multiple sections detected with identical headers
+📊 [AI] Multi-section file detected, processing with deduplication...
+📊 [AI] Processing 11 sections...
+📊 [AI] Section 1: rows 21-79
+✅ [AI] Keeping panel 1 (normalized P001) from section 1
+✅ [AI] Keeping panel 2 (normalized P002) from section 1
+✅ [AI] Keeping panel 3 (normalized P003) from section 1
+✅ [AI] Keeping panel 4 (normalized P004) from section 1
+✅ [AI] Keeping panel 5 (normalized P005) from section 1
+✅ [AI] Keeping panel 6 (normalized P006) from section 1
+✅ [AI] Keeping panel 7 (normalized P007) from section 1
+⚠️ [AI] Unable to normalize panel number in section 1; keeping row
+⚠️ [AI] Unable to normalize panel number in section 1; keeping row
+⚠️ [AI] Unable to normalize panel number in section 1; keeping row
+🚫 [AI] Skipping duplicate panel WPWM MOD 6 (normalized P006) from section 1
+⚠️ [AI] Unable to normalize panel number in section 1; keeping row
+⚠️ [AI] Unable to normalize panel number in section 1; keeping row
+⚠️ [AI] Unable to normalize panel number in section 1; keeping row
+⚠️ [AI] Unable to normalize panel number in section 1; keeping row
+📊 [AI] Section 2: rows 80-138
+✅ [AI] Keeping panel 8 (normalized P008) from section 2
+✅ [AI] Keeping panel 9 (normalized P009) from section 2
+✅ [AI] Keeping panel 10 (normalized P010) from section 2
+✅ [AI] Keeping panel 11 (normalized P011) from section 2
+✅ [AI] Keeping panel 12 (normalized P012) from section 2
+✅ [AI] Keeping panel 13 (normalized P013) from section 2
+✅ [AI] Keeping panel 14 (normalized P014) from section 2
+⚠️ [AI] Unable to normalize panel number in section 2; keeping row
+⚠️ [AI] Unable to normalize panel number in section 2; keeping row
+⚠️ [AI] Unable to normalize panel number in section 2; keeping row
+🚫 [AI] Skipping duplicate panel WPWM MOD 6 (normalized P006) from section 2
+⚠️ [AI] Unable to normalize panel number in section 2; keeping row
+⚠️ [AI] Unable to normalize panel number in section 2; keeping row
+⚠️ [AI] Unable to normalize panel number in section 2; keeping row
+⚠️ [AI] Unable to normalize panel number in section 2; keeping row
+📊 [AI] Section 3: rows 139-197
+✅ [AI] Keeping panel 15 (normalized P015) from section 3
+✅ [AI] Keeping panel 16 (normalized P016) from section 3
+✅ [AI] Keeping panel 17 (normalized P017) from section 3
+✅ [AI] Keeping panel 18 (normalized P018) from section 3
+✅ [AI] Keeping panel 19 (normalized P019) from section 3
+✅ [AI] Keeping panel 20 (normalized P020) from section 3
+✅ [AI] Keeping panel 21 (normalized P021) from section 3
+⚠️ [AI] Unable to normalize panel number in section 3; keeping row
+⚠️ [AI] Unable to normalize panel number in section 3; keeping row
+⚠️ [AI] Unable to normalize panel number in section 3; keeping row
+🚫 [AI] Skipping duplicate panel WPWM MOD 6 (normalized P006) from section 3
+⚠️ [AI] Unable to normalize panel number in section 3; keeping row
+⚠️ [AI] Unable to normalize panel number in section 3; keeping row
+⚠️ [AI] Unable to normalize panel number in section 3; keeping row
+⚠️ [AI] Unable to normalize panel number in section 3; keeping row
+📊 [AI] Section 4: rows 198-256
+✅ [AI] Keeping panel 22 (normalized P022) from section 4
+✅ [AI] Keeping panel 23 (normalized P023) from section 4
+✅ [AI] Keeping panel 24 (normalized P024) from section 4
+✅ [AI] Keeping panel 25 (normalized P025) from section 4
+⚠️ [AI] Unable to normalize panel number in section 4; keeping row
+⚠️ [AI] Unable to normalize panel number in section 4; keeping row
+⚠️ [AI] Unable to normalize panel number in section 4; keeping row
+🚫 [AI] Skipping duplicate panel WPWM MOD 6 (normalized P006) from section 4
+⚠️ [AI] Unable to normalize panel number in section 4; keeping row
+⚠️ [AI] Unable to normalize panel number in section 4; keeping row
+⚠️ [AI] Unable to normalize panel number in section 4; keeping row
+⚠️ [AI] Unable to normalize panel number in section 4; keeping row
+📊 [AI] Section 5: rows 257-315
+✅ [AI] Keeping panel 26 (normalized P026) from section 5
+✅ [AI] Keeping panel 27 (normalized P027) from section 5
+✅ [AI] Keeping panel 28 (normalized P028) from section 5
+✅ [AI] Keeping panel 29 (normalized P029) from section 5
+✅ [AI] Keeping panel 30 (normalized P030) from section 5
+✅ [AI] Keeping panel 31 (normalized P031) from section 5
+✅ [AI] Keeping panel 32 (normalized P032) from section 5
+⚠️ [AI] Unable to normalize panel number in section 5; keeping row
+⚠️ [AI] Unable to normalize panel number in section 5; keeping row
+⚠️ [AI] Unable to normalize panel number in section 5; keeping row
+🚫 [AI] Skipping duplicate panel WPWM MOD 6 (normalized P006) from section 5
+⚠️ [AI] Unable to normalize panel number in section 5; keeping row
+⚠️ [AI] Unable to normalize panel number in section 5; keeping row
+⚠️ [AI] Unable to normalize panel number in section 5; keeping row
+⚠️ [AI] Unable to normalize panel number in section 5; keeping row
+📊 [AI] Section 6: rows 316-374
+✅ [AI] Keeping panel 33 (normalized P033) from section 6
+⚠️ [AI] Unable to normalize panel number in section 6; keeping row
+⚠️ [AI] Unable to normalize panel number in section 6; keeping row
+⚠️ [AI] Unable to normalize panel number in section 6; keeping row
+🚫 [AI] Skipping duplicate panel WPWM MOD 6 (normalized P006) from section 6
+⚠️ [AI] Unable to normalize panel number in section 6; keeping row
+⚠️ [AI] Unable to normalize panel number in section 6; keeping row
+⚠️ [AI] Unable to normalize panel number in section 6; keeping row
+⚠️ [AI] Unable to normalize panel number in section 6; keeping row
+📊 [AI] Section 7: rows 375-433
+✅ [AI] Keeping panel 34 (normalized P034) from section 7
+✅ [AI] Keeping panel 35 (normalized P035) from section 7
+⚠️ [AI] Unable to normalize panel number in section 7; keeping row
+⚠️ [AI] Unable to normalize panel number in section 7; keeping row
+⚠️ [AI] Unable to normalize panel number in section 7; keeping row
+🚫 [AI] Skipping duplicate panel WPWM MOD 6 (normalized P006) from section 7
+⚠️ [AI] Unable to normalize panel number in section 7; keeping row
+⚠️ [AI] Unable to normalize panel number in section 7; keeping row
+⚠️ [AI] Unable to normalize panel number in section 7; keeping row
+⚠️ [AI] Unable to normalize panel number in section 7; keeping row
+📊 [AI] Section 8: rows 434-492
+✅ [AI] Keeping panel 36 (normalized P036) from section 8
+✅ [AI] Keeping panel 37 (normalized P037) from section 8
+✅ [AI] Keeping panel 38 (normalized P038) from section 8
+✅ [AI] Keeping panel 39 (normalized P039) from section 8
+✅ [AI] Keeping panel 40 (normalized P040) from section 8
+⚠️ [AI] Unable to normalize panel number in section 8; keeping row
+⚠️ [AI] Unable to normalize panel number in section 8; keeping row
+⚠️ [AI] Unable to normalize panel number in section 8; keeping row
+🚫 [AI] Skipping duplicate panel WPWM MOD 6 (normalized P006) from section 8
+⚠️ [AI] Unable to normalize panel number in section 8; keeping row
+⚠️ [AI] Unable to normalize panel number in section 8; keeping row
+⚠️ [AI] Unable to normalize panel number in section 8; keeping row
+⚠️ [AI] Unable to normalize panel number in section 8; keeping row
+📊 [AI] Section 9: rows 493-551
+✅ [AI] Keeping panel 41 (normalized P041) from section 9
+✅ [AI] Keeping panel 42 (normalized P042) from section 9
+✅ [AI] Keeping panel 43 (normalized P043) from section 9
+✅ [AI] Keeping panel 44 (normalized P044) from section 9
+✅ [AI] Keeping panel 45 (normalized P045) from section 9
+✅ [AI] Keeping panel 46 (normalized P046) from section 9
+⚠️ [AI] Unable to normalize panel number in section 9; keeping row
+⚠️ [AI] Unable to normalize panel number in section 9; keeping row
+⚠️ [AI] Unable to normalize panel number in section 9; keeping row
+🚫 [AI] Skipping duplicate panel WPWM MOD 6 (normalized P006) from section 9
+⚠️ [AI] Unable to normalize panel number in section 9; keeping row
+⚠️ [AI] Unable to normalize panel number in section 9; keeping row
+⚠️ [AI] Unable to normalize panel number in section 9; keeping row
+⚠️ [AI] Unable to normalize panel number in section 9; keeping row
+📊 [AI] Section 10: rows 552-610
+✅ [AI] Keeping panel 47 (normalized P047) from section 10
+✅ [AI] Keeping panel 48 (normalized P048) from section 10
+✅ [AI] Keeping panel 49 (normalized P049) from section 10
+✅ [AI] Keeping panel 50 (normalized P050) from section 10
+✅ [AI] Keeping panel 51 (normalized P051) from section 10
+✅ [AI] Keeping panel 52 (normalized P052) from section 10
+✅ [AI] Keeping panel 53 (normalized P053) from section 10
+✅ [AI] Keeping panel 54 (normalized P054) from section 10
+⚠️ [AI] Unable to normalize panel number in section 10; keeping row
+⚠️ [AI] Unable to normalize panel number in section 10; keeping row
+⚠️ [AI] Unable to normalize panel number in section 10; keeping row
+🚫 [AI] Skipping duplicate panel WPWM MOD 6 (normalized P006) from section 10
+⚠️ [AI] Unable to normalize panel number in section 10; keeping row
+⚠️ [AI] Unable to normalize panel number in section 10; keeping row
+⚠️ [AI] Unable to normalize panel number in section 10; keeping row
+⚠️ [AI] Unable to normalize panel number in section 10; keeping row
+📊 [AI] Section 11: rows 611-649
+✅ [AI] Keeping panel 55 (normalized P055) from section 11
+✅ [AI] Keeping panel 56 (normalized P056) from section 11
+✅ [AI] Keeping panel 57 (normalized P057) from section 11
+✅ [AI] Keeping panel 58 (normalized P058) from section 11
+✅ [AI] Keeping panel 59 (normalized P059) from section 11
+✅ [AI] Keeping panel 60 (normalized P060) from section 11
+✅ [AI] Keeping panel 61 (normalized P061) from section 11
+✅ [AI] Keeping panel 62 (normalized P062) from section 11
+✅ [AI] Keeping panel 63 (normalized P063) from section 11
+📊 [AI] Total unique panels after deduplication: 133
+📊 [AI] Parsed 133 rows with 11 columns
+🎯 [AI] Domain scores: {
+  panel_placement: 3,
+  panel_seaming: 0,
+  non_destructive: 0,
+  trial_weld: 0,
+  repairs: 0,
+  destructive: 0
+}
+🎯 [AI] Best domain: panel_placement (score: 3)
+🤖 [AI] Using Claude for domain detection...
+🤖 [AI] Claude analyzing domain for headers: , Date, Panel #, Length, Width, Roll Number, , Panel Location / Comment, , , 
+❌ [AI] Import failed: BadRequestError: 400 {"type":"error","error":{"type":"invalid_request_error","message":"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits."},"request_id":"req_011CU84HRGXXM6FAtrDXgUmq"}
+    at APIError.generate (/Users/dtaplin21/DellSystemManager/backend/node_modules/@anthropic-ai/sdk/core/error.js:41:20)
+    at Anthropic.makeStatusError (/Users/dtaplin21/DellSystemManager/backend/node_modules/@anthropic-ai/sdk/client.js:155:32)
+    at Anthropic.makeRequest (/Users/dtaplin21/DellSystemManager/backend/node_modules/@anthropic-ai/sdk/client.js:309:30)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async AsbuiltImportAI.aiDetectDomain (/Users/dtaplin21/DellSystemManager/backend/services/asbuiltImportAI.js:594:21)
+    at async AsbuiltImportAI.detectDomain (/Users/dtaplin21/DellSystemManager/backend/services/asbuiltImportAI.js:555:28)
+    at async AsbuiltImportAI.importExcelData (/Users/dtaplin21/DellSystemManager/backend/services/asbuiltImportAI.js:130:40)
+    at async /Users/dtaplin21/DellSystemManager/backend/routes/asbuilt.js:332:30 {
+  status: 400,
+  headers: Headers {
+    date: 'Wed, 15 Oct 2025 00:43:34 GMT',
+    'content-type': 'application/json',
+    'content-length': '234',
+    connection: 'keep-alive',
+    'cf-ray': '98eb4871a93a17e8-SJC',
+    'x-should-retry': 'false',
+    'request-id': 'req_011CU84HRGXXM6FAtrDXgUmq',
+    'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
+    'anthropic-organization-id': '8bbe75a3-4ffe-4c04-818c-31abcd6edb25',
+    'x-envoy-upstream-service-time': '41',
+    via: '1.1 google',
+    'cf-cache-status': 'DYNAMIC',
+    'x-robots-tag': 'none',
+    server: 'cloudflare'
+  },
+  requestID: 'req_011CU84HRGXXM6FAtrDXgUmq',
+  error: {
+    type: 'error',
+    error: {
+      type: 'invalid_request_error',
+      message: 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'
+    },
+    request_id: 'req_011CU84HRGXXM6FAtrDXgUmq'
+  }
+}
+⚠️ [ASBUILT] Error processing domain auto-detect: 400 {"type":"error","error":{"type":"invalid_request_error","message":"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits."},"request_id":"req_011CU84HRGXXM6FAtrDXgUmq"}
+✅ [ASBUILT] Import completed: 0 records created
+🎯 [ASBUILT] Detected panels: []
+[2025-10-15T00:43:34.690Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+[2025-10-15T00:43:34.691Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+[2025-10-15T00:43:34.692Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+🔍 [ASBUILT] Fetching records for project 49e74875-5d29-4027-a817-d53602e68e4c
+📊 [ASBUILT] Fetching summary for project 49e74875-5d29-4027-a817-d53602e68e4c
+📁 [ASBUILT] Fetching file metadata for project 49e74875-5d29-4027-a817-d53602e68e4c
+[2025-10-15T00:43:36.110Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+[2025-10-15T00:43:36.112Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+[2025-10-15T00:43:36.115Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+[2025-10-15T00:43:36.119Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+[2025-10-15T00:43:36.123Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+[2025-10-15T00:43:36.123Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+🔍 [ASBUILT] Fetching records for project 49e74875-5d29-4027-a817-d53602e68e4c, panel 17e3bc7a-1bd5-435d-83a4-88fbb4295596
+🔍 [ASBUILT] Fetching records for project 49e74875-5d29-4027-a817-d53602e68e4c, panel 9a6e0063-72b2-4257-892a-c3710dde3c1d
+🔍 [ASBUILT] Fetching records for project 49e74875-5d29-4027-a817-d53602e68e4c, panel 4cab721d-d857-4147-acd7-f7e09687f629
+🔍 [ASBUILT] Fetching records for project 49e74875-5d29-4027-a817-d53602e68e4c, panel 3ac35238-2424-431c-be42-7eeff868e87b
+🔍 [ASBUILT] Fetching records for project 49e74875-5d29-4027-a817-d53602e68e4c, panel 0388a942-2008-4bbd-99d7-83bd64326905
+🔍 [ASBUILT] Fetching records for project 49e74875-5d29-4027-a817-d53602e68e4c, panel 26fec916-d955-4a78-aa38-b78c29b7ee46
+[2025-10-15T00:43:36.386Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+🔍 [ASBUILT] Fetching records for project 49e74875-5d29-4027-a817-d53602e68e4c, panel dcadff14-48bb-460d-a071-91ee25337555
+[2025-10-15T00:43:36.486Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+🔍 [ASBUILT] Fetching records for project 49e74875-5d29-4027-a817-d53602e68e4c, panel 19243db5-938c-4169-97ce-efb688766522
+[2025-10-15T00:43:36.701Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+🔍 [ASBUILT] Fetching records for project 49e74875-5d29-4027-a817-d53602e68e4c, panel d7843a72-ccb7-4558-8300-67bb266ef9f1
+[2025-10-15T00:43:36.803Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+[2025-10-15T00:43:36.804Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+🔍 [ASBUILT] Fetching records for project 49e74875-5d29-4027-a817-d53602e68e4c, panel 1924b3df-eb8c-4a37-bd9f-debfec67f929
+[2025-10-15T00:43:36.908Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+[2025-10-15T00:43:36.910Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+[2025-10-15T00:43:36.910Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+🔍 [ASBUILT] Fetching records for project 49e74875-5d29-4027-a817-d53602e68e4c, panel 010a8018-d5c4-4eee-ba43-4641349accde
+🔍 [ASBUILT] Fetching records for project 49e74875-5d29-4027-a817-d53602e68e4c, panel d17abd24-59cb-49d5-a3b3-15cb376ad16c
+🔍 [ASBUILT] Fetching records for project 49e74875-5d29-4027-a817-d53602e68e4c, panel 28d256ff-7e3e-4136-a42e-fe1575b00016
+[2025-10-15T00:43:37.009Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+[2025-10-15T00:43:37.010Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+🔍 [ASBUILT] Fetching records for project 49e74875-5d29-4027-a817-d53602e68e4c, panel ebec06bc-9136-47e6-90f8-ed65af453688
+[2025-10-15T00:43:37.016Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+[2025-10-15T00:43:37.098Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+[2025-10-15T00:43:37.099Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+🔍 [ASBUILT] Fetching records for project 49e74875-5d29-4027-a817-d53602e68e4c, panel 59d23e26-ba2c-4663-b87f-41b3db6b7c21
+🔍 [ASBUILT] Fetching records for project 49e74875-5d29-4027-a817-d53602e68e4c, panel 7358095d-9a64-4c59-b37b-59d2c2bf86b5
+🔍 [ASBUILT] Fetching records for project 49e74875-5d29-4027-a817-d53602e68e4c, panel 221ba6ee-a774-4951-966f-d7aa0bc54ff7
+[2025-10-15T00:43:37.135Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+🔍 [ASBUILT] Fetching records for project 49e74875-5d29-4027-a817-d53602e68e4c, panel 32eee112-f152-4e21-8892-44905b2135a4
+🔍 [ASBUILT] Fetching records for project 49e74875-5d29-4027-a817-d53602e68e4c, panel 4d7e2dc0-b905-490b-a9fc-f894221c0266
+🔍 [ASBUILT] Fetching records for project 49e74875-5d29-4027-a817-d53602e68e4c, panel 15b37040-8eaf-4057-815e-b827aab43814
+[2025-10-15T00:43:37.256Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+📊 [ASBUILT] Fetching summary for project 49e74875-5d29-4027-a817-d53602e68e4c
+[2025-10-15T00:43:37.546Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+📊 [ASBUILT] Fetching summary for project 49e74875-5d29-4027-a817-d53602e68e4c
+[2025-10-15T00:43:37.856Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+📊 [ASBUILT] Fetching summary for project 49e74875-5d29-4027-a817-d53602e68e4c
+[2025-10-15T00:43:38.222Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+📊 [ASBUILT] Fetching summary for project 49e74875-5d29-4027-a817-d53602e68e4c
+[2025-10-15T00:43:38.532Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+📊 [ASBUILT] Fetching summary for project 49e74875-5d29-4027-a817-d53602e68e4c
+[2025-10-15T00:43:38.860Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+📊 [ASBUILT] Fetching summary for project 49e74875-5d29-4027-a817-d53602e68e4c
+[2025-10-15T00:43:39.190Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+📊 [ASBUILT] Fetching summary for project 49e74875-5d29-4027-a817-d53602e68e4c
+[2025-10-15T00:43:39.504Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+📊 [ASBUILT] Fetching summary for project 49e74875-5d29-4027-a817-d53602e68e4c
+[2025-10-15T00:43:39.963Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+📊 [ASBUILT] Fetching summary for project 49e74875-5d29-4027-a817-d53602e68e4c
+[2025-10-15T00:43:40.281Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+📊 [ASBUILT] Fetching summary for project 49e74875-5d29-4027-a817-d53602e68e4c
+[2025-10-15T00:43:40.643Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+📊 [ASBUILT] Fetching summary for project 49e74875-5d29-4027-a817-d53602e68e4c
+[2025-10-15T00:43:40.973Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+📊 [ASBUILT] Fetching summary for project 49e74875-5d29-4027-a817-d53602e68e4c
+[2025-10-15T00:43:41.355Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+📊 [ASBUILT] Fetching summary for project 49e74875-5d29-4027-a817-d53602e68e4c
+[2025-10-15T00:43:41.700Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+📊 [ASBUILT] Fetching summary for project 49e74875-5d29-4027-a817-d53602e68e4c
+[2025-10-15T00:43:42.046Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+📊 [ASBUILT] Fetching summary for project 49e74875-5d29-4027-a817-d53602e68e4c
+[2025-10-15T00:43:42.414Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+📊 [ASBUILT] Fetching summary for project 49e74875-5d29-4027-a817-d53602e68e4c
+[2025-10-15T00:43:42.778Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+📊 [ASBUILT] Fetching summary for project 49e74875-5d29-4027-a817-d53602e68e4c
+[2025-10-15T00:43:43.148Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+📊 [ASBUILT] Fetching summary for project 49e74875-5d29-4027-a817-d53602e68e4c
+[2025-10-15T00:43:43.544Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+📊 [ASBUILT] Fetching summary for project 49e74875-5d29-4027-a817-d53602e68e4c
+[2025-10-15T00:43:43.855Z] [WARN] [AUTH] Development bypass enabled - using mock authentication
+📊 [ASBUILT] Fetching summary for project 49e74875-5d29-4027-a817-d53602e68e4c
