@@ -1,7 +1,7 @@
 const xlsx = require('xlsx');
 const { Pool } = require('pg');
 const Anthropic = require('@anthropic-ai/sdk');
-require('dotenv').config();
+require('dotenv').config({ path: '../.env' });
 
 class AsbuiltImportAI {
   constructor() {
