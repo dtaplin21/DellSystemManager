@@ -62,7 +62,6 @@ export default function AsbuiltPageContent() {
     clearSelection
   } = useProjects();
   
-  const [selectedProject, setSelectedProject] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDomain, setSelectedDomain] = useState<string>('all');
   const [showImportModal, setShowImportModal] = useState(false);
@@ -77,18 +76,19 @@ export default function AsbuiltPageContent() {
   useEffect(() => {
     if (projectId && projects.length > 0) {
       const project = projects.find(p => p.id === projectId);
-      if (project && project.id !== selectedProject?.id) {
-        setSelectedProject(project);
+      if (project && project.id !== contextSelectedProject?.id) {
+        selectProject(project.id);
       }
     }
-  }, [projectId, projects, selectedProject]);
+  }, [projectId, projects, contextSelectedProject, selectProject]);
 
   // Refresh data when project is selected
   useEffect(() => {
-    if (selectedProject && projectId) {
+    if (contextSelectedProject && projectId) {
+      console.log('🔄 [ASBUILT] Refreshing data for project:', projectId);
       refreshAllData(projectId);
     }
-  }, [selectedProject, projectId, refreshAllData]);
+  }, [contextSelectedProject, projectId, refreshAllData]);
 
 
   const handleFileView = (file: FileMetadata) => {
@@ -208,17 +208,15 @@ export default function AsbuiltPageContent() {
 
   console.log('🔍 [ASBUILT] === CONDITIONAL RENDERING CHECK ===');
   console.log('🔍 [ASBUILT] contextSelectedProject value:', contextSelectedProject);
-  console.log('🔍 [ASBUILT] contextSelectedProject type:', typeof contextSelectedProject);
-  console.log('🔍 [ASBUILT] !contextSelectedProject:', !contextSelectedProject);
-  console.log('🔍 [ASBUILT] contextSelectedProject === null:', contextSelectedProject === null);
-  console.log('🔍 [ASBUILT] contextSelectedProject === undefined:', contextSelectedProject === undefined);
+  console.log('🔍 [ASBUILT] projectRecords length:', projectRecords.length);
+  console.log('🔍 [ASBUILT] isLoading:', isLoading);
+  console.log('🔍 [ASBUILT] error:', contextError);
   
   if (!contextSelectedProject) {
     console.log('🔍 [ASBUILT] ✅ Taking project selection branch');
     console.log('🔍 [ASBUILT] Rendering project selection UI');
     console.log('🔍 [ASBUILT] Projects state:', projects);
     console.log('🔍 [ASBUILT] Projects length:', projects.length);
-    console.log('🔍 [ASBUILT] SelectedProject (local):', selectedProject);
     console.log('🔍 [ASBUILT] ContextSelectedProject:', contextSelectedProject);
     console.log('🔍 [ASBUILT] About to return JSX for project selection');
     
@@ -279,7 +277,6 @@ export default function AsbuiltPageContent() {
 
   console.log('🔍 [ASBUILT] ❌ Taking main content branch (project selected)');
   console.log('🔍 [ASBUILT] Rendering main content with selected project');
-  console.log('🔍 [ASBUILT] SelectedProject (local):', selectedProject);
   console.log('🔍 [ASBUILT] ContextSelectedProject:', contextSelectedProject);
   console.log('🔍 [ASBUILT] Projects:', projects);
   

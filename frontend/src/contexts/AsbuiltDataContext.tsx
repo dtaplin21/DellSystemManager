@@ -132,12 +132,15 @@ export const AsbuiltDataProvider: React.FC<AsbuiltDataProviderProps> = ({
         sourceDocId: record.source_doc_id,
         rawData: record.raw_data,
         mappedData: record.mapped_data,
-        aiConfidence: record.ai_confidence,
+        aiConfidence: parseFloat(record.ai_confidence) || 0,
         requiresReview: record.requires_review,
         createdAt: record.created_at,
         updatedAt: record.updated_at,
         createdBy: record.created_by
       }));
+      
+      console.log('📊 [AsbuiltContext] Transformed records:', transformedRecords.length);
+      console.log('📊 [AsbuiltContext] First record:', transformedRecords[0]);
       
       setProjectRecords(transformedRecords);
       setProjectSummary(summaryData);
