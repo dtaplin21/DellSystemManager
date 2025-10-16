@@ -61,5 +61,12 @@ if (config.supabase) {
   console.log('- Supabase config is undefined!');
 }
 
+// Check if config is empty or missing critical properties
+if (!config || Object.keys(config).length === 0 || !config.supabase) {
+  console.warn('⚠️ Root config is empty or missing supabase config, falling back to standalone config');
+  config = require('./env-standalone');
+  console.log('✅ Loaded standalone backend config as fallback');
+}
+
 module.exports = config;
 
