@@ -22,9 +22,42 @@ function ensureTsNode() {
 
 ensureTsNode();
 
-const { createEventBus } = require('../../src/orchestrator/eventBus');
-const { createWorkflowRunManager } = require('../../src/orchestrator/run');
-const { createAsbuiltAutomationDefinition } = require('../../src/workflows/asbuiltAutomation');
+// Try to load the event bus, but handle missing dependencies gracefully
+let createEventBus;
+try {
+  createEventBus = require('../../src/orchestrator/eventBus').createEventBus;
+} catch (error) {
+  console.warn('⚠️ Could not load event bus:', error.message);
+  console.warn('⚠️ Using fallback event bus');
+  createEventBus = () => ({
+    emit: () => {},
+    on: () => {},
+    off: () => {}
+  });
+}
+// Try to load the orchestrator, but handle missing dependencies gracefully
+let createWorkflowRunManager;
+try {
+  createWorkflowRunManager = require('../../src/orchestrator/run').createWorkflowRunManager;
+} catch (error) {
+  console.warn('⚠️ Could not load workflow run manager:', error.message);
+  console.warn('⚠️ Orchestrator features will be disabled');
+  createWorkflowRunManager = null;
+}
+// Try to load the workflow definition, but handle missing dependencies gracefully
+let createAsbuiltAutomationDefinition;
+try {
+  createAsbuiltAutomationDefinition = require('../../src/workflows/asbuiltAutomation').createAsbuiltAutomationDefinition;
+} catch (error) {
+  console.warn('⚠️ Could not load workflow definition:', error.message);
+  console.warn('⚠️ Using fallback workflow definition');
+  createAsbuiltAutomationDefinition = () => ({
+    id: 'asbuilt-automation-fallback',
+    name: 'Asbuilt Automation (Fallback)',
+    description: 'Fallback workflow definition',
+    steps: []
+  });
+}
 
 class StructuredWorkflowOrchestrator {
   constructor(options = {}) {
@@ -39,11 +72,17 @@ class StructuredWorkflowOrchestrator {
     });
 
     this.definition = createAsbuiltAutomationDefinition();
-    this.runManager = createWorkflowRunManager(this.definition, {
-      eventBus: this.eventBus,
-      outputRoot: this.outputRoot,
-      logRoot: this.logRoot
-    });
+    
+    if (createWorkflowRunManager) {
+      this.runManager = createWorkflowRunManager(this.definition, {
+        eventBus: this.eventBus,
+        outputRoot: this.outputRoot,
+        logRoot: this.logRoot
+      });
+    } else {
+      console.warn('⚠️ Run manager not available - orchestrator features disabled');
+      this.runManager = null;
+    }
 
     this.ensureDirectories();
     this.registerLogging();
@@ -83,6 +122,10 @@ class StructuredWorkflowOrchestrator {
       handwrittenMimeType: options.handwrittenMimeType
     };
 
+    if (!this.runManager) {
+      throw new Error('Orchestrator features are disabled - run manager not available');
+    }
+    
     return this.runManager.executeRun({
       projectId: options.projectId,
       userId: options.userId,
