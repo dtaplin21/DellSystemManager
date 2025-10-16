@@ -58,6 +58,7 @@ export const createHandwritingOCRStep = (): WorkflowStep => {
             {
               id: 'qc.ocr',
               type: 'qc.ocr',
+              status: 'PASS' as const,
               schemaVersion: '1.0.0',
               producedBy: 'ocr.extract',
               producedAt: new Date().toISOString(),

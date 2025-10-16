@@ -72,6 +72,7 @@ export const createDuplicateDetectionStep = (): WorkflowStep => {
             {
               id: 'asbuilt.de-duplicated',
               type: 'asbuilt.deduplicated',
+              status: 'PASS' as const,
               schemaVersion: '1.0.0',
               producedBy: 'asbuilt.duplicateDetection',
               producedAt: new Date().toISOString(),

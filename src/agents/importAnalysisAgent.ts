@@ -62,6 +62,7 @@ export const createImportAnalysisStep = (): WorkflowStep => {
             {
               id: 'import.analyzed',
               type: 'import.analyzed',
+              status: 'PASS' as const,
               schemaVersion: '1.0.0',
               producedBy: 'import.analysis',
               producedAt: new Date().toISOString(),

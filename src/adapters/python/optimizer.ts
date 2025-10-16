@@ -152,6 +152,7 @@ export const runPanelOptimizer = async (
   const artifact: Artifact = {
     id: `layout.optimized.${Date.now()}`,
     type: 'layout.proposed',
+    status: 'PASS' as const,
     schemaVersion: '1.0.0',
     producedBy: 'python.optimizer',
     producedAt: new Date().toISOString(),

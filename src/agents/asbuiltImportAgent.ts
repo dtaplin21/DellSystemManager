@@ -76,6 +76,7 @@ export const createAsbuiltImportStep = (): WorkflowStep => {
             {
               id: 'asbuilt.parsed',
               type: 'asbuilt.parsed',
+              status: 'PASS' as const,
               schemaVersion: '1.0.0',
               producedBy: 'asbuilt.import',
               producedAt: new Date().toISOString(),
