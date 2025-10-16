@@ -57,6 +57,30 @@ class AsbuiltService {
   }
 
   /**
+   * Find existing record matching project, panel, domain, and raw_data payload.
+   */
+  async findRecordByRawData({ projectId, panelId, domain, rawData }) {
+    const client = await this.pool.connect();
+    try {
+      const query = `
+        SELECT id
+        FROM asbuilt_records
+        WHERE project_id = $1
+          AND panel_id = $2
+          AND domain = $3
+          AND raw_data = $4::jsonb
+        LIMIT 1
+      `;
+
+      const values = [projectId, panelId, domain, rawData];
+      const result = await client.query(query, values);
+      return result.rows[0] ?? null;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
    * Get all records for a specific panel
    */
   async getPanelRecords(projectId, panelId) {

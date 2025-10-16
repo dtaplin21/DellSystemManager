@@ -18,7 +18,7 @@ export const createImportAnalysisStep = (): WorkflowStep => {
   return {
     id: 'import.analysis',
     description: 'Generate comprehensive import analysis and recommendations',
-    dependsOn: ['asbuilt.import', 'asbuilt.duplicateDetection'],
+    dependsOn: ['asbuilt.import', 'asbuilt.duplicateDetection', 'asbuilt.persist'],
     successEvent: 'import.ready',
     retryPolicy: {
       maxAttempts: 2,
