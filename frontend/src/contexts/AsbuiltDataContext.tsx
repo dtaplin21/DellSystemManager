@@ -205,14 +205,14 @@ export const AsbuiltDataProvider: React.FC<AsbuiltDataProviderProps> = ({
       // Extract unique panels from records and update panel data
       const uniquePanels = new Set(transformedRecords.map(record => record.panelId));
       const panelDataPromises = Array.from(uniquePanels).map(panelId => 
-        safeAPI.getAsbuiltSafe(projectId, panelId)
+        safeAPI.getAsbuiltSafe(projectId, panelId as string)
       );
       
       const panelDataResults = await Promise.all(panelDataPromises);
       const newPanelData = new Map<string, PanelAsbuiltSummary>();
       
       panelDataResults.forEach((data, index) => {
-        const panelId = Array.from(uniquePanels)[index];
+        const panelId = Array.from(uniquePanels)[index] as string;
         if (panelId && data) {
           newPanelData.set(panelId, data);
         }
