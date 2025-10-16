@@ -48,14 +48,14 @@ router.get('/records/:recordId', auth, async (req, res) => {
         error: 'Record not found'
       });
     }
-    
+
     res.json({
       success: true,
       record
     });
   } catch (error) {
     console.error('❌ [ASBUILT] Error fetching record:', error);
-    res.status(500).json({
+    res.status(500).json({ 
       success: false,
       error: 'Failed to fetch record'
     });
@@ -81,10 +81,10 @@ router.get('/:projectId/summary', auth, async (req, res) => {
     });
   } catch (error) {
     console.error('❌ [ASBUILT] Error fetching summary:', error);
-    res.status(500).json({
+    res.status(500).json({ 
       success: false,
       error: 'Failed to fetch summary',
-      message: error.message
+      message: error.message 
     });
   }
 });
@@ -117,7 +117,7 @@ router.get('/:projectId/files', auth, async (req, res) => {
     });
   } catch (error) {
     console.error('❌ [ASBUILT] Error fetching file metadata:', error);
-    res.status(500).json({
+    res.status(500).json({ 
       success: false,
       error: 'Failed to fetch file metadata',
       message: error.message
@@ -179,10 +179,10 @@ router.get('/:projectId', auth, async (req, res) => {
     });
   } catch (error) {
     console.error('❌ [ASBUILT] Error fetching project records:', error);
-    res.status(500).json({
+    res.status(500).json({ 
       success: false,
       error: 'Failed to fetch project records',
-      message: error.message
+      message: error.message 
     });
   }
 });
@@ -212,10 +212,10 @@ router.post('/:projectId/:panelId', auth, async (req, res) => {
     });
   } catch (error) {
     console.error('❌ [ASBUILT] Error creating record:', error);
-    res.status(500).json({
+    res.status(500).json({ 
       success: false,
-      error: 'Failed to create record',
-      message: error.message
+      error: 'Failed to create record', 
+      message: error.message 
     });
   }
 });
@@ -247,10 +247,10 @@ router.put('/:recordId', auth, async (req, res) => {
     });
   } catch (error) {
     console.error('❌ [ASBUILT] Error updating record:', error);
-    res.status(500).json({
+    res.status(500).json({ 
       success: false,
-      error: 'Failed to update record',
-      message: error.message
+      error: 'Failed to update record', 
+      message: error.message 
     });
   }
 });
@@ -281,14 +281,13 @@ router.delete('/:recordId', auth, async (req, res) => {
     });
   } catch (error) {
     console.error('❌ [ASBUILT] Error deleting record:', error);
-    res.status(500).json({
+    res.status(500).json({ 
       success: false,
       error: 'Failed to delete record',
-      message: error.message
+      message: error.message 
     });
   }
 });
-
 
 /**
  * @route POST /api/asbuilt/import
@@ -464,10 +463,10 @@ router.post('/import', auth, upload.single('excelFile'), async (req, res) => {
     
   } catch (error) {
     console.error('❌ [ASBUILT] Error importing Excel file:', error);
-    res.status(500).json({
+    res.status(500).json({ 
       success: false,
       error: 'Failed to import Excel file',
-      message: error.message
+      message: error.message 
     });
   }
 });
@@ -492,7 +491,7 @@ router.delete('/files/:fileId', auth, async (req, res) => {
       .single();
     
     if (fileError || !fileData) {
-      return res.status(404).json({
+      return res.status(404).json({ 
         success: false,
         error: 'File not found'
       });
@@ -542,10 +541,10 @@ router.delete('/files/:fileId', auth, async (req, res) => {
     });
   } catch (error) {
     console.error('❌ [ASBUILT] Error deleting file:', error);
-    res.status(500).json({
+    res.status(500).json({ 
       success: false,
       error: 'Failed to delete file',
-      message: error.message
+      message: error.message 
     });
   }
 });

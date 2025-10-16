@@ -7,8 +7,8 @@ class SafeAPI {
   private async makeRequest<T>(
     endpoint: string,
     options: RequestInit = {}
-  ): Promise<T> {
-    try {
+): Promise<T> {
+  try {
       // Check if we're in development mode (running on localhost)
       const isDevelopment = process.env.NODE_ENV === 'development' || 
                            (typeof window !== 'undefined' && window.location.hostname === 'localhost');
@@ -37,7 +37,7 @@ class SafeAPI {
       }
 
       const data = await response.json();
-      return data;
+    return data;
     } catch (error) {
       console.error(`API request failed for ${endpoint}:`, error);
       throw error;
@@ -139,6 +139,7 @@ class SafeAPI {
     return response;
   }
 
+
   // Health check
   async healthCheck(): Promise<{ status: string; timestamp: string }> {
     return this.makeRequest<{ status: string; timestamp: string }>('/api/health');
@@ -213,7 +214,7 @@ export async function getAsbuiltRecordDetails(recordId: string): Promise<Asbuilt
     
     // Transform snake_case to camelCase to match frontend types
     const record = data.record;
-    return {
+  return {
       id: record.id,
       projectId: record.project_id,
       panelId: record.panel_id,

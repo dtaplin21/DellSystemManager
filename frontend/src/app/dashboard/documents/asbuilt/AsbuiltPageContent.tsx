@@ -83,6 +83,7 @@ export default function AsbuiltPageContent() {
   const [selectedRecord, setSelectedRecord] = useState<AsbuiltRecord | null>(null);
   const [loadingRecord, setLoadingRecord] = useState(false);
   const [activeTab, setActiveTab] = useState<'records' | 'files'>('records');
+  
 
   // Handle URL-based project selection
   useEffect(() => {
@@ -177,6 +178,7 @@ export default function AsbuiltPageContent() {
     }
     setShowImportModal(false);
   };
+
 
   const filteredRecords = projectRecords.filter(record => {
     const matchesSearch = !searchQuery || 
@@ -732,6 +734,7 @@ export default function AsbuiltPageContent() {
         record={selectedRecord}
         loading={loadingRecord}
       />
+
     </div>
   );
 }

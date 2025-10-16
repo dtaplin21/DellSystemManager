@@ -118,6 +118,7 @@ class AsbuiltImportAI {
     };
   }
 
+
   /**
    * Main import function - Production ready
    */
@@ -362,12 +363,12 @@ class AsbuiltImportAI {
    * Parse Excel file with multi-table detection
    */
   parseExcelFile(fileBuffer) {
-    const workbook = xlsx.read(fileBuffer, { type: 'buffer' });
+      const workbook = xlsx.read(fileBuffer, { type: 'buffer' });
     const sheetName = workbook.SheetNames[0];
-    const worksheet = workbook.Sheets[sheetName];
+      const worksheet = workbook.Sheets[sheetName];
     const jsonData = xlsx.utils.sheet_to_json(worksheet, { header: 1, defval: null });
-
-    if (jsonData.length < 2) {
+      
+      if (jsonData.length < 2) {
       throw new Error('Excel file must contain at least a header row and one data row');
     }
 
@@ -676,7 +677,7 @@ class AsbuiltImportAI {
       const openaiDomain = await this.aiDetectDomain(headers, dataRows);
       console.log(`✅ [AI] OpenAI determined domain: ${openaiDomain}`);
       return openaiDomain;
-    } else {
+        } else {
       console.warn('⚠️ [AI] OpenAI not available, using rule-based fallback');
       console.log(`✅ [AI] Using rule-based domain: ${bestDomain[0]}`);
       return bestDomain[0]; // Fall back to rule-based
@@ -774,7 +775,7 @@ Respond with ONLY the domain name (e.g., "panel_placement").`;
         confidence: 0.95, // High confidence when using OpenAI
         usedAI: true
       };
-    } else {
+          } else {
       console.log(`✅ [AI] Using explicit mappings only (${(explicitConfidence * 100).toFixed(1)}% confidence)`);
       return {
         mappings: explicitMappings,
