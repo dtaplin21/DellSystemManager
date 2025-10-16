@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router();
 const { auth } = require('../middlewares/auth');
 const aiWorkflowOrchestrator = require('../services/ai-workflow-orchestrator');
+const structuredWorkflowOrchestrator = require('../services/structured-workflow-orchestrator');
 const projectContextStore = require('../services/project-context-store');
 const multer = require('multer');
 const path = require('path');
@@ -39,7 +40,8 @@ router.get('/status/:projectId', async (req, res) => {
         'panel_optimization',
         'qc_analysis',
         'cross_component',
-        'project_management'
+        'project_management',
+        'asbuilt_automation'
       ]
     });
   } catch (error) {
@@ -59,6 +61,29 @@ router.post('/trigger/:projectId', async (req, res) => {
     
     console.log(`Triggering ${workflowType} workflow for project ${projectId} from ${triggerSource}`);
     
+    if (workflowType === 'asbuilt_automation') {
+      const runResult = await structuredWorkflowOrchestrator.runAsbuiltAutomation({
+        projectId,
+        userId: req.user?.id,
+        excelPath: req.body?.excelPath,
+        domain: req.body?.domain,
+        fileId: req.body?.fileId,
+        fileName: req.body?.fileName,
+        handwrittenFilePath: req.body?.handwrittenFilePath,
+        handwrittenMimeType: req.body?.handwrittenMimeType,
+        metadata: req.body?.metadata
+      });
+
+      return res.json({
+        success: true,
+        projectId,
+        workflowType,
+        triggerSource,
+        results: runResult,
+        timestamp: new Date().toISOString()
+      });
+    }
+
     const results = await aiWorkflowOrchestrator.orchestrateProjectWorkflow(projectId, workflowType);
     
     res.json({
@@ -91,6 +116,7 @@ router.post('/auto-trigger/:projectId', async (req, res) => {
     
     switch (componentType) {
       case 'documents':
+        workflowsToTrigger.push('asbuilt_automation');
         workflowsToTrigger.push('document_analysis');
         if (data.type === 'handwritten') {
           workflowsToTrigger.push('handwritten_analysis');
