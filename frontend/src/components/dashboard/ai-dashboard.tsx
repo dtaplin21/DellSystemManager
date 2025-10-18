@@ -5,7 +5,20 @@ import { useToast } from "@/hooks/use-toast";
 import { useProjects } from '@/contexts/ProjectsProvider';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
-import { Brain, Lightbulb, AlertTriangle, Check, Zap, FastForward, ArrowRight, FolderOpen } from 'lucide-react';
+import {
+  Brain,
+  Lightbulb,
+  AlertTriangle,
+  Check,
+  Zap,
+  FastForward,
+  ArrowRight,
+  FolderOpen,
+  Users,
+  Share2,
+  Activity,
+  GitBranch
+} from 'lucide-react';
 
 interface AICapability {
   name: string;
@@ -71,6 +84,36 @@ export default function AIDashboard() {
   const { toast } = useToast();
   const { selectedProject, selectedProjectId } = useProjects();
   const router = useRouter();
+
+  const orchestratorInfo = serviceStatus?.services?.ai?.orchestrator;
+  const orchestratorCapabilities = orchestratorInfo?.capabilities || {};
+  const capabilityDefinitions = [
+    {
+      key: 'multiAgent',
+      label: 'Multi-agent crews',
+      description: 'Coordinate specialized agents for a single workflow run.'
+    },
+    {
+      key: 'delegation',
+      label: 'Delegation support',
+      description: 'Agents can hand off subtasks to peers during execution.'
+    },
+    {
+      key: 'sharedContext',
+      label: 'Shared context memory',
+      description: 'Cross-workflow memory keeps agents aligned with project history.'
+    },
+    {
+      key: 'realTimeCollaboration',
+      label: 'Real-time collaboration',
+      description: 'Live collaboration channel keeps crews synchronized.'
+    },
+    {
+      key: 'dynamicWorkflows',
+      label: 'Dynamic workflows',
+      description: 'Blueprints can be registered or updated without redeploys.'
+    }
+  ];
 
   useEffect(() => {
     const fetchServiceStatus = async () => {
@@ -184,8 +227,8 @@ export default function AIDashboard() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {getCapabilities().map((capability, index) => (
-            <Card 
-              key={index} 
+            <Card
+              key={index}
               className={`overflow-hidden ${!capability.available ? 'opacity-70' : ''}`}
             >
               <CardHeader>
@@ -226,6 +269,79 @@ export default function AIDashboard() {
               </CardContent>
             </Card>
           ))}
+
+          {orchestratorInfo && (
+            <Card className="col-span-1 md:col-span-2 lg:col-span-3 border border-dashed">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5 text-orange-500" />
+                  Agent Orchestration
+                </CardTitle>
+                <CardDescription>
+                  Real-time view of the CrewAI-powered workflows coordinating multiple agents.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {orchestratorInfo.available ? (
+                  <div className="grid gap-6 md:grid-cols-2">
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 text-sm font-medium text-orange-600">
+                        <Share2 className="h-4 w-4" />
+                        Collaboration Capabilities
+                      </div>
+                      <ul className="space-y-3">
+                        {capabilityDefinitions.map(capability => (
+                          <li key={capability.key} className="flex items-start gap-3">
+                            {orchestratorCapabilities[capability.key] ? (
+                              <Check className="h-4 w-4 text-green-600 mt-1" />
+                            ) : (
+                              <AlertTriangle className="h-4 w-4 text-amber-500 mt-1" />
+                            )}
+                            <div>
+                              <p className="font-medium text-sm">{capability.label}</p>
+                              <p className="text-xs text-muted-foreground">{capability.description}</p>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Activity className="h-4 w-4" />
+                        Last synced {orchestratorInfo.generatedAt ? new Date(orchestratorInfo.generatedAt * 1000).toLocaleString() : 'recently'}
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 text-sm font-medium text-orange-600">
+                        <GitBranch className="h-4 w-4" />
+                        Registered Workflows
+                      </div>
+                      <ul className="space-y-3">
+                        {(orchestratorInfo.workflows || []).map((workflow: any) => (
+                          <li key={workflow.id} className="rounded-md border p-3 bg-muted/40">
+                            <p className="text-sm font-medium">{workflow.name}</p>
+                            <p className="text-xs text-muted-foreground">{workflow.description}</p>
+                            <div className="mt-2 text-[10px] uppercase tracking-wide text-muted-foreground">Process: {workflow.process}</div>
+                            <div className="mt-2 text-[11px] text-muted-foreground">
+                              Agents: {workflow.agents?.map((agent: any) => agent.name).join(', ')}
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <p className="font-medium">Agent orchestrator unavailable</p>
+                      <p className="text-sm text-muted-foreground">
+                        Deploy the Python AI service to unlock collaborative crews and shared memory.
+                      </p>
+                    </div>
+                    <AlertTriangle className="h-6 w-6 text-amber-500" />
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
     </div>
