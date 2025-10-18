@@ -28,6 +28,12 @@ A sophisticated AI service that combines OpenAI's cloud-based models with local 
 - **Layout Optimization**: Intelligent panel placement and optimization
 - **QC Data Analysis**: Automated quality control workflows
 - **Multi-Agent Collaboration**: Specialized agents working together
+- **Shared Memory & Delegation**: Agents reuse orchestrated context and delegate subtasks in real time
+
+### Orchestrator Visibility
+- **Workflow Manifest**: `ai_service/orchestrator_manifest.json` lists registered crews and capabilities
+- **UI Integration**: Dashboard surfaces collaboration status via `/api/system/services`
+- **Context Persistence**: Redis-backed store keeps cross-workflow history for each user
 
 ## 🏗️ Architecture
 

@@ -1,6 +1,27 @@
 const express = require('express');
+const fs = require('fs');
+const path = require('path');
 const router = express.Router();
 const { isOpenAIConfigured } = require('../../services/ai-connector');
+
+const orchestratorManifestPath = path.join(
+  __dirname,
+  '../../..',
+  'ai_service',
+  'orchestrator_manifest.json'
+);
+
+const loadOrchestratorManifest = () => {
+  try {
+    const raw = fs.readFileSync(orchestratorManifestPath, 'utf-8');
+    return JSON.parse(raw);
+  } catch (error) {
+    if (error.code !== 'ENOENT') {
+      console.warn('⚠️ Unable to load orchestrator manifest:', error.message);
+    }
+    return null;
+  }
+};
 
 /**
  * @route GET /api/system/health
@@ -209,20 +230,36 @@ router.get('/services', async (req, res) => {
     const services = {
       ai: {
         openai: isOpenAIConfigured(),
+        orchestrator: {
+          available: false,
+          capabilities: {},
+          workflows: [],
+          generatedAt: null
+        },
       },
       payment: {
         stripe: !!process.env.STRIPE_SECRET_KEY,
       },
       auth: {
-        firebase: !!(process.env.VITE_FIREBASE_API_KEY && 
-                     process.env.VITE_FIREBASE_PROJECT_ID && 
-                     process.env.VITE_FIREBASE_APP_ID),
+        firebase: !!(process.env.VITE_FIREBASE_API_KEY &&
+                     process.env.VITE_FIREBASE_PROJECT_ID &&
+                      process.env.VITE_FIREBASE_APP_ID),
       }
     };
 
+    const orchestratorManifest = loadOrchestratorManifest();
+    if (orchestratorManifest?.manifest) {
+      services.ai.orchestrator = {
+        available: true,
+        capabilities: orchestratorManifest.manifest.capabilities || {},
+        workflows: orchestratorManifest.manifest.workflows || [],
+        generatedAt: orchestratorManifest.generatedAt || null
+      };
+    }
+
     // Create a list of missing services that might be needed
     const missingSecrets = [];
-    
+
     if (!services.ai.openai) {
       missingSecrets.push('ai.openai');
     }
