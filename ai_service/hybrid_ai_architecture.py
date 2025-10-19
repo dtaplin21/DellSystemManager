@@ -31,9 +31,9 @@ class ModelProvider(Enum):
 
 class TaskComplexity(Enum):
     """Task complexity levels for model routing"""
-    SIMPLE = "simple"      # Basic text processing, classification
-    MODERATE = "moderate"   # Analysis, summarization, basic reasoning
-    COMPLEX = "complex"     # Complex reasoning, multi-step tasks
+    SIMPLE = "simple"       # Basic queries, simple tasks
+    MODERATE = "moderate"   # Standard analysis, document processing
+    COMPLEX = "complex"     # Multi-step reasoning, optimization
     EXPERT = "expert"       # Advanced analysis, optimization, planning
 
 
@@ -169,165 +169,77 @@ class CrewAgentExecutor:
 
 @dataclass
 class ModelConfig:
-    """Configuration for AI models"""
+    name: str
     provider: ModelProvider
-    model_name: str
-    max_tokens: int
     cost_per_1k_tokens: float
-    capabilities: List[TaskComplexity]
-    reliability_score: float  # 0.0 to 1.0
-    response_time_ms: int     # Average response time
+    max_tokens: int
+    capabilities: List[str]
 
 class CostOptimizer:
-    """Intelligent cost optimization and model routing"""
+    """Optimizes AI model usage based on cost and capability requirements"""
     
     def __init__(self, redis_client: redis.Redis):
         self.redis = redis_client
-        self.models = self._initialize_models()
-        
-    def _initialize_models(self) -> Dict[str, ModelConfig]:
-        """Initialize available models with their configurations"""
-        return {
-            "gpt-4o-mini": ModelConfig(
+        self.models = {
+            "gpt-3.5-turbo": ModelConfig(
+                name="gpt-3.5-turbo",
                 provider=ModelProvider.OPENAI,
-                model_name="gpt-4o-mini",
-                max_tokens=16384,
-                cost_per_1k_tokens=0.00015,
-                capabilities=[TaskComplexity.SIMPLE, TaskComplexity.MODERATE],
-                reliability_score=0.99,
-                response_time_ms=2000
+                cost_per_1k_tokens=0.002,
+                max_tokens=4096,
+                capabilities=["text", "reasoning"]
             ),
             "gpt-4o": ModelConfig(
+                name="gpt-4o",
                 provider=ModelProvider.OPENAI,
-                model_name="gpt-4o",
+                cost_per_1k_tokens=0.015,
                 max_tokens=128000,
-                cost_per_1k_tokens=0.005,
-                capabilities=[TaskComplexity.SIMPLE, TaskComplexity.MODERATE, TaskComplexity.COMPLEX],
-                reliability_score=0.99,
-                response_time_ms=3000
-            ),
-            "gpt-4-turbo": ModelConfig(
-                provider=ModelProvider.OPENAI,
-                model_name="gpt-4-turbo",
-                max_tokens=128000,
-                cost_per_1k_tokens=0.01,
-                capabilities=[TaskComplexity.SIMPLE, TaskComplexity.MODERATE, TaskComplexity.COMPLEX, TaskComplexity.EXPERT],
-                reliability_score=0.98,
-                response_time_ms=4000
-            ),
-            "claude-3-haiku": ModelConfig(
-                provider=ModelProvider.ANTHROPIC,
-                model_name="claude-3-haiku",
-                max_tokens=200000,
-                cost_per_1k_tokens=0.00025,
-                capabilities=[TaskComplexity.SIMPLE, TaskComplexity.MODERATE],
-                reliability_score=0.97,
-                response_time_ms=2500
+                capabilities=["text", "vision", "reasoning", "analysis"]
             ),
             "claude-3-sonnet": ModelConfig(
+                name="claude-3-sonnet",
                 provider=ModelProvider.ANTHROPIC,
-                model_name="claude-3-sonnet",
-                max_tokens=200000,
                 cost_per_1k_tokens=0.003,
-                capabilities=[TaskComplexity.SIMPLE, TaskComplexity.MODERATE, TaskComplexity.COMPLEX],
-                reliability_score=0.98,
-                response_time_ms=3500
-            ),
-            "claude-3-opus": ModelConfig(
-                provider=ModelProvider.ANTHROPIC,
-                model_name="claude-3-opus",
                 max_tokens=200000,
-                cost_per_1k_tokens=0.015,
-                capabilities=[TaskComplexity.SIMPLE, TaskComplexity.MODERATE, TaskComplexity.COMPLEX, TaskComplexity.EXPERT],
-                reliability_score=0.99,
-                response_time_ms=5000
+                capabilities=["text", "reasoning", "analysis"]
             )
         }
     
     def analyze_task_complexity(self, query: str, context: Dict = None) -> TaskComplexity:
-        """Analyze task complexity to determine optimal model selection"""
-        # Simple heuristics for complexity analysis
+        """Analyze task complexity based on query and context"""
         query_lower = query.lower()
         
         # Simple tasks
-        if any(word in query_lower for word in ['summarize', 'extract', 'classify', 'list', 'count']):
+        if any(word in query_lower for word in ["hello", "help", "status", "simple"]):
             return TaskComplexity.SIMPLE
         
-        # Moderate tasks
-        if any(word in query_lower for word in ['analyze', 'compare', 'explain', 'describe', 'identify']):
-            return TaskComplexity.MODERATE
-        
         # Complex tasks
-        if any(word in query_lower for word in ['optimize', 'design', 'plan', 'solve', 'create']):
+        if any(word in query_lower for word in ["analyze", "optimize", "generate", "complex", "multiple"]):
             return TaskComplexity.COMPLEX
         
         # Expert tasks
-        if any(word in query_lower for word in ['architect', 'strategize', 'innovate', 'research', 'develop']):
+        if any(word in query_lower for word in ["workflow", "orchestrate", "collaborate", "multi-agent"]):
             return TaskComplexity.EXPERT
         
         # Default to moderate
         return TaskComplexity.MODERATE
     
-    def select_optimal_model(self, complexity: TaskComplexity, user_tier: str, 
-                           estimated_tokens: int = 1000) -> str:
-        """Select the most cost-effective model for the task"""
-        suitable_models = []
-        
-        for model_name, config in self.models.items():
-            if complexity in config.capabilities:
-                # Calculate cost for this task
-                estimated_cost = (estimated_tokens / 1000) * config.cost_per_1k_tokens
-                
-                # Apply user tier multipliers
-                if user_tier == "premium":
-                    cost_multiplier = 1.0  # Full access
-                elif user_tier == "standard":
-                    cost_multiplier = 1.5  # Slight premium for better models
-                else:  # free tier
-                    cost_multiplier = 2.0  # Higher cost for premium models
-                
-                adjusted_cost = estimated_cost * cost_multiplier
-                
-                suitable_models.append({
-                    'name': model_name,
-                    'config': config,
-                    'estimated_cost': adjusted_cost,
-                    'score': config.reliability_score / adjusted_cost  # Higher score = better value
-                })
-        
-        if not suitable_models:
-            # Fallback to most reliable model
-            return "gpt-4o-mini"
-        
-        # Sort by score (reliability/cost ratio) and return the best
-        suitable_models.sort(key=lambda x: x['score'], reverse=True)
-        return suitable_models[0]['name']
+    def select_optimal_model(self, complexity: TaskComplexity, user_tier: str) -> str:
+        """Select optimal model based on complexity and user tier"""
+        if user_tier == "free_user":
+            return "gpt-3.5-turbo"
+        elif complexity in [TaskComplexity.SIMPLE, TaskComplexity.MODERATE]:
+            return "gpt-3.5-turbo"
+        elif complexity == TaskComplexity.COMPLEX:
+            return "gpt-4o"
+        else:  # EXPERT
+            return "gpt-4o"
     
-    async def track_usage(self, user_id: str, model_name: str, tokens_used: int, cost: float):
-        """Track user usage for billing and optimization"""
-        try:
-            # Store usage data in Redis
-            usage_key = f"usage:{user_id}:{int(time.time() // 3600)}"  # Hourly buckets
-            usage_data = {
-                'model': model_name,
-                'tokens': tokens_used,
-                'cost': cost,
-                'timestamp': time.time()
-            }
-            
-            # Add to usage list
-            self.redis.lpush(usage_key, json.dumps(usage_data))
-            self.redis.expire(usage_key, 86400 * 7)  # Keep for 7 days
-            
-            # Update daily totals
-            daily_key = f"daily_usage:{user_id}:{int(time.time() // 86400)}"
-            self.redis.hincrby(daily_key, 'total_tokens', tokens_used)
-            self.redis.hincrbyfloat(daily_key, 'total_cost', cost)
-            self.redis.expire(daily_key, 86400 * 30)  # Keep for 30 days
-            
-        except Exception as e:
-            logger.error(f"Failed to track usage: {e}")
+    def track_usage(self, user_id: str, model: str, tokens: int, cost: float):
+        """Track usage for cost optimization"""
+        # Implementation for usage tracking
+        pass
 
+# === TOOL DEFINITIONS ===
 class BaseTool:
     """Base class for all AI tools"""
     
@@ -455,7 +367,7 @@ class DellSystemAIService:
         except Exception as e:
             logger.error(f"Error handling query: {e}")
             return {"error": str(e), "fallback": True}
-    
+
     def _create_agent_for_task(self, model_name: str, complexity: TaskComplexity):
         """Create an appropriate agent for the given task complexity"""
         tools = list(self.tools.values())
