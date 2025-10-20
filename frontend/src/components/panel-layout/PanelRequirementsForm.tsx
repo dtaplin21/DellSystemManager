@@ -114,6 +114,7 @@ export default function PanelRequirementsForm({ projectId, documents: propDocume
   const [aiAnalyzing, setAiAnalyzing] = useState(false);
   const [aiAnalysisResult, setAiAnalysisResult] = useState<any>(null);
   const [selectedDocumentsForAnalysis, setSelectedDocumentsForAnalysis] = useState<string[]>([]);
+  const [fileInputRef, setFileInputRef] = useState<HTMLInputElement | null>(null);
 
   useEffect(() => {
     loadRequirements();
@@ -199,12 +200,14 @@ export default function PanelRequirementsForm({ projectId, documents: propDocume
         await uploadDocument(projectId, file);
       }
       
+      // Refresh documents list
+      const updatedDocuments = await fetchDocuments(projectId);
+      setDocuments(updatedDocuments);
+      
       toast({
         title: 'Success',
         description: 'Documents uploaded successfully',
       });
-      
-      // loadDocuments(); // This line is removed as documents are now passed as a prop
     } catch (error) {
       console.error('Upload error:', error);
       toast({
@@ -407,11 +410,12 @@ export default function PanelRequirementsForm({ projectId, documents: propDocume
 
   const toggleDocumentSelection = (documentId: string) => {
     setSelectedDocumentsForAnalysis(prev => 
-      prev.includes(documentId) 
+      prev.includes(documentId)
         ? prev.filter(id => id !== documentId)
         : [...prev, documentId]
     );
   };
+
 
   const updateField = (section: keyof PanelRequirements, field: string, value: any) => {
     setRequirements(prev => ({
@@ -458,6 +462,15 @@ export default function PanelRequirementsForm({ projectId, documents: propDocume
 
   return (
     <div className="space-y-6">
+      {/* Hidden file input for uploads */}
+      <input
+        ref={setFileInputRef}
+        type="file"
+        multiple
+        accept=".pdf,.xlsx,.xls,.dwg,.dxf,.doc,.docx"
+        style={{ display: 'none' }}
+        onChange={handleFileUpload}
+      />
       {/* Header with Confidence Score and Generate Button */}
       <Card>
         <CardHeader>
@@ -515,6 +528,7 @@ export default function PanelRequirementsForm({ projectId, documents: propDocume
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
+              data-tab={tab.id}
               className={`flex items-center space-x-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                 activeTab === tab.id
                   ? 'bg-white text-blue-600 shadow-sm'
@@ -535,23 +549,38 @@ export default function PanelRequirementsForm({ projectId, documents: propDocume
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold">AI Document Analysis</h3>
-                <Button
-                  onClick={handleAIAnalysis}
-                  disabled={aiAnalyzing || selectedDocumentsForAnalysis.length === 0}
-                  className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700"
-                >
-                  {aiAnalyzing ? (
-                    <>
+                <div className="flex items-center space-x-2">
+                  <Button
+                    onClick={() => fileInputRef?.click()}
+                    disabled={uploading}
+                    variant="outline"
+                    className="flex items-center space-x-2"
+                  >
+                    {uploading ? (
                       <RefreshCw className="h-4 w-4 animate-spin" />
-                      <span>Analyzing...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Brain className="h-4 w-4" />
-                      <span>Analyze Documents</span>
-                    </>
-                  )}
-                </Button>
+                    ) : (
+                      <Upload className="h-4 w-4" />
+                    )}
+                    <span>{uploading ? 'Uploading...' : 'Upload Documents'}</span>
+                  </Button>
+                  <Button
+                    onClick={handleAIAnalysis}
+                    disabled={aiAnalyzing || selectedDocumentsForAnalysis.length === 0}
+                    className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700"
+                  >
+                    {aiAnalyzing ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 animate-spin" />
+                        <span>Analyzing...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Brain className="h-4 w-4" />
+                        <span>Analyze Documents</span>
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
 
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -569,7 +598,27 @@ export default function PanelRequirementsForm({ projectId, documents: propDocume
 
               {/* Document Selection */}
               <div className="space-y-4">
-                <h4 className="font-semibold">Select Documents for Analysis</h4>
+                <div className="flex items-center justify-between">
+                  <h4 className="font-semibold">Select Documents for Analysis</h4>
+                  {documents.length > 0 && (
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setSelectedDocumentsForAnalysis(documents.map(d => d.id))}
+                      >
+                        Select All
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setSelectedDocumentsForAnalysis([])}
+                      >
+                        Clear All
+                      </Button>
+                    </div>
+                  )}
+                </div>
                 <div className="grid gap-3">
                   {documents.map((doc) => (
                     <div
@@ -596,13 +645,31 @@ export default function PanelRequirementsForm({ projectId, documents: propDocume
                       </div>
                     </div>
                   ))}
-                  {documents.length === 0 && (
+                  {documents.length === 0 ? (
                     <div className="text-center py-8 text-gray-500">
                       <Upload className="h-12 w-12 mx-auto mb-4 text-gray-300" />
                       <p>No documents uploaded yet.</p>
-                      <p className="text-sm">Upload documents in the Documents tab to analyze them.</p>
+                      <p className="text-sm mb-4">Upload documents to analyze them with AI.</p>
+                      <Button
+                        onClick={() => fileInputRef?.click()}
+                        disabled={uploading}
+                        className="bg-blue-600 hover:bg-blue-700 text-white"
+                      >
+                        {uploading ? (
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <Upload className="h-4 w-4 mr-2" />
+                        )}
+                        {uploading ? 'Uploading...' : 'Upload Documents'}
+                      </Button>
                     </div>
-                  )}
+                  ) : selectedDocumentsForAnalysis.length === 0 ? (
+                    <div className="text-center py-6 text-gray-500 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
+                      <FileText className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+                      <p className="font-medium">Select documents to analyze</p>
+                      <p className="text-sm">Choose one or more documents from the list above to get started with AI analysis.</p>
+                    </div>
+                  ) : null}
                 </div>
               </div>
 

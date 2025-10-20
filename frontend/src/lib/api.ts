@@ -433,7 +433,7 @@ export async function fetchPanelLayout(projectId: string): Promise<any> {
 
 export async function exportPanelLayoutToCAD(projectId: string, format: string): Promise<Blob | null> {
   try {
-    const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/panel-layout/export`, {
+    const response = await makeAuthenticatedRequest(`/api/panel-layout/export`, {
       method: 'POST',
       body: JSON.stringify({ projectId, format })
     });
@@ -450,7 +450,7 @@ export async function exportPanelLayoutToCAD(projectId: string, format: string):
 
 export async function fetchNotifications(): Promise<any> {
   try {
-    const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/notifications`);
+    const response = await makeAuthenticatedRequest(`/api/notifications`);
     
     if (!response.ok) {
       if (response.status === 401) {
@@ -516,7 +516,7 @@ export async function analyzeDocuments(projectId: string, documentIds: string[],
     
     console.log('📤 Sending request body:', JSON.stringify(requestBody, null, 2));
     
-    const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/ai/query`, {
+    const response = await makeAuthenticatedRequest(`/api/ai/query`, {
       method: 'POST',
       body: JSON.stringify(requestBody),
     });
@@ -540,7 +540,7 @@ export async function analyzeDocuments(projectId: string, documentIds: string[],
 }
 
 export async function deleteDocument(documentId: string): Promise<void> {
-  const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/documents/${documentId}`, {
+  const response = await makeAuthenticatedRequest(`/api/documents/${documentId}`, {
     method: 'DELETE',
   });
 
@@ -674,7 +674,7 @@ export async function updatePanelLayout(projectId: string, data: {
       console.warn('⚠️ [API] Empty panels array being sent to backend');
     }
     
-    const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/panels/layout/${projectId}`, {
+    const response = await makeAuthenticatedRequest(`/api/panels/layout/${projectId}`, {
       method: 'PATCH',
       body: JSON.stringify(data)
     });
@@ -734,7 +734,7 @@ export async function deletePanel(projectId: string, panelId: string): Promise<a
     console.log('🔍 [API] === deletePanel START ===');
     console.log('🔍 [API] Input parameters:', { projectId, panelId });
     
-    const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/panel-layout/delete-panel`, {
+    const response = await makeAuthenticatedRequest(`/api/panel-layout/delete-panel`, {
       method: 'DELETE',
       body: JSON.stringify({
         projectId,
@@ -829,7 +829,7 @@ export async function addQCData(projectId: string, data: {
   speed?: number;
   notes?: string;
 }): Promise<any> {
-  const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/qc-data/${projectId}`, {
+  const response = await makeAuthenticatedRequest(`/api/qc-data/${projectId}`, {
     method: 'POST',
     body: JSON.stringify(data)
   });
@@ -842,7 +842,7 @@ export async function addQCData(projectId: string, data: {
 }
 
 export async function createCheckoutSession(plan: 'basic' | 'premium'): Promise<{ sessionId: string }> {
-  const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/subscription/create-checkout-session`, {
+  const response = await makeAuthenticatedRequest(`/api/subscription/create-checkout-session`, {
     method: 'POST',
     body: JSON.stringify({ plan })
   });
@@ -875,7 +875,7 @@ export async function fetchDocuments(projectId: string): Promise<any> {
 
 export async function fetchQCData(projectId: string): Promise<any> {
   try {
-    const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/qc-data/${projectId}`);
+    const response = await makeAuthenticatedRequest(`/api/qc-data/${projectId}`);
     
     if (!response.ok) {
       if (response.status === 401) {
@@ -920,7 +920,7 @@ export async function scanHandwriting(file: File, projectId: string): Promise<an
 
 export async function automateLayout(projectId: string, panels: any[], documents: any[]): Promise<any> {
   try {
-    const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/ai/automate-layout`, {
+    const response = await makeAuthenticatedRequest(`/api/ai/automate-layout`, {
       method: 'POST',
       body: JSON.stringify({ projectId, panels, documents }),
     });
@@ -935,7 +935,7 @@ export async function automateLayout(projectId: string, panels: any[], documents
     if (result.success && result.actions && result.actions.length > 0) {
       console.log('🎯 Executing AI layout actions:', result.actions.length, 'actions');
       
-      const executeResponse = await makeAuthenticatedRequest(`${BACKEND_URL}/api/ai/execute-ai-layout`, {
+      const executeResponse = await makeAuthenticatedRequest(`/api/ai/execute-ai-layout`, {
         method: 'POST',
         body: JSON.stringify({ projectId, actions: result.actions }),
       });
@@ -985,7 +985,7 @@ export async function downloadDocument(documentId: string): Promise<Blob> {
 // Panel Requirements API functions
 export async function getPanelRequirements(projectId: string): Promise<any> {
   try {
-    const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/panel-requirements/${projectId}`, {
+    const response = await makeAuthenticatedRequest(`/api/panel-requirements/${projectId}`, {
       method: 'GET',
     });
     return response.json();
@@ -997,7 +997,7 @@ export async function getPanelRequirements(projectId: string): Promise<any> {
 
 export async function savePanelRequirements(projectId: string, requirements: any): Promise<any> {
   try {
-    const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/panel-requirements/${projectId}`, {
+    const response = await makeAuthenticatedRequest(`/api/panel-requirements/${projectId}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -1013,7 +1013,7 @@ export async function savePanelRequirements(projectId: string, requirements: any
 
 export async function updatePanelRequirements(projectId: string, requirements: any): Promise<any> {
   try {
-    const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/panel-requirements/${projectId}`, {
+    const response = await makeAuthenticatedRequest(`/api/panel-requirements/${projectId}`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
@@ -1029,7 +1029,7 @@ export async function updatePanelRequirements(projectId: string, requirements: a
 
 export async function getPanelRequirementsAnalysis(projectId: string): Promise<any> {
   try {
-    const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/panel-requirements/${projectId}/analysis`, {
+    const response = await makeAuthenticatedRequest(`/api/panel-requirements/${projectId}/analysis`, {
       method: 'GET',
     });
     return response.json();
@@ -1047,7 +1047,7 @@ export async function analyzeDocumentsForPanelRequirements(projectId: string, do
     // Extract only document IDs to reduce payload size
     const documentIds = documents.map(doc => doc.id);
     
-    const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/ai/analyze-panel-requirements`, {
+    const response = await makeAuthenticatedRequest(`/api/ai/analyze-panel-requirements`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -1096,7 +1096,7 @@ export async function analyzeDocumentsForPanelRequirements(projectId: string, do
 export async function generateAdvancedLayout(projectId: string, options: any = {}): Promise<any> {
   try {
     console.log('🚀 Phase 3: Generating advanced layout for project:', projectId, 'with options:', options);
-    const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/ai/generate-advanced-layout`, {
+    const response = await makeAuthenticatedRequest(`/api/ai/generate-advanced-layout`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ projectId, options }),

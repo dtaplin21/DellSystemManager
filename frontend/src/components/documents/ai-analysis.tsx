@@ -4,20 +4,24 @@ import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { analyzeDocuments } from '@/lib/api';
+import { Upload, RefreshCw } from 'lucide-react';
+import { analyzeDocuments, uploadDocument, fetchDocuments } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 
 interface AIAnalysisProps {
   projectId: string;
   documents: any[];
+  onDocumentsUpdate?: (documents: any[]) => void;
 }
 
-export default function AIAnalysis({ projectId, documents }: AIAnalysisProps) {
+export default function AIAnalysis({ projectId, documents, onDocumentsUpdate }: AIAnalysisProps) {
   const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
   const [question, setQuestion] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'question'>('question');
+  const [uploading, setUploading] = useState(false);
+  const [fileInputRef, setFileInputRef] = useState<HTMLInputElement | null>(null);
   const { toast } = useToast();
 
   const toggleDocument = (documentId: string) => {
@@ -79,6 +83,42 @@ export default function AIAnalysis({ projectId, documents }: AIAnalysisProps) {
     setQuestion('');
   };
 
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    setUploading(true);
+    try {
+      for (const file of Array.from(files)) {
+        await uploadDocument(projectId, file);
+      }
+      
+      // Refresh documents list
+      const updatedDocuments = await fetchDocuments(projectId);
+      if (onDocumentsUpdate) {
+        onDocumentsUpdate(updatedDocuments);
+      }
+      
+      toast({
+        title: 'Upload Successful',
+        description: `${files.length} file(s) uploaded successfully.`,
+      });
+    } catch (error) {
+      console.error('Upload failed:', error);
+      toast({
+        title: 'Upload Failed',
+        description: 'Failed to upload files. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setUploading(false);
+      // Reset file input
+      if (event.target) {
+        event.target.value = '';
+      }
+    }
+  };
+
   const renderDocumentList = () => {
     if (documents.length === 0) {
       return (
@@ -107,12 +147,37 @@ export default function AIAnalysis({ projectId, documents }: AIAnalysisProps) {
 
   return (
     <div className="space-y-6">
+      {/* Hidden file input for uploads */}
+      <input
+        ref={setFileInputRef}
+        type="file"
+        multiple
+        accept=".pdf,.xlsx,.xls,.dwg,.dxf,.doc,.docx"
+        style={{ display: 'none' }}
+        onChange={handleFileUpload}
+      />
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="md:col-span-1">
           <Card>
             <CardContent>
               <div className="p-4">
-                <h3 className="text-sm font-semibold mb-3">Select Documents</h3>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold">Select Documents</h3>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => fileInputRef?.click()}
+                    disabled={uploading}
+                    className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                  >
+                    {uploading ? (
+                      <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                    ) : (
+                      <Upload className="h-3 w-3 mr-1" />
+                    )}
+                    {uploading ? 'Uploading...' : 'Upload'}
+                  </Button>
+                </div>
                 {renderDocumentList()}
                 <div className="mt-4 flex justify-between">
                   <Button

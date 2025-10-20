@@ -170,7 +170,7 @@ export class CanvasActionExecutor {
    */
   private async createPanel(action: AILayoutAction): Promise<ExecutionResult> {
     try {
-      const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/panel-layout/create-panel`, {
+      const response = await makeAuthenticatedRequest(`/api/panel-layout/create-panel`, {
         method: 'POST',
         body: JSON.stringify({
           projectId: this.projectId,
@@ -206,7 +206,7 @@ export class CanvasActionExecutor {
         throw new Error('Missing panelId or newPosition');
       }
 
-      const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/panel-layout/move-panel`, {
+      const response = await makeAuthenticatedRequest(`/api/panel-layout/move-panel`, {
         method: 'POST',
         body: JSON.stringify({
           projectId: this.projectId,
@@ -243,7 +243,7 @@ export class CanvasActionExecutor {
         throw new Error('Missing panelId');
       }
 
-      const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/panel-layout/delete-panel`, {
+      const response = await makeAuthenticatedRequest(`/api/panel-layout/delete-panel`, {
         method: 'DELETE',
         body: JSON.stringify({
           projectId: this.projectId,
@@ -275,7 +275,7 @@ export class CanvasActionExecutor {
    */
   async executeActionsBatch(actions: AILayoutAction[]): Promise<ExecutionResult[]> {
     try {
-      const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/ai/execute-ai-layout`, {
+      const response = await makeAuthenticatedRequest(`/api/ai/execute-ai-layout`, {
         method: 'POST',
         body: JSON.stringify({
           projectId: this.projectId,
