@@ -119,22 +119,50 @@ export async function makeAuthenticatedRequest(url: string, options: RequestInit
     // Check if we're in development mode
     const isDevelopment = process.env.NODE_ENV === 'development';
     
+    // In development, try to get real authentication first
     if (isDevelopment) {
-      console.log('🔧 [DEV] Development mode - using bypass header');
+      try {
+        const { data: { session } } = await getSupabaseClient().auth.getSession();
+        
+        if (session?.access_token) {
+          console.log('🔧 [DEV] Development mode with real user - using real auth');
+          const headers = new Headers(options.headers);
+          headers.set('Authorization', `Bearer ${session.access_token}`);
+          headers.set('Content-Type', 'application/json');
+          
+          const response = await fetch(`${BACKEND_URL}${url}`, {
+            ...options,
+            headers
+          });
+          
+          console.log('🔍 [AUTH] Real auth response received:', {
+            status: response.status,
+            statusText: response.statusText,
+            ok: response.ok
+          });
+          
+          return response;
+        }
+      } catch (error) {
+        console.warn('🔧 [DEV] Real auth failed, falling back to bypass:', error);
+      }
+      
+      // Fallback to development bypass if no real session
+      console.log('🔧 [DEV] Development mode - using bypass header (no real session)');
       const headers = {
         'Content-Type': 'application/json',
         'x-dev-bypass': 'true',
         ...options.headers,
       };
       
-      console.log('🔍 [AUTH] Development headers:', headers);
+      console.log('🔍 [AUTH] Development bypass headers:', headers);
       
       const response = await fetch(`${BACKEND_URL}${url}`, {
         ...options,
         headers
       });
       
-      console.log('🔍 [AUTH] Development response received:', {
+      console.log('🔍 [AUTH] Development bypass response received:', {
         status: response.status,
         statusText: response.statusText,
         ok: response.ok,

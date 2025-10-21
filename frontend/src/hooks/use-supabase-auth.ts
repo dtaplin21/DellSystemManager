@@ -50,9 +50,31 @@ export function useSupabaseAuth() {
         console.log('🔧 [AUTH] NODE_ENV:', process.env.NODE_ENV);
         console.log('🔧 [AUTH] isClient:', isClient);
 
+        // Always try to get real authentication first, even in development
+        console.log('🔧 [AUTH] Attempting to get real authentication...');
+        const currentSession = await Promise.race([
+          getCurrentSession(),
+          new Promise<null>((_, reject) => {
+            setTimeout(() => reject(new Error('Session timeout')), 5000);
+          })
+        ]).catch(err => {
+          console.warn('Real session retrieval failed:', err);
+          return null;
+        });
+
+        if (currentSession?.user) {
+          console.log('✅ [AUTH] Real user found:', currentSession.user.email);
+          if (mounted) {
+            setSession(currentSession);
+            await loadUserProfile(currentSession.user);
+            setLoading(false);
+          }
+          return;
+        }
+
+        // Only fall back to mock user if no real authentication is found
         if (isDevelopment) {
-          // In development mode, create a mock user for testing
-          console.log('🔧 [AUTH] Development mode - creating mock user');
+          console.log('🔧 [AUTH] No real user found, using development mock user');
           const mockUser: AuthUser = {
             id: 'dev-user-123',
             email: 'dev@example.com',
@@ -71,27 +93,11 @@ export function useSupabaseAuth() {
           return;
         }
 
-        // Production mode - use real authentication
-        const timeoutPromise = new Promise<null>((_, reject) => {
-          setTimeout(() => reject(new Error('Session timeout')), 10000);
-        });
-
-        const currentSession = await Promise.race([
-          getCurrentSession(),
-          timeoutPromise
-        ]).catch(err => {
-          console.error('Session retrieval failed:', err);
-          return null;
-        });
-
-        if (!mounted) return;
-
-        setSession(currentSession);
-
-        if (currentSession?.user) {
-          await loadUserProfile(currentSession.user);
-        } else {
+        // If we reach here, no real authentication was found and we're not in development mode
+        console.log('🔧 [AUTH] No authentication found');
+        if (mounted) {
           setUser(null);
+          setSession(null);
         }
       } catch (error) {
         console.error('Auth initialization error:', error);
@@ -108,26 +114,25 @@ export function useSupabaseAuth() {
 
     initializeAuth();
 
-    // Only set up auth state change listener in production mode
+    // Set up auth state change listener for both development and production
     const isDevelopment = process.env.NODE_ENV === 'development';
     let subscription: any = null;
     
-    if (!isDevelopment) {
-      const { data: { subscription: authSubscription } } = getSupabaseClient().auth.onAuthStateChange(
-        async (event, newSession) => {
-          if (!mounted) return;
+    const { data: { subscription: authSubscription } } = getSupabaseClient().auth.onAuthStateChange(
+      async (event, newSession) => {
+        if (!mounted) return;
 
-          setSession(newSession);
+        console.log('🔧 [AUTH] Auth state changed:', event, newSession?.user?.email || 'no user');
+        setSession(newSession);
 
-          if (newSession?.user) {
-            await loadUserProfile(newSession.user);
-          } else {
-            setUser(null);
-          }
+        if (newSession?.user) {
+          await loadUserProfile(newSession.user);
+        } else {
+          setUser(null);
         }
-      );
-      subscription = authSubscription;
-    }
+      }
+    );
+    subscription = authSubscription;
 
     return () => {
       mounted = false;

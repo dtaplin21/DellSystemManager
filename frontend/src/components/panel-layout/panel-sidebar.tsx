@@ -1,11 +1,10 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, FileText, Wrench, TestTube, Hammer, AlertTriangle, Settings, Eye } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import { 
   Accordion, 
   AccordionContent, 
@@ -25,6 +24,8 @@ import { getAsbuiltSafe } from '@/lib/safe-api';
 import config from '@/lib/config';
 import { useAsbuiltData } from '@/contexts/AsbuiltDataContext';
 import FileViewerModal from '@/components/shared/FileViewerModal';
+import PanelDomainRecordsModal from './panel-domain-records-modal';
+import RecordViewerModal from '@/components/shared/RecordViewerModal';
 import { FileMetadata } from '@/contexts/AsbuiltDataContext';
 
 interface PanelSidebarProps {
@@ -64,6 +65,7 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
   
   // Use shared context
   const {
+    projectRecords,
     panelData,
     fileMetadata,
     isLoading,
@@ -79,9 +81,29 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
   const [showManualEntryModal, setShowManualEntryModal] = useState(false);
   const [showFileViewer, setShowFileViewer] = useState(false);
   const [selectedFile, setSelectedFile] = useState<FileMetadata | null>(null);
+  const [showDomainRecordsModal, setShowDomainRecordsModal] = useState(false);
+  const [selectedDomain, setSelectedDomain] = useState<AsbuiltDomain | null>(null);
+  const [selectedRecord, setSelectedRecord] = useState<AsbuiltRecord | null>(null);
   
   // Get panel data from shared context
   const asbuiltData = getPanelSummary(panelId);
+
+  const panelRecords = useMemo(() => {
+    return projectRecords.filter(record => record.panelId === panelId);
+  }, [projectRecords, panelId]);
+
+  const recordsByDomain = useMemo(() => {
+    const map = new Map<AsbuiltDomain, AsbuiltRecord[]>();
+    panelRecords.forEach((record) => {
+      const current = map.get(record.domain);
+      if (current) {
+        current.push(record);
+      } else {
+        map.set(record.domain, [record]);
+      }
+    });
+    return map;
+  }, [panelRecords]);
 
   // Debug effect to track component lifecycle
   useEffect(() => {
@@ -156,45 +178,11 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
 
   // Get record count for a domain - with robust error handling
   const getRecordCount = (domain: AsbuiltDomain): number => {
-    if (!asbuiltData) return 0;
-    
     try {
-      // Check if the domain exists in the domains array
-      return asbuiltData.domains.includes(domain) ? 1 : 0;
+      return recordsByDomain.get(domain)?.length ?? 0;
     } catch (error) {
       console.error('Error getting record count for domain:', domain, error);
       return 0;
-    }
-  };
-
-  // Get records for a domain - with robust error handling
-  const getRecords = (domain: AsbuiltDomain): AsbuiltRecord[] => {
-    if (!asbuiltData) return [];
-    
-    try {
-      // Since PanelAsbuiltSummary doesn't contain individual domain records,
-      // we return an empty array for now. This would need to be enhanced
-      // to fetch actual records from the API if needed.
-      return [];
-    } catch (error) {
-      console.error('Error getting records for domain:', domain, error);
-      return [];
-    }
-  };
-
-  // Format date for display
-  const formatDate = (dateString: string): string => {
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-    } catch {
-      return dateString;
     }
   };
 
@@ -204,82 +192,34 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
     setShowFileViewer(true);
   };
 
-  // Render record item
-  const renderRecordItem = (record: AsbuiltRecord, index: number) => {
-    const isReviewRequired = record.requiresReview;
-    const confidence = record.aiConfidence || 0;
-    const hasSourceFile = record.sourceDocId;
+  const handleDomainSelect = useCallback((domain: AsbuiltDomain) => {
+    setSelectedDomain(domain);
+    setShowDomainRecordsModal(true);
+  }, []);
 
-    return (
-      <div key={record.id} className="p-3 border rounded-lg mb-2 bg-white">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-600">
-              {formatDate(record.createdAt)}
-            </span>
-            {isReviewRequired && (
-              <Badge variant="destructive" className="text-xs">
-                Review Required
-              </Badge>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            {confidence < 0.8 && (
-              <Badge variant="secondary" className="text-xs">
-                {Math.round(confidence * 100)}% Confidence
-              </Badge>
-            )}
-          </div>
-        </div>
-        
-        <div className="space-y-1">
-          {record.mappedData && typeof record.mappedData === 'object' ? (
-            Object.entries(record.mappedData).map(([key, value]) => {
-              if (!value) return null;
-              
-              return (
-                <div key={key} className="flex justify-between text-sm">
-                  <span className="font-medium text-gray-700 capitalize">
-                    {key.replace(/([A-Z])/g, ' $1').trim()}:
-                  </span>
-                  <span className="text-gray-900">
-                    {typeof value === 'string' && value.length > 50 
-                      ? `${value.substring(0, 50)}...` 
-                      : value.toString()}
-                  </span>
-                </div>
-              );
-            })
-          ) : (
-            <div className="text-sm text-gray-500 italic">
-              No mapped data available
-            </div>
-          )}
-        </div>
-        
-        {hasSourceFile && (
-          <div className="mt-3 pt-2 border-t">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => {
-                // Find the file in the shared context
-                const files = getFilesForPanel(panelId);
-                const file = files.find(f => f.sourceDocId === record.sourceDocId);
-                if (file) {
-                  handleViewFile(file);
-                }
-              }}
-              className="w-full flex items-center gap-2"
-            >
-              <FileText className="h-4 w-4" />
-              View Source File
-            </Button>
-          </div>
-        )}
-      </div>
-    );
-  };
+  const handleRecordSelect = useCallback((record: AsbuiltRecord) => {
+    setSelectedRecord(record);
+  }, []);
+
+  const handleRecordViewerClose = useCallback(() => {
+    setSelectedRecord(null);
+  }, []);
+
+  const handleRecordsModalClose = useCallback(() => {
+    setShowDomainRecordsModal(false);
+    setSelectedDomain(null);
+    setSelectedRecord(null);
+  }, []);
+
+  const selectedDomainRecords = useMemo(() => {
+    if (!selectedDomain) return [];
+    return recordsByDomain.get(selectedDomain) ?? [];
+  }, [selectedDomain, recordsByDomain]);
+
+  const selectedDomainFiles = useMemo(() => {
+    if (!selectedDomain) return [];
+    return getFilesForDomain(panelId, selectedDomain);
+  }, [selectedDomain, getFilesForDomain, panelId]);
 
   // Render right neighbor peek - removed as it's not part of PanelAsbuiltSummary
   const renderRightNeighborPeek = () => {
@@ -405,12 +345,15 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
               >
                 {domainConfigs.map((config) => {
                   const recordCount = getRecordCount(config.key);
-                  const records = getRecords(config.key);
                   const files = getFilesForDomain(panelId, config.key);
+                  const hasRecords = recordCount > 0;
 
                   return (
                     <AccordionItem key={config.key} value={config.key} className="border-2 border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow">
-                      <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-gray-50 rounded-t-xl">
+                      <AccordionTrigger 
+                        className="px-6 py-4 hover:no-underline hover:bg-gray-50 rounded-t-xl"
+                        onClick={() => handleDomainSelect(config.key)}
+                      >
                         <div className="flex items-center gap-4 flex-1">
                           <div className={`p-3 rounded-full ${config.color} shadow-sm`}>
                             {config.icon}
@@ -435,12 +378,29 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
                         </div>
                       </AccordionTrigger>
                       <AccordionContent className="px-6 pb-6 bg-gray-50 rounded-b-xl">
-                        {recordCount === 0 && files.length === 0 ? (
-                          <div className="text-center py-8 text-gray-500">
-                            <div className="text-6xl mb-4">📁</div>
-                            <p className="text-lg font-medium mb-2">No {config.name.toLowerCase()} records found</p>
-                            <p className="text-sm text-gray-600 mb-4">Records will appear here after import or manual entry</p>
-                            <div className="flex gap-2 justify-center">
+                        <div className="space-y-4">
+                          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 p-4 bg-white border rounded-lg">
+                            <div>
+                              <h4 className="font-medium text-gray-900">
+                                {hasRecords ? `View ${recordCount} record${recordCount === 1 ? '' : 's'}` : 'No records yet'}
+                              </h4>
+                              <p className="text-sm text-gray-600">
+                                {hasRecords
+                                  ? `Records for panel ${panelNumber} will open in a dedicated modal.`
+                                  : 'Import data or add a manual entry to create new records.'}
+                              </p>
+                            </div>
+                            <Button
+                              variant={hasRecords ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => handleDomainSelect(config.key)}
+                            >
+                              {hasRecords ? 'Open Records' : 'Open Records Modal'}
+                            </Button>
+                          </div>
+
+                          {!hasRecords && (
+                            <div className="flex flex-col sm:flex-row gap-3">
                               <Button size="sm" variant="outline" onClick={() => setShowImportModal(true)}>
                                 📊 Import Data
                               </Button>
@@ -448,48 +408,41 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
                                 ✏️ Manual Entry
                               </Button>
                             </div>
-                          </div>
-                        ) : (
-                          <div className="space-y-4">
-                            {/* Records */}
-                            {records.length > 0 && (
-                              <div className="space-y-3">
-                                <h4 className="font-medium text-gray-900">Records</h4>
-                                {records.map((record, index) => renderRecordItem(record, index))}
-                              </div>
-                            )}
-                            
-                            {/* Files */}
-                            {files.length > 0 && (
-                              <div className="space-y-3">
-                                <h4 className="font-medium text-gray-900">Files</h4>
-                                <div className="grid grid-cols-1 gap-2">
-                                  {files.map((file) => (
-                                    <div key={file.id} className="flex items-center justify-between p-3 bg-white border rounded-lg">
-                                      <div className="flex items-center gap-3">
-                                        <FileText className="h-5 w-5 text-gray-500" />
-                                        <div>
-                                          <p className="text-sm font-medium text-gray-900">{file.fileName}</p>
-                                          <p className="text-xs text-gray-500">
-                                            {new Date(file.uploadedAt).toLocaleDateString()}
-                                          </p>
-                                        </div>
+                          )}
+
+                          {files.length > 0 ? (
+                            <div className="space-y-3">
+                              <h4 className="font-medium text-gray-900">Files</h4>
+                              <div className="grid grid-cols-1 gap-2">
+                                {files.map((file) => (
+                                  <div key={file.id} className="flex items-center justify-between p-3 bg-white border rounded-lg">
+                                    <div className="flex items-center gap-3">
+                                      <FileText className="h-5 w-5 text-gray-500" />
+                                      <div>
+                                        <p className="text-sm font-medium text-gray-900">{file.fileName}</p>
+                                        <p className="text-xs text-gray-500">
+                                          {new Date(file.uploadedAt).toLocaleDateString()}
+                                        </p>
                                       </div>
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => handleViewFile(file)}
-                                      >
-                                        <Eye className="h-4 w-4 mr-2" />
-                                        View
-                                      </Button>
                                     </div>
-                                  ))}
-                                </div>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleViewFile(file)}
+                                    >
+                                      <Eye className="h-4 w-4 mr-2" />
+                                      View
+                                    </Button>
+                                  </div>
+                                ))}
                               </div>
-                            )}
-                          </div>
-                        )}
+                            </div>
+                          ) : (
+                            <div className="p-4 bg-white border border-dashed rounded-lg text-sm text-gray-600">
+                              No files linked to this domain yet.
+                            </div>
+                          )}
+                        </div>
                       </AccordionContent>
                     </AccordionItem>
                   );
@@ -555,6 +508,27 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
         domain={selectedFile?.domain}
       />
       </div>
+
+      <PanelDomainRecordsModal
+        isOpen={showDomainRecordsModal}
+        onClose={handleRecordsModalClose}
+        domain={selectedDomain}
+        domainConfig={selectedDomain ? domainConfigs.find((config) => config.key === selectedDomain) || null : null}
+        panelId={panelId}
+        panelNumber={panelNumber}
+        records={selectedDomainRecords}
+        files={selectedDomainFiles}
+        onRecordSelect={handleRecordSelect}
+        onImportClick={() => setShowImportModal(true)}
+        onManualEntryClick={() => setShowManualEntryModal(true)}
+        onFileOpen={handleViewFile}
+      />
+
+      <RecordViewerModal
+        isOpen={!!selectedRecord}
+        onClose={handleRecordViewerClose}
+        record={selectedRecord}
+      />
     </>
   );
 };

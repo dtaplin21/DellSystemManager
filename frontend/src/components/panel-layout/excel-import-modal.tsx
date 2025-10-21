@@ -35,7 +35,6 @@ import {
   AsbuiltImportResult, 
   AsbuiltFieldMapping 
 } from '@/types/asbuilt';
-import { getSupabaseClient } from '@/lib/supabase';
 
 interface ExcelImportModalProps {
   isOpen: boolean;
@@ -121,30 +120,39 @@ const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
     setImportProgress(25);
 
     try {
-      // Get the current Supabase session
-      const { data: { session } } = await getSupabaseClient().auth.getSession();
-      
-      if (!session?.access_token) {
-        throw new Error('No authentication token found. Please log in.');
-      }
-
       const formData = new FormData();
       formData.append('excelFile', selectedFile);
       formData.append('projectId', projectId);
       if (panelId === 'project-wide') {
         formData.append('importScope', 'project-wide');
       }
-      // Remove domain parameter - let AI auto-detect
+
+      // Use proper authentication - try real auth first, fallback to dev bypass
+      const { getSupabaseClient } = await import('@/lib/supabase');
+      const supabase = getSupabaseClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      let headers: Record<string, string> = {};
+      
+      if (session?.access_token) {
+        // Use real authentication
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+        console.log('🔧 [IMPORT] Using real authentication for import');
+      } else {
+        // Fallback to development bypass
+        headers['x-dev-bypass'] = 'true';
+        console.log('🔧 [IMPORT] Using development bypass for import');
+      }
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003'}/api/asbuilt/import`, {
         method: 'POST',
         body: formData,
-        headers: {
-          'x-dev-bypass': 'true'
-        }
+        headers
       });
 
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Import failed:', errorText);
         throw new Error(`Import failed: ${response.statusText}`);
       }
 
