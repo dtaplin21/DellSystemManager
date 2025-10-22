@@ -118,6 +118,11 @@ export async function makeAuthenticatedRequest(url: string, options: RequestInit
     
     // Check if we're in development mode
     const isDevelopment = process.env.NODE_ENV === 'development';
+    const requestUrl = /^https?:\/\//i.test(url)
+      ? url
+      : `${BACKEND_URL.replace(/\/+$/, '')}/${url.replace(/^\/+/, '')}`;
+    
+    console.log('🔍 [AUTH] Normalized Request URL:', requestUrl);
     
     // In development, try to get real authentication first
     if (isDevelopment) {
@@ -130,7 +135,7 @@ export async function makeAuthenticatedRequest(url: string, options: RequestInit
           headers.set('Authorization', `Bearer ${session.access_token}`);
           headers.set('Content-Type', 'application/json');
           
-          const response = await fetch(`${BACKEND_URL}${url}`, {
+          const response = await fetch(requestUrl, {
             ...options,
             headers
           });
@@ -157,7 +162,7 @@ export async function makeAuthenticatedRequest(url: string, options: RequestInit
       
       console.log('🔍 [AUTH] Development bypass headers:', headers);
       
-      const response = await fetch(`${BACKEND_URL}${url}`, {
+      const response = await fetch(requestUrl, {
         ...options,
         headers
       });
@@ -198,7 +203,7 @@ export async function makeAuthenticatedRequest(url: string, options: RequestInit
     
     // Make the request
     console.log('🔍 [AUTH] Sending authenticated request...');
-    const response = await fetch(url, {
+    const response = await fetch(requestUrl, {
       ...options,
       headers
     });

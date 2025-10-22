@@ -59,7 +59,7 @@ const auth = async (req, res, next) => {
     if (authorizationHeader) {
       token = authorizationHeader.replace('Bearer ', '');
       logger.debug('[AUTH] Token extracted from Authorization header', {
-        tokenPreview: logger.obfuscate(token)
+        tokenPreview: token ? token.substring(0, 20) + '...' : 'null'
       });
     }
     

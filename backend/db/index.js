@@ -69,7 +69,15 @@ if (!supabaseUrl || !supabaseKey) {
   throw new Error('Supabase credentials are not configured correctly');
 }
 
-const supabase = createClient(supabaseUrl, supabaseKey);
+if (!config.supabase.serviceRoleKey && config.isDevelopment) {
+  logger.warn('Supabase service role key is not configured. Falling back to anon key which may trigger RLS errors.');
+}
+
+const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    persistSession: false
+  }
+});
 
 async function connectToDatabase() {
   try {
