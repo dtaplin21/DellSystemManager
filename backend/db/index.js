@@ -63,7 +63,7 @@ const db = drizzle(pool, { schema });
 
 // Initialize Supabase client
 const supabaseUrl = config.supabase.url;
-const supabaseKey = config.supabase.anonKey || config.supabase.serviceRoleKey;
+const supabaseKey = config.supabase.serviceRoleKey || config.supabase.anonKey;
 
 if (!supabaseUrl || !supabaseKey) {
   throw new Error('Supabase credentials are not configured correctly');
