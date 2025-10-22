@@ -75,7 +75,7 @@ export default function Navbar() {
                 <div className="h-8 w-8 rounded-full bg-orange-600 flex items-center justify-center text-white">
                   {user?.displayName?.charAt(0) || user?.email?.charAt(0) || 'G'}
                 </div>
-                <span className="hidden md:inline">{user?.displayName || user?.email || 'Guest User'}</span>
+                <span className="hidden md:inline">{user?.displayName || user?.email || 'Not logged in'}</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">

@@ -68,55 +68,20 @@ export function useSupabaseAuth() {
 
   const initializeAuth = useCallback(async () => {
     try {
-      // Check if we're in development mode
-      const isDevelopment = process.env.NODE_ENV === 'development';
-      console.log('🔧 [AUTH] Development mode:', isDevelopment);
-      console.log('🔧 [AUTH] NODE_ENV:', process.env.NODE_ENV);
-      console.log('🔧 [AUTH] isClient:', isClient);
-
-      // Always try to get real authentication first, even in development
       console.log('🔧 [AUTH] Attempting to get real authentication...');
-      const currentSession = await Promise.race([
-        getCurrentSession(),
-        new Promise<null>((_, reject) => {
-          setTimeout(() => reject(new Error('Session timeout')), 5000);
-        })
-      ]).catch(err => {
-        console.warn('Real session retrieval failed:', err);
-        return null;
-      });
-
+      
+      // Get real authentication session
+      const currentSession = await getCurrentSession();
+      
       if (currentSession?.user) {
         console.log('✅ [AUTH] Real user found:', currentSession.user.email);
         setSession(currentSession);
         await loadUserProfile(currentSession.user);
-        setLoading(false);
-        return;
+      } else {
+        console.log('🔧 [AUTH] No authentication found - user needs to log in');
+        setUser(null);
+        setSession(null);
       }
-
-      // Only fall back to mock user if no real authentication is found
-      if (isDevelopment) {
-        console.log('🔧 [AUTH] No real user found, using development mock user');
-        const mockUser: AuthUser = {
-          id: 'dev-user-123',
-          email: 'dev@example.com',
-          displayName: 'Development User',
-          company: 'Development Company',
-          position: 'Developer',
-          subscription: 'premium',
-          profileImageUrl: null,
-        };
-        
-        setUser(mockUser);
-        setSession(null); // No real session in dev mode
-        setLoading(false);
-        return;
-      }
-
-      // If we reach here, no real authentication was found and we're not in development mode
-      console.log('🔧 [AUTH] No authentication found');
-      setUser(null);
-      setSession(null);
     } catch (error) {
       console.error('Auth initialization error:', error);
       setUser(null);
