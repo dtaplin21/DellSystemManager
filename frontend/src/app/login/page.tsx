@@ -21,17 +21,20 @@ export default function LoginPage() {
   const [company, setCompany] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
-  const { user, signIn, signUp } = useSupabaseAuth();
+  const { user, signIn, signUp, loading } = useSupabaseAuth();
   const router = useRouter();
   const { toast } = useToast();
   
+  // Debug logging
+  console.log('🔧 [LOGIN] Component render - user:', user?.email || 'no user', 'loading:', loading);
+  
   useEffect(() => {
     // Only redirect if we have a user and we're not in a loading state
-    if (user && !isLoading) {
-      console.log('Login page - User authenticated, redirecting to dashboard');
+    if (user && !loading && !isLoading) {
+      console.log('🔧 [LOGIN] User authenticated, redirecting to dashboard');
       router.replace('/dashboard');
     }
-  }, [user, isLoading, router]);
+  }, [user, loading, isLoading, router]);
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
