@@ -34,56 +34,6 @@ export function useSupabaseAuth() {
     setIsClient(true);
   }, []);
 
-  useEffect(() => {
-    // Only run authentication logic on client side
-    if (!isClient) {
-      return;
-    }
-
-    let mounted = true;
-
-    initializeAuth();
-
-    // Set up auth state change listener for both development and production
-    const isDevelopment = process.env.NODE_ENV === 'development';
-    let subscription: any = null;
-    
-    const { data: { subscription: authSubscription } } = getSupabaseClient().auth.onAuthStateChange(
-      async (event, newSession) => {
-        if (!mounted) return;
-
-        console.log('🔧 [AUTH] Auth state changed:', event, newSession?.user?.email || 'no user');
-        console.log('🔧 [AUTH] Current user state before update:', user?.email || 'no user');
-        
-        setSession(newSession);
-
-        if (newSession?.user) {
-          console.log('🔧 [AUTH] Loading user profile for:', newSession.user.email);
-          // Only update if the user is different
-          if (!user || user.id !== newSession.user.id) {
-            await loadUserProfile(newSession.user);
-          } else {
-            console.log('🔧 [AUTH] User already loaded, skipping update');
-          }
-        } else {
-          console.log('🔧 [AUTH] No user in session, setting user to null');
-          if (user) {
-            setUser(null);
-          }
-        }
-      }
-    );
-    subscription = authSubscription;
-
-    return () => {
-      mounted = false;
-      if (subscription) {
-        subscription.unsubscribe();
-      }
-    };
-  }, [isClient, initializeAuth]);
-
-
   const loadUserProfile = useCallback(async (supabaseUser: User) => {
     try {
       // Create user object from Supabase user metadata
@@ -175,6 +125,56 @@ export function useSupabaseAuth() {
       setLoading(false);
     }
   }, [isClient, loadUserProfile]);
+
+  useEffect(() => {
+    // Only run authentication logic on client side
+    if (!isClient) {
+      return;
+    }
+
+    let mounted = true;
+
+    initializeAuth();
+
+    // Set up auth state change listener for both development and production
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    let subscription: any = null;
+    
+    const { data: { subscription: authSubscription } } = getSupabaseClient().auth.onAuthStateChange(
+      async (event, newSession) => {
+        if (!mounted) return;
+
+        console.log('🔧 [AUTH] Auth state changed:', event, newSession?.user?.email || 'no user');
+        console.log('🔧 [AUTH] Current user state before update:', user?.email || 'no user');
+        
+        setSession(newSession);
+
+        if (newSession?.user) {
+          console.log('🔧 [AUTH] Loading user profile for:', newSession.user.email);
+          // Only update if the user is different
+          if (!user || user.id !== newSession.user.id) {
+            await loadUserProfile(newSession.user);
+          } else {
+            console.log('🔧 [AUTH] User already loaded, skipping update');
+          }
+        } else {
+          console.log('🔧 [AUTH] No user in session, setting user to null');
+          if (user) {
+            setUser(null);
+          }
+        }
+      }
+    );
+    subscription = authSubscription;
+
+    return () => {
+      mounted = false;
+      if (subscription) {
+        subscription.unsubscribe();
+      }
+    };
+  }, [isClient, initializeAuth]);
+
 
   const signUp = async (email: string, password: string, metadata: {
     display_name: string;
