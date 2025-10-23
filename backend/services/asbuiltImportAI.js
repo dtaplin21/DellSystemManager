@@ -1106,7 +1106,7 @@ Return ONLY valid JSON, no explanation.`;
     mappings.forEach(mapping => {
       const value = row[mapping.sourceIndex];
       if (value !== undefined && value !== null && value !== '') {
-        mappedData[mapping.canonicalField] = this.normalizeValue(value, mapping.canonicalField);
+        mappedData[mapping.canonicalField] = this.normalizeValue(value, mapping.canonicalField, domain);
       }
     });
 
@@ -1198,11 +1198,18 @@ Return ONLY valid JSON, no explanation.`;
   /**
    * Normalize panel number for comparison
    */
-  normalizePanelNumber(panelNumber) {
+  normalizePanelNumber(panelNumber, domain = null) {
     if (!panelNumber) return null;
     
     let str = panelNumber.toString().trim().toUpperCase();
 
+    // For panel seaming, preserve the "/" format to show welded panels
+    if (domain === 'panel_seaming' && str.includes('/')) {
+      // Keep the format as "54/62" for panel seaming records
+      return str;
+    }
+
+    // For other domains, use the existing normalization logic
     // Normalize common prefixes/suffixes and remove separators while preserving suffix letters
     str = str
       .replace(/^PANEL\s*/, 'P')
@@ -1238,13 +1245,13 @@ Return ONLY valid JSON, no explanation.`;
   /**
    * Normalize field values
    */
-  normalizeValue(value, fieldName) {
+  normalizeValue(value, fieldName, domain = null) {
     if (value === null || value === undefined) return null;
 
     const strValue = value.toString().trim();
 
     if (fieldName === 'panelNumber') {
-      const normalizedPanel = this.normalizePanelNumber(strValue);
+      const normalizedPanel = this.normalizePanelNumber(strValue, domain);
       return normalizedPanel || strValue.toUpperCase();
     }
 

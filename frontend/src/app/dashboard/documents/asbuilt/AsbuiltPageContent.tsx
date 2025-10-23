@@ -116,6 +116,10 @@ export default function AsbuiltPageContent() {
     if (contextSelectedProject && projectId) {
       console.log('🔄 [ASBUILT] Calling refreshAllData for project:', projectId);
       refreshAllData(projectId);
+    } else if (contextSelectedProject && !projectId) {
+      // If we have a selected project but no URL projectId, use the selected project
+      console.log('🔄 [ASBUILT] Using contextSelectedProject as projectId:', contextSelectedProject.id);
+      refreshAllData(contextSelectedProject.id);
     } else {
       console.log('❌ [ASBUILT] Not calling refreshAllData - missing contextSelectedProject or projectId');
     }
