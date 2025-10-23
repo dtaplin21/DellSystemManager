@@ -3,11 +3,25 @@ const OpenAI = require('openai');
 
 class DuplicateDetectionService {
   constructor() {
-    this.supabase = createClient(
-      process.env.SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY
-    );
-    this.openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.warn('⚠️ [DuplicateDetection] Supabase credentials missing - duplicate detection will run in fallback mode');
+      this.supabase = null;
+    } else {
+      this.supabase = createClient(supabaseUrl, supabaseServiceKey);
+    }
+    
+    if (!process.env.OPENAI_API_KEY) {
+      console.warn('⚠️ [DuplicateDetection] OPENAI_API_KEY not configured - skipping advanced AI analysis');
+      this.openaiConfigured = false;
+      this.openai = null;
+    } else {
+      console.log('✅ [DuplicateDetection] OpenAI configured');
+      this.openaiConfigured = true;
+      this.openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    }
   }
 
   /**
@@ -21,6 +35,16 @@ class DuplicateDetectionService {
         domain,
         dateRange
       });
+
+      if (!this.supabase) {
+        console.warn('⚠️ [DuplicateDetection] Supabase client unavailable, returning empty duplicate set');
+        return {
+          duplicates: [],
+          conflicts: [],
+          existingRecords: [],
+          summary: this.generateDuplicateSummary([], [])
+        };
+      }
 
       // Build query for existing records
       let query = this.supabase
@@ -68,6 +92,11 @@ class DuplicateDetectionService {
   async detectSimilarRecords(projectId, newRecords, domain) {
     try {
       console.log('🤖 [DuplicateDetection] Running AI similarity detection...');
+
+      if (!this.supabase) {
+        console.warn('⚠️ [DuplicateDetection] Supabase client unavailable, skipping similarity detection');
+        return { similarRecords: [], aiInsights: [], confidence: 0 };
+      }
 
       // Get existing records for comparison
       const { data: existingRecords, error } = await this.supabase
@@ -158,8 +187,24 @@ class DuplicateDetectionService {
    * Generate AI analysis of import process
    */
   async generateImportAnalysis(importResult, duplicates, conflicts, fileMetadata) {
+    if (!this.openaiConfigured) {
+      console.log('⚠️ [DuplicateDetection] OpenAI not configured, returning fallback analysis');
+      return this.createFallbackAnalysis(importResult, duplicates, conflicts, {
+        row: 0,
+        issue: 'OpenAI not configured',
+        severity: 'info'
+      });
+    }
+
     try {
       console.log('🤖 [DuplicateDetection] Generating AI import analysis...');
+      console.log('🤖 [DuplicateDetection] Input parameters:', {
+        importResult: importResult ? 'present' : 'null',
+        duplicates: duplicates?.length || 0,
+        conflicts: conflicts?.length || 0,
+        fileMetadata: fileMetadata ? 'present' : 'null',
+        openai: this.openai ? 'initialized' : 'null'
+      });
 
       const analysisData = {
         totalRecords: importResult.records?.length || 0,
@@ -170,7 +215,10 @@ class DuplicateDetectionService {
         aiConfidence: importResult.aiConfidence || 0
       };
 
+      console.log('🤖 [DuplicateDetection] Analysis data:', analysisData);
+
       const prompt = this.buildAnalysisPrompt(analysisData);
+      console.log('🤖 [DuplicateDetection] Prompt length:', prompt.length);
       
       const response = await this.openai.chat.completions.create({
         model: "gpt-3.5-turbo",
@@ -180,8 +228,9 @@ class DuplicateDetectionService {
       });
 
       const aiSummary = response.choices[0].message.content;
+      console.log('🤖 [DuplicateDetection] AI response received, length:', aiSummary.length);
 
-      return {
+      const result = {
         summary: aiSummary,
         dataQuality: this.assessDataQuality(analysisData),
         duplicateAnalysis: this.analyzeDuplicatePatterns(duplicates),
@@ -190,23 +239,65 @@ class DuplicateDetectionService {
         insights: this.extractInsights(analysisData),
         processingTime: analysisData.processingTime
       };
+
+      console.log('🤖 [DuplicateDetection] Returning analysis result:', {
+        summary: result.summary?.substring(0, 50) + '...',
+        dataQuality: result.dataQuality,
+        recommendations: result.recommendations?.length
+      });
+
+      return result;
     } catch (error) {
       console.error('❌ [DuplicateDetection] Error generating AI analysis:', error);
-      return {
-        summary: "AI analysis unavailable due to error",
-        dataQuality: { score: 0, issues: [] },
-        duplicateAnalysis: { patterns: [], insights: [] },
-        panelCoverage: { total: 0, coverage: 0 },
-        recommendations: [],
-        insights: [],
-        processingTime: 0
-      };
+      console.error('❌ [DuplicateDetection] Error details:', {
+        message: error.message,
+        stack: error.stack?.substring(0, 200) + '...'
+      });
+      return this.createFallbackAnalysis(importResult, duplicates, conflicts, {
+        row: 0,
+        issue: `AI analysis failed: ${error.message}`,
+        severity: 'warning'
+      });
     }
   }
 
   /**
    * Create detailed import summary with AI insights
    */
+  createFallbackAnalysis(importResult = {}, duplicates = [], conflicts = [], fallbackDetail = null) {
+    const records = importResult.records || [];
+    const issues = [];
+    
+    if (duplicates.length > 0) {
+      issues.push(`${duplicates.length} duplicates detected`);
+    }
+    if (conflicts.length > 0) {
+      issues.push(`${conflicts.length} conflicts detected`);
+    }
+    if (fallbackDetail?.issue) {
+      issues.push(fallbackDetail.issue);
+    }
+    
+    return {
+      summary: fallbackDetail?.issue || 'AI analysis unavailable. Basic summary generated.',
+      dataQuality: {
+        score: Math.max(0, 100 - (duplicates.length * 10) - (conflicts.length * 5)),
+        issues
+      },
+      duplicateAnalysis: this.analyzeDuplicatePatterns(duplicates),
+      panelCoverage: this.analyzePanelCoverage(records),
+      recommendations: duplicates.length > 0
+        ? ['Review duplicate records before proceeding']
+        : [],
+      insights: [],
+      processingTime: importResult.processingTime || 0,
+      duplicates,
+      conflicts,
+      aiConfidence: importResult.aiConfidence || 0,
+      totalRecords: records.length
+    };
+  }
+  
   async createImportSummary(projectId, importSession, analysisResults) {
     try {
       console.log('📝 [DuplicateDetection] Creating import summary...');
@@ -226,6 +317,11 @@ class DuplicateDetectionService {
           aiConfidence: analysisResults.aiConfidence || 0
         }
       };
+
+      if (!this.supabase) {
+        console.warn('⚠️ [DuplicateDetection] Supabase client unavailable, skipping import summary persistence');
+        return summary;
+      }
 
       // Store summary in database
       const { error } = await this.supabase
@@ -380,6 +476,7 @@ class DuplicateDetectionService {
   }
 
   analyzeDuplicatePatterns(duplicates) {
+    duplicates = duplicates || [];
     const patterns = {};
     duplicates.forEach(dup => {
       const reason = dup.reason || 'unknown';

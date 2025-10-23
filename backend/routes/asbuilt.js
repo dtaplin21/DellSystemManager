@@ -442,7 +442,42 @@ router.post('/import', auth, upload.single('excelFile'), async (req, res) => {
     console.log(`✅ [ASBUILT] Import completed: ${allCreatedRecords.length} records created`);
     console.log(`🎯 [ASBUILT] Detected panels:`, Array.from(detectedPanels));
     
-    // Use the stored latest import result for AI analysis
+    const importedRows = latestImportResult?.importedRows ?? allCreatedRecords.length;
+    const safeAiAnalysis = latestImportResult?.aiAnalysis || {
+      summary: 'AI analysis not available. Using basic import summary.',
+      dataQuality: {
+        score: 50,
+        issues: ['AI analysis not available']
+      },
+      duplicateDetails: [],
+      duplicateRows: 0,
+      uniqueRows: importedRows,
+      confidence: latestImportResult?.confidence ?? 0.5,
+      recommendation: 'proceed',
+      details: [],
+      panelCoverage: {
+        total: detectedPanels.size,
+        coverage: detectedPanels.size > 0 ? 100 : 0
+      },
+      recommendations: [],
+      insights: [],
+      processingTime: latestImportResult?.processingTime || 0
+    };
+    
+    const safeBreakdown = latestImportResult?.breakdown || {
+      totalProcessed: importedRows,
+      successfullyImported: allCreatedRecords.length,
+      duplicatesSkipped: 0,
+      conflictsResolved: 0,
+      panelsAffected: detectedPanels.size,
+      filesProcessed: 1,
+      aiConfidence: latestImportResult?.confidence ?? 0.5
+    };
+    
+    const safeDuplicates = latestImportResult?.duplicates || [];
+    const safeConflicts = latestImportResult?.conflicts || [];
+    
+    console.log(`📊 [ASBUILT] AI Analysis:`, safeAiAnalysis);
     
     res.json({
       success: true,
@@ -453,10 +488,10 @@ router.post('/import', auth, upload.single('excelFile'), async (req, res) => {
       fileMetadata: fileMetadata,
       
       // NEW: Enhanced AI Analysis Response
-      aiAnalysis: latestImportResult.aiAnalysis || null,
-      breakdown: latestImportResult.breakdown || null,
-      duplicates: latestImportResult.duplicates || [],
-      conflicts: latestImportResult.conflicts || [],
+      aiAnalysis: safeAiAnalysis,
+      breakdown: safeBreakdown,
+      duplicates: safeDuplicates,
+      conflicts: safeConflicts,
       
       message: `Successfully imported ${allCreatedRecords.length} records across ${processedDomains.length} domains`
     });

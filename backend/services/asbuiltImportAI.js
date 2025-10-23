@@ -55,13 +55,16 @@ class AsbuiltImportAI {
       panel_seaming: {
         'panel #': 'panelNumber',
         'panel number': 'panelNumber',
+        'panel numbers': 'panelNumber',
         'panels': 'panelNumber',
         'seam id': 'seamId',
         'date': 'dateTime',
         'datetime': 'dateTime',
+        'date/ time': 'dateTime',
         'seam type': 'seamType',
         'temperature': 'temperature',
         'temp': 'temperature',
+        'machine temp': 'temperature',
         'operator': 'operator',
         'seamer': 'operator',
         'seamer initials': 'seamerInitials',
@@ -69,7 +72,8 @@ class AsbuiltImportAI {
         'machine #': 'machineNumber',
         'wedge temp': 'wedgeTemp',
         'vbox': 'vboxPassFail',
-        'pass/fail': 'vboxPassFail'
+        'pass/fail': 'vboxPassFail',
+        'weather / comments': 'vboxPassFail'
       },
       non_destructive: {
         'panel #': 'panelNumber',
@@ -135,7 +139,8 @@ class AsbuiltImportAI {
       console.log(`📊 [AI] Parsed ${dataRows.length} rows with ${headers.length} columns`);
 
       // Step 2: Detect domain if not provided
-      const detectedDomain = domain || await this.detectDomain(headers, dataRows);
+      const fileName = options.fileName || 'Unknown';
+      const detectedDomain = domain || await this.detectDomain(headers, dataRows, fileName);
       console.log(`🎯 [AI] Using domain: ${detectedDomain}`);
 
       // Step 3: Map headers to canonical fields
@@ -245,17 +250,42 @@ class AsbuiltImportAI {
       };
 
       // Step 10: Generate comprehensive AI analysis
-      const aiAnalysis = await this.duplicateDetectionService.generateImportAnalysis(
+      console.log(`🤖 [AI] Starting AI analysis...`);
+      let aiAnalysis;
+      try {
+        aiAnalysis = await this.duplicateDetectionService.generateImportAnalysis(
+          importResult,
+          duplicateCheck.duplicates,
+          duplicateCheck.conflicts,
+          fileMetadata
+        );
+      } catch (analysisError) {
+        console.error('❌ [AI] Failed to generate AI analysis:', analysisError);
+        aiAnalysis = null;
+      }
+
+      const safeAiAnalysis = aiAnalysis || this.duplicateDetectionService.createFallbackAnalysis(
         importResult,
         duplicateCheck.duplicates,
         duplicateCheck.conflicts,
-        fileMetadata
+        {
+          row: 0,
+          issue: aiAnalysis ? 'AI analysis returned empty result' : 'AI analysis unavailable',
+          severity: 'warning'
+        }
       );
 
+      console.log(`🤖 [AI] AI analysis result:`, {
+        aiAnalysis: safeAiAnalysis,
+        isNull: safeAiAnalysis === null,
+        isUndefined: safeAiAnalysis === undefined,
+        type: typeof safeAiAnalysis
+      });
+
       console.log(`🤖 [AI] AI analysis completed:`, {
-        summary: aiAnalysis.summary?.substring(0, 100) + '...',
-        dataQuality: aiAnalysis.dataQuality?.score,
-        recommendations: aiAnalysis.recommendations?.length
+        summary: safeAiAnalysis?.summary?.substring(0, 100) + '...',
+        dataQuality: safeAiAnalysis?.dataQuality?.score,
+        recommendations: safeAiAnalysis?.recommendations?.length
       });
 
       // Step 11: Create import session and summary
@@ -272,7 +302,7 @@ class AsbuiltImportAI {
       const importSummary = await this.duplicateDetectionService.createImportSummary(
         projectId,
         importSession,
-        aiAnalysis
+        safeAiAnalysis
       );
 
       console.log(`📝 [AI] Import summary created:`, {
@@ -289,13 +319,13 @@ class AsbuiltImportAI {
         
         // NEW: AI Analysis and Insights
         aiAnalysis: {
-          summary: aiAnalysis.summary,
-          dataQuality: aiAnalysis.dataQuality,
-          duplicateDetails: aiAnalysis.duplicateAnalysis,
-          panelCoverage: aiAnalysis.panelCoverage,
-          recommendations: aiAnalysis.recommendations,
-          insights: aiAnalysis.insights,
-          processingTime: aiAnalysis.processingTime
+          summary: safeAiAnalysis.summary,
+          dataQuality: safeAiAnalysis.dataQuality,
+          duplicateDetails: safeAiAnalysis.duplicateAnalysis,
+          panelCoverage: safeAiAnalysis.panelCoverage,
+          recommendations: safeAiAnalysis.recommendations,
+          insights: safeAiAnalysis.insights,
+          processingTime: safeAiAnalysis.processingTime
         },
         
         // NEW: Detailed breakdown
@@ -629,9 +659,9 @@ class AsbuiltImportAI {
   }
 
   /**
-   * Detect domain using rules first, AI if uncertain
+   * Detect domain using filename first, then headers and data
    */
-  async detectDomain(headers, dataRows) {
+  async detectDomain(headers, dataRows, fileName = null) {
     const headerText = headers.join(' ').toLowerCase();
     
     // Rule-based detection (fast path)
@@ -643,6 +673,39 @@ class AsbuiltImportAI {
       repairs: 0,
       destructive: 0
     };
+
+    // Step 1: Analyze filename for domain hints (high confidence)
+    if (fileName) {
+      const fileNameLower = fileName.toLowerCase();
+      console.log(`📁 [AI] Analyzing filename: ${fileName}`);
+      
+      // Filename-based domain detection with high confidence scores
+      // Use more specific patterns to avoid conflicts
+      if (fileNameLower.includes('placement') || fileNameLower.includes('install') || fileNameLower.includes('location')) {
+        domainScores.panel_placement += 10;
+        console.log(`📁 [AI] Filename suggests panel_placement (+10)`);
+      }
+      if ((fileNameLower.includes('seam') || fileNameLower.includes('seaming')) && !fileNameLower.includes('trial')) {
+        domainScores.panel_seaming += 10;
+        console.log(`📁 [AI] Filename suggests panel_seaming (+10)`);
+      }
+      if (fileNameLower.includes('non-destructive') || fileNameLower.includes('ndt') || (fileNameLower.includes('non_destructive'))) {
+        domainScores.non_destructive += 10;
+        console.log(`📁 [AI] Filename suggests non_destructive (+10)`);
+      }
+      if (fileNameLower.includes('trial') && fileNameLower.includes('weld')) {
+        domainScores.trial_weld += 10;
+        console.log(`📁 [AI] Filename suggests trial_weld (+10)`);
+      }
+      if (fileNameLower.includes('repair') || fileNameLower.includes('fix') || fileNameLower.includes('patch')) {
+        domainScores.repairs += 10;
+        console.log(`📁 [AI] Filename suggests repairs (+10)`);
+      }
+      if (fileNameLower.includes('destructive') && !fileNameLower.includes('non-destructive')) {
+        domainScores.destructive += 10;
+        console.log(`📁 [AI] Filename suggests destructive (+10)`);
+      }
+    }
 
     // Score each domain
     if (headerText.includes('location') || headerText.includes('coordinates') || headerText.includes('panel placement') || headerText.includes('roll number')) {
@@ -671,13 +734,20 @@ class AsbuiltImportAI {
     console.log(`🎯 [AI] Domain scores:`, domainScores);
     console.log(`🎯 [AI] Best domain: ${bestDomain[0]} (score: ${bestDomain[1]})`);
 
-    // Always use OpenAI if available (remove confidence check)
+    // Check if filename gave us a clear winner (score >= 10)
+    const filenameWinner = Object.entries(domainScores).find(([domain, score]) => score >= 10);
+    if (filenameWinner) {
+      console.log(`🎯 [AI] Filename clearly indicates domain: ${filenameWinner[0]} (score: ${filenameWinner[1]})`);
+      return filenameWinner[0];
+    }
+
+    // Use OpenAI if available and filename wasn't decisive
     if (this.openai) {
-      console.log(`🤖 [AI] Using OpenAI for domain detection...`);
-      const openaiDomain = await this.aiDetectDomain(headers, dataRows);
+      console.log(`🤖 [AI] Using OpenAI for domain detection (filename wasn't decisive)...`);
+      const openaiDomain = await this.aiDetectDomain(headers, dataRows, fileName);
       console.log(`✅ [AI] OpenAI determined domain: ${openaiDomain}`);
       return openaiDomain;
-        } else {
+    } else {
       console.warn('⚠️ [AI] OpenAI not available, using rule-based fallback');
       console.log(`✅ [AI] Using rule-based domain: ${bestDomain[0]}`);
       return bestDomain[0]; // Fall back to rule-based
@@ -687,18 +757,22 @@ class AsbuiltImportAI {
   /**
    * AI-powered domain detection (fallback)
    */
-  async aiDetectDomain(headers, dataRows) {
+  async aiDetectDomain(headers, dataRows, fileName = null) {
     if (!this.openai) {
       console.warn('⚠️ [AI] OpenAI not configured, using fallback');
       return 'panel_placement';
     }
 
     console.log(`🤖 [AI] OpenAI analyzing domain for headers: ${headers.join(', ')}`);
+    if (fileName) {
+      console.log(`🤖 [AI] Filename context: ${fileName}`);
+    }
     
     const sampleRows = dataRows.slice(0, 3);
     
     const prompt = `Analyze this construction as-built data and determine the domain type.
 
+${fileName ? `Filename: ${fileName}` : ''}
 Headers: ${headers.join(', ')}
 Sample data rows: ${JSON.stringify(sampleRows, null, 2)}
 
@@ -709,6 +783,8 @@ Domain types:
 - trial_weld: Weld testing with material, temperature, pass/fail
 - repairs: Repair records with issue types, descriptions, technicians
 - destructive: Lab testing with sample IDs, test types, results
+
+${fileName ? `IMPORTANT: Consider the filename "${fileName}" as a strong indicator of the intended domain type.` : ''}
 
 Respond with ONLY the domain name (e.g., "panel_placement").`;
 
@@ -824,10 +900,30 @@ Return ONLY valid JSON, no explanation.`;
     });
     
     const processingTime = Date.now() - startTime;
-    const aiMappings = JSON.parse(completion.choices[0].message.content);
+    const aiResponse = completion.choices[0].message.content;
     
     console.log(`🤖 [AI] OpenAI mapped headers in ${processingTime}ms`);
-    console.log(`🤖 [AI] OpenAI response: ${completion.choices[0].message.content}`);
+    console.log(`🤖 [AI] OpenAI response: ${aiResponse}`);
+    
+    // Parse AI response - handle both array and object formats
+    let aiMappings;
+    try {
+      const parsed = JSON.parse(aiResponse);
+      if (Array.isArray(parsed)) {
+        // Convert array of objects to object format
+        aiMappings = {};
+        parsed.forEach(item => {
+          if (item.header && item.field) {
+            aiMappings[item.header] = item.field;
+          }
+        });
+      } else {
+        aiMappings = parsed;
+      }
+    } catch (error) {
+      console.error(`❌ [AI] Failed to parse AI response: ${error.message}`);
+      return [];
+    }
     
     const result = Object.entries(aiMappings)
       .map(([sourceHeader, canonicalField]) => {

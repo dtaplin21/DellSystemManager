@@ -76,6 +76,9 @@ export default function AsbuiltPageContent() {
   
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDomain, setSelectedDomain] = useState<string>('all');
+  
+  // Debug: Log the selectedDomain value
+  console.log('🔍 [ASBUILT] selectedDomain state:', selectedDomain);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showFileViewer, setShowFileViewer] = useState(false);
   const [selectedFile, setSelectedFile] = useState<FileMetadata | null>(null);
@@ -188,8 +191,33 @@ export default function AsbuiltPageContent() {
     
     const matchesDomain = selectedDomain === 'all' || record.domain === selectedDomain;
     
+    // Debug logging
+    if (projectRecords.length > 0 && projectRecords.length < 5) {
+      console.log('🔍 [ASBUILT] Filtering record:', {
+        recordDomain: record.domain,
+        selectedDomain,
+        matchesDomain,
+        searchQuery,
+        matchesSearch
+      });
+    }
+    
     return matchesSearch && matchesDomain;
   });
+
+  // Debug logging for domain filtering
+  React.useEffect(() => {
+    if (projectRecords && projectRecords.length > 0) {
+      console.log('📊 [ASBUILT] Record domains:', 
+        projectRecords.map(r => r.domain)
+      );
+      console.log('📊 [ASBUILT] Unique domains:', 
+        Array.from(new Set(projectRecords.map(r => r.domain)))
+      );
+      console.log('📊 [ASBUILT] Current filter:', selectedDomain);
+      console.log('📊 [ASBUILT] Filtered records count:', filteredRecords.length);
+    }
+  }, [projectRecords, selectedDomain, filteredRecords.length]);
 
   // Get all files from the shared context
   const allFiles = Array.from(fileMetadata.values());
@@ -463,7 +491,10 @@ export default function AsbuiltPageContent() {
               <div className="sm:w-48">
                 <select
                   value={selectedDomain}
-                  onChange={(e) => setSelectedDomain(e.target.value)}
+                  onChange={(e) => {
+                    console.log('🔍 [ASBUILT] Domain changed to:', e.target.value);
+                    setSelectedDomain(e.target.value);
+                  }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="all">All Domains</option>
