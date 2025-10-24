@@ -2,6 +2,25 @@ import { getSupabaseClient, getCurrentSession } from './supabase';
 
 import config from './config';
 
+// Helper function to get auth headers using Supabase's native token management
+export const getAuthHeaders = async (): Promise<Record<string, string>> => {
+  try {
+    const supabase = getSupabaseClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (session?.access_token) {
+      return {
+        'Authorization': `Bearer ${session.access_token}`
+      };
+    }
+    
+    return {};
+  } catch (error) {
+    console.error('Error getting auth headers:', error);
+    return {};
+  }
+};
+
 const BACKEND_URL = config.backend.baseUrl;
 
 
@@ -36,74 +55,6 @@ export const checkBackendHealth = async (): Promise<boolean> => {
 
 
 
-// Helper function to get auth headers using Supabase's native token management
-export const getAuthHeaders = async () => {
-  try {
-    console.log('🔍 getAuthHeaders: Getting auth headers...');
-    
-    // Try to get current session with retry logic
-    let session = null;
-    let retryCount = 0;
-    const maxRetries = 3;
-    
-    while (retryCount < maxRetries && !session) {
-      try {
-        session = await getCurrentSession();
-        if (session) break;
-      } catch (sessionError) {
-        console.warn(`⚠️ Session attempt ${retryCount + 1} failed:`, sessionError);
-        retryCount++;
-        if (retryCount < maxRetries) {
-          await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
-        }
-      }
-    }
-    
-    console.log('🔍 getAuthHeaders: Session data:', session ? { 
-      hasAccessToken: !!session.access_token,
-      expiresAt: session.expires_at,
-      userId: session.user?.id,
-      tokenPreview: session.access_token ? session.access_token.substring(0, 20) + '...' : 'none'
-    } : 'No session');
-    
-    // If no session, try to get from localStorage as fallback
-    if (!session && typeof window !== 'undefined') {
-      try {
-        const storedSession = localStorage.getItem('supabase.auth.token');
-        if (storedSession) {
-          const parsed = JSON.parse(storedSession);
-          if (parsed && parsed.access_token) {
-            console.log('🔄 Using stored session token as fallback');
-            session = { access_token: parsed.access_token };
-          }
-        }
-      } catch (localStorageError) {
-        console.warn('⚠️ Failed to read localStorage session:', localStorageError);
-      }
-    }
-    
-
-    
-    const headers = {
-      'Content-Type': 'application/json',
-      ...(session?.access_token && {
-        'Authorization': `Bearer ${session.access_token}`
-      })
-    };
-    
-    console.log('✅ getAuthHeaders: Generated headers:', {
-      hasAuthorization: !!headers.Authorization,
-      authorizationPreview: headers.Authorization ? headers.Authorization.substring(0, 30) + '...' : 'none'
-    });
-    
-    return headers;
-  } catch (error) {
-    console.error('❌ getAuthHeaders: Error getting auth headers:', error);
-    return {
-      'Content-Type': 'application/json'
-    };
-  }
-};
 
 export async function makeAuthenticatedRequest(url: string, options: RequestInit = {}): Promise<Response> {
   try {
