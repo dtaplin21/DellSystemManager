@@ -63,6 +63,12 @@ export default function Sidebar() {
       current: Boolean(isActive('/dashboard/documents/asbuilt'))
     },
     {
+      name: 'AI Panel Workspace',
+      href: '/dashboard/panels',
+      icon: LayoutDashboard,
+      current: Boolean(isActive('/dashboard/panels'))
+    },
+    {
       section: 'Development',
       current: false, // Section header is never active
       items: [

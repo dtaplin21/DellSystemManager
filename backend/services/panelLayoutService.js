@@ -350,6 +350,138 @@ class PanelLayoutService {
   }
 
   /**
+   * Update panel properties such as dimensions, rotation, or metadata
+   */
+  async updatePanelProperties(projectId, panelIdentifier, updates = {}) {
+    try {
+      if (!projectId) {
+        throw new Error('Project ID is required');
+      }
+
+      if (!panelIdentifier || typeof panelIdentifier !== 'string') {
+        throw new Error('Panel identifier must be a non-empty string');
+      }
+
+      if (!updates || typeof updates !== 'object') {
+        throw new Error('Updates payload must be an object');
+      }
+
+      const ALLOWED_FIELDS = new Set(['width', 'height', 'rotation', 'x', 'y', 'panelNumber', 'rollNumber', 'shape', 'material', 'thickness', 'notes', 'color', 'fill']);
+      const hasAllowedField = Object.keys(updates).some(key => ALLOWED_FIELDS.has(key));
+
+      if (!hasAllowedField) {
+        throw new Error(`No valid update fields provided. Allowed fields: ${Array.from(ALLOWED_FIELDS).join(', ')}`);
+      }
+
+      const [existingLayout] = await db
+        .select()
+        .from(panelLayouts)
+        .where(eq(panelLayouts.projectId, projectId));
+
+      if (!existingLayout) {
+        throw new Error('Panel layout not found');
+      }
+
+      let currentPanels = [];
+      try {
+        if (Array.isArray(existingLayout.panels)) {
+          currentPanels = existingLayout.panels;
+        } else if (typeof existingLayout.panels === 'string') {
+          currentPanels = JSON.parse(existingLayout.panels || '[]');
+        } else {
+          console.warn('Unexpected panels data type:', typeof existingLayout.panels);
+        }
+      } catch (error) {
+        console.error('Error parsing panels in updatePanelProperties:', error);
+        currentPanels = [];
+      }
+
+      if (!currentPanels.length) {
+        throw new Error('No panels available to update');
+      }
+
+      const panelIndex = currentPanels.findIndex(panel => {
+        if (!panel) return false;
+
+        if (panel.id === panelIdentifier || panel.panelNumber === panelIdentifier || panel.rollNumber === panelIdentifier) {
+          return true;
+        }
+
+        const generatedId = `panel-${projectId}-${panel.x}-${panel.y}-${panel.width}-${panel.height}`;
+        return generatedId === panelIdentifier;
+      });
+
+      if (panelIndex === -1) {
+        throw new Error(`Panel '${panelIdentifier}' not found in project ${projectId}`);
+      }
+
+      const targetPanel = currentPanels[panelIndex];
+      const nextPanel = { ...targetPanel };
+
+      if (updates.width !== undefined) {
+        const width = Number(updates.width);
+        if (isNaN(width) || width <= 0) {
+          throw new Error('Width must be a positive number');
+        }
+        nextPanel.width = width;
+      }
+
+      if (updates.height !== undefined) {
+        const height = Number(updates.height);
+        if (isNaN(height) || height <= 0) {
+          throw new Error('Height must be a positive number');
+        }
+        nextPanel.height = height;
+      }
+
+      if (updates.rotation !== undefined) {
+        const rotation = Number(updates.rotation);
+        if (isNaN(rotation) || rotation < 0 || rotation >= 360) {
+          throw new Error('Rotation must be a number between 0 and 360 degrees');
+        }
+        nextPanel.rotation = rotation;
+      }
+
+      if (updates.x !== undefined) {
+        const x = Number(updates.x);
+        if (isNaN(x) || !isFinite(x)) {
+          throw new Error('X position must be a finite number');
+        }
+        nextPanel.x = x;
+      }
+
+      if (updates.y !== undefined) {
+        const y = Number(updates.y);
+        if (isNaN(y) || !isFinite(y)) {
+          throw new Error('Y position must be a finite number');
+        }
+        nextPanel.y = y;
+      }
+
+      ['panelNumber', 'rollNumber', 'shape', 'material', 'thickness', 'notes', 'color', 'fill'].forEach(field => {
+        if (updates[field] !== undefined) {
+          nextPanel[field] = updates[field];
+        }
+      });
+
+      currentPanels[panelIndex] = nextPanel;
+
+      await db
+        .update(panelLayouts)
+        .set({
+          panels: currentPanels,
+          lastUpdated: new Date()
+        })
+        .where(eq(panelLayouts.projectId, projectId));
+
+      return nextPanel;
+    } catch (error) {
+      console.error('Error updating panel properties:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Delete a panel from the layout
    */
   async deletePanel(projectId, panelId) {

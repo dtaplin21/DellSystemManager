@@ -1,307 +1,287 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
-import type { Panel } from '../../types/panel'
+import type { Panel } from '@/types/panel'
+import { apiClient } from '@/lib/apiClient'
 
 interface PanelAIChatProps {
-  projectInfo: {
-    projectName: string
-    location: string
-    description: string
-    manager: string
-    material: string
+  projectId: string
+  projectInfo?: {
+    projectName?: string
+    location?: string
+    description?: string
+    manager?: string
+    material?: string
   }
   panels: Panel[]
-  setPanels: React.Dispatch<React.SetStateAction<Panel[]>>
+  onPanelsUpdated?: (panels: Panel[]) => void
 }
 
-interface Message {
-  role: 'user' | 'assistant'
+type ChatRole = 'user' | 'assistant'
+
+interface ChatAction {
+  type: string
+  description: string
+  panelId?: string
+  panelNumber?: string
+  timestamp?: string
+}
+
+interface ChatMessage {
+  id: string
+  role: ChatRole
   content: string
+  timestamp: string
+  actions?: ChatAction[]
 }
 
-export default function PanelAIChat({ projectInfo, panels, setPanels }: PanelAIChatProps) {
-  const [messages, setMessages] = useState<Message[]>([
+interface ChatResponse {
+  success: boolean
+  reply: string
+  actions?: ChatAction[]
+  panels?: Array<Record<string, any>>
+  suggestions?: string[]
+  error?: string
+}
+
+const DEFAULT_SUGGESTIONS = [
+  'List all panels in this project.',
+  'Create a new panel 40ft x 100ft near the north boundary.',
+  'Optimize the panel layout for balanced spacing.',
+  'Move panel P1 to coordinates 200, 150.'
+]
+
+const createMessageId = () => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID()
+  }
+  return `msg-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+}
+
+const mapPanelFromApi = (panel: any): Panel => ({
+  id: panel.id || `panel-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+  width: Number(panel.width ?? 0),
+  height: Number(panel.height ?? 0),
+  x: Number(panel.x ?? 0),
+  y: Number(panel.y ?? 0),
+  rotation: Number(panel.rotation ?? 0),
+  isValid: true,
+  shape: panel.shape || 'rectangle',
+  panelNumber: panel.panelNumber || panel.panel_number || '',
+  rollNumber: panel.rollNumber || panel.roll_number || '',
+  color: panel.color,
+  fill: panel.fill,
+  material: panel.material,
+  thickness: panel.thickness,
+  meta: {
+    repairs: [],
+    airTest: { result: 'pending' }
+  }
+})
+
+export default function PanelAIChat({
+  projectId,
+  projectInfo,
+  panels,
+  onPanelsUpdated
+}: PanelAIChatProps) {
+  const [messages, setMessages] = useState<ChatMessage[]>(() => [
     {
+      id: createMessageId(),
       role: 'assistant',
-      content: 'Hello! I\'m your panel layout assistant. Ask me to help with your panel layout, such as "Place a new panel next to panel 1A" or "Combine panels 2 and 3".'
+      content: "I'm ready to help with panel layout tasks. Try asking me to create, move, resize, or summarize panels.",
+      timestamp: new Date().toISOString()
     }
   ])
   const [inputMessage, setInputMessage] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
+  const [isSending, setIsSending] = useState(false)
+  const [suggestions, setSuggestions] = useState<string[]>(DEFAULT_SUGGESTIONS)
   const chatContainerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    // Scroll to bottom of chat when messages change
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight
     }
-  }, [messages])
+  }, [messages, isSending])
 
-  const handleSendMessage = async () => {
-    if (!inputMessage.trim()) return
-    
-    const userMessage = inputMessage.trim()
-    setInputMessage('')
-    
-    // Add user message to chat
-    setMessages(prev => [...prev, { role: 'user', content: userMessage }])
-    
-    // Show loading state
-    setIsLoading(true)
-    
-    try {
-      // In a real implementation, you would call your AI service here
-      // For now, we'll simulate a response based on simple pattern matching
-      
-      // Prepare the context for the AI
-      const context = {
-        projectInfo,
-        panels: panels.map(panel => ({
-          id: panel.id,
-          panelNumber: panel.panelNumber,
-          height: panel.height,
-          width: panel.width,
-          location: panel.location,
-          x: panel.x,
-          y: panel.y
-        }))
-      }
-      
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1500))
-      
-      let responseMessage = "I understand you want to modify the panel layout, but I need more specific instructions."
-      let updatedPanels = [...panels]
-      
-      // Simple pattern matching for demo purposes
-      // In a real implementation, this would be replaced with AI processing
-      
-      // Pattern: Create a new panel
-      if (/create|add|new panel/i.test(userMessage)) {
-        const color = generatePastelColor()
-        const newPanel: Panel = {
-          id: Date.now().toString(),
-          date: new Date().toISOString().slice(0, 10),
-          panelNumber: `P${panels.length + 1}`,
-          isValid: true,
-          height: 100, // height should match length for consistency
-          width: 40,
-          rollNumber: `R-${100 + panels.length + 1}`,
-          location: 'Auto-generated by AI',
-          x: 200 + (panels.length * 30) % 300,
-          y: 200 + (panels.length * 30) % 200,
-          shape: 'rectangle',
-          rotation: 0,
-          color,
-          fill: color,
-          meta: {
-            repairs: [],
-            airTest: { result: 'pending' }
-          }
-        }
-        
-        updatedPanels = [...panels, newPanel]
-        setPanels(updatedPanels)
-        
-        responseMessage = `I've created a new panel with number ${newPanel.panelNumber} and placed it on the layout. You can drag it to adjust its position.`
-      }
-      
-      // Pattern: Move a panel
-      else if (/move|place|position|relocate/i.test(userMessage)) {
-        const panelNumberMatch = userMessage.match(/panel\s+([a-zA-Z0-9-]+)/i)
-        
-        if (panelNumberMatch) {
-          const targetPanelNumber = panelNumberMatch[1]
-          const panelIndex = panels.findIndex(p => 
-            (p.panelNumber || '').toLowerCase() === targetPanelNumber.toLowerCase()
-          )
-          
-          if (panelIndex >= 0) {
-            // Extract direction or coordinates if present
-            let newX = panels[panelIndex].x
-            let newY = panels[panelIndex].y
-            
-            if (/north|top/i.test(userMessage)) {
-              newY = 50
-            } else if (/south|bottom/i.test(userMessage)) {
-              newY = 400
-            } else if (/east|right/i.test(userMessage)) {
-              newX = 400
-            } else if (/west|left/i.test(userMessage)) {
-              newX = 50
-            } else if (/center/i.test(userMessage)) {
-              newX = 200
-              newY = 200
-            }
-            
-            updatedPanels = panels.map((panel, i) => {
-              if (i === panelIndex) {
-                return { ...panel, x: newX, y: newY }
-              }
-              return panel
-            })
-            
-            setPanels(updatedPanels)
-            responseMessage = `I've moved panel ${targetPanelNumber} to the requested position.`
-          } else {
-            responseMessage = `I couldn't find panel ${targetPanelNumber}. Please check the panel number and try again.`
-          }
-        } else {
-          responseMessage = "I need to know which panel to move. Please specify the panel number, e.g., 'Move panel 1A to the center'."
-        }
-      }
-      
-      // Pattern: Delete or remove a panel
-      else if (/delete|remove/i.test(userMessage)) {
-        const panelNumberMatch = userMessage.match(/panel\s+([a-zA-Z0-9-]+)/i)
-        
-        if (panelNumberMatch) {
-          const targetPanelNumber = panelNumberMatch[1]
-          const panelIndex = panels.findIndex(p => 
-            (p.panelNumber || '').toLowerCase() === targetPanelNumber.toLowerCase()
-          )
-          
-          if (panelIndex >= 0) {
-            updatedPanels = panels.filter((_, i) => i !== panelIndex)
-            setPanels(updatedPanels)
-            responseMessage = `I've removed panel ${targetPanelNumber} from the layout.`
-          } else {
-            responseMessage = `I couldn't find panel ${targetPanelNumber}. Please check the panel number and try again.`
-          }
-        } else {
-          responseMessage = "I need to know which panel to remove. Please specify the panel number, e.g., 'Remove panel 2A'."
-        }
-      }
-      
-      // Pattern: Resize a panel
-      else if (/resize|adjust size|change size|make bigger|make smaller/i.test(userMessage)) {
-        const panelNumberMatch = userMessage.match(/panel\s+([a-zA-Z0-9-]+)/i)
-        
-        if (panelNumberMatch) {
-          const targetPanelNumber = panelNumberMatch[1]
-          const panelIndex = panels.findIndex(p => 
-            (p.panelNumber || '').toLowerCase() === targetPanelNumber.toLowerCase()
-          )
-          
-          if (panelIndex >= 0) {
-            let newHeight = panels[panelIndex].height
-            let newWidth = panels[panelIndex].width
-            
-            // Check for size adjustments
-            if (/larger|bigger|increase/i.test(userMessage)) {
-              newHeight *= 1.2
-              newWidth *= 1.2
-            } else if (/smaller|reduce|decrease/i.test(userMessage)) {
-              newHeight *= 0.8
-              newWidth *= 0.8
-            }
-            
-            // Check for specific dimensions
-            const dimensionMatch = userMessage.match(/(\d+(\.\d+)?)\s*(?:ft|feet|')\s*[xX]\s*(\d+(\.\d+)?)\s*(?:ft|feet|')/i)
-            if (dimensionMatch) {
-              newHeight = parseFloat(dimensionMatch[1])
-              newWidth = parseFloat(dimensionMatch[3])
-            }
-            
-            updatedPanels = panels.map((panel, i) => {
-              if (i === panelIndex) {
-                return { ...panel, height: newHeight, width: newWidth }
-              }
-              return panel
-            })
-            
-            setPanels(updatedPanels)
-            responseMessage = `I've resized panel ${targetPanelNumber} to ${newHeight.toFixed(1)} ft x ${newWidth.toFixed(1)} ft.`
-          } else {
-            responseMessage = `I couldn't find panel ${targetPanelNumber}. Please check the panel number and try again.`
-          }
-        } else {
-          responseMessage = "I need to know which panel to resize. Please specify the panel number, e.g., 'Resize panel 3A to 100 ft x 50 ft'."
-        }
-      }
-      
-      // Add more pattern matching as needed for other operations
-      
-      // Add AI response to chat
-      setMessages(prev => [...prev, { role: 'assistant', content: responseMessage }])
-    } catch (error) {
-      console.error('Error processing AI request:', error)
-      setMessages(prev => [...prev, { 
-        role: 'assistant', 
-        content: "I'm sorry, I encountered an error processing your request. Please try again."
-      }])
-    } finally {
-      setIsLoading(false)
+  const derivedQuickActions = useMemo(() => {
+    const base = suggestions.length ? suggestions : DEFAULT_SUGGESTIONS
+    if (!panels.length) {
+      return base.slice(0, 4)
     }
-  }
+
+    const firstPanel = panels[0]
+    const panelLabel = firstPanel.panelNumber || firstPanel.rollNumber || firstPanel.id
+
+    const panelAwareActions = [
+      `Move panel ${panelLabel} to ${Math.round(firstPanel.x + 50)}, ${Math.round(firstPanel.y + 50)}.`,
+      `Resize panel ${panelLabel} to ${Math.max(20, Math.round(firstPanel.width))}ft x ${Math.max(20, Math.round(firstPanel.height))}ft.`,
+      `Rotate panel ${panelLabel} by 15 degrees.`,
+      ...base
+    ]
+
+    return Array.from(new Set(panelAwareActions)).slice(0, 4)
+  }, [panels, suggestions])
+
+  const appendMessage = useCallback((message: ChatMessage) => {
+    setMessages(prev => [...prev, message])
+  }, [])
+
+  const handleSendMessage = useCallback(async (text: string) => {
+    const trimmed = text.trim()
+    if (!trimmed || isSending) {
+      return
+    }
+
+    const timestamp = new Date().toISOString()
+    appendMessage({
+      id: createMessageId(),
+      role: 'user',
+      content: trimmed,
+      timestamp
+    })
+    setInputMessage('')
+    setIsSending(true)
+
+    try {
+      const response = await apiClient.request<ChatResponse>('/api/ai/chat', {
+        method: 'POST',
+        body: {
+          projectId,
+          message: trimmed,
+          context: { projectInfo }
+        }
+      })
+
+      if (Array.isArray(response.panels)) {
+        const mappedPanels = response.panels.map(mapPanelFromApi)
+        onPanelsUpdated?.(mappedPanels)
+      }
+
+      if (Array.isArray(response.suggestions) && response.suggestions.length) {
+        setSuggestions(response.suggestions)
+      } else {
+        setSuggestions(DEFAULT_SUGGESTIONS)
+      }
+
+      appendMessage({
+        id: createMessageId(),
+        role: 'assistant',
+        content: response.reply || 'I did not receive a response this time.',
+        timestamp: new Date().toISOString(),
+        actions: response.actions
+      })
+    } catch (error) {
+      console.error('AI chat request failed:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Unexpected error occurred.'
+      appendMessage({
+        id: createMessageId(),
+        role: 'assistant',
+        content: `I ran into an issue while processing that: ${errorMessage}`,
+        timestamp: new Date().toISOString()
+      })
+    } finally {
+      setIsSending(false)
+    }
+  }, [appendMessage, isSending, projectId, projectInfo, onPanelsUpdated])
+
+  const handleSubmit = useCallback(() => {
+    void handleSendMessage(inputMessage)
+  }, [handleSendMessage, inputMessage])
+
+  const handleKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault()
+      handleSubmit()
+    }
+  }, [handleSubmit])
+
+  const handleQuickAction = useCallback((prompt: string) => {
+    void handleSendMessage(prompt)
+  }, [handleSendMessage])
 
   return (
-    <div className="flex flex-col h-80">
-      <div 
+    <div className="flex flex-col h-full">
+      <div className="mb-3">
+        <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Quick Actions</div>
+        <div className="flex flex-wrap gap-2">
+          {derivedQuickActions.map(action => (
+            <Button
+              key={action}
+              variant="secondary"
+              size="sm"
+              onClick={() => handleQuickAction(action)}
+              disabled={isSending}
+            >
+              {action}
+            </Button>
+          ))}
+        </div>
+      </div>
+
+      <div
         ref={chatContainerRef}
-        className="flex-1 overflow-y-auto mb-4 p-2 border rounded bg-gray-50"
+        className="flex-1 overflow-y-auto mb-4 p-3 border rounded bg-muted/30 space-y-3"
       >
-        {messages.map((message, index) => (
-          <div 
-            key={index} 
-            className={`mb-2 ${
-              message.role === 'user' ? 'text-right' : 'text-left'
-            }`}
+        {messages.map(message => (
+          <div
+            key={message.id}
+            className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'}`}
           >
-            <div 
-              className={`inline-block rounded-lg px-3 py-2 max-w-[80%] ${
-                message.role === 'user' 
-                  ? 'bg-blue-500 text-white' 
-                  : 'bg-gray-200 text-gray-800'
+            <div
+              className={`max-w-[80%] rounded-lg px-3 py-2 text-sm shadow-sm ${
+                message.role === 'user'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-background border'
               }`}
             >
-              {message.content}
-            </div>
-          </div>
-        ))}
-        {isLoading && (
-          <div className="text-left mb-2">
-            <div className="inline-block rounded-lg px-3 py-2 bg-gray-200 text-gray-800">
-              <div className="flex space-x-1">
-                <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"></div>
-                <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+              <div className="whitespace-pre-wrap leading-relaxed">
+                {message.content}
               </div>
             </div>
+            {message.actions && message.actions.length > 0 && (
+              <div className="mt-2 text-xs text-muted-foreground border-l pl-3 space-y-1">
+                {message.actions.map(action => (
+                  <div key={`${message.id}-${action.type}-${action.panelId || action.description}`}>
+                    <span className="font-medium text-foreground">{action.type}</span>
+                    {': '}
+                    {action.description}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+
+        {isSending && (
+          <div className="flex items-center space-x-2 text-xs text-muted-foreground">
+            <div className="w-2 h-2 rounded-full bg-muted-foreground animate-bounce" />
+            <div className="w-2 h-2 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: '0.15s' }} />
+            <div className="w-2 h-2 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: '0.3s' }} />
+            <span>Thinking…</span>
           </div>
         )}
       </div>
-      
-      <div className="flex">
+
+      <div className="flex gap-2">
         <input
           type="text"
           value={inputMessage}
-          onChange={(e) => setInputMessage(e.target.value)}
-          onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-          placeholder="Ask the AI panel generation system for help..."
-          className="flex-1 p-2 border rounded-l"
-          disabled={isLoading}
+          onChange={(event) => setInputMessage(event.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="Ask the AI to create, move, resize, or summarize panels…"
+          className="flex-1 p-3 border rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+          disabled={isSending}
         />
-        <Button
-          onClick={handleSendMessage}
-          disabled={isLoading || !inputMessage.trim()}
-          className="rounded-l-none"
-        >
-          Send
+        <Button onClick={handleSubmit} disabled={isSending || !inputMessage.trim()} className="shrink-0">
+          {isSending ? 'Sending…' : 'Send'}
         </Button>
       </div>
-      
-      <div className="mt-2 text-xs text-gray-500">
-        Try: &quot;Create a new panel&quot;, &quot;Move panel P1 to the north&quot;, &quot;Resize panel P2 to 120 ft x 45 ft&quot;
+
+      <div className="mt-3 text-xs text-muted-foreground">
+        Tip: You can say things like “Create a 40ft x 100ft panel and move it to the north boundary” or “Summarize all panels in this project.”
       </div>
     </div>
   )
-}
-
-// Utility function to generate pastel colors
-function generatePastelColor() {
-  const hue = Math.floor(Math.random() * 360)
-  return `hsl(${hue}, 70%, 80%)`
 }

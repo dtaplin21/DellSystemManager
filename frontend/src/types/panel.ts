@@ -20,6 +20,10 @@ export interface Panel {
   rollNumber?: string;
   color?: string;
   fill?: string;
+  material?: string;
+  thickness?: number;
+  seamsType?: string;
+  notes?: string;
   date?: string;
   location?: string;
   meta?: {

@@ -3,6 +3,8 @@ const router = express.Router();
 const OpenAI = require('openai');
 const config = require('../config/env');
 const logger = require('../lib/logger');
+const panelLayoutService = require('../services/panelLayoutService');
+const { auth } = require('../middlewares/auth');
 
 // Initialize OpenAI client
 const openai = new OpenAI({
@@ -15,6 +17,263 @@ if (!config.secrets.openai && !process.env.OPENAI_API_KEY) {
 
 // In-memory storage for job status (in production, use Redis or database)
 const jobStatus = new Map();
+
+const sanitizePanel = (panel) => ({
+  id: panel.id,
+  panelNumber: panel.panelNumber || panel.panel_number || '',
+  rollNumber: panel.rollNumber || panel.roll_number || '',
+  width: Number(panel.width ?? panel.width_feet ?? 0),
+  height: Number(panel.height ?? panel.height_feet ?? 0),
+  x: Number(panel.x ?? 0),
+  y: Number(panel.y ?? 0),
+  rotation: Number(panel.rotation ?? 0),
+  shape: panel.shape || panel.type || 'rectangle',
+  material: panel.material || null,
+  thickness: panel.thickness || null,
+  color: panel.color || panel.fill || '#87CEEB',
+  fill: panel.fill || panel.color || '#87CEEB'
+});
+
+const sanitizePanels = (panels = []) => panels.map(sanitizePanel);
+
+const getLastUserMessage = (message, messages = []) => {
+  if (message && typeof message === 'string' && message.trim()) {
+    return message.trim();
+  }
+
+  if (Array.isArray(messages) && messages.length > 0) {
+    const lastMessage = [...messages].reverse().find(m => m?.role === 'user' && m.content);
+    if (lastMessage?.content) {
+      return String(lastMessage.content).trim();
+    }
+  }
+
+  return '';
+};
+
+const findPanelByIdentifier = (panels = [], identifier, projectId) => {
+  if (!identifier || !panels.length) return null;
+
+  const normalized = identifier.toString().trim().toLowerCase();
+  const cleaned = normalized.replace(/^panel\s+/, '').replace(/^#/, '');
+
+  return panels.find(panel => {
+    if (!panel) return false;
+
+    const candidates = [
+      panel.id,
+      panel.panelNumber || panel.panel_number,
+      panel.rollNumber || panel.roll_number,
+      `panel-${projectId}-${panel.x}-${panel.y}-${panel.width}-${panel.height}`
+    ].filter(Boolean).map(value => value.toString().trim().toLowerCase());
+
+    return candidates.includes(cleaned);
+  }) || null;
+};
+
+const getPreferredPanelIdentifier = (panel) => {
+  if (!panel) return null;
+  return panel.id || panel.panelNumber || panel.panel_number || panel.rollNumber || panel.roll_number || null;
+};
+
+const parseDimensionsFromText = (text) => {
+  if (!text) return null;
+
+  const match = text.match(/(\d+(?:\.\d+)?)\s*(?:ft|feet|foot|')?\s*(?:x|by)\s*(\d+(?:\.\d+)?)/i);
+  if (!match) return null;
+
+  const width = Number(match[1]);
+  const height = Number(match[2]);
+
+  if (isNaN(width) || isNaN(height)) return null;
+
+  return { width, height };
+};
+
+const parseCoordinatesFromText = (text) => {
+  if (!text) return null;
+
+  const normalized = text.replace(/\s+/g, ' ');
+  const coordinateMatch = normalized.match(/(?:to|at)\s*(?:coordinates\s*)?(?:x\s*=?\s*)?(-?\d+(?:\.\d+)?)[,\s]+(?:y\s*=?\s*)?(-?\d+(?:\.\d+)?)/i);
+
+  if (coordinateMatch) {
+    const x = Number(coordinateMatch[1]);
+    const y = Number(coordinateMatch[2]);
+    if (!isNaN(x) && !isNaN(y)) {
+      return { x, y };
+    }
+  }
+
+  const simpleMatch = normalized.match(/(?:to|at)\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)/i);
+  if (simpleMatch) {
+    const x = Number(simpleMatch[1]);
+    const y = Number(simpleMatch[2]);
+    if (!isNaN(x) && !isNaN(y)) {
+      return { x, y };
+    }
+  }
+
+  return null;
+};
+
+const parseRotationFromText = (text) => {
+  if (!text) return null;
+
+  const match = text.match(/(?:rotate|rotation|angle)\s*(?:by)?\s*(\d+(?:\.\d+)?)/i);
+  if (!match) return null;
+
+  const rotation = Number(match[1]);
+  if (isNaN(rotation)) return null;
+
+  return rotation % 360;
+};
+
+const deriveDirectionalPosition = (direction, layout) => {
+  if (!direction || !layout) return null;
+
+  const norm = direction.toLowerCase();
+  const padding = 50;
+  const { width = 1000, height = 800 } = layout;
+
+  switch (true) {
+    case /\b(center|middle)\b/.test(norm):
+      return { x: width / 2, y: height / 2 };
+    case /\bnorth\b/.test(norm):
+      return { x: width / 2, y: padding };
+    case /\bsouth\b/.test(norm):
+      return { x: width / 2, y: height - padding };
+    case /\beast|right\b/.test(norm):
+      return { x: width - padding, y: height / 2 };
+    case /\bwest|left\b/.test(norm):
+      return { x: padding, y: height / 2 };
+    case /\bupper left\b/.test(norm):
+      return { x: padding, y: padding };
+    case /\bupper right\b/.test(norm):
+      return { x: width - padding, y: padding };
+    case /\blower left\b/.test(norm):
+      return { x: padding, y: height - padding };
+    case /\blower right\b/.test(norm):
+      return { x: width - padding, y: height - padding };
+    default:
+      return null;
+  }
+};
+
+const composePanelSummary = (panels = []) => {
+  if (!panels.length) {
+    return 'There are no panels in this layout yet. You can ask me to create one, import from Excel, or run the AI optimizer.';
+  }
+
+  const count = panels.length;
+  const sample = panels.slice(0, 5).map(panel => {
+    const { panelNumber, rollNumber, width, height, x, y } = sanitizePanel(panel);
+    return `${panelNumber || panel.id || 'Panel'} (${width}ft x ${height}ft) at (${x}, ${y})${rollNumber ? `, roll ${rollNumber}` : ''}`;
+  });
+
+  const summaryParts = [
+    `I currently track ${count} panel${count === 1 ? '' : 's'}.`,
+    'Here are a few examples:',
+    ...sample.map(entry => `• ${entry}`)
+  ];
+
+  if (count > 5) {
+    summaryParts.push(`…and ${count - 5} more.`);
+  }
+
+  return summaryParts.join('\n');
+};
+
+const buildContextualSuggestions = (context = {}) => {
+  const baseSuggestions = [
+    'Create a new 40ft x 100ft panel near the north edge.',
+    'List all panels with their positions.',
+    'Move panel P1 to coordinates 250, 180.'
+  ];
+
+  if (context.lastAction === 'create' && context.panelNumber) {
+    return [
+      `Move panel ${context.panelNumber} to the correct position.`,
+      `Rotate panel ${context.panelNumber} by 5 degrees.`,
+      'Show me a summary of all panels again.'
+    ];
+  }
+
+  if (context.lastAction === 'move' && context.panelNumber) {
+    return [
+      `Resize panel ${context.panelNumber} to match field measurements.`,
+      `Rotate panel ${context.panelNumber} by 15 degrees.`,
+      'Optimize the overall layout for better spacing.'
+    ];
+  }
+
+  if (context.lastAction === 'resize' && context.panelNumber) {
+    return [
+      `Move panel ${context.panelNumber} to its installation location.`,
+      'List panels that might overlap after this resize.',
+      'Generate a compliance check summary for panel dimensions.'
+    ];
+  }
+
+  return baseSuggestions;
+};
+
+const hasLLMSupport = Boolean(config.secrets.openai || process.env.OPENAI_API_KEY);
+
+const buildPanelContextForLLM = (panels = []) => {
+  if (!panels.length) {
+    return 'No panels currently exist in this layout.';
+  }
+
+  const limitedPanels = panels.slice(0, 15).map((panel, index) => {
+    const sanitized = sanitizePanel(panel);
+    return `${index + 1}. Panel ${sanitized.panelNumber || sanitized.id} — ${sanitized.width}ft x ${sanitized.height}ft at (${sanitized.x}, ${sanitized.y}) rotation ${sanitized.rotation}°, shape ${sanitized.shape}.`;
+  });
+
+  if (panels.length > 15) {
+    limitedPanels.push(`…and ${panels.length - 15} additional panels not shown.`);
+  }
+
+  return limitedPanels.join('\n');
+};
+
+const generateLLMFallback = async (userMessage, layout, projectContext = {}) => {
+  if (!hasLLMSupport) {
+    return "I didn't recognize a panel layout command. Try asking me to create, move, resize, delete a panel, or request a layout summary.";
+  }
+
+  try {
+    const systemPrompt = `You are an assistant that helps manage geosynthetic panel layouts. Keep responses concise. When giving instructions, keep them actionable.`;
+    const panelSummary = buildPanelContextForLLM(layout?.panels || []);
+
+    const prompt = `Project info: ${JSON.stringify(projectContext || {}, null, 2)}
+
+Current panels:
+${panelSummary}
+
+User request: ${userMessage}
+
+If the request does not map to a direct layout command, provide a helpful response or next steps.`;
+
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: prompt }
+      ],
+      max_tokens: 600,
+      temperature: 0.4
+    });
+
+    return response?.choices?.[0]?.message?.content?.trim() ||
+      "I'm here to help with panel layout commands such as creating, moving, resizing, or summarizing panels.";
+  } catch (error) {
+    logger.error('LLM fallback failed', {
+      error: error?.message,
+      stack: config.isDevelopment ? error?.stack : undefined
+    });
+    return "I'm ready to help with panel layout commands such as creating, moving, resizing, or summarizing panels.";
+  }
+};
 
 // Middleware to check authentication
 const requireAuth = (req, res, next) => {
@@ -29,6 +288,323 @@ router.get('/health', (req, res) => {
     status: 'ok', 
     openaiConfigured: Boolean(config.secrets.openai || process.env.OPENAI_API_KEY) 
   });
+});
+
+router.post('/chat', auth, async (req, res) => {
+  const startedAt = Date.now();
+
+  try {
+    const { projectId, message, messages = [], context = {} } = req.body || {};
+
+    if (!projectId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Project ID is required',
+        reply: 'I need to know which project to work with. Please provide a project ID.',
+        suggestions: buildContextualSuggestions()
+      });
+    }
+
+    const userMessage = getLastUserMessage(message, messages);
+    if (!userMessage) {
+      return res.status(400).json({
+        success: false,
+        error: 'Message is required',
+        reply: 'Tell me what you would like me to do with the panel layout.',
+        suggestions: buildContextualSuggestions()
+      });
+    }
+
+    logger.debug('[AI CHAT] Processing message', {
+      projectId,
+      userId: req.user?.id,
+      message: userMessage
+    });
+
+    const layout = await panelLayoutService.getLayout(projectId);
+    let updatedPanels = layout?.panels || [];
+    const normalizedMessage = userMessage.toLowerCase();
+    let handled = false;
+    let reply = '';
+    const actions = [];
+    let actionContext = {};
+
+    // SUMMARY
+    if (!handled && /(list|show|summary|summarise|summarize|overview|describe|status)/.test(normalizedMessage) && /panel|layout/.test(normalizedMessage)) {
+      reply = composePanelSummary(updatedPanels);
+      handled = true;
+      actionContext = { lastAction: 'summary' };
+    }
+
+    // OPTIMIZE LAYOUT
+    if (!handled && /(optimi[sz]e|balance|arrange|organize)/.test(normalizedMessage) && /layout|panel/.test(normalizedMessage)) {
+      const strategyMatch = normalizedMessage.match(/material|labor|grid|balanced/);
+      const strategy = strategyMatch ? strategyMatch[0].trim() : 'balanced';
+
+      const optimizedPanels = await panelLayoutService.optimizeLayout(projectId, { strategy });
+      updatedPanels = optimizedPanels;
+      handled = true;
+      actionContext = { lastAction: 'optimize' };
+
+      reply = `Applied a ${strategy} optimization across ${optimizedPanels.length} panel${optimizedPanels.length === 1 ? '' : 's'}.`;
+      actions.push({
+        type: 'OPTIMIZE_LAYOUT',
+        description: `Layout optimization (${strategy})`,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // CREATE PANEL
+    if (!handled && /(create|add)\s+(?:a\s+)?(?:new\s+)?panel/.test(normalizedMessage)) {
+      const dimensions = parseDimensionsFromText(userMessage);
+      const coordinates = parseCoordinatesFromText(userMessage);
+      let shape = 'rectangle';
+
+      if (/triangle/.test(normalizedMessage)) {
+        shape = 'right-triangle';
+      } else if (/patch|circle|round/.test(normalizedMessage)) {
+        shape = 'patch';
+      }
+
+      const panelPayload = { shape };
+      if (dimensions) {
+        panelPayload.width = dimensions.width;
+        panelPayload.height = dimensions.height;
+      }
+      if (coordinates) {
+        panelPayload.position = coordinates;
+      }
+
+      const newPanel = await panelLayoutService.createPanel(projectId, panelPayload);
+      updatedPanels = (await panelLayoutService.getLayout(projectId)).panels;
+      handled = true;
+      const panelIdentifier = newPanel.panelNumber || newPanel.id;
+      actionContext = { lastAction: 'create', panelNumber: panelIdentifier };
+
+      reply = `Created panel ${panelIdentifier} measuring ${newPanel.width}ft x ${newPanel.height}ft.`;
+      if (coordinates) {
+        reply += ` Positioned at (${newPanel.x}, ${newPanel.y}).`;
+      } else {
+        reply += ' Provide coordinates or a direction if you need it moved.';
+      }
+
+      actions.push({
+        type: 'CREATE_PANEL',
+        panelId: newPanel.id,
+        panelNumber: newPanel.panelNumber,
+        description: `Created ${shape} panel ${panelIdentifier}`,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // MOVE PANEL
+    if (!handled && /(move|relocate|position|place|shift)/.test(normalizedMessage) && /panel/.test(normalizedMessage)) {
+      const panelMatch = userMessage.match(/panel\s+([a-z0-9\-]+)/i) || userMessage.match(/\b(p\d+[a-z]?|r\d+[a-z]?|[0-9a-f\-]{8,})\b/i);
+      const identifier = panelMatch ? panelMatch[1] : null;
+
+      if (!identifier) {
+        reply = 'Please specify which panel to move, for example "Move panel P1 to x=250, y=120".';
+        handled = true;
+      } else {
+        const panel = findPanelByIdentifier(updatedPanels, identifier, projectId);
+        if (!panel) {
+          reply = `I could not find panel ${identifier}. Try listing panels to confirm the identifier.`;
+          handled = true;
+        } else {
+          let newPosition = parseCoordinatesFromText(userMessage);
+          if (!newPosition) {
+            newPosition = deriveDirectionalPosition(userMessage, layout);
+          }
+
+          if (!newPosition) {
+            reply = `I need coordinates or a direction to move panel ${panel.panelNumber || panel.id}. For example, "Move panel ${panel.panelNumber || panel.id} to 200, 150".`;
+            handled = true;
+          } else {
+            const movedPanel = await panelLayoutService.movePanel(projectId, getPreferredPanelIdentifier(panel), {
+              x: newPosition.x,
+              y: newPosition.y
+            });
+            updatedPanels = (await panelLayoutService.getLayout(projectId)).panels;
+            handled = true;
+            const panelIdentifier = movedPanel.panelNumber || movedPanel.id;
+            actionContext = { lastAction: 'move', panelNumber: panelIdentifier };
+
+            reply = `Moved panel ${panelIdentifier} to (${movedPanel.x}, ${movedPanel.y}).`;
+            actions.push({
+              type: 'MOVE_PANEL',
+              panelId: movedPanel.id,
+              panelNumber: movedPanel.panelNumber,
+              description: `Moved panel to (${movedPanel.x}, ${movedPanel.y})`,
+              timestamp: new Date().toISOString()
+            });
+          }
+        }
+      }
+    }
+
+    // RESIZE PANEL
+    if (!handled && /(resize|rescale|adjust size|change size|make (?:bigger|smaller))/i.test(normalizedMessage)) {
+      const panelMatch = userMessage.match(/panel\s+([a-z0-9\-]+)/i) || userMessage.match(/\b(p\d+[a-z]?|[0-9a-f\-]{8,})\b/i);
+      const identifier = panelMatch ? panelMatch[1] : null;
+
+      if (!identifier) {
+        reply = 'Please specify which panel to resize, for example "Resize panel P1 to 45ft x 95ft".';
+        handled = true;
+      } else {
+        const panel = findPanelByIdentifier(updatedPanels, identifier, projectId);
+        if (!panel) {
+          reply = `I could not find panel ${identifier}. Try asking for a panel summary first.`;
+          handled = true;
+        } else {
+          const dimensions = parseDimensionsFromText(userMessage);
+          let width = dimensions?.width;
+          let height = dimensions?.height;
+
+          if (!dimensions) {
+            if (/bigger|increase|larger/.test(normalizedMessage)) {
+              width = Number(panel.width) * 1.1;
+              height = Number(panel.height) * 1.1;
+            } else if (/smaller|decrease|shrink/.test(normalizedMessage)) {
+              width = Number(panel.width) * 0.9;
+              height = Number(panel.height) * 0.9;
+            }
+          }
+
+          if (!width || !height) {
+            reply = `I need new dimensions to resize panel ${panel.panelNumber || panel.id}. Try "Resize panel ${panel.panelNumber || panel.id} to 45ft x 95ft".`;
+            handled = true;
+          } else {
+            const resizedPanel = await panelLayoutService.updatePanelProperties(projectId, getPreferredPanelIdentifier(panel), {
+              width,
+              height
+            });
+            updatedPanels = (await panelLayoutService.getLayout(projectId)).panels;
+            handled = true;
+            const panelIdentifier = resizedPanel.panelNumber || resizedPanel.id;
+            actionContext = { lastAction: 'resize', panelNumber: panelIdentifier };
+
+            reply = `Updated panel ${panelIdentifier} to ${resizedPanel.width.toFixed(1)}ft x ${resizedPanel.height.toFixed(1)}ft.`;
+            actions.push({
+              type: 'RESIZE_PANEL',
+              panelId: resizedPanel.id,
+              panelNumber: resizedPanel.panelNumber,
+              description: `Resized panel to ${resizedPanel.width.toFixed(1)}ft x ${resizedPanel.height.toFixed(1)}ft`,
+              timestamp: new Date().toISOString()
+            });
+          }
+        }
+      }
+    }
+
+    // ROTATE PANEL
+    if (!handled && /(rotate|rotation|angle)/.test(normalizedMessage) && /panel/.test(normalizedMessage)) {
+      const panelMatch = userMessage.match(/panel\s+([a-z0-9\-]+)/i) || userMessage.match(/\b(p\d+[a-z]?|[0-9a-f\-]{8,})\b/i);
+      const identifier = panelMatch ? panelMatch[1] : null;
+
+      if (!identifier) {
+        reply = 'Please specify which panel to rotate, for example "Rotate panel P1 by 15 degrees".';
+        handled = true;
+      } else {
+        const panel = findPanelByIdentifier(updatedPanels, identifier, projectId);
+        if (!panel) {
+          reply = `I could not find panel ${identifier}.`;
+          handled = true;
+        } else {
+          const rotation = parseRotationFromText(userMessage);
+          if (rotation === null) {
+            reply = `Tell me the rotation angle, for example "Rotate panel ${panel.panelNumber || panel.id} by 15 degrees".`;
+            handled = true;
+          } else {
+            const rotatedPanel = await panelLayoutService.updatePanelProperties(projectId, getPreferredPanelIdentifier(panel), { rotation });
+            updatedPanels = (await panelLayoutService.getLayout(projectId)).panels;
+            handled = true;
+            const panelIdentifier = rotatedPanel.panelNumber || rotatedPanel.id;
+            actionContext = { lastAction: 'rotate', panelNumber: panelIdentifier };
+
+            reply = `Set panel ${panelIdentifier} rotation to ${rotatedPanel.rotation}°.`;
+            actions.push({
+              type: 'ROTATE_PANEL',
+              panelId: rotatedPanel.id,
+              panelNumber: rotatedPanel.panelNumber,
+              description: `Rotated panel to ${rotatedPanel.rotation}°`,
+              timestamp: new Date().toISOString()
+            });
+          }
+        }
+      }
+    }
+
+    // DELETE PANEL
+    if (!handled && /(delete|remove|discard)/.test(normalizedMessage) && /panel/.test(normalizedMessage)) {
+      const panelMatch = userMessage.match(/panel\s+([a-z0-9\-]+)/i) || userMessage.match(/\b(p\d+[a-z]?|[0-9a-f\-]{8,})\b/i);
+      const identifier = panelMatch ? panelMatch[1] : null;
+
+      if (!identifier) {
+        reply = 'Please specify which panel to remove, for example "Delete panel P3".';
+        handled = true;
+      } else {
+        const panel = findPanelByIdentifier(updatedPanels, identifier, projectId);
+        if (!panel) {
+          reply = `I could not find panel ${identifier}.`;
+          handled = true;
+        } else {
+          await panelLayoutService.deletePanel(projectId, panel.id);
+          updatedPanels = (await panelLayoutService.getLayout(projectId)).panels;
+          handled = true;
+          actionContext = { lastAction: 'delete' };
+
+          reply = `Removed panel ${panel.panelNumber || panel.id} from the layout.`;
+          actions.push({
+            type: 'DELETE_PANEL',
+            panelId: panel.id,
+            panelNumber: panel.panelNumber,
+            description: `Deleted panel ${panel.panelNumber || panel.id}`,
+            timestamp: new Date().toISOString()
+          });
+        }
+      }
+    }
+
+    // HELP
+    if (!handled && /(help|capabilities|what can you do)/.test(normalizedMessage)) {
+      reply = 'I can create, move, resize, rotate, delete panels, summarize the layout, and optimize panel positions. Try commands like "Create a new panel 40ft x 100ft", "Move panel P1 to 200, 150", or "Optimize panel layout".';
+      handled = true;
+      actionContext = { lastAction: 'help' };
+    }
+
+    if (!handled) {
+      reply = await generateLLMFallback(userMessage, layout, context?.projectInfo || context?.project || {});
+      actionContext = { lastAction: 'fallback' };
+    }
+
+    const durationMs = Date.now() - startedAt;
+
+    res.json({
+      success: true,
+      reply,
+      actions,
+      panels: sanitizePanels(updatedPanels),
+      suggestions: buildContextualSuggestions(actionContext),
+      meta: {
+        handled,
+        durationMs,
+        panelCount: updatedPanels.length
+      }
+    });
+  } catch (error) {
+    logger.error('[AI CHAT] Failed to process message', {
+      error: {
+        message: error.message,
+        stack: config.isDevelopment ? error.stack : undefined
+      }
+    });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to process AI chat request',
+      reply: 'I ran into an error while processing that request. Please try again.',
+      suggestions: buildContextualSuggestions()
+    });
+  }
 });
 
 // Query endpoint for chat functionality
