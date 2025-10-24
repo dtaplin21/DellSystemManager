@@ -1,9 +1,8 @@
 'use client'
 
-import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
-import type { Panel } from '@/types/panel'
-import { apiClient } from '@/lib/apiClient'
+import { cn } from '@/lib/utils'
 
 interface PanelAIChatProps {
   projectId: string
@@ -11,46 +10,27 @@ interface PanelAIChatProps {
     projectName?: string
     location?: string
     description?: string
-    manager?: string
-    material?: string
   }
-  panels: Panel[]
-  onPanelsUpdated?: (panels: Panel[]) => void
+  userId?: string
+  userTier?: string
 }
 
 type ChatRole = 'user' | 'assistant'
-
-interface ChatAction {
-  type: string
-  description: string
-  panelId?: string
-  panelNumber?: string
-  timestamp?: string
-}
 
 interface ChatMessage {
   id: string
   role: ChatRole
   content: string
   timestamp: string
-  actions?: ChatAction[]
 }
 
-interface ChatResponse {
+interface MCPChatResponse {
   success: boolean
-  reply: string
-  actions?: ChatAction[]
-  panels?: Array<Record<string, any>>
-  suggestions?: string[]
+  response?: string
   error?: string
+  status?: string
+  cost?: number
 }
-
-const DEFAULT_SUGGESTIONS = [
-  'List all panels in this project.',
-  'Create a new panel 40ft x 100ft near the north boundary.',
-  'Optimize the panel layout for balanced spacing.',
-  'Move panel P1 to coordinates 200, 150.'
-]
 
 const createMessageId = () => {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -59,44 +39,31 @@ const createMessageId = () => {
   return `msg-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
 }
 
-const mapPanelFromApi = (panel: any): Panel => ({
-  id: panel.id || `panel-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-  width: Number(panel.width ?? 0),
-  height: Number(panel.height ?? 0),
-  x: Number(panel.x ?? 0),
-  y: Number(panel.y ?? 0),
-  rotation: Number(panel.rotation ?? 0),
-  isValid: true,
-  shape: panel.shape || 'rectangle',
-  panelNumber: panel.panelNumber || panel.panel_number || '',
-  rollNumber: panel.rollNumber || panel.roll_number || '',
-  color: panel.color,
-  fill: panel.fill,
-  material: panel.material,
-  thickness: panel.thickness,
-  meta: {
-    repairs: [],
-    airTest: { result: 'pending' }
-  }
-})
+const AI_SERVICE_URL = process.env.NEXT_PUBLIC_AI_SERVICE_URL || 'http://localhost:8003'
+
+const DEFAULT_SUGGESTIONS = [
+  'Summarize the latest project insights.',
+  'Trigger a comprehensive MCP workflow.',
+  'Analyze recent document uploads for compliance gaps.',
+  'What are the recommended next steps for this project?'
+]
 
 export default function PanelAIChat({
   projectId,
   projectInfo,
-  panels,
-  onPanelsUpdated
+  userId,
+  userTier
 }: PanelAIChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>(() => [
     {
       id: createMessageId(),
       role: 'assistant',
-      content: "I'm ready to help with panel layout tasks. Try asking me to create, move, resize, or summarize panels.",
+      content: 'Hello! I can coordinate MCP agents, run workflows, analyze documents, and generate panel or QC insights. How can I assist you today?',
       timestamp: new Date().toISOString()
     }
   ])
   const [inputMessage, setInputMessage] = useState('')
   const [isSending, setIsSending] = useState(false)
-  const [suggestions, setSuggestions] = useState<string[]>(DEFAULT_SUGGESTIONS)
   const chatContainerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -105,28 +72,50 @@ export default function PanelAIChat({
     }
   }, [messages, isSending])
 
-  const derivedQuickActions = useMemo(() => {
-    const base = suggestions.length ? suggestions : DEFAULT_SUGGESTIONS
-    if (!panels.length) {
-      return base.slice(0, 4)
-    }
-
-    const firstPanel = panels[0]
-    const panelLabel = firstPanel.panelNumber || firstPanel.rollNumber || firstPanel.id
-
-    const panelAwareActions = [
-      `Move panel ${panelLabel} to ${Math.round(firstPanel.x + 50)}, ${Math.round(firstPanel.y + 50)}.`,
-      `Resize panel ${panelLabel} to ${Math.max(20, Math.round(firstPanel.width))}ft x ${Math.max(20, Math.round(firstPanel.height))}ft.`,
-      `Rotate panel ${panelLabel} by 15 degrees.`,
-      ...base
-    ]
-
-    return Array.from(new Set(panelAwareActions)).slice(0, 4)
-  }, [panels, suggestions])
-
   const appendMessage = useCallback((message: ChatMessage) => {
     setMessages(prev => [...prev, message])
   }, [])
+
+  const buildContextPayload = useCallback(() => {
+    return {
+      projectId,
+      projectInfo,
+      history: messages.slice(-15).map(msg => ({
+        role: msg.role,
+        content: msg.content,
+        timestamp: msg.timestamp
+      }))
+    }
+  }, [messages, projectId, projectInfo])
+
+  const sendToMCP = useCallback(async (prompt: string): Promise<MCPChatResponse> => {
+    const payload = {
+      user_id: userId || 'anonymous',
+      user_tier: userTier || 'free_user',
+      message: prompt,
+      context: buildContextPayload()
+    }
+
+    // Get authentication headers
+    const { getAuthHeaders } = await import('@/lib/api');
+    const authHeaders = await getAuthHeaders();
+
+    const response = await fetch(`${AI_SERVICE_URL}/api/ai/chat`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders
+      },
+      body: JSON.stringify(payload)
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(errorText || `MCP chat failed with status ${response.status}`)
+    }
+
+    return response.json()
+  }, [userId, userTier, buildContextPayload])
 
   const handleSendMessage = useCallback(async (text: string) => {
     const trimmed = text.trim()
@@ -145,46 +134,26 @@ export default function PanelAIChat({
     setIsSending(true)
 
     try {
-      const response = await apiClient.request<ChatResponse>('/api/ai/chat', {
-        method: 'POST',
-        body: {
-          projectId,
-          message: trimmed,
-          context: { projectInfo }
-        }
-      })
-
-      if (Array.isArray(response.panels)) {
-        const mappedPanels = response.panels.map(mapPanelFromApi)
-        onPanelsUpdated?.(mappedPanels)
-      }
-
-      if (Array.isArray(response.suggestions) && response.suggestions.length) {
-        setSuggestions(response.suggestions)
-      } else {
-        setSuggestions(DEFAULT_SUGGESTIONS)
-      }
+      const result = await sendToMCP(trimmed)
 
       appendMessage({
         id: createMessageId(),
         role: 'assistant',
-        content: response.reply || 'I did not receive a response this time.',
-        timestamp: new Date().toISOString(),
-        actions: response.actions
+        content: result.response || result.error || 'I did not receive a response from the MCP service.',
+        timestamp: new Date().toISOString()
       })
     } catch (error) {
-      console.error('AI chat request failed:', error)
       const errorMessage = error instanceof Error ? error.message : 'Unexpected error occurred.'
       appendMessage({
         id: createMessageId(),
         role: 'assistant',
-        content: `I ran into an issue while processing that: ${errorMessage}`,
+        content: `I ran into an issue while contacting the MCP agents: ${errorMessage}`,
         timestamp: new Date().toISOString()
       })
     } finally {
       setIsSending(false)
     }
-  }, [appendMessage, isSending, projectId, projectInfo, onPanelsUpdated])
+  }, [appendMessage, isSending, sendToMCP])
 
   const handleSubmit = useCallback(() => {
     void handleSendMessage(inputMessage)
@@ -197,91 +166,100 @@ export default function PanelAIChat({
     }
   }, [handleSubmit])
 
-  const handleQuickAction = useCallback((prompt: string) => {
-    void handleSendMessage(prompt)
-  }, [handleSendMessage])
+  const quickActions = useMemo(() => DEFAULT_SUGGESTIONS, [])
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="mb-3">
-        <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Quick Actions</div>
+    <div className="flex h-full flex-col">
+      <header className="mb-4 space-y-2 border-b pb-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="text-xl font-semibold">AI Operations Chat</h2>
+            <p className="text-sm text-muted-foreground">
+              Interact with MCP-enabled agents to automate workflows and gather insights.
+            </p>
+          </div>
+          <div className="text-xs text-muted-foreground">
+            Connected project: <span className="font-medium text-foreground">{projectInfo?.projectName || projectId}</span>
+          </div>
+        </div>
         <div className="flex flex-wrap gap-2">
-          {derivedQuickActions.map(action => (
+          {quickActions.map(action => (
             <Button
               key={action}
-              variant="secondary"
               size="sm"
-              onClick={() => handleQuickAction(action)}
+              variant="secondary"
+              onClick={() => handleSendMessage(action)}
               disabled={isSending}
             >
               {action}
             </Button>
           ))}
         </div>
-      </div>
+      </header>
 
       <div
         ref={chatContainerRef}
-        className="flex-1 overflow-y-auto mb-4 p-3 border rounded bg-muted/30 space-y-3"
+        className="flex-1 overflow-y-auto rounded-lg border bg-background p-4"
       >
-        {messages.map(message => (
-          <div
-            key={message.id}
-            className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'}`}
-          >
+        <div className="space-y-4">
+          {messages.map(message => (
             <div
-              className={`max-w-[80%] rounded-lg px-3 py-2 text-sm shadow-sm ${
-                message.role === 'user'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-background border'
-              }`}
+              key={message.id}
+              className={cn(
+                'flex',
+                message.role === 'user' ? 'justify-end' : 'justify-start'
+              )}
             >
-              <div className="whitespace-pre-wrap leading-relaxed">
-                {message.content}
+              <div
+                className={cn(
+                  'max-w-2xl rounded-lg px-4 py-3 text-sm shadow-sm',
+                  message.role === 'user'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted text-foreground'
+                )}
+              >
+                <div className="whitespace-pre-wrap leading-relaxed">
+                  {message.content}
+                </div>
               </div>
             </div>
-            {message.actions && message.actions.length > 0 && (
-              <div className="mt-2 text-xs text-muted-foreground border-l pl-3 space-y-1">
-                {message.actions.map(action => (
-                  <div key={`${message.id}-${action.type}-${action.panelId || action.description}`}>
-                    <span className="font-medium text-foreground">{action.type}</span>
-                    {': '}
-                    {action.description}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
+          ))}
 
-        {isSending && (
-          <div className="flex items-center space-x-2 text-xs text-muted-foreground">
-            <div className="w-2 h-2 rounded-full bg-muted-foreground animate-bounce" />
-            <div className="w-2 h-2 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: '0.15s' }} />
-            <div className="w-2 h-2 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: '0.3s' }} />
-            <span>Thinking…</span>
-          </div>
-        )}
+          {isSending && (
+            <div className="flex items-center space-x-2 text-xs text-muted-foreground">
+              <div className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground" />
+              <div
+                className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground"
+                style={{ animationDelay: '0.15s' }}
+              />
+              <div
+                className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground"
+                style={{ animationDelay: '0.3s' }}
+              />
+              <span>Agents coordinating…</span>
+            </div>
+          )}
+        </div>
       </div>
 
-      <div className="flex gap-2">
+      <div className="mt-4 flex gap-2">
         <input
           type="text"
           value={inputMessage}
           onChange={(event) => setInputMessage(event.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Ask the AI to create, move, resize, or summarize panels…"
-          className="flex-1 p-3 border rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+          placeholder="Describe the task you need the MCP agents to handle..."
+          className="flex-1 rounded-lg border px-4 py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
           disabled={isSending}
         />
-        <Button onClick={handleSubmit} disabled={isSending || !inputMessage.trim()} className="shrink-0">
+        <Button onClick={handleSubmit} disabled={isSending || !inputMessage.trim()}>
           {isSending ? 'Sending…' : 'Send'}
         </Button>
       </div>
 
-      <div className="mt-3 text-xs text-muted-foreground">
-        Tip: You can say things like “Create a 40ft x 100ft panel and move it to the north boundary” or “Summarize all panels in this project.”
-      </div>
+      <p className="mt-2 text-xs text-muted-foreground">
+        Try instructions like “Run a comprehensive workflow”, “Analyze the latest QC logs for issues”, or “Summarize panel layout risks”.
+      </p>
     </div>
   )
 }

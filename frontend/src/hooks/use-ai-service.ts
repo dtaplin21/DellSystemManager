@@ -14,7 +14,7 @@ interface AIResponse {
 
 // AI Service Configuration
 const AI_SERVICE_CONFIG = {
-  baseUrl: process.env.NEXT_PUBLIC_AI_SERVICE_URL || 'http://localhost:5001',
+  baseUrl: process.env.NEXT_PUBLIC_AI_SERVICE_URL || 'http://localhost:8003',
   endpoints: {
     optimize: '/api/ai/panels/optimize',
     analyzeDocument: '/api/ai/documents/analyze',
