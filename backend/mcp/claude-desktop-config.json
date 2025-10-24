@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "dellsystemmanager": {
+      "command": "node",
+      "args": [
+        "/Users/dtaplin21/DellSystemManager/backend/mcp/server.js"
+      ],
+      "env": {
+        "MCP_MODE": "internal",
+        "MCP_ALLOWED_EMAILS": "dtaplin21+new@gmail.com",
+        "MCP_INTERNAL_AUTH": "false",
+        "MCP_LOG_LEVEL": "info",
+        "MCP_CONSOLE_LOG": "true"
+      }
+    }
+  }
+}
