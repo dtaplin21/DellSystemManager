@@ -32,7 +32,8 @@ try {
   createEventBus = () => ({
     emit: () => {},
     on: () => {},
-    off: () => {}
+    off: () => {},
+    subscribe: () => ({ unsubscribe: () => {} })
   });
 }
 // Try to load the orchestrator, but handle missing dependencies gracefully
