@@ -109,7 +109,7 @@ export default function ProjectSelector({ onProjectSelect, isOpen, onClose }: Pr
                       </div>
                     ) : (
                       projects
-                        .filter(project => project.status === 'active')
+                        .filter(project => project.status?.toLowerCase() === 'active')
                         .map((project) => (
                           <button
                             key={project.id}

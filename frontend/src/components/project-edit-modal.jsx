@@ -82,6 +82,24 @@ export default function ProjectEditModal({ isOpen, onClose, project, onSave }) {
           </div>
           
           <div className="grid grid-cols-4 items-center gap-4">
+            <label htmlFor="status" className="text-right font-medium">
+              Status
+            </label>
+            <select
+              id="status"
+              className="col-span-3 h-10 rounded-md border border-gray-300 px-3"
+              value={editedProject.status || 'planning'}
+              onChange={(e) => setEditedProject({...editedProject, status: e.target.value})}
+            >
+              <option value="planning">Planning</option>
+              <option value="active">Active</option>
+              <option value="completed">Completed</option>
+              <option value="on hold">On Hold</option>
+              <option value="delayed">Delayed</option>
+            </select>
+          </div>
+          
+          <div className="grid grid-cols-4 items-center gap-4">
             <label htmlFor="progress" className="text-right font-medium">
               Progress (%)
             </label>
