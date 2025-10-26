@@ -90,6 +90,7 @@ export default function PanelAIChat({
 
   const sendToMCP = useCallback(async (prompt: string): Promise<MCPChatResponse> => {
     const payload = {
+      projectId: projectId, // Backend expects projectId at top level
       user_id: userId || 'anonymous',
       user_tier: userTier || 'free_user',
       message: prompt,
@@ -115,7 +116,7 @@ export default function PanelAIChat({
     }
 
     return response.json()
-  }, [userId, userTier, buildContextPayload])
+  }, [userId, userTier, buildContextPayload, projectId])
 
   const handleSendMessage = useCallback(async (text: string) => {
     const trimmed = text.trim()
