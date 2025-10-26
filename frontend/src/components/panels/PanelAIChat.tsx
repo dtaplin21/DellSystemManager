@@ -26,6 +26,7 @@ interface ChatMessage {
 
 interface MCPChatResponse {
   success: boolean
+  reply?: string
   response?: string
   error?: string
   status?: string
@@ -140,7 +141,7 @@ export default function PanelAIChat({
       appendMessage({
         id: createMessageId(),
         role: 'assistant',
-        content: result.response || result.error || 'I did not receive a response from the MCP service.',
+        content: result.reply || result.error || 'I did not receive a response from the MCP service.',
         timestamp: new Date().toISOString()
       })
     } catch (error) {
