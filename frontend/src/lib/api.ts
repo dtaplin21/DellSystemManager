@@ -87,6 +87,7 @@ export async function makeAuthenticatedRequest(url: string, options: RequestInit
           headers.set('Content-Type', 'application/json');
           
           const response = await fetch(requestUrl, {
+            method: options.method || 'GET',
             ...options,
             headers
           });
@@ -114,6 +115,7 @@ export async function makeAuthenticatedRequest(url: string, options: RequestInit
       console.log('🔍 [AUTH] Development bypass headers:', headers);
       
       const response = await fetch(requestUrl, {
+        method: options.method || 'GET',
         ...options,
         headers
       });
@@ -155,6 +157,7 @@ export async function makeAuthenticatedRequest(url: string, options: RequestInit
     // Make the request
     console.log('🔍 [AUTH] Sending authenticated request...');
     const response = await fetch(requestUrl, {
+      method: options.method || 'GET',
       ...options,
       headers
     });
