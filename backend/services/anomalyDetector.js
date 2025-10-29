@@ -1,27 +1,14 @@
-const fs = require('fs');
-const path = require('path');
-const ort = require('onnxruntime-node');
+const MLService = require('./mlService');
 
 class AnomalyDetector {
   constructor(options = {}) {
-    this.modelPath = options.modelPath || path.join(__dirname, '..', 'ml_models', 'anomaly_detector', 'model.onnx');
-    this.session = null;
-  }
-
-  async ensureSession() {
-    if (this.session) {
-      return;
-    }
-
-    try {
-      if (!fs.existsSync(this.modelPath)) {
-        throw new Error(`ONNX model not found at ${this.modelPath}`);
-      }
-      this.session = await ort.InferenceSession.create(this.modelPath);
-    } catch (error) {
-      console.error('❌ [AnomalyDetector] Failed to load ONNX model', error.message);
-      throw error;
-    }
+    // Use Python server approach (no ONNX dependency)
+    this.mlService = new MLService({
+      baseURL: options.baseURL || process.env.ML_SERVICE_URL || 'http://localhost:5001',
+      timeout: options.timeout || 10000
+    });
+    
+    this.usePythonServer = true;
   }
 
   async detect(records = []) {
@@ -29,38 +16,22 @@ class AnomalyDetector {
       return [];
     }
 
-    await this.ensureSession();
-
-    const features = records.map(record => {
-      const mapped = record?.mapped_data || {};
-      const rawTemp = mapped.temperature ?? mapped.wedgeTemp ?? record.temperature;
-      const rawWedge = mapped.wedgeTemp ?? record.wedgeTemp ?? rawTemp;
-
-      const temperature = Number.parseFloat(rawTemp);
-      const wedgeTemp = Number.parseFloat(rawWedge);
-
-      return [
-        Number.isFinite(temperature) ? temperature : 0,
-        Number.isFinite(wedgeTemp) ? wedgeTemp : 0
-      ];
-    });
-
-    const flattened = features.flat();
-    const tensor = new ort.Tensor('float32', Float32Array.from(flattened), [features.length, 2]);
-
+    // Use Python ML server for anomaly detection
     try {
-      const results = await this.session.run({ input: tensor });
-      const outputKey = Object.keys(results)[0];
-      const output = results[outputKey];
-
-      return records.map((record, index) => ({
-        ...record,
-        anomalyScore: output.data[index],
-        isAnomaly: output.data[index] < 0
-      }));
+      const results = await this.mlService.detectAnomalies(records);
+      
+      // Python server returns array of records with anomaly_score and is_anomaly
+      return results;
     } catch (error) {
-      console.error('❌ [AnomalyDetector] Failed to run inference', error.message);
-      throw error;
+      // Graceful degradation: if ML server unavailable, return records without anomaly flags
+      console.warn('⚠️ [AnomalyDetector] ML server unavailable, continuing without anomaly detection', error.message);
+      
+      return records.map(record => ({
+        ...record,
+        anomalyScore: null,
+        isAnomaly: false,
+        mlServiceAvailable: false
+      }));
     }
   }
 }
