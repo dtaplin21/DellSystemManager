@@ -1,4 +1,5 @@
 const { createClient } = require('@supabase/supabase-js');
+const { Pool } = require('pg');
 const OpenAI = require('openai');
 
 class DuplicateDetectionService {
@@ -13,6 +14,17 @@ class DuplicateDetectionService {
       this.supabase = createClient(supabaseUrl, supabaseServiceKey);
     }
     
+    const connectionString = process.env.DATABASE_URL;
+    if (connectionString) {
+      this.pool = new Pool({
+        connectionString,
+        ssl: { rejectUnauthorized: false }
+      });
+    } else {
+      console.warn('⚠️ [DuplicateDetection] DATABASE_URL not configured - context-aware analysis disabled');
+      this.pool = null;
+    }
+
     if (!process.env.OPENAI_API_KEY) {
       console.warn('⚠️ [DuplicateDetection] OPENAI_API_KEY not configured - skipping advanced AI analysis');
       this.openaiConfigured = false;
@@ -114,9 +126,17 @@ class DuplicateDetectionService {
         return { similarRecords: [], aiInsights: [] };
       }
 
+      const [projectContext, correctionPatterns] = await Promise.all([
+        this.getProjectHistoryContext(projectId, domain),
+        this.getUserCorrectionPatterns(projectId, domain)
+      ]);
+
       // Use AI to detect similarities
-      const aiAnalysis = await this.analyzeWithAI(newRecords, existingRecords);
-      
+      const aiAnalysis = await this.analyzeWithAI(newRecords, existingRecords, {
+        projectContext,
+        correctionPatterns
+      });
+
       return {
         similarRecords: aiAnalysis.similarRecords,
         aiInsights: aiAnalysis.insights,
@@ -388,6 +408,169 @@ class DuplicateDetectionService {
     return conflicts;
   }
 
+  async getProjectHistoryContext(projectId, domain) {
+    if (!this.supabase) {
+      return {};
+    }
+
+    try {
+      const { data, error } = await this.supabase
+        .from('asbuilt_records')
+        .select('mapped_data, created_at')
+        .eq('project_id', projectId)
+        .eq('domain', domain)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) {
+        throw error;
+      }
+
+      if (!data || data.length === 0) {
+        return {};
+      }
+
+      const operatorCounts = new Map();
+      const temperatureValues = [];
+      const panels = new Set();
+      const createdAt = [];
+
+      data.forEach(record => {
+        const mapped = record.mapped_data || {};
+        if (mapped.operator) {
+          operatorCounts.set(mapped.operator, (operatorCounts.get(mapped.operator) || 0) + 1);
+        }
+        if (mapped.seamerInitials) {
+          operatorCounts.set(mapped.seamerInitials, (operatorCounts.get(mapped.seamerInitials) || 0) + 1);
+        }
+        if (mapped.temperature) {
+          const value = parseFloat(mapped.temperature);
+          if (!Number.isNaN(value)) {
+            temperatureValues.push(value);
+          }
+        }
+        if (mapped.panelNumber) {
+          panels.add(mapped.panelNumber);
+        }
+        if (record.created_at) {
+          createdAt.push(new Date(record.created_at));
+        }
+      });
+
+      const sortedOperators = Array.from(operatorCounts.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([operator, count]) => ({ operator, count }));
+
+      const avgTemperature = temperatureValues.length
+        ? parseFloat((temperatureValues.reduce((sum, value) => sum + value, 0) / temperatureValues.length).toFixed(2))
+        : null;
+
+      const range = createdAt.length
+        ? {
+            newest: new Date(Math.max(...createdAt.map(date => date.getTime()))).toISOString(),
+            oldest: new Date(Math.min(...createdAt.map(date => date.getTime()))).toISOString()
+          }
+        : null;
+
+      return {
+        recentRecordCount: data.length,
+        uniquePanels: panels.size,
+        topOperators: sortedOperators,
+        averageTemperature: avgTemperature,
+        activityWindow: range
+      };
+    } catch (error) {
+      console.error('❌ [DuplicateDetection] Failed to build project history context', error.message);
+      return {};
+    }
+  }
+
+  async getUserCorrectionPatterns(projectId, domain) {
+    if (!this.pool) {
+      return {};
+    }
+
+    try {
+      const result = await this.pool.query(
+        `
+          SELECT aal.predicted_value, aal.user_corrected_value, aal.was_accepted, aal.created_at
+          FROM ai_accuracy_log aal
+          JOIN asbuilt_records ar ON ar.id = aal.import_id
+          WHERE ar.project_id = $1
+            AND aal.domain = $2
+          ORDER BY aal.created_at DESC
+          LIMIT 100
+        `,
+        [projectId, domain]
+      );
+
+      return this.summarizeCorrectionPatterns(result.rows);
+    } catch (error) {
+      console.error('❌ [DuplicateDetection] Failed to fetch correction patterns', error.message);
+      return {};
+    }
+  }
+
+  summarizeCorrectionPatterns(rows = []) {
+    if (!rows.length) {
+      return { totalCorrections: 0 };
+    }
+
+    const adjustmentCounts = new Map();
+    let accepted = 0;
+
+    rows.forEach(row => {
+      if (row.was_accepted) {
+        accepted += 1;
+      }
+
+      const predicted = this.safeParseJSON(row.predicted_value) || {};
+      const corrected = this.safeParseJSON(row.user_corrected_value) || {};
+
+      Object.keys(corrected).forEach(field => {
+        const predictedValue = predicted[field];
+        const correctedValue = corrected[field];
+
+        if (predictedValue !== correctedValue) {
+          const key = `${field}:${correctedValue}`;
+          adjustmentCounts.set(key, (adjustmentCounts.get(key) || 0) + 1);
+        }
+      });
+    });
+
+    const frequentAdjustments = Array.from(adjustmentCounts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([key, count]) => {
+        const [field, value] = key.split(':');
+        return { field, value, count };
+      });
+
+    return {
+      totalCorrections: rows.length,
+      acceptanceRate: parseFloat((accepted / rows.length).toFixed(2)),
+      frequentAdjustments
+    };
+  }
+
+  safeParseJSON(payload) {
+    if (!payload) {
+      return null;
+    }
+
+    if (typeof payload === 'object') {
+      return payload;
+    }
+
+    try {
+      return JSON.parse(payload);
+    } catch (error) {
+      console.warn('⚠️ [DuplicateDetection] Failed to parse JSON payload', error.message);
+      return null;
+    }
+  }
+
   generateDuplicateSummary(duplicates, conflicts) {
     return {
       totalDuplicates: duplicates.length,
@@ -397,20 +580,28 @@ class DuplicateDetectionService {
     };
   }
 
-  async analyzeWithAI(newRecords, existingRecords) {
+  async analyzeWithAI(newRecords, existingRecords, context = {}) {
     const prompt = `
-    Analyze these new as-built records for potential duplicates with existing records:
-    
+    Analyze these new as-built records for potential duplicates with existing records.
+
     New Records: ${JSON.stringify(newRecords.slice(0, 5), null, 2)}
     Existing Records: ${JSON.stringify(existingRecords.slice(0, 5), null, 2)}
-    
+
+    Project History Summary: ${JSON.stringify(context.projectContext || {}, null, 2)}
+    User Correction Patterns: ${JSON.stringify(context.correctionPatterns || {}, null, 2)}
+
     Identify:
     1. Exact duplicates (same panel number, domain, date)
     2. Near duplicates (similar panel number, different date/location)
     3. Potential data quality issues
-    4. Patterns in the data
-    
-    Return JSON format with similarRecords array and insights.
+    4. Patterns in the data or systematic corrections users make
+
+    Include:
+    - A risk score (0-1) for each similar record
+    - How historical corrections should influence the recommendation
+    - Guidance on whether to auto-merge, flag for review, or ignore
+
+    Return JSON with fields { similarRecords: [], insights: [], confidence: 0-1 }.
     `;
 
     try {

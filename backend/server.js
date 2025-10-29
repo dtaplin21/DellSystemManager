@@ -9,6 +9,7 @@ const logger = require('./lib/logger');
 const { setupWebSocketServer } = require('./services/websocket');
 const { connectToDatabase, applyMigrations, pool } = require('./db');
 const { isOpenAIConfigured, initAIServices } = require('./services/ai-connector');
+const ModelMonitor = require('./services/mlMonitor');
 
 const SERVICE_NAME = 'GeoSynth QC Pro Backend';
 const SERVICE_VERSION = '1.0.0';
@@ -241,6 +242,13 @@ async function startServer() {
       
       // Apply database migrations
       await applyMigrations();
+
+      if (!global.mlMonitor) {
+        const mlMonitor = new ModelMonitor();
+        mlMonitor.start();
+        global.mlMonitor = mlMonitor;
+        logger.info('Model monitor initialized');
+      }
     } catch (dbError) {
       logger.error('Database connection failed', {
         error: {
