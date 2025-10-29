@@ -3,6 +3,14 @@ const { Pool } = require('pg');
 const OpenAI = require('openai');
 const DuplicateDetectionService = require('./duplicateDetectionService');
 const ImportAnalysisService = require('./importAnalysisService');
+const { PromptVersionManager } = require('./prompt-templates/base');
+const panelPlacementPrompt = require('./prompt-templates/panel-placement-prompt');
+const panelSeamingPrompt = require('./prompt-templates/panel-seaming-prompt');
+const nonDestructivePrompt = require('./prompt-templates/non-destructive-prompt');
+const repairsPrompt = require('./prompt-templates/repairs-prompt');
+const destructivePrompt = require('./prompt-templates/destructive-prompt');
+const generalPrompt = require('./prompt-templates/general-prompt');
+const HistoricalPatternLearner = require('./historical-patterns');
 require('dotenv').config({ path: '../.env' });
 
 class AsbuiltImportAI {
@@ -20,6 +28,21 @@ class AsbuiltImportAI {
     // Initialize new services
     this.duplicateDetectionService = new DuplicateDetectionService();
     this.importAnalysisService = new ImportAnalysisService();
+    this.promptVersionManager = new PromptVersionManager();
+    this.historicalPatternLearner = new HistoricalPatternLearner();
+    this.patternRefreshInterval = null;
+
+    this.promptTemplates = {
+      panel_placement: panelPlacementPrompt,
+      panel_seaming: panelSeamingPrompt,
+      non_destructive: nonDestructivePrompt,
+      repairs: repairsPrompt,
+      destructive: destructivePrompt,
+      trial_weld: generalPrompt,
+      default: generalPrompt
+    };
+
+    this.schedulePatternRefresh();
 
     // Canonical field definitions per domain
     this.canonicalFields = {
@@ -126,6 +149,25 @@ class AsbuiltImportAI {
   /**
    * Main import function - Production ready
    */
+  schedulePatternRefresh() {
+    if (!this.historicalPatternLearner || this.patternRefreshInterval) {
+      return;
+    }
+
+    this.patternRefreshInterval = setInterval(() => {
+      this.historicalPatternLearner
+        .learnFromCorrections()
+        .then(patterns => {
+          if (patterns && patterns.length) {
+            console.log(`🧠 [AI] Learned ${patterns.length} correction pattern(s) in the last 30 days`);
+          }
+        })
+        .catch(error => {
+          console.error('❌ [AI] Failed to refresh historical patterns', error.message);
+        });
+    }, 6 * 60 * 60 * 1000);
+  }
+
   async importExcelData(fileBuffer, projectId, domain, userId, options = {}) {
     const startTime = Date.now();
     try {
@@ -867,64 +909,65 @@ Respond with ONLY the domain name (e.g., "panel_placement").`;
   async aiMapHeaders(unmappedHeaders, domain, dataRows) {
     console.log(`🤖 [AI] OpenAI mapping ${unmappedHeaders.length} headers for domain: ${domain}`);
     
-    const canonicalFields = this.canonicalFields[domain];
+    const canonicalFields = this.canonicalFields[domain] || [];
     const sampleData = dataRows.slice(0, 3);
-
-    const headersToMap = unmappedHeaders.map(h => ({
-      header: h.header,
-      index: h.index,
-      sampleData: sampleData.map(row => row[h.index])
-    }));
-
-    const prompt = `Map these Excel column headers to standardized field names for ${domain} data.
-
-Headers: ${unmappedHeaders.map(h => h.header).join(', ')}
-Sample data: ${JSON.stringify(sampleData.slice(0, 2), null, 2)}
-
-Standard fields for ${domain}: ${canonicalFields.join(', ')}
-
-CRITICAL RULES:
-1. Map "Panel #" or "Panel Number" → panelNumber (NEVER "Roll Number")
-2. Map "Date" or "DateTime" → dateTime
-3. Ignore columns with material descriptions like "geomembrane", "thickness specifications"
-4. Return ONLY valid mappings, omit headers that don't match any canonical field
-5. Return JSON format: [{"header": "original", "field": "standardized", "confidence": 0.95}]
-
-Return ONLY valid JSON, no explanation.`;
-
-    const startTime = Date.now();
-    const completion = await this.openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
-      max_tokens: 1024,
-      messages: [{ role: "user", content: prompt }]
+    const headersList = unmappedHeaders.map(h => h.header).filter(Boolean);
+    const promptTemplate = this.promptTemplates[domain] || this.promptTemplates.default;
+    const { messages, version } = promptTemplate.buildMessages({
+      headers: headersList,
+      canonicalFields,
+      sampleData,
+      domain
     });
-    
-    const processingTime = Date.now() - startTime;
-    const aiResponse = completion.choices[0].message.content;
-    
-    console.log(`🤖 [AI] OpenAI mapped headers in ${processingTime}ms`);
-    console.log(`🤖 [AI] OpenAI response: ${aiResponse}`);
-    
-    // Parse AI response - handle both array and object formats
+
+    let aiResponse = '';
+    let success = false;
     let aiMappings;
+
     try {
+      const startTime = Date.now();
+      const completion = await this.openai.chat.completions.create({
+        model: "gpt-3.5-turbo",
+        max_tokens: 1024,
+        messages
+      });
+
+      const processingTime = Date.now() - startTime;
+      aiResponse = completion.choices[0].message.content;
+
+      console.log(`🤖 [AI] OpenAI mapped headers in ${processingTime}ms using prompt ${promptTemplate.id} v${version}`);
+      console.log(`🤖 [AI] OpenAI response: ${aiResponse}`);
+
       const parsed = JSON.parse(aiResponse);
       if (Array.isArray(parsed)) {
-        // Convert array of objects to object format
         aiMappings = {};
         parsed.forEach(item => {
-          if (item.header && item.field) {
+          if (item && item.header && item.field) {
             aiMappings[item.header] = item.field;
           }
         });
+      } else if (parsed.mapping) {
+        aiMappings = parsed.mapping;
       } else {
         aiMappings = parsed;
       }
+
+      success = !!aiMappings && Object.keys(aiMappings).length > 0;
     } catch (error) {
-      console.error(`❌ [AI] Failed to parse AI response: ${error.message}`);
-      return [];
+      console.error(`❌ [AI] Failed to map headers for ${domain}: ${error.message}`);
+      aiMappings = {};
+    } finally {
+      this.promptVersionManager
+        .trackUsage(promptTemplate.id, version, success, null, {
+          domain,
+          headerCount: headersList.length,
+          sampleSize: sampleData.length
+        })
+        .catch(trackError => {
+          console.error('❌ [AI] Failed to record prompt usage', trackError.message);
+        });
     }
-    
+
     const result = Object.entries(aiMappings)
       .map(([sourceHeader, canonicalField]) => {
         const sanitizedCanonical = canonicalField?.toString().trim();
@@ -1316,6 +1359,19 @@ Return ONLY valid JSON, no explanation.`;
    * Close database connection
    */
   async close() {
+    if (this.patternRefreshInterval) {
+      clearInterval(this.patternRefreshInterval);
+      this.patternRefreshInterval = null;
+    }
+
+    if (this.promptVersionManager && typeof this.promptVersionManager.close === 'function') {
+      await this.promptVersionManager.close();
+    }
+
+    if (this.historicalPatternLearner && typeof this.historicalPatternLearner.close === 'function') {
+      await this.historicalPatternLearner.close();
+    }
+
     await this.pool.end();
   }
 }
