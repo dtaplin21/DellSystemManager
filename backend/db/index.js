@@ -1,6 +1,8 @@
 const { drizzle } = require('drizzle-orm/node-postgres');
 const { Pool } = require('pg');
 const { createClient } = require('@supabase/supabase-js');
+const fs = require('fs/promises');
+const path = require('path');
 const schema = require('./schema');
 const config = require('../config/env');
 const logger = require('../lib/logger');
@@ -173,6 +175,29 @@ async function applyMigrations() {
     }
     logger.debug('file_metadata indexes verified');
     
+    // Ensure pgcrypto extension for gen_random_uuid
+    try {
+      await client.query('CREATE EXTENSION IF NOT EXISTS pgcrypto');
+      logger.debug('pgcrypto extension verified');
+    } catch (extErr) {
+      logger.warn('Could not ensure pgcrypto extension (may already exist or lack perms)', {
+        error: { message: extErr.message }
+      });
+    }
+
+    // Apply ML infrastructure migration (tables: ml_models, ml_predictions, etc.)
+    try {
+      const mlMigrationPath = path.join(__dirname, 'migrations', '004_ml_infrastructure.sql');
+      const mlSql = await fs.readFile(mlMigrationPath, 'utf8');
+      await client.query(mlSql);
+      logger.debug('ML infrastructure migration applied');
+    } catch (mlErr) {
+      logger.warn('ML infrastructure migration not applied', {
+        error: { message: mlErr.message },
+        hint: 'If permissions restrict file reads, run the SQL manually in the DB.'
+      });
+    }
+
     client.release();
     logger.info('Database migrations completed successfully');
   } catch (error) {
