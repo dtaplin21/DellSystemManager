@@ -143,6 +143,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
   const [isRotating, setIsRotating] = useState(false)
   const [rotationStart, setRotationStart] = useState(0)
+  const initialRotationRef = useRef(0)
   
   // Get the selected panel from the reducer state
   const selectedPanel = panels.selectedPanelId ? panels.panels.find(p => p.id === panels.selectedPanelId) : null
@@ -917,6 +918,38 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
   }, [worldDimensions.worldScale, canvasState.scale, canvasState.offsetX, canvasState.offsetY]);
   
   // Mouse event handlers
+  const toPanelLocal = (panel: Panel, worldX: number, worldY: number) => {
+    const rotationRadians = ((panel.rotation ?? 0) * Math.PI) / 180
+    const centerX = panel.x + panel.width / 2
+    const centerY = panel.y + panel.height / 2
+    const dx = worldX - centerX
+    const dy = worldY - centerY
+    const cosAngle = Math.cos(rotationRadians)
+    const sinAngle = Math.sin(rotationRadians)
+
+    const localX = dx * cosAngle + dy * sinAngle + panel.width / 2
+    const localY = -dx * sinAngle + dy * cosAngle + panel.height / 2
+
+    return { x: localX, y: localY }
+  }
+
+  const getRotationHandleScreenPoint = (panel: Panel) => {
+    const centerX = panel.x + panel.width / 2
+    const centerY = panel.y + panel.height / 2
+    const rotationRadians = ((panel.rotation ?? 0) * Math.PI) / 180
+    const cosAngle = Math.cos(rotationRadians)
+    const sinAngle = Math.sin(rotationRadians)
+
+    const totalScale = worldDimensions.worldScale * canvasState.scale
+    const handleOffsetWorld = 30 / (totalScale || 1)
+    const offsetFromCenterY = -panel.height / 2 - handleOffsetWorld
+
+    const handleWorldX = centerX + (0 * cosAngle - offsetFromCenterY * sinAngle)
+    const handleWorldY = centerY + (0 * sinAngle + offsetFromCenterY * cosAngle)
+
+    return localWorldToScreen(handleWorldX, handleWorldY)
+  }
+
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = isFullscreen ? fullscreenCanvasRef.current : canvasRef.current
     if (!canvas) return
@@ -943,72 +976,31 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
         
         // Convert screen coordinates to world coordinates for hit testing
         const worldPos = localScreenToWorld(x, y);
+        const localPos = toPanelLocal(panel, worldPos.x, worldPos.y);
         
-        // Enhanced hit test based on panel shape
         let isHit = false;
-        
-        switch (panel.
-          shape) {
-          case 'right-triangle':
-            // Point-in-triangle test for equilateral triangle
-            const centerX = panel.x + panel.width / 2;
-            const topY = panel.y;
-            const leftX = panel.x;
-            const rightX = panel.x + panel.width;
-            const bottomY = panel.y + panel.height;
-            
-            // Check if point is inside triangle using barycentric coordinates
-            const v0x = rightX - leftX;
-            const v0y = bottomY - topY;
-            const v1x = centerX - leftX;
-            const v1y = topY - topY;
-            const v2x = worldPos.x - leftX;
-            const v2y = worldPos.y - topY;
-            
-            const dot00 = v0x * v0x + v0y * v0y;
-            const dot01 = v0x * v1x + v0y * v1y;
-            const dot02 = v0x * v2x + v0y * v2y;
-            const dot11 = v1x * v1x + v1y * v1y;
-            const dot12 = v1x * v2x + v1y * v2y;
-            
-            const invDenom = 1 / (dot00 * dot11 - dot01 * dot01);
-            const u = (dot11 * dot02 - dot01 * dot12) * invDenom;
-            const v = (dot00 * dot12 - dot01 * dot02) * invDenom;
-            
-            isHit = (u >= 0) && (v >= 0) && (u + v <= 1);
+
+        switch (panel.shape) {
+          case 'patch': {
+            const radius = panel.width / 2;
+            const dx = localPos.x - radius;
+            const dy = localPos.y - radius;
+            isHit = dx * dx + dy * dy <= radius * radius;
             break;
-            
-          case 'right-triangle':
-            // Point-in-right-triangle test
-            // Right triangle has right angle at top-right, hypotenuse from top-left to bottom-right
-            const rightTopX = panel.x + panel.width;
-            const rightTopY = panel.y;
-            const leftTopX = panel.x;
-            const leftTopY = panel.y;
-            const rightBottomX = panel.x + panel.width;
-            const rightBottomY = panel.y + panel.height;
-            
-            // Check if point is inside the bounding box
-            if (worldPos.x >= leftTopX && worldPos.x <= rightTopX && 
-                worldPos.y >= leftTopY && worldPos.y <= rightBottomY) {
-              
-              // Calculate the hypotenuse line: from top-left to bottom-right
-              // For a point to be inside the triangle, it must be below the hypotenuse
-              const hypotenuseSlope = (rightBottomY - leftTopY) / (rightBottomX - leftTopX);
-              const hypotenuseY = leftTopY + hypotenuseSlope * (worldPos.x - leftTopX);
-              
-              // Point is inside if it's below the hypotenuse
-              isHit = worldPos.y >= hypotenuseY;
-            } else {
-              isHit = false;
+          }
+          case 'right-triangle': {
+            const withinBounds = localPos.x >= 0 && localPos.x <= panel.width &&
+              localPos.y >= 0 && localPos.y <= panel.height;
+            if (withinBounds) {
+              const hypotenuseY = (-panel.height / panel.width) * localPos.x + panel.height;
+              isHit = localPos.y <= hypotenuseY + 0.0001;
             }
             break;
-            
+          }
           case 'rectangle':
           default:
-            // Simple AABB hit test for rectangles
-            isHit = worldPos.x >= panel.x && worldPos.x <= panel.x + panel.width &&
-                    worldPos.y >= panel.y && worldPos.y <= panel.y + panel.height;
+            isHit = localPos.x >= 0 && localPos.x <= panel.width &&
+                    localPos.y >= 0 && localPos.y <= panel.height;
             break;
         }
         
@@ -1028,14 +1020,14 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
           }
           
           if (isRotationHandle(x, y, panel)) {
-        setIsRotating(true)
-            // Convert screen coordinates to world coordinates for rotation calculation
+            setIsRotating(true)
+            initialRotationRef.current = panel.rotation ?? 0
             const worldPos = localScreenToWorld(x, y);
             const panelCenterX = panel.x + panel.width / 2;
             const panelCenterY = panel.y + panel.height / 2;
             setRotationStart(Math.atan2(worldPos.y - panelCenterY, worldPos.x - panelCenterX));
-        return
-      }
+            return
+          }
       
           // Only set the ref - simplified state management
           isDraggingRef.current = true;
@@ -1111,20 +1103,22 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
           }
         })
     } else if (isRotating && selectedPanel) {
-      const worldX = (x - canvasState.offsetX) / canvasState.scale / canvasState.worldScale;
-      const worldY = (y - canvasState.offsetY) / canvasState.scale / canvasState.worldScale;
+      const worldPos = localScreenToWorld(x, y);
       
       const panelCenterX = selectedPanel.x + (selectedPanel.width / 2);
       const panelCenterY = selectedPanel.y + (selectedPanel.height / 2);
       
-      const angle = Math.atan2(worldY - panelCenterY, worldX - panelCenterX);
-      const rotation = ((angle - rotationStart) * 180) / Math.PI;
+      const angle = Math.atan2(worldPos.y - panelCenterY, worldPos.x - panelCenterX);
+      const rotationDelta = ((angle - rotationStart) * 180) / Math.PI;
+      let newRotation = initialRotationRef.current + rotationDelta;
+      while (newRotation < 0) newRotation += 360;
+      while (newRotation >= 360) newRotation -= 360;
       
       dispatch({
         type: 'UPDATE_PANEL',
         payload: {
           id: selectedPanel.id,
-          updates: { rotation: ((selectedPanel.rotation ?? 0) + rotation) % 360 }
+          updates: { rotation: newRotation }
         }
       })
     }
@@ -1148,16 +1142,10 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
       return false;
     }
     
-    // Convert world coordinates to screen coordinates for handle detection
-    const screenPos = localWorldToScreen(panel.x, panel.y);
-    const screenWidth = panel.width * canvasState.worldScale * canvasState.scale;
-    
+    const handlePos = getRotationHandleScreenPoint(panel);
     const handleSize = 8
-    const rotationHandleY = screenPos.y - 30
-    const rotationHandleX = screenPos.x + screenWidth / 2
     
-    // x and y are already in screen coordinates from handleMouseDown
-    return Math.abs(x - rotationHandleX) <= handleSize && Math.abs(y - rotationHandleY) <= handleSize
+    return Math.abs(x - handlePos.x) <= handleSize && Math.abs(y - handlePos.y) <= handleSize
   }
   
 
