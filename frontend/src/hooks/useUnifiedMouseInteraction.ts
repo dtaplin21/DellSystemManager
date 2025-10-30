@@ -294,8 +294,21 @@ export function useUnifiedMouseInteraction({
 
   // Panel drawing function - uses unified coordinate system
   const drawPanel = useCallback((ctx: CanvasRenderingContext2D, panel: Panel) => {
-    // Draw panel directly in world coordinates (canvas is already transformed)
-    // No need to convert to screen coordinates since ctx.translate/scale is applied
+    const currentState = mouseStateRef.current;
+
+    // Use the in-flight drag position if this panel is being dragged
+    let drawX = panel.x;
+    let drawY = panel.y;
+    if (
+      currentState.isDragging &&
+      currentState.selectedPanelId === panel.id &&
+      currentState.dragCurrentX !== undefined &&
+      currentState.dragCurrentY !== undefined
+    ) {
+      drawX = currentState.dragCurrentX;
+      drawY = currentState.dragCurrentY;
+    }
+
     const worldWidth = panel.width;
     const worldHeight = panel.height;
 
@@ -309,42 +322,32 @@ export function useUnifiedMouseInteraction({
     }
     ctx.lineWidth = 2;
     
-    // Apply rotation for all shapes
     const rotation = ((panel.rotation ?? 0) * Math.PI) / 180;
-    const centerX = panel.x + worldWidth / 2;
-    const centerY = panel.y + worldHeight / 2;
+    const centerX = drawX + worldWidth / 2;
+    const centerY = drawY + worldHeight / 2;
     
-    // Save the current transformation state
     ctx.save();
-    
-    // Apply rotation transformation
     ctx.translate(centerX, centerY);
     ctx.rotate(rotation);
     ctx.translate(-worldWidth / 2, -worldHeight / 2);
     
-    // Draw different shapes based on panel.shape
     switch (panel.shape) {
-      case 'right-triangle':
+      case 'right-triangle': {
         ctx.beginPath();
-        
-        // Define triangle points relative to origin (after translation)
         const points = [
-          { x: 0, y: 0 }, // Top left
-          { x: worldWidth, y: 0 },  // Top right
-          { x: 0, y: worldHeight }   // Bottom left (right angle)
-        ]
-        
-        // Draw triangle
-        ctx.moveTo(points[0].x, points[0].y)
-        ctx.lineTo(points[1].x, points[1].y)
-        ctx.lineTo(points[2].x, points[2].y)
-        ctx.closePath()
-        ctx.fill()
-        ctx.stroke()
+          { x: 0, y: 0 },
+          { x: worldWidth, y: 0 },
+          { x: 0, y: worldHeight }
+        ];
+        ctx.moveTo(points[0].x, points[0].y);
+        ctx.lineTo(points[1].x, points[1].y);
+        ctx.lineTo(points[2].x, points[2].y);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
         break;
-        
-      case 'patch':
-        // Draw circle - use width as diameter for consistent sizing
+      }
+      case 'patch': {
         const radius = worldWidth / 2;
         const circleCenterX = worldWidth / 2;
         const circleCenterY = worldHeight / 2;
@@ -353,19 +356,16 @@ export function useUnifiedMouseInteraction({
         ctx.fill();
         ctx.stroke();
         break;
-        
+      }
       case 'rectangle':
       default:
-        // Draw rectangle (default)
         ctx.fillRect(0, 0, worldWidth, worldHeight);
         ctx.strokeRect(0, 0, worldWidth, worldHeight);
         break;
     }
     
-    // Restore the transformation state
     ctx.restore();
 
-    // Draw panel number (after rotation is applied)
     ctx.save();
     ctx.translate(centerX, centerY);
     ctx.rotate(rotation);
@@ -378,10 +378,8 @@ export function useUnifiedMouseInteraction({
 
   // Draw selection handles for a panel - WORLD COORDINATES APPROACH
   const drawSelectionHandles = useCallback((ctx: CanvasRenderingContext2D, panel: Panel) => {
-    // Get current mouse state for drag feedback
     const currentState = mouseStateRef.current;
     
-    // Use drag position if currently dragging this panel
     let drawX = panel.x;
     let drawY = panel.y;
     if (currentState.isDragging && currentState.selectedPanelId === panel.id &&
@@ -392,7 +390,10 @@ export function useUnifiedMouseInteraction({
 
     const effectiveScale = canvasState.worldScale || 1;
     const handleSizeWorld = 16 / effectiveScale;
-    const rotationHandleWorld = getRotationHandleWorldPosition(panel, canvasState);
+    const rotationHandleWorld = getRotationHandleWorldPosition(
+      { ...panel, x: drawX, y: drawY },
+      canvasState
+    );
     
     ctx.fillStyle = '#10b981';
     ctx.fillRect(
