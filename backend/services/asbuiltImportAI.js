@@ -1195,21 +1195,35 @@ Respond with ONLY the domain name (e.g., "panel_placement").`;
       const panels = result.rows[0].panels;
       const normalizedSearch = this.normalizePanelNumber(panelNumber);
       
+      // Search by both panelNumber and rollNumber
       const panel = panels.find(p => {
-        const normalizedDb = this.normalizePanelNumber(p.panelNumber);
-        return normalizedDb === normalizedSearch;
+        // Check panelNumber if it exists
+        const normalizedPanelNumber = p.panelNumber ? this.normalizePanelNumber(p.panelNumber) : null;
+        // Check rollNumber if it exists
+        const normalizedRollNumber = p.rollNumber ? this.normalizePanelNumber(p.rollNumber) : null;
+        
+        // Match if either field matches the search term
+        return (normalizedPanelNumber === normalizedSearch) || 
+               (normalizedRollNumber === normalizedSearch);
       });
 
       if (panel) {
-        console.log(`✅ [AI] Found panel: ${panelNumber} → ${panel.id}`);
+        // Log which field matched for debugging
+        const matchedBy = panel.panelNumber && 
+                         this.normalizePanelNumber(panel.panelNumber) === normalizedSearch 
+          ? 'panelNumber' 
+          : 'rollNumber';
+        console.log(`✅ [AI] Found panel: ${panelNumber} → ${panel.id} (matched by ${matchedBy})`);
         return panel.id;
       }
 
       console.error(`❌ [AI] Panel not found: ${panelNumber} (normalized: ${normalizedSearch})`);
       console.log(`Available panels:`, panels.slice(0, 5).map(p => ({ 
         id: p.id, 
-        panelNumber: p.panelNumber, 
-        normalized: this.normalizePanelNumber(p.panelNumber) 
+        panelNumber: p.panelNumber || null,
+        rollNumber: p.rollNumber || null,
+        normalizedPanelNumber: p.panelNumber ? this.normalizePanelNumber(p.panelNumber) : null,
+        normalizedRollNumber: p.rollNumber ? this.normalizePanelNumber(p.rollNumber) : null
       })));
       return null;
 
@@ -1254,11 +1268,25 @@ Respond with ONLY the domain name (e.g., "panel_placement").`;
 
     // For other domains, use the existing normalization logic
     // Normalize common prefixes/suffixes and remove separators while preserving suffix letters
+    
+    // Handle roll number format (R prefix) - normalize R21 to P021 format for comparison
+    if (/^R\d{1,4}[A-Z]{0,3}$/i.test(str)) {
+      const match = str.match(/^R(\d{1,4})([A-Z]{0,3})$/i);
+      if (match) {
+        const numeric = parseInt(match[1], 10);
+        if (!Number.isNaN(numeric)) {
+          const suffix = match[2] || '';
+          return `P${numeric.toString().padStart(3, '0')}${suffix}`;
+        }
+      }
+    }
+    
     str = str
       .replace(/^PANEL\s*/, 'P')
       .replace(/^PNL\s*/, 'P')
       .replace(/^PN\s*/, 'P')
       .replace(/^P#/, 'P')
+      .replace(/^R\s*/, 'P') // Normalize R prefix to P for consistency
       .replace(/^#/, '')
       .replace(/[^A-Z0-9]/g, '');
 
@@ -1271,6 +1299,16 @@ Respond with ONLY the domain name (e.g., "panel_placement").`;
     }
 
     // Extract trailing digits with optional alpha suffix (e.g. 12A, 012B)
+    // Also handle leading letters followed by digits (e.g. R21, P21)
+    const matchWithPrefix = str.match(/^([A-Z])(\d{1,4})([A-Z]{0,3})$/);
+    if (matchWithPrefix) {
+      const numeric = parseInt(matchWithPrefix[2], 10);
+      if (!Number.isNaN(numeric)) {
+        const suffix = matchWithPrefix[3] || '';
+        return `P${numeric.toString().padStart(3, '0')}${suffix}`;
+      }
+    }
+    
     const match = str.match(/(\d{1,4})([A-Z]{0,3})$/);
     if (!match) {
       return null;

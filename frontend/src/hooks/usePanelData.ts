@@ -12,6 +12,7 @@ import {
   validatePanelPositionMap,
   DEFAULT_FEATURE_FLAGS
 } from '@/types/panel';
+import { cleanupStalePanelIdsSilent } from '@/lib/localStorage-cleanup';
 
 interface UsePanelDataOptions {
   projectId: string;
@@ -28,6 +29,7 @@ interface UsePanelDataReturn {
   removePanel: (panelId: string) => Promise<void>;
   refreshData: () => Promise<void>;
   clearLocalStorage: () => void;
+  cleanupStalePanelIds: () => Promise<{ removed: number; kept: number; errors: string[] }>;
 }
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003';
@@ -701,6 +703,33 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
     }
   }, [debugLog]);
 
+  // Cleanup stale panel IDs from localStorage
+  const cleanupStalePanelIds = useCallback(async (): Promise<{ removed: number; kept: number; errors: string[] }> => {
+    if (!projectId || typeof window === 'undefined') {
+      return { removed: 0, kept: 0, errors: ['No projectId or not in browser'] };
+    }
+
+    debugLog('Starting cleanup of stale panel IDs');
+    const result = await cleanupStalePanelIdsSilent(projectId);
+    
+    if (result.removed > 0) {
+      debugLog(`Cleaned up ${result.removed} stale panel IDs, kept ${result.kept} valid IDs`);
+      // Reload data after cleanup to refresh positions
+      if (result.errors.length === 0) {
+        // Small delay to ensure localStorage is updated
+        setTimeout(() => {
+          loadData().catch(err => {
+            console.error('Failed to reload data after cleanup:', err);
+          });
+        }, 100);
+      }
+    } else {
+      debugLog('No stale panel IDs found');
+    }
+    
+    return result;
+  }, [projectId, debugLog, loadData]);
+
 
   // Load data on mount - only on client side
   useEffect(() => {
@@ -728,6 +757,20 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
   const error = dataState.error || null;
   const panels = dataState.panels;
 
+  // Run cleanup on initial load (only once per project)
+  const hasRunCleanup = useRef(false);
+  useEffect(() => {
+    if (!hasRunCleanup.current && projectId && typeof window !== 'undefined' && flags.ENABLE_LOCAL_STORAGE) {
+      hasRunCleanup.current = true;
+      // Run cleanup asynchronously after initial load
+      setTimeout(() => {
+        cleanupStalePanelIds().catch(err => {
+          console.error('Cleanup failed on initial load:', err);
+        });
+      }, 2000); // Wait 2 seconds after load to avoid blocking
+    }
+  }, [projectId, cleanupStalePanelIds, flags.ENABLE_LOCAL_STORAGE]);
+
   return {
     dataState,
     isLoading,
@@ -737,6 +780,7 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
     addPanel,
     removePanel,
     refreshData: loadData,
-    clearLocalStorage
+    clearLocalStorage,
+    cleanupStalePanelIds
   };
 }

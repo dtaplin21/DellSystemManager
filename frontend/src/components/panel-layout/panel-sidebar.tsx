@@ -27,6 +27,7 @@ import FileViewerModal from '@/components/shared/FileViewerModal';
 import PanelDomainRecordsModal from './panel-domain-records-modal';
 import RecordViewerModal from '@/components/shared/RecordViewerModal';
 import { FileMetadata } from '@/contexts/AsbuiltDataContext';
+import { reconcilePanelId } from '@/lib/panel-id-reconciliation';
 
 interface PanelSidebarProps {
   isOpen: boolean;
@@ -84,13 +85,71 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
   const [showDomainRecordsModal, setShowDomainRecordsModal] = useState(false);
   const [selectedDomain, setSelectedDomain] = useState<AsbuiltDomain | null>(null);
   const [selectedRecord, setSelectedRecord] = useState<AsbuiltRecord | null>(null);
+  const [reconciledPanelId, setReconciledPanelId] = useState<string | null>(null);
+  
+  // Panel ID reconciliation: try to find correct panel ID if initial lookup fails
+  useEffect(() => {
+    const attemptReconciliation = async () => {
+      // Check if we have records with the current panelId
+      const currentRecords = projectRecords.filter(record => record.panelId === panelId);
+      
+      // If no records found and we have panelNumber, try reconciliation
+      if (currentRecords.length === 0 && panelNumber && panelNumber !== 'Unknown') {
+        console.log('🔍 [PanelSidebar] No records found for panelId, attempting reconciliation...', {
+          panelId,
+          panelNumber
+        });
+        
+        try {
+          const reconciled = await reconcilePanelId(projectId, {
+            id: panelId,
+            panelNumber: panelNumber,
+          });
+          
+          if (reconciled && reconciled !== panelId) {
+            console.log('✅ [PanelSidebar] Panel ID reconciled:', panelId, '->', reconciled);
+            setReconciledPanelId(reconciled);
+            // Refresh panel data with reconciled ID
+            refreshPanelData(projectId, reconciled);
+          } else {
+            console.log('⚠️ [PanelSidebar] Reconciliation did not find a different ID');
+            setReconciledPanelId(null);
+          }
+        } catch (error) {
+          console.error('❌ [PanelSidebar] Reconciliation error:', error);
+          setReconciledPanelId(null);
+        }
+      } else {
+        // Records found or no panelNumber - no reconciliation needed
+        setReconciledPanelId(null);
+      }
+    };
+    
+    if (panelId && panelNumber && projectId) {
+      attemptReconciliation();
+    }
+  }, [panelId, panelNumber, projectId, projectRecords, refreshPanelData]);
+  
+  // Use reconciled panel ID if available, otherwise use original
+  const effectivePanelId = reconciledPanelId || panelId;
   
   // Get panel data from shared context
-  const asbuiltData = getPanelSummary(panelId);
+  const asbuiltData = getPanelSummary(effectivePanelId);
 
   const panelRecords = useMemo(() => {
-    return projectRecords.filter(record => record.panelId === panelId);
-  }, [projectRecords, panelId]);
+    // Try both original and reconciled IDs
+    const records = projectRecords.filter(record => 
+      record.panelId === panelId || record.panelId === effectivePanelId
+    );
+    
+    if (records.length === 0 && reconciledPanelId) {
+      console.log('⚠️ [PanelSidebar] Still no records after reconciliation');
+    } else if (records.length > 0 && reconciledPanelId) {
+      console.log('✅ [PanelSidebar] Found records after reconciliation:', records.length);
+    }
+    
+    return records;
+  }, [projectRecords, panelId, effectivePanelId, reconciledPanelId]);
 
   const recordsByDomain = useMemo(() => {
     const map = new Map<AsbuiltDomain, AsbuiltRecord[]>();
