@@ -28,6 +28,9 @@ aiofiles>=23.0.0
 PyMuPDF>=1.23.0  # For PDF processing
 openpyxl>=3.1.0  # For Excel processing
 
+# Browser automation
+playwright>=1.42.0
+
 # Logging and monitoring
 structlog>=23.0.0
 

@@ -111,6 +111,48 @@
             "expectedOutput": "Compliance evaluation with recommendations"
           }
         ]
+      },
+      {
+        "id": "web_automation",
+        "name": "Browser Automation",
+        "description": "Automate navigation, interactions, and data capture from approved web applications",
+        "process": "SEQUENTIAL",
+        "agents": [
+          {
+            "key": "web_automation",
+            "name": "Web Automation Specialist",
+            "role": "Headless Browser Operator",
+            "goal": "Safely execute browser interactions to gather data or complete workflows",
+            "complexity": "moderate",
+            "tools": [
+              "browser_navigate",
+              "browser_interact",
+              "browser_extract",
+              "browser_screenshot"
+            ],
+            "allowDelegation": true
+          }
+        ],
+        "tasks": [
+          {
+            "id": "navigate-to-target",
+            "description": "Open the requested page and confirm it matches allowed domains",
+            "agent": "web_automation",
+            "expectedOutput": "Confirmation of navigation with any gating issues"
+          },
+          {
+            "id": "perform-interactions",
+            "description": "Execute the form fills, clicks, or downloads specified in the request",
+            "agent": "web_automation",
+            "expectedOutput": "List of interactions performed with success state"
+          },
+          {
+            "id": "collect-artifacts",
+            "description": "Extract requested data or screenshots for downstream processing",
+            "agent": "web_automation",
+            "expectedOutput": "Extracted data payloads and optional screenshot references"
+          }
+        ]
       }
     ]
   }
