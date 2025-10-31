@@ -108,16 +108,16 @@ export default function Dashboard() {
 
             <div className="dashboard-card">
               <div className="card-header">
-                <div className="card-icon warning">🎮</div>
+                <div className="card-icon ai">💬</div>
                 <div>
-                  <h3 className="card-title">Playground</h3>
-                  <p className="card-description">Test panel designs in sandbox</p>
+                  <h3 className="card-title">AI Panel Workspace</h3>
+                  <p className="card-description">AI-powered panel operations and chat</p>
                 </div>
               </div>
               <div className="card-value">Ready</div>
               <div className="card-actions">
-                <Link href="/dashboard/panel-playground" className="btn btn-orange">
-                  Open Playground
+                <Link href="/dashboard/panels" className="btn btn-primary">
+                  Open Workspace
                 </Link>
               </div>
             </div>
@@ -162,11 +162,6 @@ export default function Dashboard() {
               <Link href="/dashboard/projects" className="action-item">
                 <div className="action-icon primary">➕</div>
                 <span className="action-text">New Project</span>
-              </Link>
-              
-              <Link href="/dashboard/panel-playground" className="action-item">
-                <div className="action-icon orange">🔧</div>
-                <span className="action-text">Panel Layout Playground</span>
               </Link>
 
               <Link href="/dashboard/ai" className="action-item">
