@@ -99,6 +99,89 @@ const RecordViewerModal: React.FC<RecordViewerModalProps> = ({
     );
   };
 
+  // Helper function to produce ordered key data points by domain
+  const getOrderedKeyDataPoints = (rec: AsbuiltRecord): [string, any][] => {
+    const data = rec?.mappedData || {};
+    const entries: [string, any][] = Object.entries(data);
+
+    // Domain-aware ordering for panel placement
+    if (rec.domain === 'panel_placement') {
+      // Diagnostic logging to understand data structure
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔍 [RecordViewerModal] Panel Placement Record Data:', {
+          domain: rec.domain,
+          mappedDataKeys: Object.keys(data),
+          hasRollNumber: 'rollNumber' in data,
+          hasRoll_number: 'roll_number' in data,
+          rollNumberValue: data.rollNumber,
+          roll_numberValue: data.roll_number,
+          allKeysWithValues: Object.entries(data).map(([k, v]) => ({ key: k, value: v, type: typeof v }))
+        });
+      }
+
+      const orderedKeys: string[] = [];
+
+      // Priority 1: location (or locationNote) - check for existence, not truthiness
+      if ('location' in data) orderedKeys.push('location');
+      else if ('locationNote' in data) orderedKeys.push('locationNote');
+
+      // Priority 2: rollNumber - improved detection with case-insensitive matching
+      // First try exact matches
+      if ('rollNumber' in data) {
+        orderedKeys.push('rollNumber');
+      } else if ('roll_number' in data) {
+        orderedKeys.push('roll_number');
+      } else {
+        // Case-insensitive search for roll number field
+        const rollNumberKey = Object.keys(data).find(
+          key => key.toLowerCase().replace(/[-_\s]/g, '') === 'rollnumber'
+        );
+        if (rollNumberKey) {
+          orderedKeys.push(rollNumberKey);
+          if (process.env.NODE_ENV === 'development') {
+            console.log('✅ [RecordViewerModal] Found roll number with key:', rollNumberKey);
+          }
+        } else {
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('⚠️ [RecordViewerModal] Roll number field not found in mappedData');
+          }
+        }
+      }
+
+      // Priority 3: common preferred fields
+      const preferred = ['width', 'length', 'dateTime', 'panelNumber', 'date'];
+      preferred.forEach((k) => {
+        if (k in data && !orderedKeys.includes(k)) {
+          orderedKeys.push(k);
+        }
+      });
+
+      // Priority 4: any remaining fields (keep stable order)
+      entries.forEach(([k]) => {
+        if (!orderedKeys.includes(k)) {
+          orderedKeys.push(k);
+        }
+      });
+
+      // Limit to 6 fields, but ensure rollNumber is included if it exists
+      const finalKeys = orderedKeys.slice(0, 6);
+      
+      // If rollNumber exists but was cut off, replace last item with it
+      const rollNumberKey = orderedKeys.find(key => 
+        key.toLowerCase().replace(/[-_\s]/g, '') === 'rollnumber'
+      );
+      if (rollNumberKey && !finalKeys.includes(rollNumberKey) && finalKeys.length >= 6) {
+        // Replace the last item with rollNumber
+        finalKeys[5] = rollNumberKey;
+      }
+
+      return finalKeys.map((k) => [k, data[k] != null ? data[k] : '—'] as [string, any]);
+    }
+
+    // Default behavior for other domains (first 6)
+    return entries.slice(0, 6);
+  };
+
   if (loading) {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
@@ -264,7 +347,7 @@ const RecordViewerModal: React.FC<RecordViewerModalProps> = ({
                 Key Data Points
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {Object.entries(record.mappedData).slice(0, 6).map(([key, value]) => (
+                {getOrderedKeyDataPoints(record).map(([key, value]) => (
                   <div key={key} className="bg-gray-50 rounded p-3">
                     <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">
                       {key.replace(/([A-Z])/g, ' $1')}
