@@ -74,7 +74,8 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
     getFilesForPanel,
     getFilesForDomain,
     getPanelSummary,
-    refreshPanelData
+    refreshPanelData,
+    refreshProjectData
   } = useAsbuiltData();
   
   const [activeDomain, setActiveDomain] = useState<AsbuiltDomain | null>(null);
@@ -93,11 +94,102 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
       // Check if we have records with the current panelId
       const currentRecords = projectRecords.filter(record => record.panelId === panelId);
       
-      // If no records found and we have panelNumber, try reconciliation
-      if (currentRecords.length === 0 && panelNumber && panelNumber !== 'Unknown') {
-        console.log('🔍 [PanelSidebar] No records found for panelId, attempting reconciliation...', {
+      console.log('🔍 [PanelSidebar] Reconciliation check:', {
+        panelId,
+        panelNumber,
+        currentRecordsCount: currentRecords.length,
+        totalProjectRecords: projectRecords.length,
+        hasPanelNumber: !!panelNumber,
+        panelNumberIsValid: panelNumber && panelNumber !== 'Unknown' && panelNumber !== panelId
+      });
+      
+      // FIRST: Try to find panel ID from existing projectRecords by matching panelNumber in mappedData
+      // This is more reliable than fetching the layout and works even if layout endpoint fails
+      if (currentRecords.length === 0 && projectRecords.length > 0 && panelNumber && panelNumber !== 'Unknown' && panelNumber !== panelId) {
+        console.log('🔍 [PanelSidebar] Attempting to find panel ID from existing records...');
+        
+        // Normalize panelNumber for comparison
+        const normalize = (val: string | null | undefined): string | null => {
+          if (!val) return null;
+          let str = val.toString().trim().toUpperCase();
+          
+          // Handle R prefix (R21 -> P021)
+          if (/^R\d{1,4}[A-Z]{0,3}$/i.test(str)) {
+            const match = str.match(/^R(\d{1,4})([A-Z]{0,3})$/i);
+            if (match) {
+              const numeric = parseInt(match[1], 10);
+              if (!Number.isNaN(numeric)) {
+                const suffix = match[2] || '';
+                return `P${numeric.toString().padStart(3, '0')}${suffix}`;
+              }
+            }
+          }
+          
+          // Extract numeric part
+          const match = str.match(/(\d{1,4})([A-Z]{0,3})$/);
+          if (match) {
+            const numeric = parseInt(match[1], 10);
+            if (!Number.isNaN(numeric)) {
+              const suffix = match[2] || '';
+              return `P${numeric.toString().padStart(3, '0')}${suffix}`;
+            }
+          }
+          
+          return null;
+        };
+        
+        const normalizedSearch = normalize(panelNumber);
+        console.log('🔍 [PanelSidebar] Searching records for panelNumber:', panelNumber, 'normalized:', normalizedSearch);
+        
+        // Look through records to find one that matches this panelNumber
+        for (const record of projectRecords) {
+          if (!record.mappedData) continue;
+          
+          const recordPanelNumber = record.mappedData.panelNumber?.toString() || '';
+          const recordRollNumber = record.mappedData.rollNumber?.toString() || '';
+          
+          const normalizedRecordPN = normalize(recordPanelNumber);
+          const normalizedRecordRN = normalize(recordRollNumber);
+          
+          if (
+            (normalizedRecordPN && normalizedRecordPN === normalizedSearch) ||
+            (normalizedRecordRN && normalizedRecordRN === normalizedSearch) ||
+            recordPanelNumber.toUpperCase() === panelNumber.toUpperCase() ||
+            recordRollNumber.toUpperCase() === panelNumber.toUpperCase()
+          ) {
+            const foundPanelId = record.panelId;
+            console.log('✅ [PanelSidebar] Found matching panel ID from records:', {
+              panelNumber,
+              foundPanelId,
+              recordPanelNumber,
+              recordRollNumber
+            });
+            
+            if (foundPanelId && foundPanelId !== panelId) {
+              setReconciledPanelId(foundPanelId);
+              // Records are already loaded, no need to refresh
+              return;
+            }
+          }
+        }
+        
+        console.log('⚠️ [PanelSidebar] Could not find panel ID from existing records, trying API reconciliation...');
+      }
+      
+      // Try reconciliation if:
+      // 1. No records found for current panelId, AND
+      // 2. We have a valid panelNumber, AND
+      // 3. panelNumber is different from panelId (to avoid unnecessary lookups)
+      const shouldReconcile = currentRecords.length === 0 && 
+                              panelNumber && 
+                              panelNumber !== 'Unknown' && 
+                              panelNumber !== panelId;
+      
+      if (shouldReconcile) {
+        console.log('🔍 [PanelSidebar] No records found for panelId, attempting API reconciliation...', {
           panelId,
-          panelNumber
+          panelNumber,
+          totalProjectRecords: projectRecords.length
         });
         
         try {
@@ -106,29 +198,78 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
             panelNumber: panelNumber,
           });
           
+          console.log('🔍 [PanelSidebar] Reconciliation result:', {
+            originalPanelId: panelId,
+            reconciledPanelId: reconciled,
+            isDifferent: reconciled && reconciled !== panelId
+          });
+          
           if (reconciled && reconciled !== panelId) {
             console.log('✅ [PanelSidebar] Panel ID reconciled:', panelId, '->', reconciled);
             setReconciledPanelId(reconciled);
-            // Refresh panel data with reconciled ID
+            // Refresh ALL project data to get records with the reconciled ID
+            console.log('🔄 [PanelSidebar] Refreshing project data to get reconciled panel records...');
+            await refreshProjectData(projectId);
+            // Also refresh panel-specific data
             refreshPanelData(projectId, reconciled);
-          } else {
-            console.log('⚠️ [PanelSidebar] Reconciliation did not find a different ID');
+          } else if (reconciled === panelId) {
+            console.log('ℹ️ [PanelSidebar] Reconciliation found same ID, panel exists but may have no records');
             setReconciledPanelId(null);
+            // Try refreshing project data anyway in case records exist but context hasn't loaded them
+            await refreshProjectData(projectId);
+          } else {
+            console.log('⚠️ [PanelSidebar] Reconciliation did not find a panel ID');
+            setReconciledPanelId(null);
+            // Still try refreshing project data - maybe records exist for the original ID
+            await refreshProjectData(projectId);
           }
         } catch (error) {
           console.error('❌ [PanelSidebar] Reconciliation error:', error);
           setReconciledPanelId(null);
+          // Try refreshing project data even on error
+          try {
+            await refreshProjectData(projectId);
+          } catch (refreshError) {
+            console.error('❌ [PanelSidebar] Failed to refresh project data:', refreshError);
+          }
         }
-      } else {
-        // Records found or no panelNumber - no reconciliation needed
+      } else if (currentRecords.length > 0) {
+        // Records found - no reconciliation needed
+        console.log('✅ [PanelSidebar] Records found for panelId, no reconciliation needed');
         setReconciledPanelId(null);
+      } else {
+        // No reconciliation triggered - either no panelNumber or same as panelId
+        console.log('ℹ️ [PanelSidebar] Reconciliation not needed:', {
+          reason: !panelNumber || panelNumber === 'Unknown' || panelNumber === panelId
+            ? 'Invalid or missing panelNumber'
+            : 'Other',
+          panelNumber,
+          panelId
+        });
+        setReconciledPanelId(null);
+        
+        // If we have no project records at all, try refreshing project data
+        if (projectRecords.length === 0 && projectId) {
+          console.log('🔄 [PanelSidebar] No project records loaded, refreshing project data...');
+          try {
+            await refreshProjectData(projectId);
+          } catch (refreshError) {
+            console.error('❌ [PanelSidebar] Failed to refresh project data:', refreshError);
+          }
+        }
       }
     };
     
     if (panelId && panelNumber && projectId) {
       attemptReconciliation();
+    } else {
+      console.log('⚠️ [PanelSidebar] Cannot attempt reconciliation:', {
+        hasPanelId: !!panelId,
+        hasPanelNumber: !!panelNumber,
+        hasProjectId: !!projectId
+      });
     }
-  }, [panelId, panelNumber, projectId, projectRecords, refreshPanelData]);
+  }, [panelId, panelNumber, projectId, projectRecords, refreshPanelData, refreshProjectData]);
   
   // Use reconciled panel ID if available, otherwise use original
   const effectivePanelId = reconciledPanelId || panelId;
@@ -142,14 +283,43 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
       record.panelId === panelId || record.panelId === effectivePanelId
     );
     
+    // Enhanced debug logging
+    if (panelNumber === 'P021' || panelNumber === '21' || panelNumber === 'R021') {
+      console.log('🔍 [PanelSidebar] PanelRecords calculation:', {
+        panelId,
+        effectivePanelId,
+        reconciledPanelId,
+        projectRecordsTotal: projectRecords.length,
+        filteredRecordsCount: records.length,
+        recordsByPanelId: projectRecords.filter(r => r.panelId === panelId).length,
+        recordsByEffectiveId: projectRecords.filter(r => r.panelId === effectivePanelId).length,
+        allPanelIds: Array.from(new Set(projectRecords.map(r => r.panelId))).slice(0, 10)
+      });
+    }
+    
     if (records.length === 0 && reconciledPanelId) {
-      console.log('⚠️ [PanelSidebar] Still no records after reconciliation');
+      console.log('⚠️ [PanelSidebar] Still no records after reconciliation:', {
+        panelId,
+        effectivePanelId,
+        projectRecordsTotal: projectRecords.length
+      });
     } else if (records.length > 0 && reconciledPanelId) {
-      console.log('✅ [PanelSidebar] Found records after reconciliation:', records.length);
+      console.log('✅ [PanelSidebar] Found records after reconciliation:', {
+        count: records.length,
+        originalPanelId: panelId,
+        reconciledPanelId,
+        domains: Array.from(new Set(records.map(r => r.domain)))
+      });
+    } else if (records.length === 0) {
+      console.log('⚠️ [PanelSidebar] No records found for any panel ID:', {
+        panelId,
+        effectivePanelId,
+        totalProjectRecords: projectRecords.length
+      });
     }
     
     return records;
-  }, [projectRecords, panelId, effectivePanelId, reconciledPanelId]);
+  }, [projectRecords, panelId, effectivePanelId, reconciledPanelId, panelNumber]);
 
   const recordsByDomain = useMemo(() => {
     const map = new Map<AsbuiltDomain, AsbuiltRecord[]>();
@@ -164,13 +334,21 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
     return map;
   }, [panelRecords]);
 
-  // Debug effect to track component lifecycle
+  // Debug effect to track component lifecycle and state
   useEffect(() => {
-    console.log('🚀 [PanelSidebar] Component mounted/updated');
+    console.log('🚀 [PanelSidebar] Component mounted/updated:', {
+      panelId,
+      panelNumber,
+      effectivePanelId,
+      reconciledPanelId,
+      projectRecordsCount: projectRecords.length,
+      panelRecordsCount: panelRecords.length,
+      isLoading
+    });
     return () => {
       console.log('🚀 [PanelSidebar] Component unmounting');
     };
-  }, []);
+  }, [panelId, panelNumber, effectivePanelId, reconciledPanelId, projectRecords.length, panelRecords.length, isLoading]);
 
   // Domain configuration for the six accordion folders
   const domainConfigs: DomainConfig[] = [
@@ -277,8 +455,8 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
 
   const selectedDomainFiles = useMemo(() => {
     if (!selectedDomain) return [];
-    return getFilesForDomain(panelId, selectedDomain);
-  }, [selectedDomain, getFilesForDomain, panelId]);
+    return getFilesForDomain(effectivePanelId, selectedDomain);
+  }, [selectedDomain, getFilesForDomain, effectivePanelId]);
 
   // Render right neighbor peek - removed as it's not part of PanelAsbuiltSummary
   const renderRightNeighborPeek = () => {
@@ -404,8 +582,19 @@ const PanelSidebar: React.FC<PanelSidebarProps> = ({
               >
                 {domainConfigs.map((config) => {
                   const recordCount = getRecordCount(config.key);
-                  const files = getFilesForDomain(panelId, config.key);
+                  const files = getFilesForDomain(effectivePanelId, config.key);
                   const hasRecords = recordCount > 0;
+                  
+                  // Debug logging for Panel 21
+                  if (panelNumber === 'P021' || panelNumber === '21' || panelNumber === 'R021') {
+                    console.log(`🔍 [PanelSidebar] Domain ${config.key}:`, {
+                      recordCount,
+                      filesCount: files.length,
+                      effectivePanelId,
+                      reconciledPanelId,
+                      panelRecordsTotal: panelRecords.length
+                    });
+                  }
 
                   return (
                     <AccordionItem key={config.key} value={config.key} className="border-2 border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow">

@@ -6,6 +6,7 @@ const { db } = require('../db');
 const { projects, panelLayouts } = require('../db/schema');
 const { eq, and } = require('drizzle-orm');
 const { wsSendToRoom } = require('../services/websocket');
+const config = require('../config/env');
 
 // Constants for default layout
 const DEFAULT_LAYOUT_WIDTH = 4000;
@@ -167,15 +168,21 @@ router.get('/layout/:projectId', async (req, res, next) => {
       return res.status(400).json({ message: 'Invalid project ID' });
     }
     
-    // Verify project access
-    console.log('🔍 [PANELS] Verifying project access for user:', req.user.id);
+    // Verify project access - allow dev bypass to skip ownership check
+    const isDevBypass = config.isDevelopment && req.headers['x-dev-bypass'] === 'true';
+    console.log('🔍 [PANELS] Verifying project access for user:', req.user.id, 'devBypass:', isDevBypass);
+    
     let [project] = await db
       .select()
       .from(projects)
-      .where(and(
-        eq(projects.id, projectId),
-        eq(projects.userId, req.user.id)
-      ));
+      .where(
+        isDevBypass 
+          ? eq(projects.id, projectId)  // In dev bypass, just check if project exists
+          : and(
+              eq(projects.id, projectId),
+              eq(projects.userId, req.user.id)
+            )
+      );
     
     console.log('🔍 [PANELS] Project found:', project ? 'YES' : 'NO');
     if (project) {
