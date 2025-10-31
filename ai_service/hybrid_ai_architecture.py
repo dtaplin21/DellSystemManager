@@ -7,6 +7,7 @@ import asyncio
 import copy
 import json
 import logging
+import os
 import time
 from dataclasses import dataclass
 from enum import Enum
@@ -17,6 +18,15 @@ import redis
 from crewai import Agent, Crew, Process, Task
 from crewai.tools import BaseTool
 from langchain_openai import ChatOpenAI
+
+from .browser_tools import (
+    BrowserExtractionTool,
+    BrowserInteractionTool,
+    BrowserNavigationTool,
+    BrowserScreenshotTool,
+    BrowserSecurityConfig,
+    BrowserSessionManager,
+)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -313,6 +323,12 @@ class DellSystemAIService:
     def __init__(self, redis_client: redis.Redis):
         self.redis = redis_client
         self.cost_optimizer = CostOptimizer(redis_client)
+        allowed_domains_env = os.getenv("BROWSER_ALLOWED_DOMAINS", "")
+        allowed_domains = [
+            domain.strip() for domain in allowed_domains_env.split(",") if domain.strip()
+        ]
+        self.browser_security = BrowserSecurityConfig.from_env(allowed_domains)
+        self.browser_sessions = BrowserSessionManager(self.browser_security)
         self.tools = self._initialize_tools()
         self.context_store = SharedContextStore(redis_client)
         self._manifest_path = Path(__file__).resolve().parent / "orchestrator_manifest.json"
@@ -323,7 +339,11 @@ class DellSystemAIService:
         return {
             "panel_optimizer": PanelLayoutOptimizer(),
             "document_analyzer": DocumentAnalyzer(),
-            "project_config": ProjectConfigAgent()
+            "project_config": ProjectConfigAgent(),
+            "browser_navigate": BrowserNavigationTool(self.browser_sessions),
+            "browser_interact": BrowserInteractionTool(self.browser_sessions),
+            "browser_extract": BrowserExtractionTool(self.browser_sessions),
+            "browser_screenshot": BrowserScreenshotTool(self.browser_sessions),
         }
 
     def get_orchestrator(self, user_id: str, user_tier: str):
@@ -415,6 +435,10 @@ class DellSystemAIService:
             self._manifest_path.write_text(json.dumps(payload, indent=2))
         except Exception as error:
             logger.warning("Unable to persist orchestrator manifest: %s", error)
+
+    async def shutdown(self) -> None:
+        """Cleanup resources such as browser sessions."""
+        await self.browser_sessions.shutdown()
 
 class MockAgent:
     """Mock agent for testing - replace with actual CrewAI agent"""
@@ -546,6 +570,50 @@ class WorkflowOrchestrator:
                         agent="compliance",
                         expected_output="Compliance evaluation with recommendations",
                         context_keys=["payload", "history"],
+                    ),
+                ],
+            ),
+            "web_automation": WorkflowBlueprint(
+                id="web_automation",
+                name="Browser Automation",
+                description="Automate navigation, interactions, and data capture from approved web applications",
+                process=Process.sequential,
+                agents={
+                    "web_automation": AgentProfile(
+                        name="Web Automation Specialist",
+                        role="Headless Browser Operator",
+                        goal="Safely execute browser interactions to gather data or complete workflows",
+                        backstory="Automation engineer trained to work within security guardrails.",
+                        complexity=TaskComplexity.MODERATE,
+                        tools=[
+                            "browser_navigate",
+                            "browser_interact",
+                            "browser_extract",
+                            "browser_screenshot",
+                        ],
+                    ),
+                },
+                tasks=[
+                    WorkflowTaskTemplate(
+                        id="navigate-to-target",
+                        description="Open the requested page and confirm it matches allowed domains",
+                        agent="web_automation",
+                        expected_output="Confirmation of navigation with any gating issues",
+                        context_keys=["payload"],
+                    ),
+                    WorkflowTaskTemplate(
+                        id="perform-interactions",
+                        description="Execute the form fills, clicks, or downloads specified in the request",
+                        agent="web_automation",
+                        expected_output="List of interactions performed with success state",
+                        context_keys=["payload", "history"],
+                    ),
+                    WorkflowTaskTemplate(
+                        id="collect-artifacts",
+                        description="Extract requested data or screenshots for downstream processing",
+                        agent="web_automation",
+                        expected_output="Extracted data payloads and optional screenshot references",
+                        context_keys=["payload"],
                     ),
                 ],
             ),
