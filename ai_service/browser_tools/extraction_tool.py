@@ -26,16 +26,21 @@ class BrowserExtractionTool(BaseTool):
         action: str,
         selector: Optional[str] = None,
         session_id: str = "default",
+        user_id: Optional[str] = None,
     ) -> str:
         try:
             return asyncio.run(
-                self._arun(action=action, selector=selector, session_id=session_id)
+                self._arun(
+                    action=action, selector=selector, session_id=session_id, user_id=user_id
+                )
             )
         except RuntimeError:
             loop = asyncio.new_event_loop()
             try:
                 return loop.run_until_complete(
-                    self._arun(action=action, selector=selector, session_id=session_id)
+                    self._arun(
+                        action=action, selector=selector, session_id=session_id, user_id=user_id
+                    )
                 )
             finally:
                 loop.close()
@@ -45,60 +50,84 @@ class BrowserExtractionTool(BaseTool):
         action: str,
         selector: Optional[str] = None,
         session_id: str = "default",
+        user_id: Optional[str] = None,
     ) -> str:
-        session = await self.session_manager.get_session(session_id)
-        page = await session.ensure_page()
+        try:
+            session = await self.session_manager.get_session(session_id, user_id)
+            page = await session.ensure_page()
 
-        if action == "text":
-            target = page
-            if selector:
-                target = await page.query_selector(selector)
-                if target is None:
-                    return ""
-                text = await target.inner_text()
-            else:
-                text = await page.inner_text("body")
-            if session.security.log_actions:
-                logger.info(
-                    "[%s] Extracted text (%d chars) using selector '%s'",
-                    session_id,
-                    len(text),
-                    selector or "body",
-                )
-            return text
+            if action == "text":
+                try:
+                    if selector:
+                        target = await page.query_selector(selector)
+                        if target is None:
+                            return f"Error: Selector '{selector}' not found on page"
+                        text = await target.inner_text()
+                    else:
+                        text = await page.inner_text("body")
+                    if session.security.log_actions:
+                        logger.info(
+                            "[%s] Extracted text (%d chars) using selector '%s'",
+                            session_id,
+                            len(text),
+                            selector or "body",
+                        )
+                    return text
+                except Exception as e:
+                    error_msg = f"Error extracting text with selector '{selector or 'body'}': {str(e)}"
+                    logger.error("[%s] %s", session_id, error_msg)
+                    return error_msg
 
-        if action == "html":
-            if selector:
-                handle = await page.query_selector(selector)
-                if handle is None:
-                    return ""
-                markup = await handle.inner_html()
-            else:
-                markup = await page.content()
-            if session.security.log_actions:
-                logger.info(
-                    "[%s] Extracted html (%d chars) using selector '%s'",
-                    session_id,
-                    len(markup),
-                    selector or "document",
-                )
-            return markup
+            if action == "html":
+                try:
+                    if selector:
+                        handle = await page.query_selector(selector)
+                        if handle is None:
+                            return f"Error: Selector '{selector}' not found on page"
+                        markup = await handle.inner_html()
+                    else:
+                        markup = await page.content()
+                    if session.security.log_actions:
+                        logger.info(
+                            "[%s] Extracted html (%d chars) using selector '%s'",
+                            session_id,
+                            len(markup),
+                            selector or "document",
+                        )
+                    return markup
+                except Exception as e:
+                    error_msg = f"Error extracting HTML with selector '{selector or 'document'}': {str(e)}"
+                    logger.error("[%s] %s", session_id, error_msg)
+                    return error_msg
 
-        if action == "links":
-            locator = selector or "a"
-            elements = await page.query_selector_all(locator)
-            links: List[str] = []
-            for element in elements:
-                href = await element.get_attribute("href")
-                if href:
-                    links.append(href)
-            if session.security.log_actions:
-                logger.info(
-                    "[%s] Extracted %d links using selector '%s'",
-                    session_id,
-                    len(links),
-                    locator,
-                )
-            return "\n".join(links)
+            if action == "links":
+                try:
+                    locator = selector or "a"
+                    elements = await page.query_selector_all(locator)
+                    links: List[str] = []
+                    for element in elements:
+                        href = await element.get_attribute("href")
+                        if href:
+                            links.append(href)
+                    if session.security.log_actions:
+                        logger.info(
+                            "[%s] Extracted %d links using selector '%s'",
+                            session_id,
+                            len(links),
+                            locator,
+                        )
+                    return "\n".join(links) if links else f"No links found with selector '{locator}'"
+                except Exception as e:
+                    error_msg = f"Error extracting links with selector '{selector or 'a'}': {str(e)}"
+                    logger.error("[%s] %s", session_id, error_msg)
+                    return error_msg
 
-        raise ValueError(f"Unsupported action: {action}")
+            return f"Error: Unsupported action '{action}'. Supported actions: text, html, links"
+
+        except ValueError as e:
+            # Rate limiting or other validation errors
+            return f"Error: {str(e)}"
+        except Exception as e:
+            error_msg = f"Unexpected error in extraction tool: {str(e)}"
+            logger.error("[%s] %s", session_id, error_msg)
+            return error_msg

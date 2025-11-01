@@ -19,6 +19,8 @@ class BrowserSecurityConfig:
     require_authentication: bool = False
     enable_screenshots: bool = True
     log_actions: bool = True
+    wait_timeout_ms: int = 30000  # Default 30 seconds for element waits
+    allowed_upload_dirs: List[str] = field(default_factory=lambda: ["/tmp/uploads"])  # Allowed directories for file uploads
 
     def is_url_allowed(self, url: str) -> bool:
         """Return True when the supplied URL is permitted by the policy."""

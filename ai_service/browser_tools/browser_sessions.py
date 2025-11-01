@@ -5,8 +5,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
 
 from playwright.async_api import Browser, BrowserContext, Page, async_playwright
 
@@ -84,34 +85,86 @@ class BrowserSession:
 
 
 class BrowserSessionManager:
-    """Manage browser sessions identified by a session key."""
+    """Manage browser sessions identified by a session key with user isolation and rate limiting."""
 
     def __init__(self, security_config: Optional[BrowserSecurityConfig] = None):
         self.security = security_config or BrowserSecurityConfig()
         self._sessions: Dict[str, BrowserSession] = {}
         self._lock = asyncio.Lock()
+        # Rate limiting: track request times per session
+        self._request_times: Dict[str, list] = defaultdict(list)
+        self._rate_limit_lock = asyncio.Lock()
 
-    async def get_session(self, session_id: str = "default") -> BrowserSession:
-        """Return an active session for the supplied identifier."""
+    def _get_session_key(self, session_id: str, user_id: Optional[str] = None) -> str:
+        """Generate a user-scoped session key to prevent conflicts."""
+        if user_id:
+            return f"{user_id}:{session_id}"
+        # If no user_id provided, use session_id but log warning
+        logger.warning(
+            "Session created without user_id. Consider providing user_id for proper isolation."
+        )
+        return session_id
+
+    async def _check_rate_limit(self, session_key: str) -> Tuple[bool, str]:
+        """Check if session is within rate limit. Returns (allowed, error_message)."""
+        if self.security.rate_limit_per_minute <= 0:
+            return True, ""  # Rate limiting disabled
+
+        async with self._rate_limit_lock:
+            now = time.time()
+            cutoff = now - 60  # last minute
+            times = self._request_times[session_key]
+            # Remove old requests outside the time window
+            times[:] = [t for t in times if t > cutoff]
+
+            if len(times) >= self.security.rate_limit_per_minute:
+                remaining = int(60 - (now - times[0])) if times else 0
+                return False, (
+                    f"Rate limit exceeded: {len(times)}/{self.security.rate_limit_per_minute} "
+                    f"requests per minute. Retry after {remaining} seconds."
+                )
+
+            # Record this request
+            times.append(now)
+            return True, ""
+
+    async def get_session(
+        self, session_id: str = "default", user_id: Optional[str] = None
+    ) -> BrowserSession:
+        """Return an active session for the supplied identifier with user isolation."""
+
+        session_key = self._get_session_key(session_id, user_id)
+
+        # Check rate limit
+        allowed, error_msg = await self._check_rate_limit(session_key)
+        if not allowed:
+            raise ValueError(error_msg)
 
         async with self._lock:
-            session = self._sessions.get(session_id)
+            session = self._sessions.get(session_key)
             if session and session.expired():
                 await session.close()
                 session = None
+                # Clean up rate limiting data for expired session
+                self._request_times.pop(session_key, None)
 
             if not session:
                 session = BrowserSession(self.security)
-                self._sessions[session_id] = session
+                self._sessions[session_key] = session
 
         await session.ensure_page()
         return session
 
-    async def close_session(self, session_id: str) -> None:
+    async def close_session(
+        self, session_id: str, user_id: Optional[str] = None
+    ) -> None:
         """Close and remove a session by identifier."""
 
+        session_key = self._get_session_key(session_id, user_id)
         async with self._lock:
-            session = self._sessions.pop(session_id, None)
+            session = self._sessions.pop(session_key, None)
+            # Clean up rate limiting data
+            self._request_times.pop(session_key, None)
         if session:
             await session.close()
 
@@ -121,6 +174,7 @@ class BrowserSessionManager:
         async with self._lock:
             sessions = list(self._sessions.items())
             self._sessions.clear()
+            self._request_times.clear()
 
         for _, session in sessions:
             try:

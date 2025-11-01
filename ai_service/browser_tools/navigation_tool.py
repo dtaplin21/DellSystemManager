@@ -29,11 +29,16 @@ class BrowserNavigationTool(BaseTool):
         url: Optional[str] = None,
         wait_for: Optional[str] = None,
         session_id: str = "default",
+        user_id: Optional[str] = None,
     ) -> str:
         try:
             return asyncio.run(
                 self._arun(
-                    action=action, url=url, wait_for=wait_for, session_id=session_id
+                    action=action,
+                    url=url,
+                    wait_for=wait_for,
+                    session_id=session_id,
+                    user_id=user_id,
                 )
             )
         except RuntimeError:
@@ -45,6 +50,7 @@ class BrowserNavigationTool(BaseTool):
                         url=url,
                         wait_for=wait_for,
                         session_id=session_id,
+                        user_id=user_id,
                     )
                 )
             finally:
@@ -56,51 +62,99 @@ class BrowserNavigationTool(BaseTool):
         url: Optional[str] = None,
         wait_for: Optional[str] = None,
         session_id: str = "default",
+        user_id: Optional[str] = None,
     ) -> str:
-        session = await self.session_manager.get_session(session_id)
-        page = await session.ensure_page()
+        try:
+            session = await self.session_manager.get_session(session_id, user_id)
+            page = await session.ensure_page()
+            timeout = session.security.wait_timeout_ms
 
-        if action == "navigate":
-            if not url:
-                raise ValueError("url is required for navigate action")
-            if not session.security.is_url_allowed(url):
-                return f"Error: URL {url} is not permitted by security policy"
-            await page.goto(url)
-            if wait_for:
-                await page.wait_for_selector(wait_for, timeout=15000)
-            message = f"Navigated to {url}"
-            if session.security.log_actions:
-                logger.info("[%s] %s", session_id, message)
-            return message
+            if action == "navigate":
+                if not url:
+                    return "Error: url parameter is required for navigate action"
+                if not session.security.is_url_allowed(url):
+                    return f"Error: URL {url} is not permitted by security policy. Allowed domains: {session.security.allowed_domains or 'all (if no restrictions)'}"
+                try:
+                    await page.goto(url, timeout=timeout, wait_until="networkidle")
+                    if wait_for:
+                        try:
+                            await page.wait_for_selector(
+                                wait_for, timeout=timeout
+                            )
+                        except Exception as e:
+                            return f"Error: Timeout waiting for selector '{wait_for}' on {url}: {str(e)}"
+                    message = f"Successfully navigated to {url}"
+                    if session.security.log_actions:
+                        logger.info("[%s] %s", session_id, message)
+                    return message
+                except Exception as e:
+                    error_msg = f"Error navigating to {url}: {str(e)}"
+                    logger.error("[%s] %s", session_id, error_msg)
+                    return error_msg
 
-        if action == "reload":
-            await page.reload()
-            if wait_for:
-                await page.wait_for_selector(wait_for, timeout=15000)
-            message = f"Reloaded {page.url}"
-            if session.security.log_actions:
-                logger.info("[%s] %s", session_id, message)
-            return message
+            if action == "reload":
+                try:
+                    await page.reload(timeout=timeout, wait_until="networkidle")
+                    if wait_for:
+                        try:
+                            await page.wait_for_selector(
+                                wait_for, timeout=timeout
+                            )
+                        except Exception as e:
+                            return f"Error: Timeout waiting for selector '{wait_for}' after reload: {str(e)}"
+                    message = f"Successfully reloaded {page.url}"
+                    if session.security.log_actions:
+                        logger.info("[%s] %s", session_id, message)
+                    return message
+                except Exception as e:
+                    error_msg = f"Error reloading page {page.url}: {str(e)}"
+                    logger.error("[%s] %s", session_id, error_msg)
+                    return error_msg
 
-        if action == "back":
-            await page.go_back()
-            message = f"Navigated back to {page.url}"
-            if session.security.log_actions:
-                logger.info("[%s] %s", session_id, message)
-            return message
+            if action == "back":
+                try:
+                    await page.go_back(timeout=timeout, wait_until="networkidle")
+                    message = f"Successfully navigated back to {page.url}"
+                    if session.security.log_actions:
+                        logger.info("[%s] %s", session_id, message)
+                    return message
+                except Exception as e:
+                    error_msg = f"Error navigating back: {str(e)}"
+                    logger.error("[%s] %s", session_id, error_msg)
+                    return error_msg
 
-        if action == "forward":
-            await page.go_forward()
-            message = f"Navigated forward to {page.url}"
-            if session.security.log_actions:
-                logger.info("[%s] %s", session_id, message)
-            return message
+            if action == "forward":
+                try:
+                    await page.go_forward(timeout=timeout, wait_until="networkidle")
+                    message = f"Successfully navigated forward to {page.url}"
+                    if session.security.log_actions:
+                        logger.info("[%s] %s", session_id, message)
+                    return message
+                except Exception as e:
+                    error_msg = f"Error navigating forward: {str(e)}"
+                    logger.error("[%s] %s", session_id, error_msg)
+                    return error_msg
 
-        if action == "content":
-            content = await page.content()
-            return content
+            if action == "content":
+                try:
+                    content = await page.content()
+                    return content
+                except Exception as e:
+                    error_msg = f"Error getting page content: {str(e)}"
+                    logger.error("[%s] %s", session_id, error_msg)
+                    return error_msg
 
-        raise ValueError(f"Unsupported action: {action}")
+            return f"Error: Unsupported action '{action}'. Supported actions: navigate, reload, back, forward, content"
 
-    async def close_session(self, session_id: str = "default") -> None:
-        await self.session_manager.close_session(session_id)
+        except ValueError as e:
+            # Rate limiting or other validation errors
+            return f"Error: {str(e)}"
+        except Exception as e:
+            error_msg = f"Unexpected error in navigation tool: {str(e)}"
+            logger.error("[%s] %s", session_id, error_msg)
+            return error_msg
+
+    async def close_session(
+        self, session_id: str = "default", user_id: Optional[str] = None
+    ) -> None:
+        await self.session_manager.close_session(session_id, user_id)
