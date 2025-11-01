@@ -464,6 +464,7 @@ def chat_message():
             
             if result.get('success'):
                 return jsonify({
+                    'reply': result.get('response', 'No response generated'),  # Map response to reply for frontend compatibility
                     'response': result.get('response', 'No response generated'),
                     'success': True,
                     'user_id': result.get('user_id', user_id),

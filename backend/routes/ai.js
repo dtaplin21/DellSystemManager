@@ -159,25 +159,38 @@ const deriveDirectionalPosition = (direction, layout) => {
   }
 };
 
-const composePanelSummary = (panels = []) => {
+const composePanelSummary = (panels = [], userMessage = '') => {
   if (!panels.length) {
     return 'There are no panels in this layout yet. You can ask me to create one, import from Excel, or run the AI optimizer.';
   }
 
   const count = panels.length;
-  const sample = panels.slice(0, 5).map(panel => {
+  const normalizedMessage = (userMessage || '').toLowerCase();
+  
+  // Check if user explicitly asked for "all" panels or dimensions
+  const requestAll = normalizedMessage.includes('all') || normalizedMessage.includes('complete') || normalizedMessage.includes('full');
+  
+  // If user asks for "all", show all panels. Otherwise show summary.
+  const panelsToShow = requestAll ? panels : panels.slice(0, 50); // Show up to 50 in summary mode
+  const displayPanels = panelsToShow.map(panel => {
     const { panelNumber, rollNumber, width, height, x, y } = sanitizePanel(panel);
     return `${panelNumber || panel.id || 'Panel'} (${width}ft x ${height}ft) at (${x}, ${y})${rollNumber ? `, roll ${rollNumber}` : ''}`;
   });
 
   const summaryParts = [
-    `I currently track ${count} panel${count === 1 ? '' : 's'}.`,
-    'Here are a few examples:',
-    ...sample.map(entry => `• ${entry}`)
+    `I currently track ${count} panel${count === 1 ? '' : 's'}.`
   ];
-
-  if (count > 5) {
-    summaryParts.push(`…and ${count - 5} more.`);
+  
+  if (requestAll) {
+    summaryParts.push('All panels:', ...displayPanels.map(entry => `• ${entry}`));
+  } else if (panels.length <= 50) {
+    summaryParts.push('Panels:', ...displayPanels.map(entry => `• ${entry}`));
+  } else {
+    summaryParts.push(
+      'Showing first 50 panels:',
+      ...displayPanels.map(entry => `• ${entry}`),
+      `\n…and ${count - 50} more. Use "show all panels" to see the complete list.`
+    );
   }
 
   return summaryParts.join('\n');
@@ -219,21 +232,29 @@ const buildContextualSuggestions = (context = {}) => {
 
 const hasLLMSupport = Boolean(config.secrets.openai || process.env.OPENAI_API_KEY);
 
-const buildPanelContextForLLM = (panels = []) => {
+const buildPanelContextForLLM = (panels = [], userMessage = '') => {
   if (!panels.length) {
     return 'No panels currently exist in this layout.';
   }
 
-  const limitedPanels = panels.slice(0, 15).map((panel, index) => {
+  const normalizedMessage = (userMessage || '').toLowerCase();
+  
+  // Check if user explicitly asked for "all" panels or dimensions
+  const requestAll = normalizedMessage.includes('all') || normalizedMessage.includes('complete') || normalizedMessage.includes('full');
+  
+  // If user asks for "all", show all panels. Otherwise limit to 50 for context efficiency.
+  const panelsToShow = requestAll ? panels : panels.slice(0, 50);
+  
+  const displayPanels = panelsToShow.map((panel, index) => {
     const sanitized = sanitizePanel(panel);
     return `${index + 1}. Panel ${sanitized.panelNumber || sanitized.id} — ${sanitized.width}ft x ${sanitized.height}ft at (${sanitized.x}, ${sanitized.y}) rotation ${sanitized.rotation}°, shape ${sanitized.shape}.`;
   });
 
-  if (panels.length > 15) {
-    limitedPanels.push(`…and ${panels.length - 15} additional panels not shown.`);
+  if (!requestAll && panels.length > 50) {
+    displayPanels.push(`…and ${panels.length - 50} additional panels not shown.`);
   }
 
-  return limitedPanels.join('\n');
+  return displayPanels.join('\n');
 };
 
 const generateLLMFallback = async (userMessage, layout, projectContext = {}) => {
@@ -243,7 +264,7 @@ const generateLLMFallback = async (userMessage, layout, projectContext = {}) => 
 
   try {
     const systemPrompt = `You are an assistant that helps manage geosynthetic panel layouts. Keep responses concise. When giving instructions, keep them actionable.`;
-    const panelSummary = buildPanelContextForLLM(layout?.panels || []);
+    const panelSummary = buildPanelContextForLLM(layout?.panels || [], userMessage);
 
     const prompt = `Project info: ${JSON.stringify(projectContext || {}, null, 2)}
 
@@ -331,7 +352,7 @@ router.post('/chat', auth, async (req, res) => {
 
     // SUMMARY
     if (!handled && /(list|show|summary|summarise|summarize|overview|describe|status)/.test(normalizedMessage) && /panel|layout/.test(normalizedMessage)) {
-      reply = composePanelSummary(updatedPanels);
+      reply = composePanelSummary(updatedPanels, userMessage);
       handled = true;
       actionContext = { lastAction: 'summary' };
     }
