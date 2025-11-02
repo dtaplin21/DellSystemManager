@@ -46,7 +46,7 @@ class AsbuiltImportAI {
 
     // Canonical field definitions per domain
     this.canonicalFields = {
-      panel_placement: ['panelNumber', 'dateTime', 'location', 'coordinates', 'notes', 'weatherComments', 'length', 'width'],
+      panel_placement: ['panelNumber', 'rollNumber', 'dateTime', 'location', 'coordinates', 'notes', 'weatherComments', 'length', 'width'],
       panel_seaming: ['panelNumber', 'seamId', 'dateTime', 'seamType', 'temperature', 'operator', 'seamerInitials', 'machineNumber', 'wedgeTemp', 'vboxPassFail'],
       non_destructive: ['panelNumber', 'testId', 'testType', 'result', 'dateTime', 'inspector', 'operatorInitials', 'vboxPassFail'],
       trial_weld: ['panelNumber', 'weldId', 'material', 'temperature', 'result', 'dateTime', 'passFail'],
@@ -73,7 +73,14 @@ class AsbuiltImportAI {
         'weather': 'weatherComments',
         'weather comments': 'weatherComments',
         'length': 'length',
-        'width': 'width'
+        'width': 'width',
+        'roll number': 'rollNumber',
+        'roll #': 'rollNumber',
+        'roll': 'rollNumber',
+        'roll id': 'rollNumber',
+        'roll identifier': 'rollNumber',
+        'roll_number': 'rollNumber',
+        'roll-no': 'rollNumber'
       },
       panel_seaming: {
         'panel #': 'panelNumber',

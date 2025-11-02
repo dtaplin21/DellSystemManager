@@ -118,19 +118,79 @@ const PanelDomainRecordsModal: React.FC<PanelDomainRecordsModalProps> = ({
     }
   };
 
-  const previewEntries = (record: AsbuiltRecord) => {
+  const previewEntries = (record: AsbuiltRecord): [string, any][] => {
     if (!record.mappedData || typeof record.mappedData !== 'object') {
       return [];
     }
 
-    return Object.entries(record.mappedData)
-      .filter(([, value]) => {
-        if (value === null || value === undefined) return false;
-        if (typeof value === 'object') return false;
-        const stringValue = String(value).trim();
-        return stringValue.length > 0;
-      })
-      .slice(0, 6);
+    const data = record.mappedData;
+    const entries: [string, any][] = Object.entries(data).filter(([, value]) => {
+      if (value === null || value === undefined) return false;
+      if (typeof value === 'object') return false;
+      const stringValue = String(value).trim();
+      return stringValue.length > 0;
+    });
+
+    // Domain-aware ordering for panel placement (ensures roll number is prioritized)
+    if (domain === 'panel_placement') {
+      const orderedKeys: string[] = [];
+      const usedKeys = new Set<string>();
+
+      // Priority 1: location (or locationNote)
+      if ('location' in data && !usedKeys.has('location')) {
+        orderedKeys.push('location');
+        usedKeys.add('location');
+      } else if ('locationNote' in data && !usedKeys.has('locationNote')) {
+        orderedKeys.push('locationNote');
+        usedKeys.add('locationNote');
+      }
+
+      // Priority 2: rollNumber (case-insensitive matching)
+      let rollNumberKey: string | undefined;
+      if ('rollNumber' in data) {
+        rollNumberKey = 'rollNumber';
+      } else if ('roll_number' in data) {
+        rollNumberKey = 'roll_number';
+      } else {
+        rollNumberKey = Object.keys(data).find(
+          key => key.toLowerCase().replace(/[-_\s]/g, '') === 'rollnumber'
+        );
+      }
+      if (rollNumberKey && !usedKeys.has(rollNumberKey)) {
+        orderedKeys.push(rollNumberKey);
+        usedKeys.add(rollNumberKey);
+      }
+
+      // Priority 3: common preferred fields
+      const preferred = ['width', 'length', 'dateTime', 'panelNumber', 'date'];
+      preferred.forEach((k) => {
+        if (k in data && !usedKeys.has(k)) {
+          orderedKeys.push(k);
+          usedKeys.add(k);
+        }
+      });
+
+      // Priority 4: any remaining fields
+      entries.forEach(([k]) => {
+        if (!usedKeys.has(k)) {
+          orderedKeys.push(k);
+          usedKeys.add(k);
+        }
+      });
+
+      // Limit to 6 fields, but ensure rollNumber is included if it exists
+      const finalKeys = orderedKeys.slice(0, 6);
+      
+      // If rollNumber exists but was cut off, replace last item with it
+      if (rollNumberKey && !finalKeys.includes(rollNumberKey) && finalKeys.length >= 6) {
+        finalKeys[5] = rollNumberKey;
+      }
+
+      return finalKeys.map((k) => [k, data[k] != null ? data[k] : '—'] as [string, any]);
+    }
+
+    // Default behavior for other domains (first 6)
+    return entries.slice(0, 6);
   };
 
   const handleOpenChange = (open: boolean) => {
