@@ -633,13 +633,19 @@ class HybridAgentFactory:
                 if browser_tool:
                     tools_list.append(browser_tool)
                     browser_tool_count += 1
-                    logger.debug(f"[AgentFactory] Browser tool added: {browser_tool.name}")
+                    logger.info(f"[AgentFactory] Browser tool added: {browser_tool.name}")
             except Exception as exc:  # pragma: no cover - defensive
-                logger.warning("Failed to initialize browser tool: %s", exc)
+                logger.error(f"[AgentFactory] Failed to initialize browser tool: {exc}")
 
         logger.info(f"[AgentFactory] Total tools registered: {len(tools_list)} (Panel: {1 if panel_tool else 0}, Browser: {browser_tool_count})")
         if tools_list:
             logger.info(f"[AgentFactory] Tool names: {[tool.name for tool in tools_list]}")
+        
+        # Validate browser tools if visual question might be asked
+        if browser_tool_count == 0 and BROWSER_TOOLS_AVAILABLE:
+            logger.warning("[AgentFactory] No browser tools registered despite BROWSER_TOOLS_AVAILABLE=True")
+            logger.warning(f"[AgentFactory] Browser sessions: {self.tool_resources.get('browser_session_manager')}")
+            logger.warning(f"[AgentFactory] Browser tool factories: {len(self.tool_resources.get('browser_tool_factories', []))}")
 
         return Agent(
             role="AI Assistant",
@@ -1003,14 +1009,26 @@ class DellSystemAIService:
             visual_instructions = ""
             if is_visual_layout_question and panel_layout_url:
                 visual_instructions = f"""
-VISUAL LAYOUT CHECK REQUIRED:
-- The user is asking about the VISUAL panel layout. You MUST check the actual visual representation, not just backend data.
-- Navigate to: {panel_layout_url}
-- Use browser_navigate tool with action='goto' and url='{panel_layout_url}'
-- Wait for the page to load (wait_for='canvas' or 'panel' or 'konva-container')
-- Take a screenshot using browser_screenshot tool (full_page=True) to see the visual layout
-- Extract visual information using browser_extract tool to get panel positions and arrangement
-- Then answer based on what you SEE in the visual layout, not just backend JSON data.
+YOU MUST USE BROWSER AUTOMATION TOOLS TO ANSWER THIS QUESTION. DO NOT USE BACKEND API DATA.
+
+STEP 1: Navigate to the panel layout page
+- Tool: browser_navigate
+- Parameters: action='navigate', url='{panel_layout_url}', user_id='{user_id}', wait_for='canvas'
+- This MUST be done first. Wait for confirmation before proceeding.
+
+STEP 2: Take a screenshot of the visual layout
+- Tool: browser_screenshot
+- Parameters: full_page=True, session_id='default', user_id='{user_id}'
+- This captures what the layout actually looks like visually.
+
+STEP 3: Extract visual data from the page
+- Tool: browser_extract
+- Parameters: action='text', selector='canvas', user_id='{user_id}'
+- This gets the actual panel arrangement as displayed.
+
+YOU CANNOT ANSWER WITHOUT PERFORMING THESE THREE STEPS FIRST.
+Do not use backend API data - you MUST check the visual layout using these tools.
+After completing all three steps, then answer based on what you observed visually.
 """
             
             task_description = (
@@ -1027,16 +1045,40 @@ VISUAL LAYOUT CHECK REQUIRED:
                 f"always pass user_id='{user_id}' in your tool calls."
             )
 
+            expected_output_text = "Executed action results or, if execution is impossible, a clear explanation of why."
+            if is_visual_layout_question:
+                expected_output_text = (
+                    "Your response MUST begin with: 'I checked the visual panel layout page by navigating to it "
+                    f"({panel_layout_url if panel_layout_url else 'the panel layout page'}), taking a screenshot, and extracting visual data. "
+                    "Here's what I observed visually: [describe what you saw in the screenshot/extracted data]. "
+                    "After analyzing the visual layout, I found: [panel order/arrangement based on visual observations].' "
+                    "If you did not use browser tools (browser_navigate, browser_screenshot, browser_extract), "
+                    "you MUST explicitly state why and what tools you attempted to use."
+                )
+            
             chat_task = Task(
                 description=task_description,
                 agent=assistant_agent,
-                expected_output=(
-                    "Executed action results or, if execution is impossible, a clear explanation of why."
-                ),
+                expected_output=expected_output_text,
             )
 
             logger.info(f"[handle_chat_message] Creating Crew with {len(assistant_agent.tools)} tools")
             logger.debug(f"[handle_chat_message] Task description: {task_description[:200]}...")
+            
+            # Pre-flight check for visual layout questions
+            if is_visual_layout_question:
+                browser_tools_available = any('browser' in tool.name.lower() for tool in assistant_agent.tools)
+                if not browser_tools_available:
+                    logger.error("[handle_chat_message] Visual layout question but browser tools not available!")
+                    logger.error(f"[handle_chat_message] Available tools: {[tool.name for tool in assistant_agent.tools]}")
+                    logger.error(f"[handle_chat_message] BROWSER_TOOLS_AVAILABLE: {BROWSER_TOOLS_AVAILABLE}")
+                    return {
+                        "success": False,
+                        "error": "Browser automation tools are not available. Cannot perform visual layout check.",
+                        "response": "I'm unable to check the visual panel layout because browser automation tools are not available. Please check the Python AI service logs for details.",
+                        "user_id": user_id,
+                        "timestamp": str(datetime.datetime.now()),
+                    }
 
             crew = Crew(
                 agents=[assistant_agent],
@@ -1045,10 +1087,32 @@ VISUAL LAYOUT CHECK REQUIRED:
             )
 
             logger.info("[handle_chat_message] Starting crew.kickoff()...")
+            
+            # Track if browser automation was used
+            browser_tools_used = []
+            if is_visual_layout_question:
+                logger.info(f"[handle_chat_message] Visual layout question detected - expecting browser automation usage")
+            
             result = crew.kickoff()
             logger.info(f"[handle_chat_message] Crew completed. Result type: {type(result)}")
             
             response_text = self._extract_crew_output(result)
+            
+            # Detect if browser tools were mentioned in the response (indicates usage)
+            browser_tool_names = ["browser_navigate", "browser_screenshot", "browser_extract", "browser_interact"]
+            detected_tools = [tool for tool in browser_tool_names if tool in str(result).lower() or tool in response_text.lower()]
+            
+            if detected_tools:
+                logger.info(f"[handle_chat_message] Browser automation tools detected in response: {detected_tools}")
+            
+            # Add explicit indicator if visual layout question was asked
+            if is_visual_layout_question and detected_tools:
+                response_text = f"🔍 [Visual Analysis Used]\n\n{response_text}"
+                logger.info("[handle_chat_message] Added visual analysis indicator to response")
+            elif is_visual_layout_question and not detected_tools:
+                logger.warning("[handle_chat_message] Visual layout question detected but no browser tools appear to have been used!")
+                response_text = f"⚠️ [Note: Using backend data - visual check may not have been performed]\n\n{response_text}"
+            
             logger.info(f"[handle_chat_message] Extracted response length: {len(response_text)} characters")
             logger.debug(f"[handle_chat_message] Response preview: {response_text[:200]}...")
 
@@ -1058,6 +1122,8 @@ VISUAL LAYOUT CHECK REQUIRED:
                 "user_id": user_id,
                 "timestamp": str(datetime.datetime.now()),
                 "status": "completed",
+                "browser_automation_used": bool(detected_tools),
+                "tools_used": detected_tools,
             }
         except Exception as e:
             logger.error(f"Chat message handling failed: {e}")
