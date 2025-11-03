@@ -15,8 +15,8 @@ logger = logging.getLogger(__name__)
 
 
 class BrowserScreenshotTool(BaseTool):
-    name = "browser_screenshot"
-    description = "Capture a screenshot of the current page or a selector."
+    name: str = "browser_screenshot"
+    description: str = "Capture a screenshot of the current page or a selector."
 
     def __init__(self, session_manager: BrowserSessionManager):
         super().__init__()

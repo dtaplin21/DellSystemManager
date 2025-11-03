@@ -15,8 +15,8 @@ logger = logging.getLogger(__name__)
 
 
 class BrowserInteractionTool(BaseTool):
-    name = "browser_interact"
-    description = "Interact with page elements (click, type, select, upload)."
+    name: str = "browser_interact"
+    description: str = "Interact with page elements (click, type, select, upload)."
 
     def __init__(self, session_manager: BrowserSessionManager):
         super().__init__()

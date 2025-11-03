@@ -27,11 +27,18 @@ OpenAI = None
 try:
     from langchain_community.llms import OpenAI  # type: ignore
     logger.info("Loaded OpenAI LLM from langchain_community")
-except ImportError:
+    # Verify it's actually a class, not None
+    if OpenAI is None:
+        raise ImportError("OpenAI class is None after import")
+except ImportError as e:
+    logger.warning(f"Failed to import from langchain_community: {e}")
     try:
         from langchain.llms import OpenAI
         logger.info("Loaded OpenAI LLM from langchain (deprecated)")
-    except ImportError:
+        if OpenAI is None:
+            raise ImportError("OpenAI class is None after import")
+    except ImportError as e2:
+        logger.error(f"Failed to import OpenAI from both langchain_community and langchain: {e2}")
         logger.warning("OpenAI LLM not available - langchain_community required for legacy OpenAI class")
         OpenAI = None
 
@@ -198,18 +205,23 @@ class CostOptimizer:
     def _get_user_usage(self, user_tier: str) -> float:
         """Get current usage for user tier"""
         try:
-            usage = self.redis.get(f"usage:{user_tier}")
-            return float(usage) if usage else 0.0
+            if self.redis:
+                usage = self.redis.get(f"usage:{user_tier}")
+                return float(usage) if usage else 0.0
+            # Redis not available - return 0 (no usage tracking)
+            return 0.0
         except:
             return 0.0
     
     def track_usage(self, user_tier: str, cost: float):
         """Track usage for cost optimization"""
         try:
-            current_usage = self._get_user_usage(user_tier)
-            new_usage = current_usage + cost
-            self.redis.set(f"usage:{user_tier}", new_usage)
-            self.usage_tracking[user_tier] = new_usage
+            if self.redis:
+                current_usage = self._get_user_usage(user_tier)
+                new_usage = current_usage + cost
+                self.redis.set(f"usage:{user_tier}", new_usage)
+                self.usage_tracking[user_tier] = new_usage
+            # Redis not available - silently skip usage tracking
         except Exception as e:
             logger.error(f"Failed to track usage: {e}")
 
@@ -1047,8 +1059,11 @@ class DellSystemAIService:
         try:
             self.redis = redis.Redis(host=redis_host, port=redis_port, decode_responses=True)
             self.redis.ping()  # Test connection
+            logger.info(f"Redis connection successful: {redis_host}:{redis_port}")
         except Exception as e:
             logger.warning(f"Redis connection failed: {e}")
+            logger.info("Redis is optional - service will continue without caching/cost tracking")
+            logger.info("To enable Redis: Install with 'brew install redis' (macOS) or 'apt-get install redis' (Linux), then start with 'redis-server'")
             self.redis = None
         
         self.backend_base_url = self._determine_backend_base_url()

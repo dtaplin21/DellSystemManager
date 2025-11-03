@@ -14,8 +14,8 @@ logger = logging.getLogger(__name__)
 
 
 class BrowserExtractionTool(BaseTool):
-    name = "browser_extract"
-    description = "Extract text, tables, and links from the active page."
+    name: str = "browser_extract"
+    description: str = "Extract text, tables, and links from the active page."
 
     def __init__(self, session_manager: BrowserSessionManager):
         super().__init__()

@@ -14,8 +14,8 @@ logger = logging.getLogger(__name__)
 
 
 class BrowserNavigationTool(BaseTool):
-    name = "browser_navigate"
-    description = (
+    name: str = "browser_navigate"
+    description: str = (
         "Navigate to URLs, control history, capture page content, and wait for selectors."
     )
 
