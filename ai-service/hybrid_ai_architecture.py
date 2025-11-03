@@ -13,15 +13,27 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Literal
 import redis
 import requests
 from crewai import Agent, Crew, Task
-from langchain.llms import OpenAI
 from langchain.tools import BaseTool
 from pydantic import BaseModel, Field, ValidationError
 
-import ollama
-
-# Configure logging
+# Configure logging first
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Try to import OpenAI LLM - handle both old and new langchain versions
+try:
+    from langchain_openai import OpenAI
+except ImportError:
+    try:
+        from langchain.llms import OpenAI
+    except ImportError:
+        try:
+            from langchain_community.llms import OpenAI
+        except ImportError:
+            logger.warning("OpenAI LLM not available - using fallback")
+            OpenAI = None
+
+import ollama
 
 BROWSER_TOOLS_AVAILABLE = False
 
@@ -739,6 +751,8 @@ class HybridAgentFactory:
                     return llm
                 except (ImportError, Exception) as e:
                     logger.warning(f"[_create_llm] ChatOpenAI not available ({e}), falling back to OpenAI")
+                    if OpenAI is None:
+                        raise ImportError("OpenAI LLM not available - please install langchain-community or langchain-openai")
                     llm = OpenAI(api_key=os.getenv(model_config.api_key_env), model_name=model_config.name)
                     logger.info(f"[_create_llm] Using OpenAI (legacy): {model_config.name}")
                     return llm
@@ -1183,16 +1197,21 @@ After completing all three steps, then answer based on what you observed visuall
 
     def _setup_browser_tools(self) -> None:
         if not BROWSER_TOOLS_AVAILABLE:
+            logger.error("[_setup_browser_tools] Browser tools not available - BROWSER_TOOLS_AVAILABLE=False")
+            logger.error("[_setup_browser_tools] Check if playwright is installed: pip install playwright && playwright install")
             return
 
         allowed_domains_env = os.getenv("BROWSER_ALLOWED_DOMAINS", "localhost:3000")
         allowed_domains = [domain.strip() for domain in allowed_domains_env.split(",") if domain.strip()]
 
         try:
+            logger.info("[_setup_browser_tools] Initializing browser security config...")
             self.browser_security = BrowserSecurityConfig.from_env(allowed_domains)
+            logger.info("[_setup_browser_tools] Creating browser session manager...")
             self.browser_sessions = BrowserSessionManager(self.browser_security)
+            logger.info("[_setup_browser_tools] Browser tools initialized successfully")
         except Exception as exc:  # pragma: no cover - defensive
-            logger.warning("Failed to initialize browser tools: %s", exc)
+            logger.error(f"[_setup_browser_tools] Failed to initialize browser tools: {exc}", exc_info=True)
             self.browser_sessions = None
             self.browser_security = None
 
