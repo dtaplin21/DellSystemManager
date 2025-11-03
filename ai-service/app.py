@@ -470,6 +470,8 @@ def chat_message():
                 )
             )
             
+            logger.info(f"[Chat Endpoint] Result: success={result.get('success')}, has_response={bool(result.get('response'))}, error={result.get('error')}")
+            
             if result.get('success'):
                 return jsonify({
                     'reply': result.get('response', 'No response generated'),  # Map response to reply for frontend compatibility
@@ -479,17 +481,29 @@ def chat_message():
                     'timestamp': result.get('timestamp', '')
                 })
             else:
+                # Log the error details before returning
+                error_msg = result.get('error', 'Chat failed')
+                logger.error(f"[Chat Endpoint] Chat failed: {error_msg}")
+                logger.error(f"[Chat Endpoint] Full result: {result}")
                 return jsonify({
-                    'error': result.get('error', 'Chat failed'),
-                    'success': False
+                    'error': error_msg,
+                    'success': False,
+                    'details': result.get('response')  # Include any response even if success=false
                 }), 500
                 
         finally:
             loop.close()
             
     except Exception as e:
-        logger.error(f"Chat message failed: {e}")
-        return jsonify({'error': str(e), 'success': False}), 500
+        logger.error(f"Chat message failed: {e}", exc_info=True)
+        import traceback
+        error_trace = traceback.format_exc()
+        logger.error(f"Full traceback: {error_trace}")
+        return jsonify({
+            'error': str(e),
+            'success': False,
+            'traceback': error_trace if os.getenv("FLASK_DEBUG") == "1" else None
+        }), 500
 
 if __name__ == '__main__':
     import datetime

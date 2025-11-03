@@ -21,37 +21,114 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Try to import OpenAI LLM - handle both old and new langchain versions
+# Note: langchain_openai only has ChatOpenAI, not OpenAI class
+# Prefer langchain_community first (newer, recommended)
+OpenAI = None
 try:
-    from langchain_openai import OpenAI
+    from langchain_community.llms import OpenAI  # type: ignore
+    logger.info("Loaded OpenAI LLM from langchain_community")
 except ImportError:
     try:
         from langchain.llms import OpenAI
+        logger.info("Loaded OpenAI LLM from langchain (deprecated)")
     except ImportError:
-        try:
-            from langchain_community.llms import OpenAI
-        except ImportError:
-            logger.warning("OpenAI LLM not available - using fallback")
-            OpenAI = None
+        logger.warning("OpenAI LLM not available - langchain_community required for legacy OpenAI class")
+        OpenAI = None
 
-import ollama
+# Optional: Ollama for local models
+try:
+    import ollama
+except ImportError:
+    ollama = None
+    logger.warning("Ollama not available - local models will not work")
 
 BROWSER_TOOLS_AVAILABLE = False
 
 try:
-    from ai_service.browser_tools import (
-        BrowserExtractionTool,
-        BrowserInteractionTool,
-        BrowserNavigationTool,
-        BrowserScreenshotTool,
-        BrowserSecurityConfig,
-        BrowserSessionManager,
-    )
-
-    BROWSER_TOOLS_AVAILABLE = True
+    # Try multiple import paths to handle different directory structures
+    browser_tools_imported = False
+    
+    # Path 1: ai_service (underscore) - when browser_tools is in sibling directory
+    try:
+        import sys
+        import os
+        # Get the directory containing this file (ai-service/)
+        current_file_dir = os.path.dirname(os.path.abspath(__file__))
+        # Get parent directory (DellSystemManager/)
+        parent_dir = os.path.dirname(current_file_dir)
+        # Path to ai_service/ (sibling directory)
+        ai_service_path = os.path.join(parent_dir, 'ai_service')
+        browser_tools_path = os.path.join(ai_service_path, 'browser_tools')
+        
+        logger.info(f"[Browser Tools] Checking path: {browser_tools_path}")
+        logger.info(f"[Browser Tools] Path exists: {os.path.exists(browser_tools_path)}")
+        
+        if os.path.exists(browser_tools_path):
+            # Add ai_service to path so we can import from it
+            if ai_service_path not in sys.path:
+                sys.path.insert(0, ai_service_path)
+                logger.info(f"[Browser Tools] Added {ai_service_path} to sys.path")
+            
+            from browser_tools import (
+                BrowserExtractionTool,
+                BrowserInteractionTool,
+                BrowserNavigationTool,
+                BrowserScreenshotTool,
+                BrowserSecurityConfig,
+                BrowserSessionManager,
+            )
+            browser_tools_imported = True
+            logger.info("Browser tools imported from ai_service directory")
+    except ImportError as e:
+        logger.warning(f"[Browser Tools] Path 1 failed: {e}")
+        pass
+    except Exception as e:
+        logger.warning(f"[Browser Tools] Path 1 error: {e}")
+        pass
+    
+    # Path 2: ai_service.browser_tools (package import)
+    if not browser_tools_imported:
+        try:
+            from ai_service.browser_tools import (
+                BrowserExtractionTool,
+                BrowserInteractionTool,
+                BrowserNavigationTool,
+                BrowserScreenshotTool,
+                BrowserSecurityConfig,
+                BrowserSessionManager,
+            )
+            browser_tools_imported = True
+            logger.info("Browser tools imported from ai_service package")
+        except ImportError:
+            pass
+    
+    # Path 3: Relative import (when browser_tools is in same directory)
+    if not browser_tools_imported:
+        try:
+            from browser_tools import (
+                BrowserExtractionTool,
+                BrowserInteractionTool,
+                BrowserNavigationTool,
+                BrowserScreenshotTool,
+                BrowserSecurityConfig,
+                BrowserSessionManager,
+            )
+            browser_tools_imported = True
+            logger.info("Browser tools imported from relative path")
+        except ImportError:
+            pass
+    
+    if browser_tools_imported:
+        BROWSER_TOOLS_AVAILABLE = True
+    else:
+        raise ImportError("Could not find browser_tools in any expected location")
+        
 except Exception as browser_import_error:  # pragma: no cover - optional dependency
     logger.warning(
         "Browser tools not available: %s", getattr(browser_import_error, "detail", browser_import_error)
     )
+    logger.warning(f"Browser tools import error details: {browser_import_error}")
+    BROWSER_TOOLS_AVAILABLE = False
 # === FRAMEWORK LAYER (My Implementation) ===
 class ModelTier(Enum):
     LOCAL = "local"
@@ -139,8 +216,8 @@ class CostOptimizer:
 # === TOOL INTEGRATIONS ===
 class LayoutOptimizerTool(BaseTool):
     """Tool that connects to your existing geometry.py"""
-    name = "layout_optimizer"
-    description = "Optimizes panel layouts using existing geometry calculations"
+    name: str = "layout_optimizer"
+    description: str = "Optimizes panel layouts using existing geometry calculations"
     
     def _run(self, panels: str, constraints: str) -> str:
         """Run layout optimization using existing backend"""
@@ -162,8 +239,8 @@ class LayoutOptimizerTool(BaseTool):
 
 class DocumentProcessorTool(BaseTool):
     """Tool that connects to your existing document_processor.py"""
-    name = "document_processor"
-    description = "Processes documents using existing OCR and analysis"
+    name: str = "document_processor"
+    description: str = "Processes documents using existing OCR and analysis"
     
     def _run(self, document_path: str, analysis_type: str) -> str:
         """Process documents using existing backend"""
@@ -215,13 +292,13 @@ class PanelManipulationInput(BaseModel):
 class PanelManipulationTool(BaseTool):
     """Execute panel layout operations through the backend API."""
 
-    name = "panel_manipulation"
-    description = (
+    name: str = "panel_manipulation"
+    description: str = (
         "Execute panel layout operations via API. Use this tool when users request operations such as moving, "
         "reordering, or retrieving panels. Supported actions: 'get_panels', 'move_panel', 'batch_move', "
         "'reorder_panels_numerically'."
     )
-    args_schema = PanelManipulationInput
+    args_schema: type = PanelManipulationInput
 
     def __init__(
         self,
@@ -557,8 +634,8 @@ class PanelManipulationTool(BaseTool):
 
 class QCDataTool(BaseTool):
     """Tool that connects to your existing QC data analysis"""
-    name = "qc_data_analyzer"
-    description = "Analyzes QC data and identifies anomalies"
+    name: str = "qc_data_analyzer"
+    description: str = "Analyzes QC data and identifies anomalies"
     
     def _run(self, qc_data: str, analysis_type: str = "outliers") -> str:
         """Analyze QC data using existing backend"""
@@ -727,23 +804,30 @@ class HybridAgentFactory:
     def _create_llm(self, model_config: ModelConfig):
         """Create LLM instance based on model configuration"""
         logger.info(f"[_create_llm] Creating LLM - model: {model_config.name}, tier: {model_config.tier}")
+        logger.info(f"[_create_llm] API key env: {model_config.api_key_env}, Has key: {bool(model_config.api_key_env and os.getenv(model_config.api_key_env))}")
+        logger.info(f"[_create_llm] OpenAI class available: {OpenAI is not None}")
         
         if model_config.tier == ModelTier.LOCAL:
             llm = self._create_ollama_llm(model_config.name)
             logger.info(f"[_create_llm] Using local Ollama LLM: {model_config.name}")
             return llm
         elif model_config.api_key_env and os.getenv(model_config.api_key_env):
+            api_key = os.getenv(model_config.api_key_env)
+            logger.info(f"[_create_llm] API key found (length: {len(api_key) if api_key else 0})")
+            
             if "gpt" in model_config.name:
                 # Use ChatOpenAI for better tool support if available, fallback to OpenAI
                 try:
                     # Try multiple import paths for compatibility
                     try:
                         from langchain_openai import ChatOpenAI  # type: ignore
+                        logger.info("[_create_llm] Imported ChatOpenAI from langchain_openai")
                     except ImportError:
                         from langchain.chat_models import ChatOpenAI  # type: ignore
+                        logger.info("[_create_llm] Imported ChatOpenAI from langchain.chat_models")
                     
                     llm = ChatOpenAI(
-                        openai_api_key=os.getenv(model_config.api_key_env),
+                        openai_api_key=api_key,
                         model=model_config.name,
                         temperature=0
                     )
@@ -751,16 +835,30 @@ class HybridAgentFactory:
                     return llm
                 except (ImportError, Exception) as e:
                     logger.warning(f"[_create_llm] ChatOpenAI not available ({e}), falling back to OpenAI")
+                    logger.info(f"[_create_llm] OpenAI class type: {type(OpenAI)}, is None: {OpenAI is None}")
                     if OpenAI is None:
-                        raise ImportError("OpenAI LLM not available - please install langchain-community or langchain-openai")
-                    llm = OpenAI(api_key=os.getenv(model_config.api_key_env), model_name=model_config.name)
-                    logger.info(f"[_create_llm] Using OpenAI (legacy): {model_config.name}")
-                    return llm
+                        error_msg = "OpenAI LLM not available - please install langchain-community or langchain-openai"
+                        logger.error(f"[_create_llm] {error_msg}")
+                        raise ImportError(error_msg)
+                    try:
+                        llm = OpenAI(api_key=api_key, model_name=model_config.name)
+                        logger.info(f"[_create_llm] Using OpenAI (legacy): {model_config.name}")
+                        return llm
+                    except Exception as llm_error:
+                        logger.error(f"[_create_llm] Failed to create OpenAI LLM: {llm_error}", exc_info=True)
+                        raise
             elif "claude" in model_config.name:
                 # Implement Claude integration
                 logger.warning(f"[_create_llm] Claude not fully implemented, using GPT fallback")
-                return OpenAI(api_key=os.getenv(model_config.api_key_env), model_name="gpt-3.5-turbo")
+                if OpenAI is None:
+                    raise ImportError("OpenAI LLM not available - please install langchain-community or langchain-openai")
+                return OpenAI(api_key=api_key, model_name="gpt-3.5-turbo")
         else:
+            # If no API key and not local, we can't create the LLM
+            if model_config.tier != ModelTier.LOCAL:
+                error_msg = f"No API key found for {model_config.name} (env: {model_config.api_key_env})"
+                logger.error(f"[_create_llm] {error_msg}")
+                raise ValueError(error_msg)
             logger.warning(f"[_create_llm] No API key found for {model_config.name}, using mock LLM")
             return self._create_mock_llm()
     
@@ -997,14 +1095,23 @@ class DellSystemAIService:
 
             logger.info(f"[handle_chat_message] Tool context: {list(tool_context.keys())}")
 
-            assistant_agent = orchestrator.agent_factory.create_assistant_agent(
-                user_tier,
-                tool_context=tool_context if tool_context else None,
-            )
-            
-            logger.info(f"[handle_chat_message] Agent created with {len(assistant_agent.tools)} tools")
-            if assistant_agent.tools:
-                logger.info(f"[handle_chat_message] Agent tools: {[tool.name for tool in assistant_agent.tools]}")
+            try:
+                assistant_agent = orchestrator.agent_factory.create_assistant_agent(
+                    user_tier,
+                    tool_context=tool_context if tool_context else None,
+                )
+                logger.info(f"[handle_chat_message] Agent created with {len(assistant_agent.tools)} tools")
+                if assistant_agent.tools:
+                    logger.info(f"[handle_chat_message] Agent tools: {[tool.name for tool in assistant_agent.tools]}")
+            except Exception as agent_error:
+                logger.error(f"[handle_chat_message] Failed to create agent: {agent_error}", exc_info=True)
+                return {
+                    "success": False,
+                    "error": f"Failed to create AI agent: {str(agent_error)}",
+                    "response": f"I'm unable to process your request because the AI agent could not be created: {str(agent_error)}",
+                    "user_id": user_id,
+                    "timestamp": str(datetime.datetime.now()),
+                }
 
             # Detect if user is asking about visual layout
             message_lower = message.lower()

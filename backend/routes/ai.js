@@ -378,25 +378,36 @@ router.post('/chat', auth, async (req, res) => {
           }
         );
 
-        if (pythonResponse.data && pythonResponse.data.success) {
-          logger.info('[AI CHAT] Python AI service responded successfully', {
-            responseLength: pythonResponse.data.response?.length || 0
-          });
-          
-          // Format response for frontend compatibility
-          return res.json({
-            success: true,
-            reply: pythonResponse.data.response || pythonResponse.data.reply || pythonResponse.data.result,
-            actions: pythonResponse.data.actions || [],
-            panels: pythonResponse.data.panels || [],
-            suggestions: buildContextualSuggestions(pythonResponse.data.actionContext || {}),
-            meta: {
-              handled: true,
-              durationMs: Date.now() - startedAt,
-              source: 'python_ai_service',
-              panelCount: pythonResponse.data.panels?.length || 0
-            }
-          });
+        // Check if Python service responded (even with errors, we want to see the error message)
+        if (pythonResponse.data) {
+          if (pythonResponse.data.success) {
+            logger.info('[AI CHAT] Python AI service responded successfully', {
+              responseLength: pythonResponse.data.response?.length || 0
+            });
+            
+            // Format response for frontend compatibility
+            return res.json({
+              success: true,
+              reply: pythonResponse.data.response || pythonResponse.data.reply || pythonResponse.data.result,
+              actions: pythonResponse.data.actions || [],
+              panels: pythonResponse.data.panels || [],
+              suggestions: buildContextualSuggestions(pythonResponse.data.actionContext || {}),
+              meta: {
+                handled: true,
+                durationMs: Date.now() - startedAt,
+                source: 'python_ai_service',
+                panelCount: pythonResponse.data.panels?.length || 0
+              }
+            });
+          } else {
+            // Python service returned an error - log it but still fall back
+            logger.error('[AI CHAT] Python AI service returned error response', {
+              error: pythonResponse.data.error,
+              status: pythonResponse.status,
+              details: pythonResponse.data
+            });
+            // Continue to backend fallback below
+          }
         }
       } catch (pythonError) {
         // If Python service is unavailable or errors, fall back to backend route
@@ -406,11 +417,22 @@ router.post('/chat', auth, async (req, res) => {
             aiServiceUrl: AI_SERVICE_URL
           });
         } else {
-          logger.error('[AI CHAT] Python AI service error, falling back to backend route', {
-            error: pythonError.message,
-            status: pythonError.response?.status,
-            data: pythonError.response?.data
-          });
+          // Check if Python service returned a response with error details
+          if (pythonError.response && pythonError.response.data) {
+            const errorData = pythonError.response.data;
+            logger.error('[AI CHAT] Python AI service returned error, falling back to backend route', {
+              error: errorData.error || pythonError.message,
+              status: pythonError.response.status,
+              success: errorData.success,
+              details: errorData
+            });
+          } else {
+            logger.error('[AI CHAT] Python AI service error, falling back to backend route', {
+              error: pythonError.message,
+              status: pythonError.response?.status,
+              code: pythonError.code
+            });
+          }
         }
         // Continue to backend route handling below
       }
