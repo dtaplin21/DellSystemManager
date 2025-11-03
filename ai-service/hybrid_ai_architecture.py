@@ -643,12 +643,18 @@ class HybridAgentFactory:
 
         return Agent(
             role="AI Assistant",
-            goal="Execute user actions using available tools. When users request panel operations (move, arrange, reorder panels), use PanelManipulationTool to perform the actions directly. For UI interactions, use browser automation tools. Always prefer executing actions over describing them.",
-            backstory="""You are an AI assistant that takes action, not just provides instructions. 
+            goal="Execute user actions using available tools. When users ask about visual panel layouts, use browser automation to check the actual frontend page. When users request panel operations (move, arrange, reorder panels), use PanelManipulationTool to perform the actions directly. Always check visual layouts before answering layout-related questions.",
+            backstory="""You are an AI assistant that takes action and checks visual information. 
+            IMPORTANT: When users ask about panel layouts, arrangements, or visual positioning, you MUST:
+            1. Navigate to the panel layout page using browser_navigate
+            2. Take a screenshot using browser_screenshot to see the actual visual layout
+            3. Extract visual data using browser_extract to understand panel positions
+            4. Answer based on what you SEE, not just backend JSON data
+            
             When users ask you to arrange, move, or reorder panels, you MUST execute the operations 
             using the PanelManipulationTool with actions like 'reorder_panels_numerically', 'batch_move', 
             or 'move_panel'. You can also use browser automation tools when UI interactions are needed. 
-            Always execute actions instead of just describing how to do them.""",
+            Always execute actions and check visual information instead of just describing them.""",
             verbose=True,
             allow_delegation=False,
             tools=tools_list,
@@ -980,13 +986,45 @@ class DellSystemAIService:
             if assistant_agent.tools:
                 logger.info(f"[handle_chat_message] Agent tools: {[tool.name for tool in assistant_agent.tools]}")
 
+            # Detect if user is asking about visual layout
+            message_lower = message.lower()
+            is_visual_layout_question = any(keyword in message_lower for keyword in [
+                'visual', 'layout', 'see', 'show', 'display', 'arrangement', 'arranged',
+                'how are the panels', 'what does the layout', 'what is the order',
+                'check the panel layout', 'view the panel layout', 'panel layout page',
+                'order of panels', 'panel order', 'in the panel layout', 'by panel number',
+                'panel positioning', 'panel positions', 'where are the panels'
+            ])
+            
+            # Build frontend URL for panel layout page
+            frontend_base_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+            panel_layout_url = f"{frontend_base_url}/dashboard/projects/{project_id}/panel-layout" if project_id else None
+            
+            visual_instructions = ""
+            if is_visual_layout_question and panel_layout_url:
+                visual_instructions = f"""
+VISUAL LAYOUT CHECK REQUIRED:
+- The user is asking about the VISUAL panel layout. You MUST check the actual visual representation, not just backend data.
+- Navigate to: {panel_layout_url}
+- Use browser_navigate tool with action='goto' and url='{panel_layout_url}'
+- Wait for the page to load (wait_for='canvas' or 'panel' or 'konva-container')
+- Take a screenshot using browser_screenshot tool (full_page=True) to see the visual layout
+- Extract visual information using browser_extract tool to get panel positions and arrangement
+- Then answer based on what you SEE in the visual layout, not just backend JSON data.
+"""
+            
             task_description = (
                 f"User request: {message}\n"
                 f"Context: {json.dumps(context, default=str)}\n"
-                f"Project ID: {project_id or 'unknown'}\n\n"
+                f"Project ID: {project_id or 'unknown'}\n"
+                f"User ID: {user_id}\n"
+                f"Frontend URL: {frontend_base_url}\n"
+                f"{visual_instructions}\n"
                 "IMPORTANT: If the user asks you to perform actions (move, arrange, reorder panels), "
                 "you MUST use the available tools (PanelManipulationTool or browser tools) to execute the "
-                "actions, not merely describe them."
+                "actions, not merely describe them. For visual layout questions, use browser automation tools "
+                "to check the actual visual representation on the frontend. When using browser tools, "
+                f"always pass user_id='{user_id}' in your tool calls."
             )
 
             chat_task = Task(
