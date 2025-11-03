@@ -8,10 +8,10 @@
     "start": "node backend/server.js",
     "migrate": "ts-node backend/scripts/migrate.js",
     "build": "echo 'This is a monorepo. Use frontend/ directory for Next.js deployment.' && exit 1",
-    "dev:all": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\" \"npm run dev:ai\"",
+    "dev:all": "concurrently --names \"FRONTEND,BACKEND,AI\" --prefix-colors \"blue,green,yellow\" \"npm run dev:frontend\" \"npm run dev:backend\" \"npm run dev:ai\"",
     "dev:frontend": "cd frontend && npm run dev",
     "dev:backend": "cd backend && npm run dev",
-    "dev:ai": "cd ai-service && python3 app.py"
+    "dev:ai": "cd ai-service && PORT=5001 python3 app.py"
   },
   "private": true,
   "keywords": [],
@@ -86,6 +86,7 @@
     "@types/node": "^24.0.0",
     "@types/ws": "^8.18.1",
     "autoprefixer": "^10.4.21",
+    "concurrently": "^9.2.1",
     "node-loader": "^2.1.0",
     "nodemon": "^3.1.10",
     "postcss": "^8.5.4",
