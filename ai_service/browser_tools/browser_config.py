@@ -26,17 +26,28 @@ class BrowserSecurityConfig:
         """Return True when the supplied URL is permitted by the policy."""
 
         parsed = urlparse(url)
-        domain = parsed.netloc
+        domain = parsed.netloc  # This includes port, e.g., "localhost:3000"
         if not domain:
             return False
 
         if self.blocked_domains and domain in self.blocked_domains:
             return False
 
+        # If no allowed domains specified, allow all (for development)
         if not self.allowed_domains:
             return True
 
-        return domain in self.allowed_domains
+        # Check exact match first (includes port)
+        if domain in self.allowed_domains:
+            return True
+        
+        # Also check without port for flexibility
+        domain_without_port = domain.split(':')[0]
+        allowed_without_ports = [d.split(':')[0] for d in self.allowed_domains]
+        if domain_without_port in allowed_without_ports:
+            return True
+
+        return False
 
     @classmethod
     def from_env(cls, allowed: Optional[Iterable[str]] = None) -> "BrowserSecurityConfig":

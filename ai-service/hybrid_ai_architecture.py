@@ -25,6 +25,9 @@ logger = logging.getLogger(__name__)
 # Prefer langchain_community first (newer, recommended)
 OpenAI = None
 try:
+    # Force import check - sometimes imports fail silently
+    import langchain_community
+    logger.info(f"langchain_community package found at: {langchain_community.__file__}")
     from langchain_community.llms import OpenAI  # type: ignore
     logger.info("Loaded OpenAI LLM from langchain_community")
     # Verify it's actually a class, not None
@@ -32,15 +35,21 @@ try:
         raise ImportError("OpenAI class is None after import")
 except ImportError as e:
     logger.warning(f"Failed to import from langchain_community: {e}")
+    logger.warning(f"Import error details: {type(e).__name__}: {str(e)}")
     try:
         from langchain.llms import OpenAI
         logger.info("Loaded OpenAI LLM from langchain (deprecated)")
         if OpenAI is None:
             raise ImportError("OpenAI class is None after import")
     except ImportError as e2:
-        logger.error(f"Failed to import OpenAI from both langchain_community and langchain: {e2}")
+        logger.error(f"Failed to import OpenAI from both langchain_community and langchain")
+        logger.error(f"langchain_community error: {e}")
+        logger.error(f"langchain error: {e2}")
         logger.warning("OpenAI LLM not available - langchain_community required for legacy OpenAI class")
         OpenAI = None
+except Exception as e:
+    logger.error(f"Unexpected error importing OpenAI: {type(e).__name__}: {e}", exc_info=True)
+    OpenAI = None
 
 # Optional: Ollama for local models
 try:
@@ -1323,8 +1332,11 @@ After completing all three steps, then answer based on what you observed visuall
             logger.error("[_setup_browser_tools] Check if playwright is installed: pip install playwright && playwright install")
             return
 
-        allowed_domains_env = os.getenv("BROWSER_ALLOWED_DOMAINS", "localhost:3000")
+        # Get allowed domains - include localhost and common frontend URLs
+        default_domains = "localhost:3000,localhost:3001,127.0.0.1:3000,127.0.0.1:3001"
+        allowed_domains_env = os.getenv("BROWSER_ALLOWED_DOMAINS", default_domains)
         allowed_domains = [domain.strip() for domain in allowed_domains_env.split(",") if domain.strip()]
+        logger.info(f"[_setup_browser_tools] Allowed domains: {allowed_domains}")
 
         try:
             logger.info("[_setup_browser_tools] Initializing browser security config...")
