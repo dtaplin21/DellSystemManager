@@ -360,11 +360,15 @@ class PanelManipulationTool(BaseTool):
         return result
 
     def _reorder_panels(self, project_id: str, include_layout: bool = False) -> Dict[str, Any]:
+        logger.info(f"[PanelManipulationTool] Starting reorder_panels_numerically for project_id: {project_id}")
         layout_data = self._get_layout(project_id)
         panels = layout_data.get("panels") or []
 
         if not panels:
+            logger.warning(f"[PanelManipulationTool] No panels found for project_id: {project_id}")
             return {"projectId": project_id, "message": "No panels found to reorder.", "moves_executed": []}
+        
+        logger.info(f"[PanelManipulationTool] Found {len(panels)} panels to reorder")
 
         sorted_panels = sorted(panels, key=self._panel_sort_key)
         spacing_x = 450
@@ -407,16 +411,21 @@ class PanelManipulationTool(BaseTool):
             "operations": operations,
         }
 
+        logger.info(f"[PanelManipulationTool] Executing batch_move with {len(operations)} operations")
         response = self._request(
             method="POST",
             path="/api/panel-layout/batch-operations",
             json_payload=payload,
         )
+        
+        logger.info(f"[PanelManipulationTool] Batch move response: {response}")
 
         summary = {
             "projectId": project_id,
-            "moves_executed": operations,
+            "moves_executed": len(operations),
+            "operations": operations,
             "response": response,
+            "message": f"Successfully reordered {len(operations)} panels numerically",
         }
 
         if include_layout:
@@ -446,6 +455,10 @@ class PanelManipulationTool(BaseTool):
         if self.auth_token:
             headers.setdefault("Authorization", f"Bearer {self.auth_token}")
 
+        logger.info(f"[PanelManipulationTool] {method} {url} (headers: {list(headers.keys())})")
+        if json_payload:
+            logger.debug(f"[PanelManipulationTool] Payload keys: {list(json_payload.keys())}")
+
         try:
             response = self.session.request(
                 method=method.upper(),
@@ -455,10 +468,13 @@ class PanelManipulationTool(BaseTool):
                 headers=headers,
                 timeout=self.timeout,
             )
+            logger.info(f"[PanelManipulationTool] Response status: {response.status_code}")
         except requests.RequestException as exc:
+            logger.error(f"[PanelManipulationTool] Request exception: {exc}")
             raise ValueError(f"Panel manipulation request failed: {exc}") from exc
 
         if response.status_code == 401:
+            logger.error(f"[PanelManipulationTool] Unauthorized (401) for {url}")
             raise ValueError("Panel manipulation request was unauthorized. Verify authentication headers.")
 
         if not response.ok:
@@ -466,23 +482,40 @@ class PanelManipulationTool(BaseTool):
                 error_payload = response.json()
             except ValueError:
                 error_payload = response.text
+            logger.error(f"[PanelManipulationTool] Request failed ({response.status_code}): {error_payload}")
             raise ValueError(f"Panel manipulation request failed ({response.status_code}): {error_payload}")
 
         try:
-            return response.json()
+            result = response.json()
+            logger.debug(f"[PanelManipulationTool] Response keys: {list(result.keys()) if isinstance(result, dict) else 'not a dict'}")
+            return result
         except ValueError as exc:
+            logger.error(f"[PanelManipulationTool] JSON parse error: {exc}, response text: {response.text[:200]}")
             raise ValueError(f"Panel manipulation response could not be parsed: {exc}") from exc
 
     def _get_layout(self, project_id: str) -> Dict[str, Any]:
-        response = self._request(
-            method="GET",
-            path=f"/api/panel-layout/get-layout/{project_id}",
-        )
-        layout = response.get("layout")
-        if layout is None:
-            logger.warning("Layout response missing 'layout' key. Raw response: %s", response)
-            return {}
-        return layout
+        try:
+            logger.info(f"[PanelManipulationTool] Fetching layout for project_id: {project_id}")
+            response = self._request(
+                method="GET",
+                path=f"/api/panel-layout/get-layout/{project_id}",
+            )
+            logger.info(f"[PanelManipulationTool] Layout response received: {list(response.keys())}")
+            
+            layout = response.get("layout")
+            if layout is None:
+                logger.warning("Layout response missing 'layout' key. Raw response: %s", response)
+                # Try to use response directly if it has panels
+                if "panels" in response:
+                    logger.info("Using response directly as layout")
+                    return response
+                return {}
+            
+            logger.info(f"[PanelManipulationTool] Layout retrieved: {len(layout.get('panels', []))} panels")
+            return layout
+        except Exception as e:
+            logger.error(f"[PanelManipulationTool] Error getting layout: {e}")
+            raise
 
     def _require_project_id(self, project_id: Optional[str]) -> str:
         resolved = project_id or self.project_id
@@ -579,7 +612,9 @@ class HybridAgentFactory:
         tool_context: Optional[Dict[str, Any]] = None,
     ) -> Agent:
         """Create general assistant agent"""
+        logger.info(f"[AgentFactory] Creating assistant agent - user_tier: {user_tier}, tool_context: {tool_context}")
         model_config = self.cost_optimizer.select_model("simple", user_tier, "assistant")
+        logger.info(f"[AgentFactory] Selected model: {model_config.name} (tier: {model_config.tier})")
         llm = self._create_llm(model_config)
 
         tools_list: List[BaseTool] = []
@@ -587,19 +622,33 @@ class HybridAgentFactory:
         panel_tool = self._build_panel_tool(tool_context)
         if panel_tool:
             tools_list.append(panel_tool)
+            logger.info(f"[AgentFactory] PanelManipulationTool added - name: {panel_tool.name}, project_id: {panel_tool.project_id}")
+        else:
+            logger.warning("[AgentFactory] PanelManipulationTool NOT created!")
 
+        browser_tool_count = 0
         for factory in self.tool_resources.get("browser_tool_factories", []):
             try:
                 browser_tool = factory()
                 if browser_tool:
                     tools_list.append(browser_tool)
+                    browser_tool_count += 1
+                    logger.debug(f"[AgentFactory] Browser tool added: {browser_tool.name}")
             except Exception as exc:  # pragma: no cover - defensive
                 logger.warning("Failed to initialize browser tool: %s", exc)
 
+        logger.info(f"[AgentFactory] Total tools registered: {len(tools_list)} (Panel: {1 if panel_tool else 0}, Browser: {browser_tool_count})")
+        if tools_list:
+            logger.info(f"[AgentFactory] Tool names: {[tool.name for tool in tools_list]}")
+
         return Agent(
             role="AI Assistant",
-            goal="Provide helpful assistance and answer user questions",
-            backstory="Friendly and knowledgeable AI assistant for the Dell System Manager platform",
+            goal="Execute user actions using available tools. When users request panel operations (move, arrange, reorder panels), use PanelManipulationTool to perform the actions directly. For UI interactions, use browser automation tools. Always prefer executing actions over describing them.",
+            backstory="""You are an AI assistant that takes action, not just provides instructions. 
+            When users ask you to arrange, move, or reorder panels, you MUST execute the operations 
+            using the PanelManipulationTool with actions like 'reorder_panels_numerically', 'batch_move', 
+            or 'move_panel'. You can also use browser automation tools when UI interactions are needed. 
+            Always execute actions instead of just describing how to do them.""",
             verbose=True,
             allow_delegation=False,
             tools=tools_list,
@@ -653,15 +702,35 @@ class HybridAgentFactory:
     
     def _create_llm(self, model_config: ModelConfig):
         """Create LLM instance based on model configuration"""
+        logger.info(f"[_create_llm] Creating LLM - model: {model_config.name}, tier: {model_config.tier}")
+        
         if model_config.tier == ModelTier.LOCAL:
-            return self._create_ollama_llm(model_config.name)
+            llm = self._create_ollama_llm(model_config.name)
+            logger.info(f"[_create_llm] Using local Ollama LLM: {model_config.name}")
+            return llm
         elif model_config.api_key_env and os.getenv(model_config.api_key_env):
             if "gpt" in model_config.name:
-                return OpenAI(api_key=os.getenv(model_config.api_key_env), model_name=model_config.name)
+                # Use ChatOpenAI for better tool support if available, fallback to OpenAI
+                try:
+                    from langchain_openai import ChatOpenAI
+                    llm = ChatOpenAI(
+                        api_key=os.getenv(model_config.api_key_env),
+                        model_name=model_config.name,
+                        temperature=0
+                    )
+                    logger.info(f"[_create_llm] Using ChatOpenAI: {model_config.name} (better tool support)")
+                    return llm
+                except ImportError:
+                    logger.warning(f"[_create_llm] ChatOpenAI not available, falling back to OpenAI")
+                    llm = OpenAI(api_key=os.getenv(model_config.api_key_env), model_name=model_config.name)
+                    logger.info(f"[_create_llm] Using OpenAI (legacy): {model_config.name}")
+                    return llm
             elif "claude" in model_config.name:
                 # Implement Claude integration
+                logger.warning(f"[_create_llm] Claude not fully implemented, using GPT fallback")
                 return OpenAI(api_key=os.getenv(model_config.api_key_env), model_name="gpt-3.5-turbo")
         else:
+            logger.warning(f"[_create_llm] No API key found for {model_config.name}, using mock LLM")
             return self._create_mock_llm()
     
     def _create_ollama_llm(self, model_name: str):
@@ -702,19 +771,25 @@ class HybridAgentFactory:
         if not base_url:
             base_url = "http://localhost:8003"
 
+        logger.info(f"[_build_panel_tool] Creating tool with base_url: {base_url}")
+        logger.debug(f"[_build_panel_tool] Tool context: {tool_context}")
+
         tool = PanelManipulationTool(
             base_url=base_url,
             default_headers=default_headers,
         )
 
         if not tool_context:
+            logger.info(f"[_build_panel_tool] Tool created without context - project_id: {tool.project_id}")
             return tool
 
-        return tool.with_context(
+        contexted_tool = tool.with_context(
             project_id=tool_context.get("project_id"),
             auth_token=tool_context.get("auth_token"),
             extra_headers=tool_context.get("headers"),
         )
+        logger.info(f"[_build_panel_tool] Tool created with context - project_id: {contexted_tool.project_id}")
+        return contexted_tool
 
 # === WORKFLOW ORCHESTRATOR ===
 class HybridWorkflowOrchestrator:
@@ -870,10 +945,16 @@ class DellSystemAIService:
     async def handle_chat_message(self, user_id: str, user_tier: str, message: str, context: Dict) -> Dict:
         """Handle general chat messages"""
         try:
+            logger.info(f"[handle_chat_message] Processing message from user_id: {user_id}, user_tier: {user_tier}")
+            logger.debug(f"[handle_chat_message] Message: {message[:100]}...")
+            logger.debug(f"[handle_chat_message] Context keys: {list(context.keys())}")
+            
             orchestrator = self.get_orchestrator(user_id, user_tier)
             project_id = context.get("projectId") or context.get("project_id")
             auth_token = context.get("authToken") or context.get("auth_token")
             extra_headers = context.get("headers") or context.get("authHeaders")
+
+            logger.info(f"[handle_chat_message] Extracted - project_id: {project_id}, has_auth_token: {bool(auth_token)}, has_headers: {bool(extra_headers)}")
 
             tool_context: Dict[str, Any] = {}
             if project_id:
@@ -883,10 +964,16 @@ class DellSystemAIService:
             if isinstance(extra_headers, dict):
                 tool_context["headers"] = extra_headers
 
+            logger.info(f"[handle_chat_message] Tool context: {list(tool_context.keys())}")
+
             assistant_agent = orchestrator.agent_factory.create_assistant_agent(
                 user_tier,
                 tool_context=tool_context if tool_context else None,
             )
+            
+            logger.info(f"[handle_chat_message] Agent created with {len(assistant_agent.tools)} tools")
+            if assistant_agent.tools:
+                logger.info(f"[handle_chat_message] Agent tools: {[tool.name for tool in assistant_agent.tools]}")
 
             task_description = (
                 f"User request: {message}\n"
@@ -905,14 +992,22 @@ class DellSystemAIService:
                 ),
             )
 
+            logger.info(f"[handle_chat_message] Creating Crew with {len(assistant_agent.tools)} tools")
+            logger.debug(f"[handle_chat_message] Task description: {task_description[:200]}...")
+
             crew = Crew(
                 agents=[assistant_agent],
                 tasks=[chat_task],
                 verbose=True,
             )
 
+            logger.info("[handle_chat_message] Starting crew.kickoff()...")
             result = crew.kickoff()
+            logger.info(f"[handle_chat_message] Crew completed. Result type: {type(result)}")
+            
             response_text = self._extract_crew_output(result)
+            logger.info(f"[handle_chat_message] Extracted response length: {len(response_text)} characters")
+            logger.debug(f"[handle_chat_message] Response preview: {response_text[:200]}...")
 
             return {
                 "success": True,

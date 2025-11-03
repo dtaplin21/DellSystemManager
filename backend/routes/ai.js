@@ -1,10 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const OpenAI = require('openai');
+const axios = require('axios');
 const config = require('../config/env');
 const logger = require('../lib/logger');
 const panelLayoutService = require('../services/panelLayoutService');
 const { auth } = require('../middlewares/auth');
+
+// Python AI Service configuration
+const AI_SERVICE_URL = process.env.AI_SERVICE_URL || process.env.PYTHON_AI_SERVICE_URL || 'http://localhost:5001';
 
 // Initialize OpenAI client
 const openai = new OpenAI({
@@ -342,6 +346,76 @@ router.post('/chat', auth, async (req, res) => {
       message: userMessage
     });
 
+    // Try Python AI Service first (for tool-based execution)
+    const usePythonService = process.env.USE_PYTHON_AI_SERVICE !== 'false'; // Default to true
+    if (usePythonService) {
+      try {
+        logger.info('[AI CHAT] Attempting to use Python AI service', { 
+          aiServiceUrl: AI_SERVICE_URL,
+          projectId,
+          messageLength: userMessage.length 
+        });
+        
+        const pythonResponse = await axios.post(
+          `${AI_SERVICE_URL}/api/ai/chat`,
+          {
+            projectId,
+            user_id: req.user?.id || 'anonymous',
+            user_tier: req.user?.tier || 'paid_user',
+            message: userMessage,
+            context: {
+              ...context,
+              projectId,
+              projectInfo: context.projectInfo || context.project || {}
+            }
+          },
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              ...(req.headers['x-dev-bypass'] && { 'x-dev-bypass': req.headers['x-dev-bypass'] })
+            },
+            timeout: 60000 // 60 second timeout for AI operations
+          }
+        );
+
+        if (pythonResponse.data && pythonResponse.data.success) {
+          logger.info('[AI CHAT] Python AI service responded successfully', {
+            responseLength: pythonResponse.data.response?.length || 0
+          });
+          
+          // Format response for frontend compatibility
+          return res.json({
+            success: true,
+            reply: pythonResponse.data.response || pythonResponse.data.reply || pythonResponse.data.result,
+            actions: pythonResponse.data.actions || [],
+            panels: pythonResponse.data.panels || [],
+            suggestions: buildContextualSuggestions(pythonResponse.data.actionContext || {}),
+            meta: {
+              handled: true,
+              durationMs: Date.now() - startedAt,
+              source: 'python_ai_service',
+              panelCount: pythonResponse.data.panels?.length || 0
+            }
+          });
+        }
+      } catch (pythonError) {
+        // If Python service is unavailable or errors, fall back to backend route
+        if (pythonError.code === 'ECONNREFUSED' || pythonError.code === 'ETIMEDOUT') {
+          logger.warn('[AI CHAT] Python AI service unavailable, falling back to backend route', {
+            error: pythonError.message,
+            aiServiceUrl: AI_SERVICE_URL
+          });
+        } else {
+          logger.error('[AI CHAT] Python AI service error, falling back to backend route', {
+            error: pythonError.message,
+            status: pythonError.response?.status,
+            data: pythonError.response?.data
+          });
+        }
+        // Continue to backend route handling below
+      }
+    }
+
     const layout = await panelLayoutService.getLayout(projectId);
     let updatedPanels = layout?.panels || [];
     const normalizedMessage = userMessage.toLowerCase();
@@ -583,6 +657,90 @@ router.post('/chat', auth, async (req, res) => {
             timestamp: new Date().toISOString()
           });
         }
+      }
+    }
+
+    // REORDER PANELS NUMERICALLY
+    if (!handled && /(reorder|arrange|sort|organize).*numerical|numerical.*order|put.*numerical/i.test(normalizedMessage)) {
+      logger.info('[AI CHAT] Reordering panels numerically', { projectId, panelCount: updatedPanels.length });
+      
+      try {
+        // Sort panels by panelNumber numerically
+        const sortedPanels = [...updatedPanels].sort((a, b) => {
+          // Extract numeric part from panelNumber (e.g., "P022" -> 22)
+          const getNumericValue = (panel) => {
+            const panelNum = panel.panelNumber || panel.panel_number || panel.id || '';
+            const match = panelNum.toString().match(/\d+/);
+            return match ? parseInt(match[0], 10) : Infinity;
+          };
+          return getNumericValue(a) - getNumericValue(b);
+        });
+
+        // Calculate new positions maintaining horizontal formation
+        const spacing = 32; // 22ft panel + 10ft gap
+        const startX = 50;
+        const startY = 50;
+        const operations = [];
+
+        for (let i = 0; i < sortedPanels.length; i++) {
+          const panel = sortedPanels[i];
+          const newX = startX + (i * spacing);
+          const newY = startY;
+
+          operations.push({
+            type: 'MOVE_PANEL',
+            payload: {
+              panelId: panel.id,
+              newPosition: {
+                x: newX,
+                y: newY,
+                rotation: panel.rotation || 0
+              }
+            }
+          });
+        }
+
+        // Execute batch move operations
+        if (operations.length > 0) {
+          // Use the batch-operations endpoint logic
+          const batchResults = [];
+          for (const operation of operations) {
+            try {
+              const movedPanel = await panelLayoutService.movePanel(
+                projectId,
+                operation.payload.panelId,
+                operation.payload.newPosition
+              );
+              batchResults.push({ success: true, panelId: operation.payload.panelId });
+            } catch (error) {
+              logger.error('[AI CHAT] Failed to move panel in batch', {
+                panelId: operation.payload.panelId,
+                error: error.message
+              });
+              batchResults.push({ success: false, panelId: operation.payload.panelId, error: error.message });
+            }
+          }
+          
+          updatedPanels = (await panelLayoutService.getLayout(projectId)).panels;
+          handled = true;
+          actionContext = { lastAction: 'reorder', panelCount: operations.length };
+
+          reply = `Successfully reordered ${operations.length} panels numerically. Panels are now arranged in order: ${sortedPanels.map(p => p.panelNumber || p.id).join(', ')}.`;
+
+          actions.push({
+            type: 'REORDER_PANELS',
+            description: `Reordered ${operations.length} panels numerically`,
+            timestamp: new Date().toISOString(),
+            panelCount: operations.length
+          });
+        } else {
+          reply = 'No panels found to reorder.';
+          handled = true;
+        }
+      } catch (error) {
+        logger.error('[AI CHAT] Failed to reorder panels', { error: error.message, stack: error.stack });
+        reply = `I encountered an error while reordering panels: ${error.message}. Please try again.`;
+        handled = true;
       }
     }
 

@@ -445,6 +445,14 @@ def chat_message():
         user_tier = data.get('user_tier', 'paid_user')
         context = data.get('context', {})
         
+        # Fix: Extract projectId from top-level data and add to context
+        project_id = data.get('projectId') or context.get('projectId') or context.get('project_id')
+        if project_id and 'projectId' not in context:
+            context['projectId'] = project_id
+        
+        logger.info(f"[Chat Endpoint] Request received - user_id: {user_id}, project_id: {project_id}, message_length: {len(message)}")
+        logger.debug(f"[Chat Endpoint] Context keys: {list(context.keys())}")
+        
         if not message:
             return jsonify({'error': 'No message provided', 'success': False}), 400
         
