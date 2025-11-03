@@ -712,16 +712,21 @@ class HybridAgentFactory:
             if "gpt" in model_config.name:
                 # Use ChatOpenAI for better tool support if available, fallback to OpenAI
                 try:
-                    from langchain_openai import ChatOpenAI
+                    # Try multiple import paths for compatibility
+                    try:
+                        from langchain_openai import ChatOpenAI  # type: ignore
+                    except ImportError:
+                        from langchain.chat_models import ChatOpenAI  # type: ignore
+                    
                     llm = ChatOpenAI(
-                        api_key=os.getenv(model_config.api_key_env),
-                        model_name=model_config.name,
+                        openai_api_key=os.getenv(model_config.api_key_env),
+                        model=model_config.name,
                         temperature=0
                     )
                     logger.info(f"[_create_llm] Using ChatOpenAI: {model_config.name} (better tool support)")
                     return llm
-                except ImportError:
-                    logger.warning(f"[_create_llm] ChatOpenAI not available, falling back to OpenAI")
+                except (ImportError, Exception) as e:
+                    logger.warning(f"[_create_llm] ChatOpenAI not available ({e}), falling back to OpenAI")
                     llm = OpenAI(api_key=os.getenv(model_config.api_key_env), model_name=model_config.name)
                     logger.info(f"[_create_llm] Using OpenAI (legacy): {model_config.name}")
                     return llm
