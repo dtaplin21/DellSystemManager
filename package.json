@@ -7,7 +7,11 @@
     "dev": "nodemon --exec node backend/server.js",
     "start": "node backend/server.js",
     "migrate": "ts-node backend/scripts/migrate.js",
-    "build": "echo 'This is a monorepo. Use frontend/ directory for Next.js deployment.' && exit 1"
+    "build": "echo 'This is a monorepo. Use frontend/ directory for Next.js deployment.' && exit 1",
+    "dev:all": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\" \"npm run dev:ai\"",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:ai": "cd ai-service && python3 app.py"
   },
   "private": true,
   "keywords": [],
