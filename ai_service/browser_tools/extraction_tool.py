@@ -15,7 +15,11 @@ logger = logging.getLogger(__name__)
 
 class BrowserExtractionTool(BaseTool):
     name: str = "browser_extract"
-    description: str = "Extract text, tables, and links from the active page."
+    description: str = (
+        "Extract text, tables, links, or execute JavaScript on the active page. "
+        "Supported actions: 'text' (extract text), 'html' (extract HTML), 'links' (extract links), "
+        "'javascript' (execute JavaScript code), 'panels' (extract and sort panels by visual position)."
+    )
 
     def __init__(self, session_manager: BrowserSessionManager):
         super().__init__()
@@ -122,7 +126,191 @@ class BrowserExtractionTool(BaseTool):
                     logger.error("[%s] %s", session_id, error_msg)
                     return error_msg
 
-            return f"Error: Unsupported action '{action}'. Supported actions: text, html, links"
+            if action == "javascript":
+                try:
+                    if not selector:
+                        return "Error: JavaScript code is required in the 'selector' parameter for 'javascript' action"
+                    
+                    # Execute JavaScript code in the page context
+                    result = await page.evaluate(selector)
+                    
+                    # Convert result to string if it's not already
+                    if isinstance(result, (dict, list)):
+                        import json
+                        result_str = json.dumps(result, indent=2)
+                    else:
+                        result_str = str(result)
+                    
+                    if session.security.log_actions:
+                        logger.info(
+                            "[%s] Executed JavaScript (%d chars result)",
+                            session_id,
+                            len(result_str),
+                        )
+                    return result_str
+                except Exception as e:
+                    error_msg = f"Error executing JavaScript: {str(e)}"
+                    logger.error("[%s] %s", session_id, error_msg)
+                    return error_msg
+
+            if action == "panels":
+                try:
+                    # JavaScript code to extract panels from the page and sort by visual position
+                    # Using async function so we can use await for fetch if needed
+                    panel_extraction_script = """
+                    (async function() {
+                        // Try multiple methods to get panel data
+                        let panels = null;
+                        let source = 'unknown';
+                        
+                        // Method 1: Check localStorage for panel positions
+                        try {
+                            const stored = localStorage.getItem('panelLayoutPositions');
+                            if (stored) {
+                                const positionMap = JSON.parse(stored);
+                                // We have positions, but need full panel data
+                                // Try to get from API or React state
+                            }
+                        } catch (e) {
+                            console.log('localStorage check failed:', e);
+                        }
+                        
+                        // Method 2: Try to access React state via window object or React DevTools
+                        try {
+                            // Look for React root element
+                            const rootElements = document.querySelectorAll('[data-reactroot], #__next, #root');
+                            if (rootElements.length > 0) {
+                                // Try to find React fiber tree
+                                const reactKey = Object.keys(rootElements[0]).find(key => 
+                                    key.startsWith('__reactFiber') || key.startsWith('__reactInternalInstance')
+                                );
+                                if (reactKey) {
+                                    let fiber = rootElements[0][reactKey];
+                                    // Walk up the fiber tree to find panel data
+                                    for (let i = 0; i < 50 && fiber; i++) {
+                                        if (fiber.memoizedState || fiber.memoizedProps) {
+                                            const state = fiber.memoizedState;
+                                            const props = fiber.memoizedProps;
+                                            
+                                            // Check if state/props contains panels
+                                            if (state && (state.panels || (state.panelsState && state.panelsState.panels))) {
+                                                panels = state.panels || (state.panelsState && state.panelsState.panels);
+                                                source = 'react_state';
+                                                break;
+                                            }
+                                            if (props && (props.panels || (props.externalPanels))) {
+                                                panels = props.panels || props.externalPanels;
+                                                source = 'react_props';
+                                                break;
+                                            }
+                                        }
+                                        fiber = fiber.return || fiber.child;
+                                    }
+                                }
+                            }
+                        } catch (e) {
+                            console.log('React state access failed:', e);
+                        }
+                        
+                        // Method 3: Fetch from API (same endpoint the page uses)
+                        // Note: This will be handled asynchronously if needed
+                        // For now, we'll rely on React state or window object
+                        
+                        // If we still don't have panels, try window object
+                        if (!panels) {
+                            try {
+                                if (window.__PANELS__ || window.panels) {
+                                    panels = window.__PANELS__ || window.panels;
+                                    source = 'window';
+                                }
+                            } catch (e) {
+                                console.log('Window object access failed:', e);
+                            }
+                        }
+                        
+                        if (!panels || !Array.isArray(panels) || panels.length === 0) {
+                            return JSON.stringify({
+                                success: false,
+                                error: 'Could not find panel data on page. Tried: localStorage, React state, API fetch, window object.',
+                                source: source,
+                                panels: []
+                            });
+                        }
+                        
+                        // Sort panels by visual position: Y coordinate first (top to bottom), then X (left to right)
+                        const sortedPanels = [...panels].sort((a, b) => {
+                            const yA = a.y || 0;
+                            const yB = b.y || 0;
+                            const xA = a.x || 0;
+                            const xB = b.x || 0;
+                            
+                            // First sort by Y (top to bottom)
+                            if (yA !== yB) {
+                                return yA - yB;
+                            }
+                            // If Y is same, sort by X (left to right)
+                            return xA - xB;
+                        });
+                        
+                        // Format result with visual order
+                        const result = {
+                            success: true,
+                            source: source,
+                            totalPanels: sortedPanels.length,
+                            panels: sortedPanels.map((panel, index) => ({
+                                visualOrder: index + 1,
+                                panelNumber: panel.panelNumber || panel.id,
+                                id: panel.id,
+                                x: panel.x,
+                                y: panel.y,
+                                width: panel.width,
+                                height: panel.height,
+                                rollNumber: panel.rollNumber || panel.roll || 'N/A'
+                            }))
+                        };
+                        
+                        return JSON.stringify(result);
+                    })();
+                    """
+                    
+                    result = await page.evaluate(panel_extraction_script)
+                    
+                    if session.security.log_actions:
+                        logger.info(
+                            "[%s] Extracted panels data (%d chars)",
+                            session_id,
+                            len(str(result)),
+                        )
+                    
+                    # Parse and format the result nicely
+                    try:
+                        import json
+                        parsed = json.loads(result) if isinstance(result, str) else result
+                        if parsed.get('success'):
+                            panels = parsed.get('panels', [])
+                            formatted_lines = [
+                                f"Found {parsed.get('totalPanels', 0)} panels (sorted by visual position, source: {parsed.get('source', 'unknown')}):",
+                                ""
+                            ]
+                            for panel in panels:
+                                formatted_lines.append(
+                                    f"  {panel.get('visualOrder', '?')}. {panel.get('panelNumber', 'N/A')} "
+                                    f"({panel.get('width', 0)}ft x {panel.get('height', 0)}ft) "
+                                    f"at ({panel.get('x', 0)}, {panel.get('y', 0)}) "
+                                    f"- Roll: {panel.get('rollNumber', 'N/A')}"
+                                )
+                            return "\n".join(formatted_lines)
+                        else:
+                            return result
+                    except Exception:
+                        return result
+                    
+                except Exception as e:
+                    error_msg = f"Error extracting panels: {str(e)}"
+                    logger.error("[%s] %s", session_id, error_msg)
+                    return error_msg
+
+            return f"Error: Unsupported action '{action}'. Supported actions: text, html, links, javascript, panels"
 
         except ValueError as e:
             # Rate limiting or other validation errors

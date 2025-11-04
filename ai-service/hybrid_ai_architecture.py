@@ -1166,10 +1166,11 @@ STEP 2: Take a screenshot of the visual layout
 - Parameters: full_page=True, session_id='default', user_id='{user_id}'
 - This captures what the layout actually looks like visually.
 
-STEP 3: Extract visual data from the page
+STEP 3: Extract panel data sorted by visual position
 - Tool: browser_extract
-- Parameters: action='text', selector='canvas', user_id='{user_id}'
-- This gets the actual panel arrangement as displayed.
+- Parameters: action='panels', user_id='{user_id}'
+- This extracts panel data from the page and sorts them by visual position (Y coordinate, then X coordinate).
+- This gives you the actual visual order of panels as displayed on the UI.
 
 YOU CANNOT ANSWER WITHOUT PERFORMING THESE THREE STEPS FIRST.
 Do not use backend API data - you MUST check the visual layout using these tools.
@@ -1194,10 +1195,11 @@ After completing all three steps, then answer based on what you observed visuall
             if is_visual_layout_question:
                 expected_output_text = (
                     "Your response MUST begin with: 'I checked the visual panel layout page by navigating to it "
-                    f"({panel_layout_url if panel_layout_url else 'the panel layout page'}), taking a screenshot, and extracting visual data. "
-                    "Here's what I observed visually: [describe what you saw in the screenshot/extracted data]. "
-                    "After analyzing the visual layout, I found: [panel order/arrangement based on visual observations].' "
-                    "If you did not use browser tools (browser_navigate, browser_screenshot, browser_extract), "
+                    f"({panel_layout_url if panel_layout_url else 'the panel layout page'}), taking a screenshot, and extracting panel data sorted by visual position. "
+                    "Here's what I observed visually: [describe what you saw in the screenshot]. "
+                    "After extracting and sorting panels by their visual position (Y coordinate, then X coordinate), I found: [list panels in visual order].' "
+                    "You MUST use browser_extract with action='panels' to get panels sorted by visual position. "
+                    "If you did not use browser tools (browser_navigate, browser_screenshot, browser_extract with action='panels'), "
                     "you MUST explicitly state why and what tools you attempted to use."
                 )
             
