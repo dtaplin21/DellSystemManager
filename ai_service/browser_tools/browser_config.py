@@ -22,6 +22,22 @@ class BrowserSecurityConfig:
     wait_timeout_ms: int = 30000  # Default 30 seconds for element waits
     allowed_upload_dirs: List[str] = field(default_factory=lambda: ["/tmp/uploads"])  # Allowed directories for file uploads
 
+    # Memory management limits
+    max_event_queue_size: int = 1000  # Maximum events in async queue before blocking
+    max_recent_events: int = 200  # Maximum events stored in deque
+    max_screenshot_size_mb: float = 10.0  # Maximum screenshot size in MB
+    max_screenshots_stored: int = 5  # Maximum number of screenshots to keep in memory
+    max_network_events: int = 200  # Maximum network requests/responses to store
+    max_console_messages: int = 200  # Maximum console messages to store
+    max_dom_mutations: int = 200  # Maximum DOM mutations to store
+    max_websocket_messages: int = 200  # Maximum WebSocket messages to store
+
+    # Operation timeouts
+    navigation_timeout_ms: int = 30000  # Page navigation timeout
+    action_timeout_ms: int = 10000  # Element interaction timeout
+    screenshot_timeout_ms: int = 15000  # Screenshot capture timeout
+    vision_analysis_timeout_ms: int = 60000  # Vision API timeout
+
     def is_url_allowed(self, url: str) -> bool:
         """Return True when the supplied URL is permitted by the policy."""
 

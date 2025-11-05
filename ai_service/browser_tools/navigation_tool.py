@@ -6,7 +6,7 @@ import asyncio
 import base64
 import logging
 import time
-from typing import Optional
+from typing import Any, Optional
 
 from crewai.tools import BaseTool
 
@@ -20,6 +20,7 @@ class BrowserNavigationTool(BaseTool):
     description: str = (
         "Navigate to URLs, control history, capture page content, and manage tabs."
     )
+    session_manager: Any = None
 
     def __init__(self, session_manager: BrowserSessionManager):
         super().__init__()
@@ -135,18 +136,34 @@ class BrowserNavigationTool(BaseTool):
                         f"Allowed domains: {session.security.allowed_domains or 'all (if no restrictions)'}"
                     )
                 try:
-                    await page.goto(url, timeout=timeout, wait_until="networkidle")
+                    # Use navigation-specific timeout
+                    nav_timeout = session.security.navigation_timeout_ms
+
+                    await asyncio.wait_for(
+                        page.goto(url, timeout=nav_timeout, wait_until="networkidle"),
+                        timeout=nav_timeout / 1000.0 + 5  # Add 5 second buffer for Playwright
+                    )
+
                     if wait_for:
                         try:
-                            await page.wait_for_selector(wait_for, timeout=timeout)
+                            await asyncio.wait_for(
+                                page.wait_for_selector(wait_for, timeout=timeout),
+                                timeout=timeout / 1000.0 + 2
+                            )
+                        except asyncio.TimeoutError:
+                            return f"Error: Timeout waiting for selector '{wait_for}' on {url}"
                         except Exception as e:
-                            return f"Error: Timeout waiting for selector '{wait_for}' on {url}: {str(e)}"
+                            return f"Error waiting for selector '{wait_for}': {str(e)}"
+
                     message = f"Successfully navigated to {url}"
                     if session.security.log_actions:
                         logger.info("[%s] %s", session_id, message)
                     await self._capture_state(session, page, action, url)
                     await session.get_performance_metrics(page)
                     return message
+
+                except asyncio.TimeoutError:
+                    return f"Error: Navigation to {url} timed out after {nav_timeout}ms"
                 except Exception as e:
                     error_msg = f"Error navigating to {url}: {str(e)}"
                     logger.error("[%s] %s", session_id, error_msg)

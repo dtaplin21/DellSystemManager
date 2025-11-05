@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class BrowserSession:
-    """Container for an automated browser session."""
+    """Container for an automated browser session with bounded memory usage."""
 
     security: BrowserSecurityConfig
     created_at: float = field(default_factory=time.time)
@@ -30,27 +30,32 @@ class BrowserSession:
     page: Optional[Page] = None
     pages: Dict[str, Page] = field(default_factory=dict)
     active_page_id: str = "default"
-    event_queue: asyncio.Queue = field(default_factory=asyncio.Queue)
-    recent_events: Deque[Dict[str, Any]] = field(
-        default_factory=lambda: deque(maxlen=200)
-    )
-    websocket_messages: Deque[Dict[str, Any]] = field(
-        default_factory=lambda: deque(maxlen=200)
-    )
-    network_requests: Deque[Dict[str, Any]] = field(
-        default_factory=lambda: deque(maxlen=200)
-    )
-    network_responses: Deque[Dict[str, Any]] = field(
-        default_factory=lambda: deque(maxlen=200)
-    )
-    console_messages: Deque[Dict[str, Any]] = field(
-        default_factory=lambda: deque(maxlen=200)
-    )
-    dom_mutations: Deque[Dict[str, Any]] = field(
-        default_factory=lambda: deque(maxlen=200)
-    )
+    event_queue: Optional[asyncio.Queue] = None  # Will be initialized in __post_init__
+    recent_events: Optional[Deque[Dict[str, Any]]] = None
+    websocket_messages: Optional[Deque[Dict[str, Any]]] = None
+    network_requests: Optional[Deque[Dict[str, Any]]] = None
+    network_responses: Optional[Deque[Dict[str, Any]]] = None
+    console_messages: Optional[Deque[Dict[str, Any]]] = None
+    dom_mutations: Optional[Deque[Dict[str, Any]]] = None
     performance_metrics: Dict[str, Any] = field(default_factory=dict)
-    last_screenshot: Optional[str] = None
+    screenshots: Deque[Dict[str, str]] = field(default_factory=lambda: deque(maxlen=5))  # Stores multiple screenshots with metadata
+    total_screenshot_bytes: int = 0  # Track total screenshot memory usage
+
+    def __post_init__(self):
+        """Initialize bounded queues based on security configuration."""
+        # Initialize bounded event queue
+        self.event_queue = asyncio.Queue(maxsize=self.security.max_event_queue_size)
+
+        # Initialize bounded deques with configurable sizes
+        self.recent_events = deque(maxlen=self.security.max_recent_events)
+        self.websocket_messages = deque(maxlen=self.security.max_websocket_messages)
+        self.network_requests = deque(maxlen=self.security.max_network_events)
+        self.network_responses = deque(maxlen=self.security.max_network_events)
+        self.console_messages = deque(maxlen=self.security.max_console_messages)
+        self.dom_mutations = deque(maxlen=self.security.max_dom_mutations)
+
+        # Initialize screenshots deque with configured max
+        self.screenshots = deque(maxlen=self.security.max_screenshots_stored)
 
     async def ensure_page(self, tab_id: Optional[str] = None) -> Page:
         """Ensure that the browser session is ready and return a page."""
@@ -175,15 +180,85 @@ class BrowserSession:
     async def record_screenshot(
         self, screenshot_base64: str, metadata: Optional[Dict[str, Any]] = None
     ) -> None:
-        """Store a reference to the most recent screenshot and emit an event."""
+        """Store screenshot with size validation and automatic cleanup."""
+        try:
+            # Calculate screenshot size in MB
+            screenshot_bytes = len(screenshot_base64)
+            screenshot_mb = screenshot_bytes / (1024 * 1024)
 
-        self.last_screenshot = screenshot_base64
-        event = {
-            "type": "screenshot",
-            "timestamp": time.time(),
-            "metadata": metadata or {},
-        }
-        self._record_event(event)
+            # Validate screenshot size
+            if screenshot_mb > self.security.max_screenshot_size_mb:
+                logger.warning(
+                    "Screenshot exceeds maximum size (%.2fMB > %.2fMB), skipping storage",
+                    screenshot_mb,
+                    self.security.max_screenshot_size_mb,
+                )
+                raise ValueError(
+                    f"Screenshot size {screenshot_mb:.2f}MB exceeds maximum {self.security.max_screenshot_size_mb}MB"
+                )
+
+            # Store screenshot with metadata
+            screenshot_entry = {
+                "data": screenshot_base64,
+                "timestamp": time.time(),
+                "size_bytes": screenshot_bytes,
+                "metadata": metadata or {},
+            }
+
+            # Deduct old screenshot size if deque is at capacity
+            if len(self.screenshots) >= self.security.max_screenshots_stored:
+                old_entry = self.screenshots[0]
+                self.total_screenshot_bytes -= old_entry.get("size_bytes", 0)
+
+            # Add new screenshot
+            self.screenshots.append(screenshot_entry)
+            self.total_screenshot_bytes += screenshot_bytes
+
+            # Emit event
+            event = {
+                "type": "screenshot",
+                "timestamp": time.time(),
+                "size_mb": screenshot_mb,
+                "total_screenshots": len(self.screenshots),
+                "total_memory_mb": self.total_screenshot_bytes / (1024 * 1024),
+                "metadata": metadata or {},
+            }
+            self._record_event(event)
+
+            if self.security.log_actions:
+                logger.info(
+                    "Screenshot stored: %.2fMB (total: %d screenshots, %.2fMB)",
+                    screenshot_mb,
+                    len(self.screenshots),
+                    self.total_screenshot_bytes / (1024 * 1024),
+                )
+        except Exception as exc:
+            logger.error("Failed to record screenshot: %s", exc)
+            raise
+
+    def get_latest_screenshot(self) -> Optional[str]:
+        """Retrieve the most recent screenshot data."""
+        if self.screenshots:
+            return self.screenshots[-1]["data"]
+        return None
+
+    def get_screenshot_history(self, limit: int = 5) -> List[Dict[str, Any]]:
+        """Retrieve recent screenshots with metadata (excluding base64 data)."""
+        screenshots = list(self.screenshots)[-limit:]
+        return [
+            {
+                "timestamp": s["timestamp"],
+                "size_bytes": s["size_bytes"],
+                "metadata": s.get("metadata", {}),
+            }
+            for s in screenshots
+        ]
+
+    def clear_screenshots(self) -> None:
+        """Clear all stored screenshots to free memory."""
+        self.screenshots.clear()
+        self.total_screenshot_bytes = 0
+        logger.info("Cleared all screenshots from session")
 
     async def get_performance_metrics(self, page: Optional[Page] = None) -> Dict[str, Any]:
         """Retrieve performance metrics from the active page."""

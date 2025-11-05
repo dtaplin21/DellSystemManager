@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from crewai.tools import BaseTool
 
@@ -20,6 +20,7 @@ class BrowserExtractionTool(BaseTool):
         "Supported actions: 'text' (extract text), 'html' (extract HTML), 'links' (extract links), "
         "'javascript' (execute JavaScript code), 'panels' (extract and sort panels by visual position)."
     )
+    session_manager: Any = None
 
     def __init__(self, session_manager: BrowserSessionManager):
         super().__init__()
@@ -139,10 +140,6 @@ class BrowserExtractionTool(BaseTool):
                     error_msg = f"Error extracting links with selector '{selector or 'a'}': {str(e)}"
                     logger.error("[%s] %s", session_id, error_msg)
                     return error_msg
-
-            return "Error: Unsupported action '{action}'. Supported actions: text, html, links".replace(
-                "{action}", action
-            )
 
             if action == "javascript":
                 try:

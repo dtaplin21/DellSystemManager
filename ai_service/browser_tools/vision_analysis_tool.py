@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import logging
-from typing import Optional
+from typing import Any, Optional
 
 from crewai.tools import BaseTool
 
@@ -22,6 +22,9 @@ class BrowserVisionAnalysisTool(BaseTool):
         "Capture or reuse screenshots and analyze them with a vision model to "
         "detect UI state, errors, or visual changes."
     )
+    session_manager: Any = None
+    openai_service: Any = None
+    default_prompt: str = "Describe the visible UI, highlight changes, and note any errors or warnings."
 
     def __init__(
         self,
@@ -83,53 +86,109 @@ class BrowserVisionAnalysisTool(BaseTool):
         selector: Optional[str] = None,
         full_page: bool = True,
     ) -> str:
+        session = None
         try:
+            # Validate OpenAI service availability
             if not self.openai_service or not getattr(self.openai_service, 'api_key', None):
                 return "Error: Vision analysis unavailable - OpenAI service not configured"
 
             session = await self.session_manager.get_session(session_id, user_id)
             image_data = screenshot_base64
 
+            # Capture screenshot if not provided
             if not image_data:
                 if not session.security.enable_screenshots:
                     return "Error: Screenshots disabled by security policy"
 
                 page = await session.ensure_page(tab_id)
-                if selector:
-                    element = await page.query_selector(selector)
-                    if element is None:
-                        return f"Error: Selector '{selector}' not found for vision analysis"
-                    buffer = await element.screenshot()
-                else:
-                    buffer = await page.screenshot(full_page=full_page)
+                screenshot_timeout = session.security.screenshot_timeout_ms / 1000.0
 
-                image_data = base64.b64encode(buffer).decode("utf-8")
-                await session.record_screenshot(
-                    image_data,
-                    {
-                        "action": "vision_capture",
-                        "selector": selector,
-                        "full_page": full_page,
-                    },
-                )
+                try:
+                    # Capture screenshot with timeout
+                    if selector:
+                        element = await asyncio.wait_for(
+                            page.query_selector(selector),
+                            timeout=screenshot_timeout
+                        )
+                        if element is None:
+                            return f"Error: Selector '{selector}' not found for vision analysis"
+                        buffer = await asyncio.wait_for(
+                            element.screenshot(),
+                            timeout=screenshot_timeout
+                        )
+                    else:
+                        buffer = await asyncio.wait_for(
+                            page.screenshot(full_page=full_page),
+                            timeout=screenshot_timeout
+                        )
 
+                    image_data = base64.b64encode(buffer).decode("utf-8")
+
+                    # Try to record screenshot, continue even if size limit exceeded
+                    try:
+                        await session.record_screenshot(
+                            image_data,
+                            {
+                                "action": "vision_capture",
+                                "selector": selector,
+                                "full_page": full_page,
+                            },
+                        )
+                    except ValueError as size_error:
+                        logger.warning(
+                            "[%s] Screenshot for vision analysis not stored: %s",
+                            session_id,
+                            str(size_error),
+                        )
+
+                except asyncio.TimeoutError:
+                    error_msg = f"Screenshot capture timed out after {screenshot_timeout}s"
+                    logger.error("[%s] %s", session_id, error_msg)
+                    return f"Error: {error_msg}"
+
+            # Perform vision analysis with timeout
             prompt = question or self.default_prompt
+            vision_timeout = session.security.vision_analysis_timeout_ms / 1000.0
+
             try:
-                analysis = await self.openai_service.analyze_image(
-                    image_base64=image_data,
-                    prompt=prompt,
+                analysis = await asyncio.wait_for(
+                    self.openai_service.analyze_image(
+                        image_base64=image_data,
+                        prompt=prompt,
+                    ),
+                    timeout=vision_timeout
                 )
+
+                if session.security.log_actions:
+                    logger.info("[%s] Vision analysis completed successfully", session_id)
+
+                return analysis
+
+            except asyncio.TimeoutError:
+                error_msg = f"Vision analysis timed out after {vision_timeout}s"
+                logger.error("[%s] %s", session_id, error_msg)
+                return f"Error: {error_msg}. The vision API took too long to respond."
+
             except Exception as exc:
-                logger.error("[%s] Vision analysis failed: %s", session_id, exc)
-                return f"Error analyzing screenshot: {exc}"
+                # Provide detailed error with fallback guidance
+                error_msg = f"Vision analysis failed: {type(exc).__name__}: {str(exc)}"
+                logger.error("[%s] %s", session_id, error_msg)
 
-            if session.security.log_actions:
-                logger.info("[%s] Vision analysis completed", session_id)
-
-            return analysis
+                # Check for common API errors and provide helpful messages
+                if "rate_limit" in str(exc).lower():
+                    return f"Error: OpenAI rate limit exceeded. Please try again later."
+                elif "authentication" in str(exc).lower() or "api_key" in str(exc).lower():
+                    return f"Error: OpenAI authentication failed. Check API key configuration."
+                elif "model" in str(exc).lower():
+                    return f"Error: OpenAI model error. The vision model may be unavailable."
+                else:
+                    return f"Error: {error_msg}"
 
         except ValueError as e:
+            # Rate limiting or validation errors
+            logger.warning("[%s] Validation error: %s", session_id, str(e))
             return f"Error: {str(e)}"
         except Exception as e:
-            logger.error("[%s] Unexpected error in vision analysis tool: %s", session_id, e)
-            return f"Unexpected error in vision analysis tool: {e}"
+            error_msg = f"Unexpected error in vision analysis tool: {type(e).__name__}: {str(e)}"
+            logger.error("[%s] %s", session_id, error_msg)
+            return f"Error: {error_msg}"

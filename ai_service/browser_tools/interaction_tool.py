@@ -7,7 +7,7 @@ import base64
 import json
 import logging
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 from crewai.tools import BaseTool
 
@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 class BrowserInteractionTool(BaseTool):
     name: str = "browser_interact"
     description: str = "Interact with page elements (click, type, select, upload, drag)."
+    session_manager: Any = None
 
     def __init__(self, session_manager: BrowserSessionManager):
         super().__init__()
@@ -76,47 +77,67 @@ class BrowserInteractionTool(BaseTool):
         try:
             session = await self.session_manager.get_session(session_id, user_id)
             page = await session.ensure_page(tab_id)
-            timeout = session.security.wait_timeout_ms
+
+            # Use action-specific timeout
+            action_timeout_ms = session.security.action_timeout_ms
+            action_timeout_s = action_timeout_ms / 1000.0
 
             if action == "click":
                 try:
-                    await page.click(selector, timeout=timeout)
+                    await asyncio.wait_for(
+                        page.click(selector, timeout=action_timeout_ms),
+                        timeout=action_timeout_s + 2
+                    )
                     message = f"Successfully clicked element '{selector}'"
                     if session.security.log_actions:
                         logger.info("[%s] %s", session_id, message)
                     await self._capture_state(session, page, action, selector)
                     return message
+                except asyncio.TimeoutError:
+                    error_msg = f"Timeout clicking element '{selector}' after {action_timeout_ms}ms"
+                    logger.error("[%s] %s", session_id, error_msg)
+                    return f"Error: {error_msg}"
                 except Exception as e:
                     error_msg = (
                         f"Error clicking element '{selector}': {str(e)}. Element may not be visible or clickable."
                     )
                     logger.error("[%s] %s", session_id, error_msg)
-                    return error_msg
+                    return f"Error: {error_msg}"
 
             if action == "type":
                 if value is None:
                     return "Error: value parameter is required for type action"
                 try:
-                    await page.fill(selector, value, timeout=timeout)
-                    message = f"Successfully typed '{value}' into '{selector}'"
+                    await asyncio.wait_for(
+                        page.fill(selector, value, timeout=action_timeout_ms),
+                        timeout=action_timeout_s + 2
+                    )
+                    message = f"Successfully typed into '{selector}'"
                     if session.security.log_actions:
-                        logger.info("[%s] %s", session_id, message)
+                        logger.info("[%s] Typed %d characters into '%s'", session_id, len(value), selector)
                     await self._capture_state(
-                        session, page, action, selector, {"value": value}
+                        session, page, action, selector, {"value_length": len(value)}
                     )
                     return message
+                except asyncio.TimeoutError:
+                    error_msg = f"Timeout typing into element '{selector}' after {action_timeout_ms}ms"
+                    logger.error("[%s] %s", session_id, error_msg)
+                    return f"Error: {error_msg}"
                 except Exception as e:
                     error_msg = (
                         f"Error typing into element '{selector}': {str(e)}. Element may not be visible or not an input field."
                     )
                     logger.error("[%s] %s", session_id, error_msg)
-                    return error_msg
+                    return f"Error: {error_msg}"
 
             if action == "select":
                 if value is None:
                     return "Error: value parameter is required for select action"
                 try:
-                    await page.select_option(selector, value, timeout=timeout)
+                    await asyncio.wait_for(
+                        page.select_option(selector, value, timeout=action_timeout_ms),
+                        timeout=action_timeout_s + 2
+                    )
                     message = f"Successfully selected option '{value}' in '{selector}'"
                     if session.security.log_actions:
                         logger.info("[%s] %s", session_id, message)
@@ -124,12 +145,16 @@ class BrowserInteractionTool(BaseTool):
                         session, page, action, selector, {"value": value}
                     )
                     return message
+                except asyncio.TimeoutError:
+                    error_msg = f"Timeout selecting option in '{selector}' after {action_timeout_ms}ms"
+                    logger.error("[%s] %s", session_id, error_msg)
+                    return f"Error: {error_msg}"
                 except Exception as e:
                     error_msg = (
                         f"Error selecting option '{value}' in '{selector}': {str(e)}. Element may not be a select dropdown or option not found."
                     )
                     logger.error("[%s] %s", session_id, error_msg)
-                    return error_msg
+                    return f"Error: {error_msg}"
 
             if action == "upload":
                 if not file_path:

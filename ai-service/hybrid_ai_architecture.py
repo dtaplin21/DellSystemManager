@@ -315,9 +315,11 @@ class PanelManipulationTool(BaseTool):
 
     name: str = "panel_manipulation"
     description: str = (
-        "Execute panel layout operations via API. Use this tool when users request operations such as moving, "
-        "reordering, or retrieving panels. Supported actions: 'get_panels', 'move_panel', 'batch_move', "
-        "'reorder_panels_numerically'."
+        "Execute panel layout operations via API. Use this tool ONLY for operations such as moving, "
+        "reordering, or batch operations. Supported actions: 'get_panels', 'move_panel', 'batch_move', "
+        "'reorder_panels_numerically'. "
+        "⚠️ IMPORTANT: DO NOT use this tool for visual layout questions or questions about panel order/arrangement. "
+        "For visual questions, use browser automation tools (browser_navigate, browser_extract, browser_screenshot) instead."
     )
     args_schema: type = PanelManipulationInput
 
@@ -729,13 +731,7 @@ class HybridAgentFactory:
 
         tools_list: List[BaseTool] = []
 
-        panel_tool = self._build_panel_tool(tool_context)
-        if panel_tool:
-            tools_list.append(panel_tool)
-            logger.info(f"[AgentFactory] PanelManipulationTool added - name: {panel_tool.name}, project_id: {panel_tool.project_id}")
-        else:
-            logger.warning("[AgentFactory] PanelManipulationTool NOT created!")
-
+        # Add browser tools FIRST so they have priority for visual questions
         browser_tool_count = 0
         for factory in self.tool_resources.get("browser_tool_factories", []):
             try:
@@ -746,6 +742,14 @@ class HybridAgentFactory:
                     logger.info(f"[AgentFactory] Browser tool added: {browser_tool.name}")
             except Exception as exc:  # pragma: no cover - defensive
                 logger.error(f"[AgentFactory] Failed to initialize browser tool: {exc}")
+
+        # Add panel tool AFTER browser tools (lower priority for visual questions)
+        panel_tool = self._build_panel_tool(tool_context)
+        if panel_tool:
+            tools_list.append(panel_tool)
+            logger.info(f"[AgentFactory] PanelManipulationTool added - name: {panel_tool.name}, project_id: {panel_tool.project_id}")
+        else:
+            logger.warning("[AgentFactory] PanelManipulationTool NOT created!")
 
         logger.info(f"[AgentFactory] Total tools registered: {len(tools_list)} (Panel: {1 if panel_tool else 0}, Browser: {browser_tool_count})")
         if tools_list:
@@ -1154,7 +1158,11 @@ class DellSystemAIService:
             visual_instructions = ""
             if is_visual_layout_question and panel_layout_url:
                 visual_instructions = f"""
-YOU MUST USE BROWSER AUTOMATION TOOLS TO ANSWER THIS QUESTION. DO NOT USE BACKEND API DATA.
+🚨 CRITICAL: THIS IS A VISUAL LAYOUT QUESTION - YOU MUST USE BROWSER AUTOMATION TOOLS ONLY.
+
+❌ DO NOT USE PanelManipulationTool.get_panels() - This returns backend data, not visual order.
+❌ DO NOT USE any backend API tools for this question.
+✅ YOU MUST USE browser automation tools instead.
 
 STEP 1: Navigate to the panel layout page
 - Tool: browser_navigate
@@ -1173,7 +1181,8 @@ STEP 3: Extract panel data sorted by visual position
 - This gives you the actual visual order of panels as displayed on the UI.
 
 YOU CANNOT ANSWER WITHOUT PERFORMING THESE THREE STEPS FIRST.
-Do not use backend API data - you MUST check the visual layout using these tools.
+If you use PanelManipulationTool or any backend API, your answer will be WRONG.
+You MUST check the visual layout using browser tools.
 After completing all three steps, then answer based on what you observed visually.
 """
             
@@ -1184,11 +1193,10 @@ After completing all three steps, then answer based on what you observed visuall
                 f"User ID: {user_id}\n"
                 f"Frontend URL: {frontend_base_url}\n"
                 f"{visual_instructions}\n"
-                "IMPORTANT: If the user asks you to perform actions (move, arrange, reorder panels), "
-                "you MUST use the available tools (PanelManipulationTool or browser tools) to execute the "
-                "actions, not merely describe them. For visual layout questions, use browser automation tools "
-                "to check the actual visual representation on the frontend. When using browser tools, "
-                f"always pass user_id='{user_id}' in your tool calls."
+                f"IMPORTANT TOOL USAGE RULES:\n"
+                f"- For visual layout questions (order, arrangement, visual positioning): Use browser tools ONLY (browser_navigate, browser_screenshot, browser_extract). DO NOT use PanelManipulationTool.\n"
+                f"- For panel operations (move, arrange, reorder via API): Use PanelManipulationTool.\n"
+                f"- When using browser tools, always pass user_id='{user_id}' in your tool calls."
             )
 
             expected_output_text = "Executed action results or, if execution is impossible, a clear explanation of why."

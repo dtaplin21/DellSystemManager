@@ -6,7 +6,7 @@ import asyncio
 import json
 import logging
 import time
-from typing import Optional
+from typing import Any, Optional
 
 from crewai.tools import BaseTool
 
@@ -23,6 +23,7 @@ class BrowserRealtimeTool(BaseTool):
         "Listen to real-time browser events, wait for specific conditions, and inspect "
         "recent console, network, websocket, or DOM mutation events."
     )
+    session_manager: Any = None
 
     def __init__(self, session_manager: BrowserSessionManager):
         super().__init__()

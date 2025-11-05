@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from typing import Optional
+from typing import Any, Optional
 
 from crewai.tools import BaseTool
 
@@ -21,6 +21,7 @@ class BrowserPerformanceTool(BaseTool):
     description: str = (
         "Retrieve performance metrics, network activity, and console messages from the browser session."
     )
+    session_manager: Any = None
 
     def __init__(self, session_manager: BrowserSessionManager):
         super().__init__()
