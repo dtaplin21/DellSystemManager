@@ -1,5 +1,6 @@
 import logging
 import json
+import asyncio
 import requests
 from typing import Dict, List, Any, Union
 import openai
@@ -173,6 +174,36 @@ class OpenAIService:
             logger.error(f"Error in optimize_panel_layout: {str(e)}")
             return {"error": f"Error optimizing panel layout: {str(e)}"}
     
+    async def analyze_image(self, image_base64: str, prompt: str) -> str:
+        """
+        Analyze a base64 encoded screenshot using a vision-capable model.
+        """
+        if not image_base64:
+            raise ValueError('image_base64 is required for vision analysis')
+
+        def _call() -> str:
+            try:
+                response = openai.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": [
+                                {"type": "text", "text": prompt},
+                                {"type": "image_url", "image_url": f"data:image/png;base64,{image_base64}"}
+                            ],
+                        }
+                    ],
+                    max_tokens=600,
+                    temperature=0,
+                )
+                return response.choices[0].message.content.strip()
+            except Exception as exc:  # pragma: no cover - network dependent
+                logger.error(f"Error analyzing image: {exc}")
+                raise
+
+        return await asyncio.to_thread(_call)
+
     def analyze_qc_data(self, qc_data: str) -> str:
         """
         Analyze QC data to find patterns and anomalies

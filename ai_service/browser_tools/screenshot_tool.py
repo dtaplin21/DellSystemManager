@@ -28,11 +28,16 @@ class BrowserScreenshotTool(BaseTool):
         session_id: str = "default",
         full_page: bool = True,
         user_id: Optional[str] = None,
+        tab_id: Optional[str] = None,
     ) -> str:
         try:
             return asyncio.run(
                 self._arun(
-                    selector=selector, session_id=session_id, full_page=full_page, user_id=user_id
+                    selector=selector,
+                    session_id=session_id,
+                    full_page=full_page,
+                    user_id=user_id,
+                    tab_id=tab_id,
                 )
             )
         except RuntimeError:
@@ -40,7 +45,11 @@ class BrowserScreenshotTool(BaseTool):
             try:
                 return loop.run_until_complete(
                     self._arun(
-                        selector=selector, session_id=session_id, full_page=full_page, user_id=user_id
+                        selector=selector,
+                        session_id=session_id,
+                        full_page=full_page,
+                        user_id=user_id,
+                        tab_id=tab_id,
                     )
                 )
             finally:
@@ -52,34 +61,42 @@ class BrowserScreenshotTool(BaseTool):
         session_id: str = "default",
         full_page: bool = True,
         user_id: Optional[str] = None,
+        tab_id: Optional[str] = None,
     ) -> str:
         try:
             session = await self.session_manager.get_session(session_id, user_id)
             if not session.security.enable_screenshots:
                 return "Error: Screenshots disabled by security policy"
 
-            page = await session.ensure_page()
+            page = await session.ensure_page(tab_id)
             try:
                 if selector:
                     element = await page.query_selector(selector)
                     if element is None:
                         return f"Error: Selector '{selector}' not found for screenshot"
                     buffer = await element.screenshot()
+                    target = selector
                 else:
                     buffer = await page.screenshot(full_page=full_page)
+                    target = "page"
 
                 encoded = base64.b64encode(buffer).decode("utf-8")
                 if session.security.log_actions:
-                    target = selector or "page"
                     logger.info(
                         "[%s] Captured screenshot for %s (bytes=%d)",
                         session_id,
                         target,
                         len(buffer),
                     )
+                await session.record_screenshot(
+                    encoded,
+                    {"target": target, "full_page": full_page, "selector": selector},
+                )
                 return encoded
             except Exception as e:
-                error_msg = f"Error capturing screenshot for selector '{selector or 'page'}': {str(e)}"
+                error_msg = (
+                    f"Error capturing screenshot for selector '{selector or 'page'}': {str(e)}"
+                )
                 logger.error("[%s] %s", session_id, error_msg)
                 return error_msg
 
