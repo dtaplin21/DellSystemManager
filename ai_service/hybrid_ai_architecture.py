@@ -24,9 +24,13 @@ from .browser_tools import (
     BrowserInteractionTool,
     BrowserNavigationTool,
     BrowserScreenshotTool,
+    BrowserVisionAnalysisTool,
+    BrowserRealtimeTool,
+    BrowserPerformanceTool,
     BrowserSecurityConfig,
     BrowserSessionManager,
 )
+from .openai_service import OpenAIService
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -329,6 +333,12 @@ class DellSystemAIService:
         ]
         self.browser_security = BrowserSecurityConfig.from_env(allowed_domains)
         self.browser_sessions = BrowserSessionManager(self.browser_security)
+        api_key = os.getenv("OPENAI_API_KEY")
+        if api_key:
+            self.openai_service = OpenAIService(api_key)
+        else:
+            self.openai_service = None
+            logger.warning("OPENAI_API_KEY not set; vision analysis tool is disabled")
         self.tools = self._initialize_tools()
         self.context_store = SharedContextStore(redis_client)
         self._manifest_path = Path(__file__).resolve().parent / "orchestrator_manifest.json"
@@ -336,7 +346,7 @@ class DellSystemAIService:
 
     def _initialize_tools(self) -> Dict[str, BaseTool]:
         """Initialize available tools"""
-        return {
+        tools = {
             "panel_optimizer": PanelLayoutOptimizer(),
             "document_analyzer": DocumentAnalyzer(),
             "project_config": ProjectConfigAgent(),
@@ -344,7 +354,13 @@ class DellSystemAIService:
             "browser_interact": BrowserInteractionTool(self.browser_sessions),
             "browser_extract": BrowserExtractionTool(self.browser_sessions),
             "browser_screenshot": BrowserScreenshotTool(self.browser_sessions),
+            "browser_realtime": BrowserRealtimeTool(self.browser_sessions),
+            "browser_performance": BrowserPerformanceTool(self.browser_sessions),
         }
+        tools["browser_vision_analyze"] = BrowserVisionAnalysisTool(
+            self.browser_sessions, self.openai_service
+        )
+        return tools
 
     def get_orchestrator(self, user_id: str, user_tier: str):
         """Get workflow orchestrator for the user"""
@@ -590,6 +606,9 @@ class WorkflowOrchestrator:
                             "browser_interact",
                             "browser_extract",
                             "browser_screenshot",
+                            "browser_vision_analyze",
+                            "browser_realtime",
+                            "browser_performance",
                         ],
                     ),
                 },
@@ -603,16 +622,16 @@ class WorkflowOrchestrator:
                     ),
                     WorkflowTaskTemplate(
                         id="perform-interactions",
-                        description="Execute the form fills, clicks, or downloads specified in the request",
+                        description="Execute the form fills, clicks, drags, or downloads specified in the request. After each interaction capture a screenshot and run vision analysis to verify UI state and surface errors.",
                         agent="web_automation",
-                        expected_output="List of interactions performed with success state",
+                        expected_output="List of interactions performed with success state and any vision insights",
                         context_keys=["payload", "history"],
                     ),
                     WorkflowTaskTemplate(
                         id="collect-artifacts",
-                        description="Extract requested data or screenshots for downstream processing",
+                        description="Extract requested data, capture before/after screenshots, and summarize any console, network, or realtime events relevant to the task",
                         agent="web_automation",
-                        expected_output="Extracted data payloads and optional screenshot references",
+                        expected_output="Extracted data payloads, screenshot references, and notable runtime events",
                         context_keys=["payload"],
                     ),
                 ],

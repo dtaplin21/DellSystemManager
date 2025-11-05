@@ -27,11 +27,16 @@ class BrowserExtractionTool(BaseTool):
         selector: Optional[str] = None,
         session_id: str = "default",
         user_id: Optional[str] = None,
+        tab_id: Optional[str] = None,
     ) -> str:
         try:
             return asyncio.run(
                 self._arun(
-                    action=action, selector=selector, session_id=session_id, user_id=user_id
+                    action=action,
+                    selector=selector,
+                    session_id=session_id,
+                    user_id=user_id,
+                    tab_id=tab_id,
                 )
             )
         except RuntimeError:
@@ -39,7 +44,11 @@ class BrowserExtractionTool(BaseTool):
             try:
                 return loop.run_until_complete(
                     self._arun(
-                        action=action, selector=selector, session_id=session_id, user_id=user_id
+                        action=action,
+                        selector=selector,
+                        session_id=session_id,
+                        user_id=user_id,
+                        tab_id=tab_id,
                     )
                 )
             finally:
@@ -51,10 +60,11 @@ class BrowserExtractionTool(BaseTool):
         selector: Optional[str] = None,
         session_id: str = "default",
         user_id: Optional[str] = None,
+        tab_id: Optional[str] = None,
     ) -> str:
         try:
             session = await self.session_manager.get_session(session_id, user_id)
-            page = await session.ensure_page()
+            page = await session.ensure_page(tab_id)
 
             if action == "text":
                 try:
@@ -74,7 +84,9 @@ class BrowserExtractionTool(BaseTool):
                         )
                     return text
                 except Exception as e:
-                    error_msg = f"Error extracting text with selector '{selector or 'body'}': {str(e)}"
+                    error_msg = (
+                        f"Error extracting text with selector '{selector or 'body'}': {str(e)}"
+                    )
                     logger.error("[%s] %s", session_id, error_msg)
                     return error_msg
 
@@ -96,7 +108,9 @@ class BrowserExtractionTool(BaseTool):
                         )
                     return markup
                 except Exception as e:
-                    error_msg = f"Error extracting HTML with selector '{selector or 'document'}': {str(e)}"
+                    error_msg = (
+                        f"Error extracting HTML with selector '{selector or 'document'}': {str(e)}"
+                    )
                     logger.error("[%s] %s", session_id, error_msg)
                     return error_msg
 
@@ -122,7 +136,9 @@ class BrowserExtractionTool(BaseTool):
                     logger.error("[%s] %s", session_id, error_msg)
                     return error_msg
 
-            return f"Error: Unsupported action '{action}'. Supported actions: text, html, links"
+            return "Error: Unsupported action '{action}'. Supported actions: text, html, links".replace(
+                "{action}", action
+            )
 
         except ValueError as e:
             # Rate limiting or other validation errors
