@@ -655,6 +655,11 @@ class WorkflowOrchestrator:
             raise ValueError(f"Unknown workflow: {workflow_id}")
 
         blueprint = self.blueprints[workflow_id]
+        logger.info(
+            "🚀 [WorkflowOrchestrator] Starting workflow '%s' with tasks: %s",
+            workflow_id,
+            [task.id for task in blueprint.tasks],
+        )
         shared_context = await self.context_store.load(self.user_id)
         collaboration = CollaborationChannel()
         await collaboration.publish("system", "Workflow kickoff", {"workflowId": workflow_id})
@@ -690,6 +695,11 @@ class WorkflowOrchestrator:
         try:
             if fallback:
                 # Run a lightweight collaborative simulation when real agents are unavailable
+                logger.info(
+                    "🛟 [WorkflowOrchestrator] Using %d fallback agents for workflow %s",
+                    len(fallback),
+                    workflow_id,
+                )
                 for task_template in blueprint.tasks:
                     agent_key = task_template.agent
                     agent_profile = blueprint.agents[agent_key]
@@ -720,6 +730,11 @@ class WorkflowOrchestrator:
                     verbose=False,
                     share_crew=True,
                 )
+                logger.info(
+                    "🧠 [WorkflowOrchestrator] Executing workflow %s with %d live agents",
+                    workflow_id,
+                    len(crew.agents),
+                )
 
                 crew_inputs = {
                     "payload": payload or {},
@@ -749,6 +764,11 @@ class WorkflowOrchestrator:
             "models": models_used,
             "collaboration": collaboration_log,
         }
+        logger.info(
+            "🏁 [WorkflowOrchestrator] Workflow '%s' finished with outputs: %s",
+            workflow_id,
+            list(result.keys()) or ["<empty>"],
+        )
 
         updated_context = await self.context_store.append_history(self.user_id, history_entry)
 
