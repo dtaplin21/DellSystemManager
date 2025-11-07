@@ -2,12 +2,15 @@
 # This merges the cost-efficient, scalable framework with direct file integration
 
 import asyncio
+import base64
 import datetime
 import json
 import logging
 import os
+import uuid
 from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple, Literal
 
 import redis
@@ -150,6 +153,15 @@ except Exception as browser_import_error:  # pragma: no cover - optional depende
     )
     logger.warning(f"Browser tools import error details: {browser_import_error}")
     BROWSER_TOOLS_AVAILABLE = False
+
+
+class BrowserAutomationError(RuntimeError):
+    """Raised when automated browser operations fail."""
+
+
+class BrowserAutomationUnavailableError(BrowserAutomationError):
+    """Raised when browser automation is requested but unavailable."""
+
 # === FRAMEWORK LAYER (My Implementation) ===
 class ModelTier(Enum):
     LOCAL = "local"
@@ -1360,11 +1372,179 @@ class DellSystemAIService:
         self.browser_sessions: Optional[BrowserSessionManager] = None
         self._setup_browser_tools()
         self.tool_resources = self._build_tool_resources()
-    
+        self._attachments_dir = Path(__file__).resolve().parents[1] / "attached_assets"
+        self._attachments_dir.mkdir(parents=True, exist_ok=True)
+
     def get_orchestrator(self, user_id: str, user_tier: str) -> HybridWorkflowOrchestrator:
         """Get workflow orchestrator for specific user"""
         return HybridWorkflowOrchestrator(self.redis, user_tier, self.tool_resources)
-    
+
+    def _ensure_browser_automation(self) -> None:
+        if not BROWSER_TOOLS_AVAILABLE or not self.browser_sessions:
+            raise BrowserAutomationUnavailableError(
+                "Browser automation tools are not available in this environment."
+            )
+
+    async def navigate_panel_layout(
+        self,
+        session_id: str,
+        user_id: str,
+        url: str,
+        wait_for: str = "canvas",
+    ) -> Dict[str, Any]:
+        self._ensure_browser_automation()
+        navigation_tool = BrowserNavigationTool(self.browser_sessions)
+        result = await navigation_tool._arun(
+            action="navigate",
+            url=url,
+            wait_for=wait_for,
+            session_id=session_id,
+            user_id=user_id,
+        )
+        if isinstance(result, str) and result.lower().startswith("error"):
+            raise BrowserAutomationError(result)
+        return {
+            "status": result,
+            "url": url,
+            "waitFor": wait_for,
+            "sessionId": session_id,
+        }
+
+    async def take_panel_screenshot(
+        self,
+        session_id: str,
+        user_id: str,
+        project_id: Optional[str] = None,
+        full_page: bool = True,
+    ) -> Dict[str, Any]:
+        self._ensure_browser_automation()
+        screenshot_tool = BrowserScreenshotTool(self.browser_sessions)
+        raw_result = await screenshot_tool._arun(
+            session_id=session_id,
+            user_id=user_id,
+            full_page=full_page,
+        )
+        if isinstance(raw_result, str) and raw_result.lower().startswith("error"):
+            raise BrowserAutomationError(raw_result)
+
+        if isinstance(raw_result, str) and raw_result.startswith("Warning"):
+            # Tool returned a warning followed by the encoded data
+            parts = raw_result.splitlines()
+            encoded = parts[-1] if parts else ""
+        else:
+            encoded = raw_result if isinstance(raw_result, str) else str(raw_result)
+
+        if not encoded:
+            raise BrowserAutomationError("Screenshot capture did not return any data")
+
+        attachment = self._store_base64_attachment(
+            encoded,
+            filename_prefix=f"panel-layout-{project_id or 'session'}",
+        )
+
+        metadata = {
+            "sessionId": session_id,
+            "userId": user_id,
+            "projectId": project_id,
+            "fullPage": full_page,
+        }
+
+        return {
+            "base64": encoded,
+            "attachments": [attachment],
+            "metadata": metadata,
+        }
+
+    async def extract_panel_list(
+        self,
+        session_id: str,
+        user_id: str,
+    ) -> Dict[str, Any]:
+        self._ensure_browser_automation()
+        extraction_tool = BrowserExtractionTool(self.browser_sessions)
+        result = await extraction_tool._arun(
+            action="panels",
+            session_id=session_id,
+            user_id=user_id,
+            output_format="json",
+        )
+
+        if isinstance(result, str):
+            try:
+                parsed = json.loads(result)
+            except (TypeError, json.JSONDecodeError) as exc:
+                raise BrowserAutomationError(
+                    f"Unable to parse panel list from browser extraction: {exc}"
+                ) from exc
+        else:
+            parsed = result
+
+        if not isinstance(parsed, dict) or not parsed.get("success"):
+            message = (
+                parsed.get("error")
+                if isinstance(parsed, dict)
+                else "Unknown error extracting panels"
+            )
+            raise BrowserAutomationError(message or "Unknown error extracting panels")
+
+        panels = parsed.get("panels", [])
+        return {
+            "panels": panels,
+            "totalPanels": parsed.get("totalPanels", len(panels)),
+            "source": parsed.get("source", "unknown"),
+        }
+
+    async def _get_server_panel_fallback(
+        self,
+        project_id: Optional[str],
+        auth_token: Optional[str],
+        extra_headers: Optional[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        if not project_id:
+            return {}
+
+        try:
+            panel_tool = PanelManipulationTool(
+                base_url=self.backend_base_url,
+                default_headers=self._default_tool_headers(),
+            ).with_context(
+                project_id=project_id,
+                auth_token=auth_token,
+                extra_headers=extra_headers,
+            )
+
+            layout = await asyncio.to_thread(panel_tool.get_layout, project_id)
+            if isinstance(layout, dict):
+                return layout
+            return {}
+        except Exception as exc:
+            logger.error(
+                "[panel_fallback] Failed to retrieve server-side panel data: %s",
+                exc,
+                exc_info=True,
+            )
+            return {"error": str(exc)}
+
+    def _store_base64_attachment(
+        self, encoded: str, filename_prefix: str = "panel-layout"
+    ) -> Dict[str, Any]:
+        try:
+            binary = base64.b64decode(encoded)
+        except Exception as exc:
+            raise BrowserAutomationError(f"Failed to decode screenshot data: {exc}") from exc
+
+        filename = f"{filename_prefix}-{uuid.uuid4().hex}.png"
+        file_path = self._attachments_dir / filename
+        with open(file_path, "wb") as file_handle:
+            file_handle.write(binary)
+
+        return {
+            "type": "image/png",
+            "filename": filename,
+            "path": str(file_path.relative_to(self._attachments_dir.parent)),
+            "sizeBytes": len(binary),
+        }
+
     async def handle_layout_optimization(self, user_id: str, user_tier: str, layout_data: Dict) -> Dict:
         """Handle panel layout optimization requests"""
         orchestrator = self.get_orchestrator(user_id, user_tier)
@@ -1380,6 +1560,7 @@ class DellSystemAIService:
         try:
             logger.info(f"[handle_chat_message] Processing message from user_id: {user_id}, user_tier: {user_tier}")
             logger.debug(f"[handle_chat_message] Message: {message[:100]}...")
+            context = context or {}
             logger.debug(f"[handle_chat_message] Context keys: {list(context.keys())}")
             
             orchestrator = self.get_orchestrator(user_id, user_tier)
@@ -1528,9 +1709,95 @@ class DellSystemAIService:
             ])
             
             # Build frontend URL for panel layout page
+
+            frontend_base_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+            panel_layout_url = (
+                f"{frontend_base_url}/dashboard/projects/{project_id}/panel-layout"
+                if project_id
+                else None
+            )
+
+            automation_details: Dict[str, Any] = {}
+            automation_attachments: List[Dict[str, Any]] = []
+            automation_error: Optional[str] = None
+            if is_visual_layout_question and panel_layout_url:
+                session_id = f"panel-visual-{project_id or user_id}"
+                try:
+                    navigation_result = await self.navigate_panel_layout(
+                        session_id=session_id,
+                        user_id=user_id,
+                        url=panel_layout_url,
+                    )
+                    screenshot_result = await self.take_panel_screenshot(
+                        session_id=session_id,
+                        user_id=user_id,
+                        project_id=project_id,
+                    )
+                    panel_result = await self.extract_panel_list(
+                        session_id=session_id,
+                        user_id=user_id,
+                    )
+
+                    automation_attachments.extend(
+                        screenshot_result.get("attachments", [])
+                    )
+                    automation_details = {
+                        "navigation": navigation_result,
+                        "panelList": panel_result.get("panels", []),
+                        "panelMetadata": {
+                            key: value
+                            for key, value in panel_result.items()
+                            if key not in {"panels"}
+                        },
+                        "screenshot": screenshot_result.get("metadata", {}),
+                        "source": "browser_automation",
+                        "automationRan": True,
+                    }
+                    context.setdefault("panelAutomation", {}).update(
+                        {
+                            "panelList": automation_details.get("panelList", []),
+                            "panelMetadata": automation_details.get("panelMetadata", {}),
+                            "automationSource": "browser_automation",
+                        }
+                    )
+                except BrowserAutomationUnavailableError as unavailable_exc:
+                    automation_error = str(unavailable_exc)
+                    automation_details = {
+                        "automationError": automation_error,
+                        "source": "browser_automation",
+                        "automationRan": False,
+                    }
+                except BrowserAutomationError as automation_exc:
+                    automation_error = str(automation_exc)
+                    automation_details = {
+                        "automationError": automation_error,
+                        "source": "browser_automation",
+                        "automationRan": False,
+                    }
+                    fallback_data = await self._get_server_panel_fallback(
+                        project_id=project_id,
+                        auth_token=auth_token,
+                        extra_headers=extra_headers,
+                    )
+                    if fallback_data:
+                        fallback_panels = (
+                            fallback_data.get("panels")
+                            if isinstance(fallback_data, dict)
+                            else None
+                        )
+                        automation_details["fallbackPanels"] = fallback_panels or fallback_data
+                        automation_details["fallbackSource"] = "server_api"
+                        context.setdefault("panelAutomation", {}).update(
+                            {
+                                "fallbackPanels": automation_details.get("fallbackPanels", []),
+                                "automationSource": "server_api",
+                            }
+                        )
+
             frontend_base_url = str(frontend_base_url).rstrip("/") if frontend_base_url else os.getenv("FRONTEND_URL", "http://localhost:3000")
             if project_id and not panel_layout_url:
                 panel_layout_url = f"{frontend_base_url.rstrip('/')}/dashboard/projects/{project_id}/panel-layout"
+
 
             visual_instructions = ""
             if is_visual_layout_question and panel_layout_url:
@@ -1632,31 +1899,69 @@ After completing all three steps, then answer based on what you observed visuall
             
             # Detect if browser tools were mentioned in the response (indicates usage)
             browser_tool_names = ["browser_navigate", "browser_screenshot", "browser_extract", "browser_interact"]
-            detected_tools = [tool for tool in browser_tool_names if tool in str(result).lower() or tool in response_text.lower()]
-            
+            detected_tools = [
+                tool
+                for tool in browser_tool_names
+                if tool in str(result).lower() or tool in response_text.lower()
+            ]
+
             if detected_tools:
-                logger.info(f"[handle_chat_message] Browser automation tools detected in response: {detected_tools}")
-            
-            # Add explicit indicator if visual layout question was asked
-            if is_visual_layout_question and detected_tools:
+                logger.info(
+                    f"[handle_chat_message] Browser automation tools detected in response: {detected_tools}"
+                )
+
+            automation_succeeded = bool(automation_details.get("panelList"))
+            browser_automation_used_flag = bool(detected_tools) or automation_succeeded
+
+            if automation_error:
+                logger.warning(
+                    "[handle_chat_message] Browser automation failed: %s", automation_error
+                )
+                response_text = (
+                    f"⚠️ Browser automation failed: {automation_error}. "
+                    "Using server-side panel data when available.\n\n"
+                    f"{response_text}"
+                )
+            elif automation_succeeded:
+                logger.info(
+                    "[handle_chat_message] Pre-run browser automation succeeded with %d panels",
+                    len(automation_details.get("panelList", [])),
+                )
+                response_text = f"🔍 [Visual layout captured automatically]\n\n{response_text}"
+            elif is_visual_layout_question and detected_tools:
                 response_text = f"🔍 [Visual Analysis Used]\n\n{response_text}"
                 logger.info("[handle_chat_message] Added visual analysis indicator to response")
-            elif is_visual_layout_question and not detected_tools:
-                logger.warning("[handle_chat_message] Visual layout question detected but no browser tools appear to have been used!")
-                response_text = f"⚠️ [Note: Using backend data - visual check may not have been performed]\n\n{response_text}"
-            
-            logger.info(f"[handle_chat_message] Extracted response length: {len(response_text)} characters")
+            elif is_visual_layout_question and not browser_automation_used_flag:
+                logger.warning(
+                    "[handle_chat_message] Visual layout question detected but no browser tools appear to have been used!"
+                )
+                response_text = (
+                    "⚠️ [Note: Using backend data - visual check may not have been performed]\n\n"
+                    f"{response_text}"
+                )
+
+            logger.info(
+                f"[handle_chat_message] Extracted response length: {len(response_text)} characters"
+            )
             logger.debug(f"[handle_chat_message] Response preview: {response_text[:200]}...")
 
-            return {
+            response_payload: Dict[str, Any] = {
                 "success": True,
                 "response": response_text,
                 "user_id": user_id,
                 "timestamp": str(datetime.datetime.now()),
                 "status": "completed",
-                "browser_automation_used": bool(detected_tools),
+                "browser_automation_used": browser_automation_used_flag,
                 "tools_used": detected_tools,
             }
+
+            if automation_attachments:
+                response_payload["attachments"] = automation_attachments
+
+            if automation_details:
+                response_payload["panel_sequence"] = automation_details
+
+            return response_payload
         except Exception as e:
             logger.error(f"Chat message handling failed: {e}")
             return {"success": False, "error": str(e)}
