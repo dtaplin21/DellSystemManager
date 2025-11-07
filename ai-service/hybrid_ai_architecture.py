@@ -13,8 +13,13 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Literal
 import redis
 import requests
 from crewai import Agent, Crew, Task
+
 from langchain.tools import BaseTool
 from pydantic import BaseModel, Field, PrivateAttr, ValidationError
+
+from crewai.tools import BaseTool
+from pydantic import BaseModel, Field, ValidationError
+
 
 # Configure logging first
 logging.basicConfig(level=logging.INFO)
@@ -340,6 +345,14 @@ class PanelManipulationTool(BaseTool):
     )
     _session: requests.Session = PrivateAttr()
     _timeout: int = PrivateAttr(default=15)
+
+    # Define these as fields (following the pattern from browser tools)
+    base_url: Any = None
+    default_headers: Any = None
+    project_id: Any = None
+    auth_token: Any = None
+    session: Any = None
+    timeout: Any = None
 
     def __init__(
         self,
