@@ -24,6 +24,13 @@ from pydantic import BaseModel, Field, PrivateAttr, ValidationError
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
+def _is_browser_automation_enabled() -> bool:
+    """Return True when the runtime configuration allows browser automation."""
+
+    flag = os.getenv("ENABLE_BROWSER_AUTOMATION", "1")
+    return str(flag).strip().lower() not in {"0", "false", "no", "off"}
+
 # Try to import OpenAI LLM - handle both old and new langchain versions
 # Note: langchain_openai only has ChatOpenAI, not OpenAI class
 # Prefer langchain_community first (newer, recommended)
@@ -62,102 +69,95 @@ except ImportError:
     ollama = None
     logger.warning("Ollama not available - local models will not work")
 
+BROWSER_AUTOMATION_ENABLED = _is_browser_automation_enabled()
 BROWSER_TOOLS_AVAILABLE = False
 
-try:
-    # Try multiple import paths to handle different directory structures
-    browser_tools_imported = False
-    
-    # Path 1: ai_service (underscore) - when browser_tools is in sibling directory
+if not BROWSER_AUTOMATION_ENABLED:
+    logger.info("[Browser Tools] Browser automation disabled via ENABLE_BROWSER_AUTOMATION flag")
+else:
     try:
-        import sys
-        import os
-        # Get the directory containing this file (ai-service/)
-        current_file_dir = os.path.dirname(os.path.abspath(__file__))
-        # Get parent directory (DellSystemManager/)
-        parent_dir = os.path.dirname(current_file_dir)
-        # Path to ai_service/ (sibling directory)
-        ai_service_path = os.path.join(parent_dir, 'ai_service')
-        browser_tools_path = os.path.join(ai_service_path, 'browser_tools')
-        
-        logger.info(f"[Browser Tools] Checking path: {browser_tools_path}")
-        logger.info(f"[Browser Tools] Path exists: {os.path.exists(browser_tools_path)}")
-        
-        if os.path.exists(browser_tools_path):
-            # Add ai_service to path so we can import from it
-            if ai_service_path not in sys.path:
-                sys.path.insert(0, ai_service_path)
-                logger.info(f"[Browser Tools] Added {ai_service_path} to sys.path")
-            
-            from browser_tools import (
-                BrowserExtractionTool,
-                BrowserInteractionTool,
-                BrowserNavigationTool,
-                BrowserScreenshotTool,
-                BrowserSecurityConfig,
-                BrowserSessionManager,
-            )
-            browser_tools_imported = True
-            logger.info("Browser tools imported from ai_service directory")
-    except ImportError as e:
-        logger.warning(f"[Browser Tools] Path 1 failed: {e}")
-        pass
-    except Exception as e:
-        logger.warning(f"[Browser Tools] Path 1 error: {e}")
-        pass
-    
-    # Path 2: ai_service.browser_tools (package import)
-    if not browser_tools_imported:
+        # Try multiple import paths to handle different directory structures
+        browser_tools_imported = False
+
+        # Path 1: ai_service (underscore) - when browser_tools is in sibling directory
         try:
-            from ai_service.browser_tools import (
-                BrowserExtractionTool,
-                BrowserInteractionTool,
-                BrowserNavigationTool,
-                BrowserScreenshotTool,
-                BrowserSecurityConfig,
-                BrowserSessionManager,
-            )
-            browser_tools_imported = True
-            logger.info("Browser tools imported from ai_service package")
-        except ImportError:
-            pass
-    
-    # Path 3: Relative import (when browser_tools is in same directory)
-    if not browser_tools_imported:
-        try:
-            from browser_tools import (
-                BrowserExtractionTool,
-                BrowserInteractionTool,
-                BrowserNavigationTool,
-                BrowserScreenshotTool,
-                BrowserSecurityConfig,
-                BrowserSessionManager,
-            )
-            browser_tools_imported = True
-            logger.info("Browser tools imported from relative path")
-        except ImportError:
-            pass
-    
-    if browser_tools_imported:
-        BROWSER_TOOLS_AVAILABLE = True
-    else:
-        raise ImportError("Could not find browser_tools in any expected location")
-        
-except Exception as browser_import_error:  # pragma: no cover - optional dependency
-    logger.warning(
-        "Browser tools not available: %s", getattr(browser_import_error, "detail", browser_import_error)
-    )
-    logger.warning(f"Browser tools import error details: {browser_import_error}")
-    BROWSER_TOOLS_AVAILABLE = False
+            import sys
+            import os
+            # Get the directory containing this file (ai-service/)
+            current_file_dir = os.path.dirname(os.path.abspath(__file__))
+            # Get parent directory (DellSystemManager/)
+            parent_dir = os.path.dirname(current_file_dir)
+            # Path to ai_service/ (sibling directory)
+            ai_service_path = os.path.join(parent_dir, 'ai_service')
+            browser_tools_path = os.path.join(ai_service_path, 'browser_tools')
 
+            logger.info(f"[Browser Tools] Checking path: {browser_tools_path}")
+            logger.info(f"[Browser Tools] Path exists: {os.path.exists(browser_tools_path)}")
 
-class BrowserAutomationError(RuntimeError):
-    """Raised when automated browser operations fail."""
+            if os.path.exists(browser_tools_path):
+                # Add ai_service to path so we can import from it
+                if ai_service_path not in sys.path:
+                    sys.path.insert(0, ai_service_path)
+                    logger.info(f"[Browser Tools] Added {ai_service_path} to sys.path")
 
+                from browser_tools import (
+                    BrowserExtractionTool,
+                    BrowserInteractionTool,
+                    BrowserNavigationTool,
+                    BrowserScreenshotTool,
+                    BrowserSecurityConfig,
+                    BrowserSessionManager,
+                )
+                browser_tools_imported = True
+                logger.info("Browser tools imported from ai_service directory")
+        except ImportError as e:
+            logger.warning(f"[Browser Tools] Path 1 failed: {e}")
+        except Exception as e:
+            logger.warning(f"[Browser Tools] Path 1 error: {e}")
 
-class BrowserAutomationUnavailableError(BrowserAutomationError):
-    """Raised when browser automation is requested but unavailable."""
+        # Path 2: ai_service.browser_tools (package import)
+        if not browser_tools_imported:
+            try:
+                from ai_service.browser_tools import (
+                    BrowserExtractionTool,
+                    BrowserInteractionTool,
+                    BrowserNavigationTool,
+                    BrowserScreenshotTool,
+                    BrowserSecurityConfig,
+                    BrowserSessionManager,
+                )
+                browser_tools_imported = True
+                logger.info("Browser tools imported from ai_service package")
+            except ImportError:
+                pass
 
+        # Path 3: Relative import (when browser_tools is in same directory)
+        if not browser_tools_imported:
+            try:
+                from browser_tools import (
+                    BrowserExtractionTool,
+                    BrowserInteractionTool,
+                    BrowserNavigationTool,
+                    BrowserScreenshotTool,
+                    BrowserSecurityConfig,
+                    BrowserSessionManager,
+                )
+                browser_tools_imported = True
+                logger.info("Browser tools imported from relative path")
+            except ImportError:
+                pass
+
+        if browser_tools_imported:
+            BROWSER_TOOLS_AVAILABLE = True
+        else:
+            raise ImportError("Could not find browser_tools in any expected location")
+
+    except Exception as browser_import_error:  # pragma: no cover - optional dependency
+        logger.warning(
+            "Browser tools not available: %s", getattr(browser_import_error, "detail", browser_import_error)
+        )
+        logger.warning(f"Browser tools import error details: {browser_import_error}")
+        BROWSER_TOOLS_AVAILABLE = False
 # === FRAMEWORK LAYER (My Implementation) ===
 class ModelTier(Enum):
     LOCAL = "local"
@@ -499,6 +499,13 @@ class PanelManipulationTool(BaseTool):
             json_payload=payload,
         )
 
+        logger.info(
+            "✅ [PanelManipulationTool] Moved panel %s to (%.2f, %.2f)",
+            data.panel_id,
+            position["x"],
+            position["y"],
+        )
+
         result = {
             "action": "move_panel",
             "projectId": project_id,
@@ -616,8 +623,12 @@ class PanelManipulationTool(BaseTool):
             path="/api/panel-layout/batch-operations",
             json_payload=payload,
         )
-        
+
         logger.info(f"[PanelManipulationTool] Batch move response: {response}")
+        logger.info(
+            "🚚 [PanelManipulationTool] Completed batch move with %d operations",
+            len(operations),
+        )
 
         summary = {
             "projectId": project_id,
@@ -630,6 +641,11 @@ class PanelManipulationTool(BaseTool):
         if include_layout:
             summary["layout"] = self._get_layout(project_id)
 
+        logger.info(
+            "🔢 [PanelManipulationTool] Reordered %d panels for project %s",
+            len(operations),
+            project_id,
+        )
         return summary
 
     def _panel_sort_key(self, panel: Dict[str, Any]) -> Tuple[int, str]:
@@ -702,9 +718,8 @@ class PanelManipulationTool(BaseTool):
 
         try:
             result = response.json()
-            logger.debug(
-                f"[PanelManipulationTool] Response keys: {list(result.keys()) if isinstance(result, dict) else 'not a dict'}"
-            )
+            logger.debug(f"[PanelManipulationTool] Response keys: {list(result.keys()) if isinstance(result, dict) else 'not a dict'}")
+            logger.info("📬 [PanelManipulationTool] %s %s succeeded", method.upper(), path)
             return result
         except ValueError as exc:
             logger.error(
@@ -892,6 +907,7 @@ class PanelManipulationTool(BaseTool):
                 return {}
             
             logger.info(f"[PanelManipulationTool] Layout retrieved: {len(layout.get('panels', []))} panels")
+            logger.info("🧾 [PanelManipulationTool] Layout fetch succeeded for project %s", project_id)
             return layout
         except Exception as e:
             logger.error(f"[PanelManipulationTool] Error getting layout: {e}")
@@ -2007,6 +2023,9 @@ After completing all three steps, then answer based on what you observed visuall
         return headers
 
     def _setup_browser_tools(self) -> None:
+        if not BROWSER_AUTOMATION_ENABLED:
+            logger.warning("[_setup_browser_tools] Browser automation disabled via feature flag; skipping init")
+            return
         if not BROWSER_TOOLS_AVAILABLE:
             logger.error("[_setup_browser_tools] Browser tools not available - BROWSER_TOOLS_AVAILABLE=False")
             logger.error("[_setup_browser_tools] Check if playwright is installed: pip install playwright && playwright install")
