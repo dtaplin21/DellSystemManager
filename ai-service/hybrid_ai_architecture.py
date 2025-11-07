@@ -16,8 +16,13 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Literal
 import redis
 import requests
 from crewai import Agent, Crew, Task
+
 from langchain.tools import BaseTool
+from pydantic import BaseModel, Field, PrivateAttr, ValidationError
+
+from crewai.tools import BaseTool
 from pydantic import BaseModel, Field, ValidationError
+
 
 # Configure logging first
 logging.basicConfig(level=logging.INFO)
@@ -334,6 +339,32 @@ class PanelManipulationTool(BaseTool):
         "For visual questions, use browser automation tools (browser_navigate, browser_extract, browser_screenshot) instead."
     )
     args_schema: type = PanelManipulationInput
+    base_url: str = Field(
+        default="http://localhost:8003",
+        description="Base URL for the backend service handling panel layout operations.",
+    )
+    default_headers: Dict[str, str] = Field(
+        default_factory=dict,
+        description="Default HTTP headers applied to every panel manipulation request.",
+    )
+    project_id: Optional[str] = Field(
+        default=None,
+        description="Default project identifier applied when a request omits the project_id argument.",
+    )
+    auth_token: Optional[str] = Field(
+        default=None,
+        description="Bearer token used when authenticating requests to the panel manipulation API.",
+    )
+    _session: requests.Session = PrivateAttr()
+    _timeout: int = PrivateAttr(default=15)
+
+    # Define these as fields (following the pattern from browser tools)
+    base_url: Any = None
+    default_headers: Any = None
+    project_id: Any = None
+    auth_token: Any = None
+    session: Any = None
+    timeout: Any = None
 
     def __init__(
         self,
@@ -341,9 +372,19 @@ class PanelManipulationTool(BaseTool):
         default_headers: Optional[Dict[str, str]] = None,
         project_id: Optional[str] = None,
         auth_token: Optional[str] = None,
+        caller_session: Optional[Dict[str, Any]] = None,
+        browser_base_url: Optional[str] = None,
     ):
+
         super().__init__()
-        self.base_url = (base_url or "http://localhost:8003").rstrip("/")
+        resolved_base_url = base_url or "http://localhost:8003"
+        self.base_url = resolved_base_url.rstrip("/")
+        browser_service_url = (
+            browser_base_url
+            or os.getenv("BROWSER_SERVICE_URL")
+            or resolved_base_url
+        )
+        self.browser_base_url = browser_service_url.rstrip("/")
         self.default_headers = dict(default_headers or {})
         if "x-dev-bypass" not in self.default_headers and os.getenv("DISABLE_DEV_BYPASS") != "1":
             self.default_headers["x-dev-bypass"] = "true"
@@ -351,12 +392,52 @@ class PanelManipulationTool(BaseTool):
         self.auth_token = auth_token
         self.session = requests.Session()
         self.timeout = 15
+        self.caller_session: Dict[str, Any] = dict(caller_session or {})
+
+        init_data: Dict[str, Any] = {}
+        if base_url is not None:
+            init_data["base_url"] = base_url
+        if default_headers is not None:
+            init_data["default_headers"] = default_headers
+        if project_id is not None:
+            init_data["project_id"] = project_id
+        if auth_token is not None:
+            init_data["auth_token"] = auth_token
+
+        super().__init__(**init_data)
+
+        # Normalize runtime attributes now that Pydantic validation has completed.
+        self.base_url = (self.base_url or "http://localhost:8003").rstrip("/")
+
+        headers = dict(self.default_headers)
+        if "x-dev-bypass" not in headers and os.getenv("DISABLE_DEV_BYPASS") != "1":
+            headers["x-dev-bypass"] = "true"
+        self.default_headers = headers
+
+        self._session = requests.Session()
+        self._timeout = 15
+
+    @property
+    def session(self) -> requests.Session:
+        """HTTP session used for issuing panel API requests."""
+
+        return self._session
+
+    @property
+    def timeout(self) -> int:
+        """Default timeout (seconds) applied to API requests."""
+
+        return self._timeout
+
 
     def with_context(
         self,
         project_id: Optional[str] = None,
         auth_token: Optional[str] = None,
         extra_headers: Optional[Dict[str, str]] = None,
+        caller_session: Optional[Dict[str, Any]] = None,
+        base_url: Optional[str] = None,
+        browser_base_url: Optional[str] = None,
     ) -> "PanelManipulationTool":
         """Return a copy of the tool bound to a specific project/auth context."""
 
@@ -364,11 +445,17 @@ class PanelManipulationTool(BaseTool):
         if extra_headers:
             headers.update(extra_headers)
 
+        session_payload = dict(self.caller_session)
+        if caller_session:
+            session_payload.update(caller_session)
+
         return PanelManipulationTool(
-            base_url=self.base_url,
+            base_url=base_url or self.base_url,
             default_headers=headers,
             project_id=project_id or self.project_id,
             auth_token=auth_token or self.auth_token,
+            caller_session=session_payload,
+            browser_base_url=browser_base_url or self.browser_base_url,
         )
 
     def _run(self, **kwargs: Any) -> str:
@@ -572,16 +659,26 @@ class PanelManipulationTool(BaseTool):
         path: str,
         json_payload: Optional[Dict[str, Any]] = None,
         params: Optional[Dict[str, Any]] = None,
+        headers: Optional[Dict[str, str]] = None,
+        base_url: Optional[str] = None,
     ) -> Dict[str, Any]:
-        url = f"{self.base_url}{path}"
-        headers = dict(self.default_headers)
+        url_base = (base_url or self.base_url).rstrip("/")
+        url = f"{url_base}{path}"
+        combined_headers = dict(self.default_headers)
+
+        if headers:
+            combined_headers.update(headers)
 
         if self.auth_token:
-            headers.setdefault("Authorization", f"Bearer {self.auth_token}")
+            combined_headers.setdefault("Authorization", f"Bearer {self.auth_token}")
 
-        logger.info(f"[PanelManipulationTool] {method} {url} (headers: {list(headers.keys())})")
+        logger.info(
+            f"[PanelManipulationTool] {method} {url} (headers: {list(combined_headers.keys())})"
+        )
         if json_payload:
-            logger.debug(f"[PanelManipulationTool] Payload keys: {list(json_payload.keys())}")
+            logger.debug(
+                f"[PanelManipulationTool] Payload keys: {list(json_payload.keys())}"
+            )
 
         try:
             response = self.session.request(
@@ -589,7 +686,7 @@ class PanelManipulationTool(BaseTool):
                 url=url,
                 json=json_payload,
                 params=params,
-                headers=headers,
+                headers=combined_headers,
                 timeout=self.timeout,
             )
             logger.info(f"[PanelManipulationTool] Response status: {response.status_code}")
@@ -599,23 +696,194 @@ class PanelManipulationTool(BaseTool):
 
         if response.status_code == 401:
             logger.error(f"[PanelManipulationTool] Unauthorized (401) for {url}")
-            raise ValueError("Panel manipulation request was unauthorized. Verify authentication headers.")
+            raise ValueError(
+                "Panel manipulation request was unauthorized. Verify authentication headers."
+            )
 
         if not response.ok:
             try:
                 error_payload = response.json()
             except ValueError:
                 error_payload = response.text
-            logger.error(f"[PanelManipulationTool] Request failed ({response.status_code}): {error_payload}")
-            raise ValueError(f"Panel manipulation request failed ({response.status_code}): {error_payload}")
+            logger.error(
+                f"[PanelManipulationTool] Request failed ({response.status_code}): {error_payload}"
+            )
+            raise ValueError(
+                f"Panel manipulation request failed ({response.status_code}): {error_payload}"
+            )
 
         try:
             result = response.json()
-            logger.debug(f"[PanelManipulationTool] Response keys: {list(result.keys()) if isinstance(result, dict) else 'not a dict'}")
+            logger.debug(
+                f"[PanelManipulationTool] Response keys: {list(result.keys()) if isinstance(result, dict) else 'not a dict'}"
+            )
             return result
         except ValueError as exc:
-            logger.error(f"[PanelManipulationTool] JSON parse error: {exc}, response text: {response.text[:200]}")
-            raise ValueError(f"Panel manipulation response could not be parsed: {exc}") from exc
+            logger.error(
+                f"[PanelManipulationTool] JSON parse error: {exc}, response text: {response.text[:200]}"
+            )
+            raise ValueError(
+                f"Panel manipulation response could not be parsed: {exc}"
+            ) from exc
+
+    def _browser_request(
+        self,
+        method: str,
+        path: str,
+        json_payload: Optional[Dict[str, Any]] = None,
+        params: Optional[Dict[str, Any]] = None,
+        headers: Optional[Dict[str, str]] = None,
+    ) -> Dict[str, Any]:
+        return self._request(
+            method=method,
+            path=path,
+            json_payload=json_payload,
+            params=params,
+            headers=headers,
+            base_url=self.browser_base_url,
+        )
+
+    def _compact_dict(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        return {k: v for k, v in payload.items() if v not in (None, "", [], {})}
+
+    def _resolve_panel_layout_url(self, project_id: str) -> str:
+        session_data = self.caller_session or {}
+        for key in ("panel_layout_url", "panelLayoutUrl", "panelLayoutURL"):
+            value = session_data.get(key)
+            if value:
+                return str(value)
+
+        frontend_base = (
+            session_data.get("frontend_url")
+            or session_data.get("frontendUrl")
+            or os.getenv("FRONTEND_URL", "http://localhost:3000")
+        )
+        frontend_base = str(frontend_base).rstrip("/")
+        return f"{frontend_base}/dashboard/projects/{project_id}/panel-layout"
+
+    def _build_browser_payload(
+        self,
+        base: Dict[str, Any],
+        *,
+        project_id: Optional[str] = None,
+        tab_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        payload = dict(base)
+        session_data = dict(self.caller_session or {})
+
+        if project_id:
+            payload.setdefault("projectId", project_id)
+            session_data.setdefault("projectId", project_id)
+
+        if tab_id:
+            payload.setdefault("tabId", tab_id)
+
+        if session_data:
+            payload.setdefault("session", session_data)
+
+            key_mappings = {
+                "sessionId": ["sessionId", "session_id"],
+                "browserSessionId": ["browserSessionId", "browser_session_id"],
+                "workspaceId": ["workspaceId", "workspace_id"],
+                "workspaceSlug": ["workspaceSlug", "workspace_slug"],
+                "workspaceKey": ["workspaceKey", "workspace_key"],
+                "userId": ["userId", "user_id"],
+                "tabId": ["tabId", "tab_id"],
+                "callerSessionId": ["callerSessionId", "caller_session_id"],
+                "panelLayoutUrl": ["panelLayoutUrl", "panel_layout_url"],
+                "frontendUrl": ["frontendUrl", "frontend_url"],
+                "baseUrl": ["baseUrl", "base_url"],
+                "browserBaseUrl": ["browserBaseUrl", "browser_base_url"],
+                "environment": ["environment", "env"],
+            }
+
+            for canonical, options in key_mappings.items():
+                for option in options:
+                    if option in session_data and session_data[option] is not None:
+                        payload.setdefault(canonical, session_data[option])
+                        break
+
+        return self._compact_dict(payload)
+
+    def navigate_panel_layout(
+        self,
+        project_id: Optional[str] = None,
+        *,
+        wait_for_selector: Optional[str] = None,
+        tab_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        target_project = self._require_project_id(project_id)
+        url = self._resolve_panel_layout_url(target_project)
+
+        payload = self._build_browser_payload(
+            {
+                "action": "navigate",
+                "url": url,
+                "waitFor": wait_for_selector,
+            },
+            project_id=target_project,
+            tab_id=tab_id,
+        )
+
+        logger.info(
+            "[PanelManipulationTool] Navigating browser session to panel layout URL: %s",
+            url,
+        )
+        return self._browser_request(
+            method="POST",
+            path="/browser/navigate",
+            json_payload=payload,
+        )
+
+    def take_panel_screenshot(
+        self,
+        *,
+        selector: Optional[str] = None,
+        full_page: bool = True,
+        tab_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        payload = self._build_browser_payload(
+            {
+                "selector": selector,
+                "fullPage": full_page,
+            },
+            tab_id=tab_id,
+        )
+
+        logger.info(
+            "[PanelManipulationTool] Requesting browser screenshot (selector=%s, full_page=%s)",
+            selector,
+            full_page,
+        )
+        return self._browser_request(
+            method="POST",
+            path="/browser/screenshot",
+            json_payload=payload,
+        )
+
+    def extract_panel_list(
+        self,
+        *,
+        selector: Optional[str] = None,
+        tab_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        payload = self._build_browser_payload(
+            {
+                "action": "panels",
+                "selector": selector,
+            },
+            tab_id=tab_id,
+        )
+
+        logger.info(
+            "[PanelManipulationTool] Requesting panel list extraction (selector=%s)",
+            selector,
+        )
+        return self._browser_request(
+            method="POST",
+            path="/browser/extract",
+            json_payload=payload,
+        )
 
     def _get_layout(self, project_id: str) -> Dict[str, Any]:
         try:
@@ -931,31 +1199,39 @@ class HybridAgentFactory:
         return MockLLM()
 
     def _build_panel_tool(self, tool_context: Optional[Dict[str, Any]] = None) -> Optional[PanelManipulationTool]:
-        base_url = self.tool_resources.get("backend_base_url")
-        default_headers = dict(self.tool_resources.get("default_headers", {}))
+        context = tool_context or {}
 
-        if not base_url:
-            base_url = "http://localhost:8003"
+        base_url = (
+            context.get("base_url")
+            or context.get("baseUrl")
+            or self.tool_resources.get("backend_base_url")
+            or "http://localhost:8003"
+        )
+        browser_base_url = context.get("browser_base_url") or context.get("browserBaseUrl")
+
+        default_headers = dict(self.tool_resources.get("default_headers", {}))
+        extra_headers = context.get("headers") or context.get("authHeaders")
+        if isinstance(extra_headers, dict):
+            default_headers.update(extra_headers)
+
+        session_data = context.get("session") if isinstance(context.get("session"), dict) else None
 
         logger.info(f"[_build_panel_tool] Creating tool with base_url: {base_url}")
-        logger.debug(f"[_build_panel_tool] Tool context: {tool_context}")
+        logger.debug(f"[_build_panel_tool] Tool context keys: {list(context.keys()) if context else []}")
 
         tool = PanelManipulationTool(
             base_url=base_url,
+            browser_base_url=browser_base_url,
             default_headers=default_headers,
+            project_id=context.get("project_id") or context.get("projectId"),
+            auth_token=context.get("auth_token") or context.get("authToken"),
+            caller_session=session_data,
         )
 
-        if not tool_context:
-            logger.info(f"[_build_panel_tool] Tool created without context - project_id: {tool.project_id}")
-            return tool
-
-        contexted_tool = tool.with_context(
-            project_id=tool_context.get("project_id"),
-            auth_token=tool_context.get("auth_token"),
-            extra_headers=tool_context.get("headers"),
+        logger.info(
+            f"[_build_panel_tool] Tool created - project_id: {tool.project_id}, browser_base_url: {tool.browser_base_url}"
         )
-        logger.info(f"[_build_panel_tool] Tool created with context - project_id: {contexted_tool.project_id}")
-        return contexted_tool
+        return tool
 
 # === WORKFLOW ORCHESTRATOR ===
 class HybridWorkflowOrchestrator:
@@ -1294,6 +1570,19 @@ class DellSystemAIService:
 
             logger.info(f"[handle_chat_message] Extracted - project_id: {project_id}, has_auth_token: {bool(auth_token)}, has_headers: {bool(extra_headers)}")
 
+            backend_base_url = (
+                context.get("backendBaseUrl")
+                or context.get("backend_base_url")
+                or context.get("baseUrl")
+                or context.get("base_url")
+            )
+            browser_base_url = context.get("browserBaseUrl") or context.get("browser_base_url")
+            frontend_base_url = (
+                context.get("frontendUrl")
+                or context.get("frontend_url")
+                or os.getenv("FRONTEND_URL", "http://localhost:3000")
+            )
+
             tool_context: Dict[str, Any] = {}
             if project_id:
                 tool_context["project_id"] = project_id
@@ -1301,6 +1590,93 @@ class DellSystemAIService:
                 tool_context["auth_token"] = auth_token
             if isinstance(extra_headers, dict):
                 tool_context["headers"] = extra_headers
+            if backend_base_url:
+                tool_context["base_url"] = backend_base_url
+            if browser_base_url:
+                tool_context["browser_base_url"] = browser_base_url
+
+            # Aggregate session and workspace identifiers for downstream tools
+            session_data: Dict[str, Any] = {}
+
+            if isinstance(context.get("session"), dict):
+                session_data.update(context["session"])
+
+            def _harvest_session(source: Optional[Dict[str, Any]]) -> None:
+                if not isinstance(source, dict):
+                    return
+                allowed_keys = {
+                    "sessionId",
+                    "session_id",
+                    "browserSessionId",
+                    "browser_session_id",
+                    "workspaceId",
+                    "workspace_id",
+                    "workspaceSlug",
+                    "workspace_slug",
+                    "workspaceKey",
+                    "workspace_key",
+                    "userId",
+                    "user_id",
+                    "tabId",
+                    "tab_id",
+                    "callerSessionId",
+                    "caller_session_id",
+                    "callerId",
+                    "caller_id",
+                    "panelLayoutUrl",
+                    "panel_layout_url",
+                    "panelLayoutPath",
+                    "panel_layout_path",
+                    "frontendUrl",
+                    "frontend_url",
+                    "baseUrl",
+                    "base_url",
+                    "browserBaseUrl",
+                    "browser_base_url",
+                    "environment",
+                    "env",
+                    "sessionToken",
+                    "session_token",
+                    "projectId",
+                    "project_id",
+                }
+                for key, value in source.items():
+                    if value is None:
+                        continue
+                    if key in allowed_keys and key not in session_data:
+                        session_data[key] = value
+
+            _harvest_session(context)
+            _harvest_session(context.get("browser"))
+            _harvest_session(context.get("workspace"))
+            _harvest_session(context.get("caller"))
+            _harvest_session(context.get("automation"))
+
+            if user_id and "userId" not in session_data and "user_id" not in session_data:
+                session_data["userId"] = user_id
+            if project_id:
+                session_data.setdefault("projectId", project_id)
+            if backend_base_url:
+                session_data.setdefault("baseUrl", backend_base_url)
+            if browser_base_url:
+                session_data.setdefault("browserBaseUrl", browser_base_url)
+            if frontend_base_url:
+                session_data.setdefault("frontendUrl", frontend_base_url)
+
+            panel_layout_url = (
+                context.get("panelLayoutUrl")
+                or context.get("panel_layout_url")
+                or (
+                    f"{str(frontend_base_url).rstrip('/')}/dashboard/projects/{project_id}/panel-layout"
+                    if project_id and frontend_base_url
+                    else None
+                )
+            )
+            if panel_layout_url:
+                session_data.setdefault("panelLayoutUrl", panel_layout_url)
+
+            if session_data:
+                tool_context["session"] = session_data
 
             logger.info(f"[handle_chat_message] Tool context: {list(tool_context.keys())}")
 
@@ -1333,6 +1709,7 @@ class DellSystemAIService:
             ])
             
             # Build frontend URL for panel layout page
+
             frontend_base_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
             panel_layout_url = (
                 f"{frontend_base_url}/dashboard/projects/{project_id}/panel-layout"
@@ -1416,6 +1793,11 @@ class DellSystemAIService:
                                 "automationSource": "server_api",
                             }
                         )
+
+            frontend_base_url = str(frontend_base_url).rstrip("/") if frontend_base_url else os.getenv("FRONTEND_URL", "http://localhost:3000")
+            if project_id and not panel_layout_url:
+                panel_layout_url = f"{frontend_base_url.rstrip('/')}/dashboard/projects/{project_id}/panel-layout"
+
 
             visual_instructions = ""
             if is_visual_layout_question and panel_layout_url:
