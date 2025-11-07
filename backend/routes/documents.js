@@ -8,7 +8,7 @@ const { auth } = require('../middlewares/auth');
 const { db } = require('../db/index');
 const { documents, projects } = require('../db/schema');
 const { eq, and } = require('drizzle-orm');
-const { DocumentService } = require('../services/documentService');
+const documentService = require('../services/documentService');
 
 // Simple validation function
 const validateObjectId = (id) => {
