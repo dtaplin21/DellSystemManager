@@ -33,7 +33,8 @@ class BrowserExtractionTool(BaseTool):
         session_id: str = "default",
         user_id: Optional[str] = None,
         tab_id: Optional[str] = None,
-    ) -> str:
+        output_format: str = "text",
+    ) -> Any:
         try:
             return asyncio.run(
                 self._arun(
@@ -42,6 +43,7 @@ class BrowserExtractionTool(BaseTool):
                     session_id=session_id,
                     user_id=user_id,
                     tab_id=tab_id,
+                    output_format=output_format,
                 )
             )
         except RuntimeError:
@@ -54,6 +56,7 @@ class BrowserExtractionTool(BaseTool):
                         session_id=session_id,
                         user_id=user_id,
                         tab_id=tab_id,
+                        output_format=output_format,
                     )
                 )
             finally:
@@ -66,7 +69,8 @@ class BrowserExtractionTool(BaseTool):
         session_id: str = "default",
         user_id: Optional[str] = None,
         tab_id: Optional[str] = None,
-    ) -> str:
+        output_format: str = "text",
+    ) -> Any:
         try:
             session = await self.session_manager.get_session(session_id, user_id)
             page = await session.ensure_page(tab_id)
@@ -300,12 +304,16 @@ class BrowserExtractionTool(BaseTool):
                     # Parse and format the result nicely
                     try:
                         import json
+
                         parsed = json.loads(result) if isinstance(result, str) else result
                         if parsed.get('success'):
+                            if output_format == "json":
+                                return parsed  # type: ignore[return-value]
+
                             panels = parsed.get('panels', [])
                             formatted_lines = [
                                 f"Found {parsed.get('totalPanels', 0)} panels (sorted by visual position, source: {parsed.get('source', 'unknown')}):",
-                                ""
+                                "",
                             ]
                             for panel in panels:
                                 formatted_lines.append(
@@ -315,14 +323,20 @@ class BrowserExtractionTool(BaseTool):
                                     f"- Roll: {panel.get('rollNumber', 'N/A')}"
                                 )
                             return "\n".join(formatted_lines)
-                        else:
-                            return result
-                    except Exception:
+
+                        if output_format == "json":
+                            return parsed  # type: ignore[return-value]
                         return result
-                    
+                    except Exception:
+                        if output_format == "json":
+                            return {"success": False, "error": "Failed to parse panel extraction response"}
+                        return result
+
                 except Exception as e:
                     error_msg = f"Error extracting panels: {str(e)}"
                     logger.error("[%s] %s", session_id, error_msg)
+                    if output_format == "json":
+                        return {"success": False, "error": error_msg}
                     return error_msg
 
             return f"Error: Unsupported action '{action}'. Supported actions: text, html, links, javascript, panels"
