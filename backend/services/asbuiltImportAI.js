@@ -11,6 +11,7 @@ const repairsPrompt = require('./prompt-templates/repairs-prompt');
 const destructivePrompt = require('./prompt-templates/destructive-prompt');
 const generalPrompt = require('./prompt-templates/general-prompt');
 const HistoricalPatternLearner = require('./historical-patterns');
+const { classifyFilename } = require('./filenameClassifier');
 require('dotenv').config({ path: '../.env' });
 
 class AsbuiltImportAI {
@@ -31,6 +32,14 @@ class AsbuiltImportAI {
     this.promptVersionManager = new PromptVersionManager();
     this.historicalPatternLearner = new HistoricalPatternLearner();
     this.patternRefreshInterval = null;
+    this.filenameGateMetrics = {
+      total: 0,
+      placement: 0,
+      nonPlacement: 0,
+      skipped: 0,
+      overrides: 0,
+      byDomain: {}
+    };
 
     this.promptTemplates = {
       panel_placement: panelPlacementPrompt,
@@ -175,6 +184,42 @@ class AsbuiltImportAI {
     }, 6 * 60 * 60 * 1000);
   }
 
+  recordFilenameGateDecision(classification) {
+    if (!classification) {
+      return;
+    }
+
+    this.filenameGateMetrics.total += 1;
+
+    if (classification.overrideApplied) {
+      this.filenameGateMetrics.overrides += 1;
+    }
+
+    if (classification.decision === 'placement') {
+      this.filenameGateMetrics.placement += 1;
+    } else {
+      this.filenameGateMetrics.nonPlacement += 1;
+
+      if (!classification.shouldProcess) {
+        this.filenameGateMetrics.skipped += 1;
+      }
+
+      if (classification.domain) {
+        this.filenameGateMetrics.byDomain[classification.domain] =
+          (this.filenameGateMetrics.byDomain[classification.domain] || 0) + 1;
+      }
+    }
+
+    console.log(`📈 [AI][FilenameGate][Metrics]`, JSON.stringify({
+      total: this.filenameGateMetrics.total,
+      placement: this.filenameGateMetrics.placement,
+      nonPlacement: this.filenameGateMetrics.nonPlacement,
+      skipped: this.filenameGateMetrics.skipped,
+      overrides: this.filenameGateMetrics.overrides,
+      byDomain: this.filenameGateMetrics.byDomain
+    }));
+  }
+
   async importExcelData(fileBuffer, projectId, domain, userId, options = {}) {
     const startTime = Date.now();
     try {
@@ -183,13 +228,54 @@ class AsbuiltImportAI {
       console.log(`🤖 [AI] Domain type: ${typeof domain}, value: ${JSON.stringify(domain)}`);
       console.log(`🤖 [AI] File buffer size: ${fileBuffer.length} bytes`);
 
+      const fileName = options.fileName || 'Unknown';
+      const classificationContext = {
+        requestedDomain: domain,
+        overrideDomain: options.overrideDomain,
+        forcePlacement: options.forcePlacement
+      };
+      const classification = options.filenameClassification &&
+        options.filenameClassification.fileName === fileName
+        ? options.filenameClassification
+        : classifyFilename(fileName, classificationContext);
+
+      this.recordFilenameGateDecision(classification);
+      console.log(`🧭 [AI][FilenameGate] Decision`, JSON.stringify({
+        fileName,
+        requestedDomain: domain,
+        decision: classification.decision,
+        domain: classification.domain,
+        reason: classification.reason,
+        matchedRule: classification.matchedRule,
+        overrideApplied: classification.overrideApplied,
+        fallbackApplied: classification.fallbackApplied
+      }));
+
+      if (classification.decision === 'non_placement' && !classification.shouldProcess) {
+        console.log(`⛔ [AI][FilenameGate] Skipping placement pipeline for ${fileName} (reason: ${classification.reason})`);
+        return {
+          success: true,
+          records: [],
+          errors: [],
+          skipped: true,
+          skipReason: classification.reason,
+          detectedDomain: null,
+          usedAI: false,
+          confidence: 0,
+          classifierDecision: classification
+        };
+      }
+
+      let detectedDomain = classification.domain || domain;
+
       // Step 1: Parse Excel file
       const { headers, dataRows } = this.parseExcelFile(fileBuffer);
       console.log(`📊 [AI] Parsed ${dataRows.length} rows with ${headers.length} columns`);
 
       // Step 2: Detect domain if not provided
-      const fileName = options.fileName || 'Unknown';
-      const detectedDomain = domain || await this.detectDomain(headers, dataRows, fileName);
+      if (!detectedDomain) {
+        detectedDomain = await this.detectDomain(headers, dataRows, fileName);
+      }
       console.log(`🎯 [AI] Using domain: ${detectedDomain}`);
 
       // Step 3: Map headers to canonical fields
@@ -394,7 +480,8 @@ class AsbuiltImportAI {
         detectedDomain,
         confidence,
         usedAI,
-        isDuplicate: duplicateCheck.duplicates.length > 0
+        isDuplicate: duplicateCheck.duplicates.length > 0,
+        classifierDecision: classification
       };
 
     } catch (error) {

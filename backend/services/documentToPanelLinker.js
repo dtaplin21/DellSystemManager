@@ -1,6 +1,7 @@
 const PanelLookupService = require('./panelLookupService');
 // As-built services removed - functionality simplified
 const { Pool } = require('pg');
+const { classifyFilename } = require('./filenameClassifier');
 require('dotenv').config();
 
 class DocumentToPanelLinker {
@@ -127,24 +128,50 @@ class DocumentToPanelLinker {
   async processExcelAsbuiltDocument(document, projectId, userId) {
     try {
       console.log(`📊 [DOCUMENT_LINKER] Processing Excel as-built document: ${document.name}`);
-      
+
+      const overrideConfig = this.extractFilenameOverrides(document);
+      const classification = classifyFilename(document.name, overrideConfig);
+
+      console.log(`🧭 [DOCUMENT_LINKER][FilenameGate]`, JSON.stringify({
+        fileName: document.name,
+        decision: classification.decision,
+        domain: classification.domain,
+        reason: classification.reason,
+        matchedRule: classification.matchedRule,
+        overrideApplied: classification.overrideApplied,
+        fallbackApplied: classification.fallbackApplied
+      }));
+
+      if (classification.decision === 'non_placement' && !classification.shouldProcess) {
+        console.log(`⛔ [DOCUMENT_LINKER] Skipping layout ingestion for ${document.name} due to filename gate.`);
+        return [];
+      }
+
       // For now, we'll need to read the file from storage
       // This is a simplified version - in production you'd read from actual file storage
       const fileBuffer = await this.readDocumentFile(document.path);
-      
+
       if (!fileBuffer) {
         throw new Error('Could not read document file');
       }
-      
+
       // Determine the domain based on document name/content
-      const domain = this.determineAsbuiltDomain(document.name);
-      
+      const domain = this.determineAsbuiltDomain(document.name, classification);
+
       // Use the existing AI import service
       const importResult = await this.asbuiltImportAI.importExcelData(
         fileBuffer,
         projectId,
         domain,
-        userId
+        userId,
+        {
+          fileName: document.name,
+          fileSize: document.size,
+          fileType: document.type,
+          overrideDomain: overrideConfig.overrideDomain,
+          forcePlacement: overrideConfig.forcePlacement,
+          filenameClassification: classification
+        }
       );
       
       // Insert records into database
@@ -241,9 +268,17 @@ class DocumentToPanelLinker {
   /**
    * Determine as-built domain from document name
    */
-  determineAsbuiltDomain(documentName) {
+  determineAsbuiltDomain(documentName, classification = null) {
     const name = documentName.toLowerCase();
-    
+
+    if (classification?.domain) {
+      return classification.domain;
+    }
+
+    if (classification?.decision === 'non_placement' && !classification.shouldProcess) {
+      return null;
+    }
+
     if (name.includes('placement') || name.includes('location')) {
       return 'panel_placement';
     } else if (name.includes('seam') || name.includes('weld')) {
@@ -257,9 +292,58 @@ class DocumentToPanelLinker {
     } else if (name.includes('destructive')) {
       return 'destructive';
     }
-    
-    // Default to panel_placement
-    return 'panel_placement';
+
+    // Default to panel_seaming for Excel files
+    return 'panel_seaming';
+  }
+
+  extractFilenameOverrides(document) {
+    const overrides = { overrideDomain: null, forcePlacement: false };
+
+    if (!document) {
+      return overrides;
+    }
+
+    const directDomain = document.manualDomain || document.ingestionDomain || document.domainOverride;
+    if (directDomain) {
+      overrides.overrideDomain = directDomain;
+    }
+
+    if (document.forcePlacement === true || document.forcePlacement === 'true') {
+      overrides.overrideDomain = 'panel_placement';
+      overrides.forcePlacement = true;
+    }
+
+    const metadataSource = document.metadata || document.meta || document.ingestion_override;
+    if (metadataSource) {
+      let metadata = metadataSource;
+      if (typeof metadataSource === 'string') {
+        try {
+          metadata = JSON.parse(metadataSource);
+        } catch (error) {
+          console.warn(`⚠️ [DOCUMENT_LINKER] Failed to parse document metadata for overrides: ${error.message}`);
+        }
+      }
+
+      if (metadata && typeof metadata === 'object') {
+        const override = metadata.ingestionOverride || metadata.ingestion_override || metadata.override;
+        if (override && typeof override === 'object') {
+          if (override.domain) {
+            overrides.overrideDomain = override.domain;
+          }
+          if (override.forcePlacement) {
+            overrides.overrideDomain = 'panel_placement';
+            overrides.forcePlacement = true;
+          }
+        }
+
+        if (!overrides.overrideDomain && metadata.ingestionDomain) {
+          overrides.overrideDomain = metadata.ingestionDomain;
+        }
+      }
+    }
+
+    return overrides;
   }
 
   /**

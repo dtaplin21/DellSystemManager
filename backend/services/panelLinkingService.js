@@ -5,6 +5,7 @@ const path = require('path');
 const PanelLookupService = require('./panelLookupService');
 const AsbuiltService = require('./asbuiltService');
 const AsbuiltImportAI = require('./asbuiltImportAI');
+const { classifyFilename } = require('./filenameClassifier');
 require('dotenv').config();
 
 class PanelLinkingService {
@@ -68,7 +69,8 @@ class PanelLinkingService {
       }
       
       console.log(`🎉 [PANEL_LINKING] Processing complete! Linked ${totalRecordsLinked} total records`);
-      
+      console.log(`📊 [PANEL_LINKING] Filename gate metrics:`, this.asbuiltImportAI.filenameGateMetrics);
+
       return {
         success: true,
         projectId,
@@ -197,21 +199,47 @@ class PanelLinkingService {
       console.log(`📊 [PANEL_LINKING] Processing Excel as-built document: ${document.name}`);
       
       // Read the Excel file
+      const overrideConfig = this.extractFilenameOverrides(document);
+      const classification = classifyFilename(document.name, overrideConfig);
+
+      console.log(`🧭 [PANEL_LINKING][FilenameGate]`, JSON.stringify({
+        fileName: document.name,
+        decision: classification.decision,
+        domain: classification.domain,
+        reason: classification.reason,
+        matchedRule: classification.matchedRule,
+        overrideApplied: classification.overrideApplied,
+        fallbackApplied: classification.fallbackApplied
+      }));
+
+      if (classification.decision === 'non_placement' && !classification.shouldProcess) {
+        console.log(`⛔ [PANEL_LINKING] Skipping layout ingestion for ${document.name} due to conservative filename gate.`);
+        return 0;
+      }
+
       const fileBuffer = await this.readDocumentFile(document.path);
       if (!fileBuffer) {
         throw new Error('Could not read document file');
       }
-      
+
       // Determine the domain based on document name
-      const domain = this.determineAsbuiltDomain(document.name);
+      const domain = this.determineAsbuiltDomain(document.name, classification);
       console.log(`🔍 [PANEL_LINKING] Detected domain: ${domain}`);
-      
+
       // Use the AI import service to process the Excel file
       const importResult = await this.asbuiltImportAI.importExcelData(
         fileBuffer,
         projectId,
         domain,
-        userId
+        userId,
+        {
+          fileName: document.name,
+          fileSize: document.size,
+          fileType: document.type,
+          overrideDomain: overrideConfig.overrideDomain,
+          forcePlacement: overrideConfig.forcePlacement,
+          filenameClassification: classification
+        }
       );
       
       console.log(`📊 [PANEL_LINKING] Import result:`, {
@@ -318,9 +346,17 @@ class PanelLinkingService {
   /**
    * Determine as-built domain from document name
    */
-  determineAsbuiltDomain(documentName) {
+  determineAsbuiltDomain(documentName, classification = null) {
     const name = documentName.toLowerCase();
-    
+
+    if (classification?.domain) {
+      return classification.domain;
+    }
+
+    if (classification?.decision === 'non_placement' && !classification.shouldProcess) {
+      return null;
+    }
+
     if (name.includes('placement') || name.includes('location')) {
       return 'panel_placement';
     } else if (name.includes('seam') || name.includes('weld')) {
@@ -334,9 +370,58 @@ class PanelLinkingService {
     } else if (name.includes('destructive')) {
       return 'destructive';
     }
-    
+
     // Default to panel_seaming for Excel files
     return 'panel_seaming';
+  }
+
+  extractFilenameOverrides(document) {
+    const overrides = { overrideDomain: null, forcePlacement: false };
+
+    if (!document) {
+      return overrides;
+    }
+
+    const directDomain = document.manualDomain || document.ingestionDomain || document.domainOverride;
+    if (directDomain) {
+      overrides.overrideDomain = directDomain;
+    }
+
+    if (document.forcePlacement === true || document.forcePlacement === 'true') {
+      overrides.overrideDomain = 'panel_placement';
+      overrides.forcePlacement = true;
+    }
+
+    const metadataSource = document.metadata || document.meta || document.ingestion_override;
+    if (metadataSource) {
+      let metadata = metadataSource;
+      if (typeof metadataSource === 'string') {
+        try {
+          metadata = JSON.parse(metadataSource);
+        } catch (error) {
+          console.warn(`⚠️ [PANEL_LINKING] Failed to parse document metadata for overrides: ${error.message}`);
+        }
+      }
+
+      if (metadata && typeof metadata === 'object') {
+        const override = metadata.ingestionOverride || metadata.ingestion_override || metadata.override;
+        if (override && typeof override === 'object') {
+          if (override.domain) {
+            overrides.overrideDomain = override.domain;
+          }
+          if (override.forcePlacement) {
+            overrides.overrideDomain = 'panel_placement';
+            overrides.forcePlacement = true;
+          }
+        }
+
+        if (!overrides.overrideDomain && metadata.ingestionDomain) {
+          overrides.overrideDomain = metadata.ingestionDomain;
+        }
+      }
+    }
+
+    return overrides;
   }
 
   /**
