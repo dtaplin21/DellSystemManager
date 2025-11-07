@@ -13,8 +13,13 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Literal
 import redis
 import requests
 from crewai import Agent, Crew, Task
+
 from langchain.tools import BaseTool
+from pydantic import BaseModel, Field, PrivateAttr, ValidationError
+
+from crewai.tools import BaseTool
 from pydantic import BaseModel, Field, ValidationError
+
 
 # Configure logging first
 logging.basicConfig(level=logging.INFO)
@@ -322,6 +327,32 @@ class PanelManipulationTool(BaseTool):
         "For visual questions, use browser automation tools (browser_navigate, browser_extract, browser_screenshot) instead."
     )
     args_schema: type = PanelManipulationInput
+    base_url: str = Field(
+        default="http://localhost:8003",
+        description="Base URL for the backend service handling panel layout operations.",
+    )
+    default_headers: Dict[str, str] = Field(
+        default_factory=dict,
+        description="Default HTTP headers applied to every panel manipulation request.",
+    )
+    project_id: Optional[str] = Field(
+        default=None,
+        description="Default project identifier applied when a request omits the project_id argument.",
+    )
+    auth_token: Optional[str] = Field(
+        default=None,
+        description="Bearer token used when authenticating requests to the panel manipulation API.",
+    )
+    _session: requests.Session = PrivateAttr()
+    _timeout: int = PrivateAttr(default=15)
+
+    # Define these as fields (following the pattern from browser tools)
+    base_url: Any = None
+    default_headers: Any = None
+    project_id: Any = None
+    auth_token: Any = None
+    session: Any = None
+    timeout: Any = None
 
     def __init__(
         self,
@@ -332,6 +363,7 @@ class PanelManipulationTool(BaseTool):
         caller_session: Optional[Dict[str, Any]] = None,
         browser_base_url: Optional[str] = None,
     ):
+
         super().__init__()
         resolved_base_url = base_url or "http://localhost:8003"
         self.base_url = resolved_base_url.rstrip("/")
@@ -349,6 +381,42 @@ class PanelManipulationTool(BaseTool):
         self.session = requests.Session()
         self.timeout = 15
         self.caller_session: Dict[str, Any] = dict(caller_session or {})
+
+        init_data: Dict[str, Any] = {}
+        if base_url is not None:
+            init_data["base_url"] = base_url
+        if default_headers is not None:
+            init_data["default_headers"] = default_headers
+        if project_id is not None:
+            init_data["project_id"] = project_id
+        if auth_token is not None:
+            init_data["auth_token"] = auth_token
+
+        super().__init__(**init_data)
+
+        # Normalize runtime attributes now that Pydantic validation has completed.
+        self.base_url = (self.base_url or "http://localhost:8003").rstrip("/")
+
+        headers = dict(self.default_headers)
+        if "x-dev-bypass" not in headers and os.getenv("DISABLE_DEV_BYPASS") != "1":
+            headers["x-dev-bypass"] = "true"
+        self.default_headers = headers
+
+        self._session = requests.Session()
+        self._timeout = 15
+
+    @property
+    def session(self) -> requests.Session:
+        """HTTP session used for issuing panel API requests."""
+
+        return self._session
+
+    @property
+    def timeout(self) -> int:
+        """Default timeout (seconds) applied to API requests."""
+
+        return self._timeout
+
 
     def with_context(
         self,
