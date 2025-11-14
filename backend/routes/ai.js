@@ -356,6 +356,10 @@ router.post('/chat', auth, async (req, res) => {
           messageLength: userMessage.length 
         });
         
+        // Build frontend URL for panel layout
+        const frontendBaseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+        const panelLayoutUrl = `${frontendBaseUrl}/dashboard/projects/${projectId}/panel-layout`;
+        
         const pythonResponse = await axios.post(
           `${AI_SERVICE_URL}/api/ai/chat`,
           {
@@ -366,7 +370,11 @@ router.post('/chat', auth, async (req, res) => {
             context: {
               ...context,
               projectId,
-              projectInfo: context.projectInfo || context.project || {}
+              projectInfo: context.projectInfo || context.project || {},
+              panelLayoutUrl: panelLayoutUrl,
+              panel_layout_url: panelLayoutUrl, // Support both naming conventions
+              frontendUrl: frontendBaseUrl,
+              frontend_url: frontendBaseUrl
             }
           },
           {

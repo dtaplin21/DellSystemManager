@@ -1813,7 +1813,6 @@ class DellSystemAIService:
             ])
             
             # Build frontend URL for panel layout page
-
             frontend_base_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
             panel_layout_url = (
                 f"{frontend_base_url}/dashboard/projects/{project_id}/panel-layout"
@@ -1821,118 +1820,138 @@ class DellSystemAIService:
                 else None
             )
 
+            # Verify frontend is accessible before attempting browser automation
+            frontend_accessible = False
+            if panel_layout_url:
+                try:
+                    # Quick health check - try to reach the frontend base URL
+                    response = requests.get(frontend_base_url, timeout=5)
+                    frontend_accessible = response.status_code < 500
+                    if frontend_accessible:
+                        logger.info(f"[handle_chat_message] Frontend is accessible at {frontend_base_url}")
+                    else:
+                        logger.warning(f"[handle_chat_message] Frontend returned status {response.status_code} at {frontend_base_url}")
+                except requests.exceptions.RequestException as e:
+                    logger.warning(f"[handle_chat_message] Frontend health check failed: {e}")
+                    logger.warning(f"[handle_chat_message] Frontend may not be running at {frontend_base_url}")
+                    frontend_accessible = False
+
             automation_details: Dict[str, Any] = {}
             automation_attachments: List[Dict[str, Any]] = []
             automation_error: Optional[str] = None
             if is_visual_layout_question and panel_layout_url:
-                session_id = f"panel-visual-{project_id or user_id}"
-                logger.info(f"[handle_chat_message] Attempting pre-flight browser automation for visual layout question")
-                logger.info(f"[handle_chat_message] Panel layout URL: {panel_layout_url}")
-                logger.info(f"[handle_chat_message] Session ID: {session_id}, User ID: {user_id}")
-                try:
-                    logger.info("[handle_chat_message] Step 1: Navigating to panel layout page...")
-                    # Navigate with canvas selector - will be lenient if selector not found but page loads
-                    navigation_result = await self.navigate_panel_layout(
-                        session_id=session_id,
-                        user_id=user_id,
-                        url=panel_layout_url,
-                        wait_for="canvas",  # Primary selector - navigation will continue even if not found
-                    )
-                    logger.info(f"[handle_chat_message] Navigation result: {navigation_result}")
-                    
-                    # Check if navigation actually failed (page didn't load) vs selector just not found
-                    nav_status = navigation_result.get("status", "")
-                    if isinstance(nav_status, str) and nav_status.lower().startswith("error") and "page may not have loaded" in nav_status.lower():
-                        # Real navigation failure - page didn't load
-                        raise BrowserAutomationError(f"Navigation failed: {nav_status}")
-                    # Otherwise, page loaded successfully (even if canvas selector wasn't found) - proceed with screenshot/extraction
-                    
-                    logger.info("[handle_chat_message] Step 2: Taking screenshot...")
-                    screenshot_result = await self.take_panel_screenshot(
-                        session_id=session_id,
-                        user_id=user_id,
-                        project_id=project_id,
-                    )
-                    logger.info(f"[handle_chat_message] Screenshot successful: {bool(screenshot_result.get('base64'))}")
-                    
-                    logger.info("[handle_chat_message] Step 3: Extracting panel list...")
-                    panel_result = await self.extract_panel_list(
-                        session_id=session_id,
-                        user_id=user_id,
-                    )
-                    logger.info(f"[handle_chat_message] Panel extraction successful: {len(panel_result.get('panels', []))} panels found")
-
-                    automation_attachments.extend(
-                        screenshot_result.get("attachments", [])
-                    )
-                    automation_details = {
-                        "navigation": navigation_result,
-                        "panelList": panel_result.get("panels", []),
-                        "panelMetadata": {
-                            key: value
-                            for key, value in panel_result.items()
-                            if key not in {"panels"}
-                        },
-                        "screenshot": screenshot_result.get("metadata", {}),
-                        "source": "browser_automation",
-                        "automationRan": True,
-                    }
-                    context.setdefault("panelAutomation", {}).update(
-                        {
-                            "panelList": automation_details.get("panelList", []),
-                            "panelMetadata": automation_details.get("panelMetadata", {}),
-                            "automationSource": "browser_automation",
-                        }
-                    )
-                    logger.info("[handle_chat_message] ✅ Pre-flight browser automation completed successfully")
-                except BrowserAutomationUnavailableError as unavailable_exc:
-                    automation_error = str(unavailable_exc)
-                    logger.error(f"[handle_chat_message] ❌ Browser automation unavailable: {automation_error}")
-                    logger.error(f"[handle_chat_message] This means browser tools cannot be used. Check BROWSER_TOOLS_AVAILABLE flag.")
-                    automation_details = {
-                        "automationError": automation_error,
-                        "source": "browser_automation",
-                        "automationRan": False,
-                    }
-                except BrowserAutomationError as automation_exc:
-                    automation_error = str(automation_exc)
-                    logger.error(f"[handle_chat_message] ❌ Browser automation failed: {automation_error}")
-                    logger.error(f"[handle_chat_message] Error type: {type(automation_exc).__name__}")
-                    logger.exception("[handle_chat_message] Full exception traceback:", exc_info=automation_exc)
-                    automation_details = {
-                        "automationError": automation_error,
-                        "source": "browser_automation",
-                        "automationRan": False,
-                    }
-                    fallback_data = await self._get_server_panel_fallback(
-                        project_id=project_id,
-                        auth_token=auth_token,
-                        extra_headers=extra_headers,
-                    )
-                    if fallback_data:
-                        fallback_panels = (
-                            fallback_data.get("panels")
-                            if isinstance(fallback_data, dict)
-                            else None
+                if not frontend_accessible:
+                    automation_error = f"Frontend is not accessible at {frontend_base_url}. Please ensure the frontend is running on port 3000."
+                    logger.error(f"[handle_chat_message] {automation_error}")
+                else:
+                    session_id = f"panel-visual-{project_id or user_id}"
+                    logger.info(f"[handle_chat_message] Attempting pre-flight browser automation for visual layout question")
+                    logger.info(f"[handle_chat_message] Panel layout URL: {panel_layout_url}")
+                    logger.info(f"[handle_chat_message] Session ID: {session_id}, User ID: {user_id}")
+                    try:
+                        logger.info("[handle_chat_message] Step 1: Navigating to panel layout page...")
+                        # Navigate with canvas selector - will be lenient if selector not found but page loads
+                        navigation_result = await self.navigate_panel_layout(
+                            session_id=session_id,
+                            user_id=user_id,
+                            url=panel_layout_url,
+                            wait_for="canvas",  # Primary selector - navigation will continue even if not found
                         )
-                        automation_details["fallbackPanels"] = fallback_panels or fallback_data
-                        automation_details["fallbackSource"] = "server_api"
-                        logger.info(f"[handle_chat_message] Using fallback server data: {len(fallback_panels or [])} panels")
+                        logger.info(f"[handle_chat_message] Navigation result: {navigation_result}")
+                        
+                        # Check if navigation actually failed (page didn't load) vs selector just not found
+                        nav_status = navigation_result.get("status", "")
+                        if isinstance(nav_status, str) and nav_status.lower().startswith("error") and "page may not have loaded" in nav_status.lower():
+                            # Real navigation failure - page didn't load
+                            raise BrowserAutomationError(f"Navigation failed: {nav_status}")
+                        # Otherwise, page loaded successfully (even if canvas selector wasn't found) - proceed with screenshot/extraction
+                        
+                        logger.info("[handle_chat_message] Step 2: Taking screenshot...")
+                        screenshot_result = await self.take_panel_screenshot(
+                            session_id=session_id,
+                            user_id=user_id,
+                            project_id=project_id,
+                        )
+                        logger.info(f"[handle_chat_message] Screenshot successful: {bool(screenshot_result.get('base64'))}")
+                        
+                        logger.info("[handle_chat_message] Step 3: Extracting panel list...")
+                        panel_result = await self.extract_panel_list(
+                            session_id=session_id,
+                            user_id=user_id,
+                        )
+                        logger.info(f"[handle_chat_message] Panel extraction successful: {len(panel_result.get('panels', []))} panels found")
+
+                        automation_attachments.extend(
+                            screenshot_result.get("attachments", [])
+                        )
+                        automation_details = {
+                            "navigation": navigation_result,
+                            "panelList": panel_result.get("panels", []),
+                            "panelMetadata": {
+                                key: value
+                                for key, value in panel_result.items()
+                                if key not in {"panels"}
+                            },
+                            "screenshot": screenshot_result.get("metadata", {}),
+                            "source": "browser_automation",
+                            "automationRan": True,
+                        }
                         context.setdefault("panelAutomation", {}).update(
                             {
-                                "fallbackPanels": automation_details.get("fallbackPanels", []),
-                                "automationSource": "server_api",
+                                "panelList": automation_details.get("panelList", []),
+                                "panelMetadata": automation_details.get("panelMetadata", {}),
+                                "automationSource": "browser_automation",
                             }
                         )
-                except Exception as unexpected_exc:
-                    automation_error = f"Unexpected error during browser automation: {str(unexpected_exc)}"
-                    logger.error(f"[handle_chat_message] ❌ Unexpected error during browser automation: {automation_error}")
-                    logger.exception("[handle_chat_message] Unexpected exception:", exc_info=unexpected_exc)
-                    automation_details = {
-                        "automationError": automation_error,
-                        "source": "browser_automation",
-                        "automationRan": False,
-                    }
+                        logger.info("[handle_chat_message] ✅ Pre-flight browser automation completed successfully")
+                    except BrowserAutomationUnavailableError as unavailable_exc:
+                        automation_error = str(unavailable_exc)
+                        logger.error(f"[handle_chat_message] ❌ Browser automation unavailable: {automation_error}")
+                        logger.error(f"[handle_chat_message] This means browser tools cannot be used. Check BROWSER_TOOLS_AVAILABLE flag.")
+                        automation_details = {
+                            "automationError": automation_error,
+                            "source": "browser_automation",
+                            "automationRan": False,
+                        }
+                    except BrowserAutomationError as automation_exc:
+                        automation_error = str(automation_exc)
+                        logger.error(f"[handle_chat_message] ❌ Browser automation failed: {automation_error}")
+                        logger.error(f"[handle_chat_message] Error type: {type(automation_exc).__name__}")
+                        logger.exception("[handle_chat_message] Full exception traceback:", exc_info=automation_exc)
+                        automation_details = {
+                            "automationError": automation_error,
+                            "source": "browser_automation",
+                            "automationRan": False,
+                        }
+                        fallback_data = await self._get_server_panel_fallback(
+                            project_id=project_id,
+                            auth_token=auth_token,
+                            extra_headers=extra_headers,
+                        )
+                        if fallback_data:
+                            fallback_panels = (
+                                fallback_data.get("panels")
+                                if isinstance(fallback_data, dict)
+                                else None
+                            )
+                            automation_details["fallbackPanels"] = fallback_panels or fallback_data
+                            automation_details["fallbackSource"] = "server_api"
+                            logger.info(f"[handle_chat_message] Using fallback server data: {len(fallback_panels or [])} panels")
+                            context.setdefault("panelAutomation", {}).update(
+                                {
+                                    "fallbackPanels": automation_details.get("fallbackPanels", []),
+                                    "automationSource": "server_api",
+                                }
+                            )
+                    except Exception as unexpected_exc:
+                        automation_error = f"Unexpected error during browser automation: {str(unexpected_exc)}"
+                        logger.error(f"[handle_chat_message] ❌ Unexpected error during browser automation: {automation_error}")
+                        logger.exception("[handle_chat_message] Unexpected exception:", exc_info=unexpected_exc)
+                        automation_details = {
+                            "automationError": automation_error,
+                            "source": "browser_automation",
+                            "automationRan": False,
+                        }
             elif is_visual_layout_question and not panel_layout_url:
                 logger.warning("[handle_chat_message] Visual layout question detected but panel_layout_url is None")
                 logger.warning(f"[handle_chat_message] Project ID: {project_id}, Frontend URL: {frontend_base_url}")
