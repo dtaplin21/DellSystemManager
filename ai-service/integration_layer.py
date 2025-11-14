@@ -6,6 +6,7 @@ import json
 import logging
 from typing import Dict, Any, Optional
 from pathlib import Path
+from crewai import Crew, Task
 from hybrid_ai_architecture import DellSystemAIService
 
 logger = logging.getLogger(__name__)

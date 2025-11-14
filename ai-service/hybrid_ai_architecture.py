@@ -4,6 +4,7 @@
 import asyncio
 import base64
 import datetime
+import importlib
 import json
 import logging
 import os
@@ -25,6 +26,17 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+# === EXCEPTION CLASSES ===
+class BrowserAutomationError(Exception):
+    """Raised when browser automation operations fail."""
+    pass
+
+
+class BrowserAutomationUnavailableError(Exception):
+    """Raised when browser automation tools are not available."""
+    pass
+
+
 def _is_browser_automation_enabled() -> bool:
     """Return True when the runtime configuration allows browser automation."""
 
@@ -36,14 +48,16 @@ def _is_browser_automation_enabled() -> bool:
 # Prefer langchain_community first (newer, recommended)
 OpenAI = None
 try:
-    # Force import check - sometimes imports fail silently
-    import langchain_community
-    logger.info(f"langchain_community package found at: {langchain_community.__file__}")
-    from langchain_community.llms import OpenAI  # type: ignore
-    logger.info("Loaded OpenAI LLM from langchain_community")
-    # Verify it's actually a class, not None
+    langchain_community = importlib.import_module("langchain_community")
+    logger.info(
+        "langchain_community package found at: %s",
+        getattr(langchain_community, "__file__", "unknown"),
+    )
+    langchain_llms = importlib.import_module("langchain_community.llms")
+    OpenAI = getattr(langchain_llms, "OpenAI", None)  # type: ignore[attr-defined]
     if OpenAI is None:
         raise ImportError("OpenAI class is None after import")
+    logger.info("Loaded OpenAI LLM from langchain_community")
 except ImportError as e:
     logger.warning(f"Failed to import from langchain_community: {e}")
     logger.warning(f"Import error details: {type(e).__name__}: {str(e)}")
@@ -69,17 +83,33 @@ except ImportError:
     ollama = None
     logger.warning("Ollama not available - local models will not work")
 
+BrowserExtractionTool = None
+BrowserInteractionTool = None
+BrowserNavigationTool = None
+BrowserScreenshotTool = None
+BrowserSecurityConfig = None
+BrowserSessionManager = None
+
 BROWSER_AUTOMATION_ENABLED = _is_browser_automation_enabled()
 BROWSER_TOOLS_AVAILABLE = False
 
+# Log browser automation status at startup
+enable_flag = os.getenv("ENABLE_BROWSER_AUTOMATION", "1")
+logger.info(f"[Browser Tools] ENABLE_BROWSER_AUTOMATION env var: {enable_flag}")
+logger.info(f"[Browser Tools] Browser automation enabled: {BROWSER_AUTOMATION_ENABLED}")
+
 if not BROWSER_AUTOMATION_ENABLED:
     logger.info("[Browser Tools] Browser automation disabled via ENABLE_BROWSER_AUTOMATION flag")
+    logger.info("[Browser Tools] To enable: Set ENABLE_BROWSER_AUTOMATION=1 or remove the env var (defaults to enabled)")
 else:
+    logger.info("[Browser Tools] Attempting to import browser tools...")
     try:
         # Try multiple import paths to handle different directory structures
         browser_tools_imported = False
+        import_errors = []
 
         # Path 1: ai_service (underscore) - when browser_tools is in sibling directory
+        logger.info("[Browser Tools] === Attempting Path 1: Dynamic import from ai_service directory ===")
         try:
             import sys
             import os
@@ -91,33 +121,77 @@ else:
             ai_service_path = os.path.join(parent_dir, 'ai_service')
             browser_tools_path = os.path.join(ai_service_path, 'browser_tools')
 
-            logger.info(f"[Browser Tools] Checking path: {browser_tools_path}")
-            logger.info(f"[Browser Tools] Path exists: {os.path.exists(browser_tools_path)}")
+            logger.info(f"[Browser Tools] Current file directory: {current_file_dir}")
+            logger.info(f"[Browser Tools] Parent directory: {parent_dir}")
+            logger.info(f"[Browser Tools] Checking ai_service path: {ai_service_path}")
+            logger.info(f"[Browser Tools] ai_service exists: {os.path.exists(ai_service_path)}")
+            logger.info(f"[Browser Tools] Checking browser_tools path: {browser_tools_path}")
+            logger.info(f"[Browser Tools] browser_tools exists: {os.path.exists(browser_tools_path)}")
 
             if os.path.exists(browser_tools_path):
-                # Add ai_service to path so we can import from it
-                if ai_service_path not in sys.path:
-                    sys.path.insert(0, ai_service_path)
-                    logger.info(f"[Browser Tools] Added {ai_service_path} to sys.path")
+                # Check for __init__.py
+                init_file = os.path.join(browser_tools_path, '__init__.py')
+                logger.info(f"[Browser Tools] __init__.py exists: {os.path.exists(init_file)}")
+                
+                # Add PARENT directory to path so Python can find ai_service as a package
+                # We need the parent dir, not ai_service itself, because ai_service is a package name
+                if parent_dir not in sys.path:
+                    sys.path.insert(0, parent_dir)
+                    logger.info(f"[Browser Tools] Added parent directory {parent_dir} to sys.path")
+                else:
+                    logger.info(f"[Browser Tools] Parent directory {parent_dir} already in sys.path")
+                
+                logger.info(f"[Browser Tools] Current sys.path entries (first 3): {sys.path[:3]}")
 
-                from browser_tools import (
-                    BrowserExtractionTool,
-                    BrowserInteractionTool,
-                    BrowserNavigationTool,
-                    BrowserScreenshotTool,
-                    BrowserSecurityConfig,
-                    BrowserSessionManager,
-                )
-                browser_tools_imported = True
-                logger.info("Browser tools imported from ai_service directory")
+                logger.info("[Browser Tools] Attempting to import ai_service.browser_tools module...")
+                browser_tools_module = importlib.import_module("ai_service.browser_tools")
+                logger.info(f"[Browser Tools] Module imported successfully: {browser_tools_module}")
+                logger.info(f"[Browser Tools] Module file: {getattr(browser_tools_module, '__file__', 'unknown')}")
+                
+                # Try to get each class
+                logger.info("[Browser Tools] Extracting classes from module...")
+                BrowserExtractionTool = getattr(browser_tools_module, "BrowserExtractionTool", None)
+                BrowserInteractionTool = getattr(browser_tools_module, "BrowserInteractionTool", None)
+                BrowserNavigationTool = getattr(browser_tools_module, "BrowserNavigationTool", None)
+                BrowserScreenshotTool = getattr(browser_tools_module, "BrowserScreenshotTool", None)
+                BrowserSecurityConfig = getattr(browser_tools_module, "BrowserSecurityConfig", None)
+                BrowserSessionManager = getattr(browser_tools_module, "BrowserSessionManager", None)
+                
+                # Verify all classes were found
+                classes_found = {
+                    "BrowserExtractionTool": BrowserExtractionTool is not None,
+                    "BrowserInteractionTool": BrowserInteractionTool is not None,
+                    "BrowserNavigationTool": BrowserNavigationTool is not None,
+                    "BrowserScreenshotTool": BrowserScreenshotTool is not None,
+                    "BrowserSecurityConfig": BrowserSecurityConfig is not None,
+                    "BrowserSessionManager": BrowserSessionManager is not None,
+                }
+                logger.info(f"[Browser Tools] Classes found: {classes_found}")
+                
+                if all(classes_found.values()):
+                    browser_tools_imported = True
+                    logger.info("✅ [Browser Tools] Path 1 SUCCESS: Browser tools imported from ai_service directory")
+                else:
+                    missing = [name for name, found in classes_found.items() if not found]
+                    raise ImportError(f"Missing required classes in browser_tools module: {missing}")
+            else:
+                logger.warning(f"[Browser Tools] Path 1 SKIPPED: browser_tools directory not found at {browser_tools_path}")
         except ImportError as e:
-            logger.warning(f"[Browser Tools] Path 1 failed: {e}")
+            error_msg = f"Path 1 ImportError: {str(e)}"
+            logger.error(f"❌ [Browser Tools] {error_msg}")
+            logger.exception("[Browser Tools] Path 1 ImportError traceback:", exc_info=e)
+            import_errors.append(error_msg)
         except Exception as e:
-            logger.warning(f"[Browser Tools] Path 1 error: {e}")
+            error_msg = f"Path 1 Exception: {str(e)}"
+            logger.error(f"❌ [Browser Tools] {error_msg}")
+            logger.exception("[Browser Tools] Path 1 Exception traceback:", exc_info=e)
+            import_errors.append(error_msg)
 
         # Path 2: ai_service.browser_tools (package import)
         if not browser_tools_imported:
+            logger.info("[Browser Tools] === Attempting Path 2: Direct package import ===")
             try:
+                logger.info("[Browser Tools] Attempting: from ai_service.browser_tools import ...")
                 from ai_service.browser_tools import (
                     BrowserExtractionTool,
                     BrowserInteractionTool,
@@ -127,37 +201,40 @@ else:
                     BrowserSessionManager,
                 )
                 browser_tools_imported = True
-                logger.info("Browser tools imported from ai_service package")
-            except ImportError:
-                pass
-
-        # Path 3: Relative import (when browser_tools is in same directory)
-        if not browser_tools_imported:
-            try:
-                from browser_tools import (
-                    BrowserExtractionTool,
-                    BrowserInteractionTool,
-                    BrowserNavigationTool,
-                    BrowserScreenshotTool,
-                    BrowserSecurityConfig,
-                    BrowserSessionManager,
-                )
-                browser_tools_imported = True
-                logger.info("Browser tools imported from relative path")
-            except ImportError:
-                pass
+                logger.info("✅ [Browser Tools] Path 2 SUCCESS: Browser tools imported from ai_service package")
+            except ImportError as e:
+                error_msg = f"Path 2 ImportError: {str(e)}"
+                logger.error(f"❌ [Browser Tools] {error_msg}")
+                logger.exception("[Browser Tools] Path 2 ImportError traceback:", exc_info=e)
+                import_errors.append(error_msg)
+            except Exception as e:
+                error_msg = f"Path 2 Exception: {str(e)}"
+                logger.error(f"❌ [Browser Tools] {error_msg}")
+                logger.exception("[Browser Tools] Path 2 Exception traceback:", exc_info=e)
+                import_errors.append(error_msg)
 
         if browser_tools_imported:
             BROWSER_TOOLS_AVAILABLE = True
+            logger.info("✅ [Browser Tools] BROWSER_TOOLS_AVAILABLE = True")
         else:
-            raise ImportError("Could not find browser_tools in any expected location")
+            error_summary = "\n".join(f"  - {err}" for err in import_errors)
+            raise ImportError(
+                f"Could not find browser_tools in any expected location.\n"
+                f"Import attempts failed:\n{error_summary}\n"
+                f"Please ensure:\n"
+                f"  1. ai_service/browser_tools/ directory exists\n"
+                f"  2. ai_service/browser_tools/__init__.py exists and exports required classes\n"
+                f"  3. All dependencies are installed (pip install playwright && playwright install)"
+            )
 
     except Exception as browser_import_error:  # pragma: no cover - optional dependency
-        logger.warning(
-            "Browser tools not available: %s", getattr(browser_import_error, "detail", browser_import_error)
-        )
-        logger.warning(f"Browser tools import error details: {browser_import_error}")
+        logger.error("❌ [Browser Tools] Browser tools import FAILED")
+        logger.error(f"[Browser Tools] Error type: {type(browser_import_error).__name__}")
+        logger.error(f"[Browser Tools] Error message: {str(browser_import_error)}")
+        logger.exception("[Browser Tools] Full import error traceback:", exc_info=browser_import_error)
         BROWSER_TOOLS_AVAILABLE = False
+        logger.warning("[Browser Tools] Browser automation will be DISABLED")
+        logger.warning("[Browser Tools] Visual layout questions will not work until browser tools are available")
 # === FRAMEWORK LAYER (My Implementation) ===
 class ModelTier(Enum):
     LOCAL = "local"
@@ -339,6 +416,10 @@ class PanelManipulationTool(BaseTool):
         default="http://localhost:8003",
         description="Base URL for the backend service handling panel layout operations.",
     )
+    browser_base_url: str = Field(
+        default="http://localhost:3000",
+        description="Base URL for the browser automation/visual extraction service.",
+    )
     default_headers: Dict[str, str] = Field(
         default_factory=dict,
         description="Default HTTP headers applied to every panel manipulation request.",
@@ -351,6 +432,10 @@ class PanelManipulationTool(BaseTool):
         default=None,
         description="Bearer token used when authenticating requests to the panel manipulation API.",
     )
+    caller_session: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Session payload forwarded to downstream services for authenticated requests.",
+    )
     _session: requests.Session = PrivateAttr()
     _timeout: int = PrivateAttr(default=15)
 
@@ -362,45 +447,37 @@ class PanelManipulationTool(BaseTool):
         auth_token: Optional[str] = None,
         caller_session: Optional[Dict[str, Any]] = None,
         browser_base_url: Optional[str] = None,
+        browser_service_url: Optional[str] = None,
     ):
-
-        super().__init__()
-        resolved_base_url = base_url or "http://localhost:8003"
-        self.base_url = resolved_base_url.rstrip("/")
-        browser_service_url = (
-            browser_base_url
+        resolved_base_url = (base_url or "http://localhost:8003").rstrip("/")
+        resolved_browser_base = (
+            browser_service_url
+            or browser_base_url
             or os.getenv("BROWSER_SERVICE_URL")
             or resolved_base_url
         )
-        self.browser_base_url = browser_service_url.rstrip("/")
-        self.default_headers = dict(default_headers or {})
-        if "x-dev-bypass" not in self.default_headers and os.getenv("DISABLE_DEV_BYPASS") != "1":
-            self.default_headers["x-dev-bypass"] = "true"
-        self.project_id = project_id
-        self.auth_token = auth_token
-        self.session = requests.Session()
-        self.timeout = 15
-        self.caller_session: Dict[str, Any] = dict(caller_session or {})
+        headers = dict(default_headers or {})
+        if "x-dev-bypass" not in headers and os.getenv("DISABLE_DEV_BYPASS") != "1":
+            headers["x-dev-bypass"] = "true"
 
-        init_data: Dict[str, Any] = {}
-        if base_url is not None:
-            init_data["base_url"] = base_url
-        if default_headers is not None:
-            init_data["default_headers"] = default_headers
-        if project_id is not None:
-            init_data["project_id"] = project_id
-        if auth_token is not None:
-            init_data["auth_token"] = auth_token
+        init_data: Dict[str, Any] = {
+            "base_url": resolved_base_url,
+            "browser_base_url": resolved_browser_base.rstrip("/"),
+            "default_headers": headers,
+            "project_id": project_id,
+            "auth_token": auth_token,
+            "caller_session": dict(caller_session or {}),
+        }
 
         super().__init__(**init_data)
 
         # Normalize runtime attributes now that Pydantic validation has completed.
         self.base_url = (self.base_url or "http://localhost:8003").rstrip("/")
-
-        headers = dict(self.default_headers)
-        if "x-dev-bypass" not in headers and os.getenv("DISABLE_DEV_BYPASS") != "1":
-            headers["x-dev-bypass"] = "true"
-        self.default_headers = headers
+        self.browser_base_url = (self.browser_base_url or self.base_url).rstrip("/")
+        self.default_headers = dict(self.default_headers or {})
+        if "x-dev-bypass" not in self.default_headers and os.getenv("DISABLE_DEV_BYPASS") != "1":
+            self.default_headers["x-dev-bypass"] = "true"
+        self.caller_session = dict(self.caller_session or {})
 
         self._session = requests.Session()
         self._timeout = 15
@@ -1211,7 +1288,12 @@ class HybridAgentFactory:
             or self.tool_resources.get("backend_base_url")
             or "http://localhost:8003"
         )
-        browser_base_url = context.get("browser_base_url") or context.get("browserBaseUrl")
+        browser_service_url = (
+            context.get("browser_base_url")
+            or context.get("browserBaseUrl")
+            or os.getenv("BROWSER_SERVICE_URL")
+            or "http://localhost:3000"
+        )
 
         default_headers = dict(self.tool_resources.get("default_headers", {}))
         extra_headers = context.get("headers") or context.get("authHeaders")
@@ -1225,7 +1307,7 @@ class HybridAgentFactory:
 
         tool = PanelManipulationTool(
             base_url=base_url,
-            browser_base_url=browser_base_url,
+            browser_service_url=browser_service_url,
             default_headers=default_headers,
             project_id=context.get("project_id") or context.get("projectId"),
             auth_token=context.get("auth_token") or context.get("authToken"),
@@ -1375,6 +1457,20 @@ class DellSystemAIService:
         self.browser_security: Optional[BrowserSecurityConfig] = None
         self.browser_sessions: Optional[BrowserSessionManager] = None
         self._setup_browser_tools()
+        
+        # Log browser tools diagnostic after setup
+        diagnosis = self._diagnose_browser_tools()
+        logger.info("[DellSystemAIService] === Browser Tools Diagnostic ===")
+        logger.info(f"[DellSystemAIService] Browser automation enabled: {diagnosis['browser_automation_enabled']}")
+        logger.info(f"[DellSystemAIService] Browser tools available: {diagnosis['browser_tools_available']}")
+        logger.info(f"[DellSystemAIService] Browser sessions initialized: {diagnosis['browser_sessions_initialized']}")
+        if diagnosis['issues']:
+            logger.warning(f"[DellSystemAIService] Issues found: {diagnosis['issues']}")
+            for rec in diagnosis['recommendations']:
+                logger.info(f"[DellSystemAIService] Recommendation: {rec}")
+        else:
+            logger.info("[DellSystemAIService] ✅ Browser tools are ready")
+        
         self.tool_resources = self._build_tool_resources()
         self._attachments_dir = Path(__file__).resolve().parents[1] / "attached_assets"
         self._attachments_dir.mkdir(parents=True, exist_ok=True)
@@ -1726,21 +1822,32 @@ class DellSystemAIService:
             automation_error: Optional[str] = None
             if is_visual_layout_question and panel_layout_url:
                 session_id = f"panel-visual-{project_id or user_id}"
+                logger.info(f"[handle_chat_message] Attempting pre-flight browser automation for visual layout question")
+                logger.info(f"[handle_chat_message] Panel layout URL: {panel_layout_url}")
+                logger.info(f"[handle_chat_message] Session ID: {session_id}, User ID: {user_id}")
                 try:
+                    logger.info("[handle_chat_message] Step 1: Navigating to panel layout page...")
                     navigation_result = await self.navigate_panel_layout(
                         session_id=session_id,
                         user_id=user_id,
                         url=panel_layout_url,
                     )
+                    logger.info(f"[handle_chat_message] Navigation successful: {navigation_result}")
+                    
+                    logger.info("[handle_chat_message] Step 2: Taking screenshot...")
                     screenshot_result = await self.take_panel_screenshot(
                         session_id=session_id,
                         user_id=user_id,
                         project_id=project_id,
                     )
+                    logger.info(f"[handle_chat_message] Screenshot successful: {bool(screenshot_result.get('base64'))}")
+                    
+                    logger.info("[handle_chat_message] Step 3: Extracting panel list...")
                     panel_result = await self.extract_panel_list(
                         session_id=session_id,
                         user_id=user_id,
                     )
+                    logger.info(f"[handle_chat_message] Panel extraction successful: {len(panel_result.get('panels', []))} panels found")
 
                     automation_attachments.extend(
                         screenshot_result.get("attachments", [])
@@ -1764,8 +1871,11 @@ class DellSystemAIService:
                             "automationSource": "browser_automation",
                         }
                     )
+                    logger.info("[handle_chat_message] ✅ Pre-flight browser automation completed successfully")
                 except BrowserAutomationUnavailableError as unavailable_exc:
                     automation_error = str(unavailable_exc)
+                    logger.error(f"[handle_chat_message] ❌ Browser automation unavailable: {automation_error}")
+                    logger.error(f"[handle_chat_message] This means browser tools cannot be used. Check BROWSER_TOOLS_AVAILABLE flag.")
                     automation_details = {
                         "automationError": automation_error,
                         "source": "browser_automation",
@@ -1773,6 +1883,9 @@ class DellSystemAIService:
                     }
                 except BrowserAutomationError as automation_exc:
                     automation_error = str(automation_exc)
+                    logger.error(f"[handle_chat_message] ❌ Browser automation failed: {automation_error}")
+                    logger.error(f"[handle_chat_message] Error type: {type(automation_exc).__name__}")
+                    logger.exception("[handle_chat_message] Full exception traceback:", exc_info=automation_exc)
                     automation_details = {
                         "automationError": automation_error,
                         "source": "browser_automation",
@@ -1791,12 +1904,25 @@ class DellSystemAIService:
                         )
                         automation_details["fallbackPanels"] = fallback_panels or fallback_data
                         automation_details["fallbackSource"] = "server_api"
+                        logger.info(f"[handle_chat_message] Using fallback server data: {len(fallback_panels or [])} panels")
                         context.setdefault("panelAutomation", {}).update(
                             {
                                 "fallbackPanels": automation_details.get("fallbackPanels", []),
                                 "automationSource": "server_api",
                             }
                         )
+                except Exception as unexpected_exc:
+                    automation_error = f"Unexpected error during browser automation: {str(unexpected_exc)}"
+                    logger.error(f"[handle_chat_message] ❌ Unexpected error during browser automation: {automation_error}")
+                    logger.exception("[handle_chat_message] Unexpected exception:", exc_info=unexpected_exc)
+                    automation_details = {
+                        "automationError": automation_error,
+                        "source": "browser_automation",
+                        "automationRan": False,
+                    }
+            elif is_visual_layout_question and not panel_layout_url:
+                logger.warning("[handle_chat_message] Visual layout question detected but panel_layout_url is None")
+                logger.warning(f"[handle_chat_message] Project ID: {project_id}, Frontend URL: {frontend_base_url}")
 
             frontend_base_url = str(frontend_base_url).rstrip("/") if frontend_base_url else os.getenv("FRONTEND_URL", "http://localhost:3000")
             if project_id and not panel_layout_url:
@@ -1805,8 +1931,27 @@ class DellSystemAIService:
 
             visual_instructions = ""
             if is_visual_layout_question and panel_layout_url:
+                preflight_status = ""
+                if automation_error:
+                    preflight_status = f"""
+⚠️ PRE-FLIGHT AUTOMATION FAILED: {automation_error}
+This means the system attempted to navigate and capture the layout automatically but encountered an error.
+YOU MUST STILL USE BROWSER TOOLS YOURSELF to complete the task. Do not rely on pre-flight automation.
+"""
+                elif automation_details.get("automationRan"):
+                    preflight_status = """
+✅ PRE-FLIGHT AUTOMATION SUCCEEDED: The system has already navigated to the page and captured data.
+However, you should still verify by using browser tools yourself to ensure you have the latest visual state.
+"""
+                else:
+                    preflight_status = """
+⚠️ PRE-FLIGHT AUTOMATION WAS NOT ATTEMPTED: You must use browser tools yourself.
+"""
+                
                 visual_instructions = f"""
 🚨 CRITICAL: THIS IS A VISUAL LAYOUT QUESTION - YOU MUST USE BROWSER AUTOMATION TOOLS ONLY.
+
+{preflight_status}
 
 ❌ DO NOT USE PanelManipulationTool.get_panels() - This returns backend data, not visual order.
 ❌ DO NOT USE any backend API tools for this question.
@@ -1816,15 +1961,17 @@ STEP 1: Navigate to the panel layout page
 - Tool: browser_navigate
 - Parameters: action='navigate', url='{panel_layout_url}', user_id='{user_id}', wait_for='canvas'
 - This MUST be done first. Wait for confirmation before proceeding.
+- If navigation fails, log the error and try again with a different session_id.
 
 STEP 2: Take a screenshot of the visual layout
 - Tool: browser_screenshot
 - Parameters: full_page=True, session_id='default', user_id='{user_id}'
 - This captures what the layout actually looks like visually.
+- If screenshot fails, check the error message and try again.
 
 STEP 3: Extract panel data sorted by visual position
 - Tool: browser_extract
-- Parameters: action='panels', user_id='{user_id}'
+- Parameters: action='panels', user_id='{user_id}', session_id='default'
 - This extracts panel data from the page and sorts them by visual position (Y coordinate, then X coordinate).
 - This gives you the actual visual order of panels as displayed on the UI.
 
@@ -1832,6 +1979,11 @@ YOU CANNOT ANSWER WITHOUT PERFORMING THESE THREE STEPS FIRST.
 If you use PanelManipulationTool or any backend API, your answer will be WRONG.
 You MUST check the visual layout using browser tools.
 After completing all three steps, then answer based on what you observed visually.
+
+If any browser tool fails, you MUST:
+1. Log the exact error message
+2. Try the operation again with different parameters if appropriate
+3. If all attempts fail, explicitly state in your response that browser automation failed and why
 """
             
             task_description = (
@@ -1895,27 +2047,59 @@ After completing all three steps, then answer based on what you observed visuall
             browser_tools_used = []
             if is_visual_layout_question:
                 logger.info(f"[handle_chat_message] Visual layout question detected - expecting browser automation usage")
+                logger.info(f"[handle_chat_message] Available browser tools: {[tool.name for tool in assistant_agent.tools if 'browser' in tool.name.lower()]}")
             
             result = crew.kickoff()
             logger.info(f"[handle_chat_message] Crew completed. Result type: {type(result)}")
+            
+            # Log the full result for debugging
+            if is_visual_layout_question:
+                logger.debug(f"[handle_chat_message] Full crew result: {str(result)[:500]}...")
             
             response_text = self._extract_crew_output(result)
             
             # Detect if browser tools were mentioned in the response (indicates usage)
             browser_tool_names = ["browser_navigate", "browser_screenshot", "browser_extract", "browser_interact"]
+            result_str = str(result).lower()
+            response_str = response_text.lower()
+            
             detected_tools = [
                 tool
                 for tool in browser_tool_names
-                if tool in str(result).lower() or tool in response_text.lower()
+                if tool in result_str or tool in response_str
             ]
 
             if detected_tools:
                 logger.info(
-                    f"[handle_chat_message] Browser automation tools detected in response: {detected_tools}"
+                    f"[handle_chat_message] ✅ Browser automation tools detected in response: {detected_tools}"
+                )
+            elif is_visual_layout_question:
+                logger.warning(
+                    f"[handle_chat_message] ⚠️ Visual layout question but NO browser tools detected in response!"
+                )
+                logger.warning(
+                    f"[handle_chat_message] Response preview: {response_text[:200]}..."
+                )
+                logger.warning(
+                    f"[handle_chat_message] This suggests the agent may not have used browser tools as instructed."
                 )
 
             automation_succeeded = bool(automation_details.get("panelList"))
             browser_automation_used_flag = bool(detected_tools) or automation_succeeded
+            
+            if is_visual_layout_question and not browser_automation_used_flag:
+                logger.error(
+                    "[handle_chat_message] ❌ CRITICAL: Visual layout question but browser automation was NOT used!"
+                )
+                logger.error(
+                    f"[handle_chat_message] Pre-flight automation succeeded: {automation_succeeded}"
+                )
+                logger.error(
+                    f"[handle_chat_message] Browser tools detected in response: {bool(detected_tools)}"
+                )
+                logger.error(
+                    f"[handle_chat_message] Available browser tools: {[tool.name for tool in assistant_agent.tools if 'browser' in tool.name.lower()]}"
+                )
 
             if automation_error:
                 logger.warning(
@@ -2022,13 +2206,54 @@ After completing all three steps, then answer based on what you observed visuall
             headers.setdefault("x-dev-bypass", "true")
         return headers
 
+    def _diagnose_browser_tools(self) -> Dict[str, Any]:
+        """Diagnostic method to check browser tools availability and provide helpful information."""
+        diagnosis = {
+            "browser_automation_enabled": BROWSER_AUTOMATION_ENABLED,
+            "browser_tools_available": BROWSER_TOOLS_AVAILABLE,
+            "browser_sessions_initialized": self.browser_sessions is not None,
+            "issues": [],
+            "recommendations": []
+        }
+        
+        if not BROWSER_AUTOMATION_ENABLED:
+            diagnosis["issues"].append("Browser automation is disabled via ENABLE_BROWSER_AUTOMATION flag")
+            diagnosis["recommendations"].append("Set ENABLE_BROWSER_AUTOMATION=1 or remove the env var")
+        
+        if not BROWSER_TOOLS_AVAILABLE:
+            diagnosis["issues"].append("Browser tools could not be imported")
+            diagnosis["recommendations"].extend([
+                "Check that ai_service/browser_tools/ directory exists",
+                "Verify ai_service/browser_tools/__init__.py exports required classes",
+                "Install dependencies: pip install playwright && playwright install",
+                "Check Python AI service logs for detailed import errors"
+            ])
+        
+        if BROWSER_TOOLS_AVAILABLE and self.browser_sessions is None:
+            diagnosis["issues"].append("Browser tools imported but session manager not initialized")
+            diagnosis["recommendations"].append("Check _setup_browser_tools() logs for initialization errors")
+        
+        return diagnosis
+
     def _setup_browser_tools(self) -> None:
+        logger.info("[_setup_browser_tools] === Starting browser tools setup ===")
+        logger.info(f"[_setup_browser_tools] BROWSER_AUTOMATION_ENABLED: {BROWSER_AUTOMATION_ENABLED}")
+        logger.info(f"[_setup_browser_tools] BROWSER_TOOLS_AVAILABLE: {BROWSER_TOOLS_AVAILABLE}")
+        
         if not BROWSER_AUTOMATION_ENABLED:
             logger.warning("[_setup_browser_tools] Browser automation disabled via feature flag; skipping init")
+            logger.warning("[_setup_browser_tools] To enable: Set ENABLE_BROWSER_AUTOMATION=1")
             return
+        
         if not BROWSER_TOOLS_AVAILABLE:
-            logger.error("[_setup_browser_tools] Browser tools not available - BROWSER_TOOLS_AVAILABLE=False")
-            logger.error("[_setup_browser_tools] Check if playwright is installed: pip install playwright && playwright install")
+            logger.error("[_setup_browser_tools] ❌ Browser tools not available - BROWSER_TOOLS_AVAILABLE=False")
+            logger.error("[_setup_browser_tools] Browser tools could not be imported during module initialization")
+            logger.error("[_setup_browser_tools] Check the startup logs above for detailed import errors")
+            logger.error("[_setup_browser_tools] Common fixes:")
+            logger.error("[_setup_browser_tools]   1. Verify ai_service/browser_tools/ directory exists")
+            logger.error("[_setup_browser_tools]   2. Check ai_service/browser_tools/__init__.py exports all required classes")
+            logger.error("[_setup_browser_tools]   3. Install dependencies: pip install playwright && playwright install")
+            logger.error("[_setup_browser_tools]   4. Check for missing Python dependencies in browser_tools modules")
             return
 
         # Get allowed domains - include localhost and common frontend URLs
@@ -2039,14 +2264,24 @@ After completing all three steps, then answer based on what you observed visuall
 
         try:
             logger.info("[_setup_browser_tools] Initializing browser security config...")
+            if BrowserSecurityConfig is None:
+                raise RuntimeError("BrowserSecurityConfig class is None - import failed")
             self.browser_security = BrowserSecurityConfig.from_env(allowed_domains)
+            logger.info("[_setup_browser_tools] Browser security config created successfully")
+            
             logger.info("[_setup_browser_tools] Creating browser session manager...")
+            if BrowserSessionManager is None:
+                raise RuntimeError("BrowserSessionManager class is None - import failed")
             self.browser_sessions = BrowserSessionManager(self.browser_security)
-            logger.info("[_setup_browser_tools] Browser tools initialized successfully")
+            logger.info("[_setup_browser_tools] ✅ Browser tools initialized successfully")
+            logger.info("[_setup_browser_tools] Browser automation is READY")
         except Exception as exc:  # pragma: no cover - defensive
-            logger.error(f"[_setup_browser_tools] Failed to initialize browser tools: {exc}", exc_info=True)
+            logger.error(f"[_setup_browser_tools] ❌ Failed to initialize browser tools: {exc}")
+            logger.exception("[_setup_browser_tools] Full initialization error traceback:", exc_info=exc)
             self.browser_sessions = None
             self.browser_security = None
+            logger.error("[_setup_browser_tools] Browser automation will be DISABLED")
+            logger.error("[_setup_browser_tools] Visual layout questions will not work")
 
     def _build_tool_resources(self) -> Dict[str, Any]:
         resources: Dict[str, Any] = {
