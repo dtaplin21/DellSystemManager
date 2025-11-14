@@ -19,7 +19,7 @@ class BrowserSecurityConfig:
     require_authentication: bool = False
     enable_screenshots: bool = True
     log_actions: bool = True
-    wait_timeout_ms: int = 30000  # Default 30 seconds for element waits
+    wait_timeout_ms: int = 60000  # Increased to 60 seconds to match navigation timeout and accommodate slow-rendering canvas elements
     allowed_upload_dirs: List[str] = field(default_factory=lambda: ["/tmp/uploads"])  # Allowed directories for file uploads
 
     # Memory management limits
@@ -33,7 +33,7 @@ class BrowserSecurityConfig:
     max_websocket_messages: int = 200  # Maximum WebSocket messages to store
 
     # Operation timeouts
-    navigation_timeout_ms: int = 30000  # Page navigation timeout
+    navigation_timeout_ms: int = 60000  # Page navigation timeout (increased for slow-loading pages with WebSockets)
     action_timeout_ms: int = 10000  # Element interaction timeout
     screenshot_timeout_ms: int = 15000  # Screenshot capture timeout
     vision_analysis_timeout_ms: int = 60000  # Vision API timeout

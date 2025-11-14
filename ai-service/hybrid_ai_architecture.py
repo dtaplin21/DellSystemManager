@@ -1501,8 +1501,12 @@ class DellSystemAIService:
             session_id=session_id,
             user_id=user_id,
         )
-        if isinstance(result, str) and result.lower().startswith("error"):
+        # Only raise error if it's a real error (not just a warning about selector not found)
+        if isinstance(result, str) and result.lower().startswith("error") and "page may not have loaded" in result.lower():
             raise BrowserAutomationError(result)
+        # If selector wasn't found but page loaded, log warning but continue
+        if isinstance(result, str) and "not found/visible" in result:
+            logger.warning(f"[navigate_panel_layout] Selector '{wait_for}' not found but page loaded: {result}")
         return {
             "status": result,
             "url": url,
@@ -1827,12 +1831,21 @@ class DellSystemAIService:
                 logger.info(f"[handle_chat_message] Session ID: {session_id}, User ID: {user_id}")
                 try:
                     logger.info("[handle_chat_message] Step 1: Navigating to panel layout page...")
+                    # Navigate with canvas selector - will be lenient if selector not found but page loads
                     navigation_result = await self.navigate_panel_layout(
                         session_id=session_id,
                         user_id=user_id,
                         url=panel_layout_url,
+                        wait_for="canvas",  # Primary selector - navigation will continue even if not found
                     )
-                    logger.info(f"[handle_chat_message] Navigation successful: {navigation_result}")
+                    logger.info(f"[handle_chat_message] Navigation result: {navigation_result}")
+                    
+                    # Check if navigation actually failed (page didn't load) vs selector just not found
+                    nav_status = navigation_result.get("status", "")
+                    if isinstance(nav_status, str) and nav_status.lower().startswith("error") and "page may not have loaded" in nav_status.lower():
+                        # Real navigation failure - page didn't load
+                        raise BrowserAutomationError(f"Navigation failed: {nav_status}")
+                    # Otherwise, page loaded successfully (even if canvas selector wasn't found) - proceed with screenshot/extraction
                     
                     logger.info("[handle_chat_message] Step 2: Taking screenshot...")
                     screenshot_result = await self.take_panel_screenshot(

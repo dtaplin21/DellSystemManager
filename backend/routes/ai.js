@@ -374,7 +374,7 @@ router.post('/chat', auth, async (req, res) => {
               'Content-Type': 'application/json',
               ...(req.headers['x-dev-bypass'] && { 'x-dev-bypass': req.headers['x-dev-bypass'] })
             },
-            timeout: 60000 // 60 second timeout for AI operations
+            timeout: 120000 // 120 second timeout for AI operations (increased to accommodate browser automation: navigation + selector wait + screenshot + extraction)
           }
         );
 
