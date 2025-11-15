@@ -349,34 +349,52 @@ router.post('/chat', auth, async (req, res) => {
     // Try Python AI Service first (for tool-based execution)
     const usePythonService = process.env.USE_PYTHON_AI_SERVICE !== 'false'; // Default to true
     if (usePythonService) {
+      const requestId = `backend-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+      const backendStartTime = Date.now()
+      
       try {
-        logger.info('[AI CHAT] Attempting to use Python AI service', { 
+        logger.info('[AI CHAT] ===== BACKEND: SEND BUTTON REQUEST RECEIVED =====', { 
+          requestId,
+          timestamp: new Date().toISOString(),
           aiServiceUrl: AI_SERVICE_URL,
           projectId,
-          messageLength: userMessage.length 
+          userId: req.user?.id || 'anonymous',
+          userTier: req.user?.tier || 'paid_user',
+          messageLength: userMessage.length,
+          messagePreview: userMessage.substring(0, 100)
         });
         
         // Build frontend URL for panel layout
         const frontendBaseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
         const panelLayoutUrl = `${frontendBaseUrl}/dashboard/projects/${projectId}/panel-layout`;
         
+        const payload = {
+          projectId,
+          user_id: req.user?.id || 'anonymous',
+          user_tier: req.user?.tier || 'paid_user',
+          message: userMessage,
+          context: {
+            ...context,
+            projectId,
+            projectInfo: context.projectInfo || context.project || {},
+            panelLayoutUrl: panelLayoutUrl,
+            panel_layout_url: panelLayoutUrl, // Support both naming conventions
+            frontendUrl: frontendBaseUrl,
+            frontend_url: frontendBaseUrl
+          }
+        }
+        
+        logger.info('[AI CHAT] Calling Python AI service...', {
+          requestId,
+          url: `${AI_SERVICE_URL}/api/ai/chat`,
+          payloadSize: JSON.stringify(payload).length,
+          contextKeys: Object.keys(payload.context || {}),
+          timeout: 120000
+        })
+        
         const pythonResponse = await axios.post(
           `${AI_SERVICE_URL}/api/ai/chat`,
-          {
-            projectId,
-            user_id: req.user?.id || 'anonymous',
-            user_tier: req.user?.tier || 'paid_user',
-            message: userMessage,
-            context: {
-              ...context,
-              projectId,
-              projectInfo: context.projectInfo || context.project || {},
-              panelLayoutUrl: panelLayoutUrl,
-              panel_layout_url: panelLayoutUrl, // Support both naming conventions
-              frontendUrl: frontendBaseUrl,
-              frontend_url: frontendBaseUrl
-            }
-          },
+          payload,
           {
             headers: {
               'Content-Type': 'application/json',
@@ -385,6 +403,20 @@ router.post('/chat', auth, async (req, res) => {
             timeout: 120000 // 120 second timeout for AI operations (increased to accommodate browser automation: navigation + selector wait + screenshot + extraction)
           }
         );
+        
+        const backendDuration = Date.now() - backendStartTime
+        logger.info('[AI CHAT] Python AI service response received', {
+          requestId,
+          status: pythonResponse.status,
+          statusText: pythonResponse.statusText,
+          duration: `${backendDuration}ms`,
+          hasData: !!pythonResponse.data,
+          success: pythonResponse.data?.success,
+          hasResponse: !!pythonResponse.data?.response,
+          hasReply: !!pythonResponse.data?.reply,
+          hasError: !!pythonResponse.data?.error,
+          responseKeys: pythonResponse.data ? Object.keys(pythonResponse.data) : []
+        })
 
         // Check if Python service responded (even with errors, we want to see the error message)
         if (pythonResponse.data) {
@@ -418,13 +450,32 @@ router.post('/chat', auth, async (req, res) => {
           }
         }
       } catch (pythonError) {
+        const backendDuration = Date.now() - backendStartTime
+        const errorDetails = {
+          requestId,
+          error: pythonError instanceof Error ? {
+            name: pythonError.name,
+            message: pythonError.message,
+            code: pythonError.code,
+            stack: pythonError.stack?.split('\n').slice(0, 10) // First 10 stack lines
+          } : pythonError,
+          duration: `${backendDuration}ms`,
+          aiServiceUrl: AI_SERVICE_URL,
+          projectId,
+          userId: req.user?.id || 'anonymous'
+        }
+        
         // If Python service is unavailable or errors, fall back to backend route
         if (pythonError.code === 'ECONNREFUSED' || pythonError.code === 'ETIMEDOUT') {
-          logger.warn('[AI CHAT] Python AI service unavailable, falling back to backend route', {
-            error: pythonError.message,
-            aiServiceUrl: AI_SERVICE_URL
-          });
+          logger.error('[AI CHAT] ❌ Python AI service unavailable, falling back to backend route', errorDetails);
         } else {
+          logger.error('[AI CHAT] ❌ Python AI service error', {
+            ...errorDetails,
+            hasResponse: !!pythonError.response,
+            responseStatus: pythonError.response?.status,
+            responseData: pythonError.response?.data ? JSON.stringify(pythonError.response.data).substring(0, 500) : undefined
+          });
+          
           // Check if Python service returned a response with error details
           if (pythonError.response && pythonError.response.data) {
             const errorData = pythonError.response.data;

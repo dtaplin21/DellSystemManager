@@ -19,7 +19,8 @@ class BrowserSecurityConfig:
     require_authentication: bool = False
     enable_screenshots: bool = True
     log_actions: bool = True
-    wait_timeout_ms: int = 60000  # Increased to 60 seconds to match navigation timeout and accommodate slow-rendering canvas elements
+    wait_timeout_ms: int = 60000  # Default wait timeout for selectors (60 seconds)
+    optional_selector_timeout_ms: int = 5000  # Shorter timeout for optional selectors like canvas (5 seconds) - page can proceed without them
     allowed_upload_dirs: List[str] = field(default_factory=lambda: ["/tmp/uploads"])  # Allowed directories for file uploads
 
     # Memory management limits

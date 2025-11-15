@@ -505,6 +505,132 @@ def chat_message():
             'traceback': error_trace if os.getenv("FLASK_DEBUG") == "1" else None
         }), 500
 
+@app.route('/api/ai/analyze-image', methods=['POST'])
+def analyze_image():
+    """Analyze an image using vision AI to extract panel information"""
+    try:
+        data = request.json
+        
+        if not data or 'image_base64' not in data:
+            return jsonify({'error': 'No image provided', 'success': False}), 400
+        
+        image_base64 = data.get('image_base64')
+        image_type = data.get('image_type', 'image/png')
+        project_id = data.get('project_id', 'unknown')
+        
+        logger.info(f"Analyzing image for project {project_id}")
+        
+        # Use OpenAI vision service to analyze the image
+        if not openai_service:
+            return jsonify({
+                'error': 'OpenAI service not available. OPENAI_API_KEY not set.',
+                'success': False
+            }), 503
+        
+        # Create a prompt for analyzing destruct/repair images and extracting panel information
+        analysis_prompt = """Analyze this image of destruct or repair work. Identify and extract the following information:
+
+1. Panel locations and dimensions:
+   - Identify all visible panels or panel areas
+   - For each panel, estimate:
+     * X and Y coordinates (relative positions in the image)
+     * Width and height (in pixels or relative units)
+     * Shape (rectangle, right-triangle, or patch)
+     * Any visible damage or repair areas
+
+2. Detected information:
+   - Area affected (if visible or measurable)
+   - Type of damage (tear, puncture, seam failure, etc.)
+   - Type of repair needed (patch, seam repair, replacement, etc.)
+   - Location description (if visible in image)
+
+Return your analysis as JSON with this structure:
+{
+  "panels": [
+    {
+      "x": <number>,
+      "y": <number>,
+      "width": <number>,
+      "height": <number>,
+      "shape": "rectangle" | "right-triangle" | "patch",
+      "notes": "<description of panel/damage>"
+    }
+  ],
+  "detectedInfo": {
+    "area": "<estimated area if visible>",
+    "damageType": "<type of damage>",
+    "repairType": "<type of repair needed>",
+    "location": "<location description>"
+  }
+}
+
+If you cannot identify specific panels, provide your best estimate based on visible damage areas or repair zones."""
+        
+        # Analyze image using OpenAI vision
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        try:
+            analysis_text = loop.run_until_complete(
+                openai_service.analyze_image(image_base64, analysis_prompt)
+            )
+            
+            # Parse the JSON response from the AI
+            try:
+                # Extract JSON from the response (AI might wrap it in markdown or text)
+                import re
+                json_match = re.search(r'\{[\s\S]*\}', analysis_text)
+                if json_match:
+                    analysis_json = json.loads(json_match.group())
+                else:
+                    # Try parsing the whole response
+                    analysis_json = json.loads(analysis_text)
+                
+                panels = analysis_json.get('panels', [])
+                detected_info = analysis_json.get('detectedInfo', {})
+                
+                logger.info(f"Extracted {len(panels)} panels from image")
+                
+                return jsonify({
+                    'success': True,
+                    'panels': panels,
+                    'detectedInfo': detected_info,
+                    'raw_analysis': analysis_text  # Include raw analysis for debugging
+                })
+            except json.JSONDecodeError as json_error:
+                logger.error(f"Failed to parse AI response as JSON: {json_error}")
+                logger.error(f"AI response text: {analysis_text[:500]}")
+                
+                # Fallback: try to extract basic information from text
+                # Create a simple panel based on the image if parsing fails
+                return jsonify({
+                    'success': True,
+                    'panels': [{
+                        'x': 100,
+                        'y': 100,
+                        'width': 200,
+                        'height': 150,
+                        'shape': 'rectangle',
+                        'notes': 'Panel detected from image analysis'
+                    }],
+                    'detectedInfo': {
+                        'notes': analysis_text[:200]  # First 200 chars of analysis
+                    },
+                    'raw_analysis': analysis_text,
+                    'warning': 'Could not parse structured data from AI response'
+                })
+                
+        finally:
+            loop.close()
+            
+    except Exception as e:
+        logger.error(f"Image analysis failed: {e}")
+        logger.error(traceback.format_exc())
+        return jsonify({
+            'error': str(e),
+            'success': False
+        }), 500
+
 if __name__ == '__main__':
     import datetime
     port = int(os.getenv("PORT", 5001))

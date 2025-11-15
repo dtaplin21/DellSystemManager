@@ -169,7 +169,7 @@ else:
                 logger.info(f"[Browser Tools] Classes found: {classes_found}")
                 
                 if all(classes_found.values()):
-                    browser_tools_imported = True
+                browser_tools_imported = True
                     logger.info("✅ [Browser Tools] Path 1 SUCCESS: Browser tools imported from ai_service directory")
                 else:
                     missing = [name for name, found in classes_found.items() if not found]
@@ -1617,7 +1617,7 @@ class DellSystemAIService:
                 extra_headers=extra_headers,
             )
 
-            layout = await asyncio.to_thread(panel_tool.get_layout, project_id)
+            layout = await asyncio.to_thread(panel_tool._get_layout, project_id)
             if isinstance(layout, dict):
                 return layout
             return {}
@@ -1842,119 +1842,256 @@ class DellSystemAIService:
             if is_visual_layout_question and panel_layout_url:
                 if not frontend_accessible:
                     automation_error = f"Frontend is not accessible at {frontend_base_url}. Please ensure the frontend is running on port 3000."
-                    logger.error(f"[handle_chat_message] {automation_error}")
+                    logger.error(f"[handle_chat_message] ❌ {automation_error}")
                 else:
-                    session_id = f"panel-visual-{project_id or user_id}"
-                    logger.info(f"[handle_chat_message] Attempting pre-flight browser automation for visual layout question")
+                session_id = f"panel-visual-{project_id or user_id}"
+                    logger.info(f"[handle_chat_message] ===== PRE-FLIGHT AUTOMATION START =====")
                     logger.info(f"[handle_chat_message] Panel layout URL: {panel_layout_url}")
                     logger.info(f"[handle_chat_message] Session ID: {session_id}, User ID: {user_id}")
+                    
+                    navigation_result = None
+                    screenshot_result = None
+                    panel_result = None
+                    navigation_success = False
+                    screenshot_success = False
+                    extraction_success = False
+                    
+                    # Step 1: Navigation
                     try:
-                        logger.info("[handle_chat_message] Step 1: Navigating to panel layout page...")
-                        # Navigate with canvas selector - will be lenient if selector not found but page loads
-                        navigation_result = await self.navigate_panel_layout(
-                            session_id=session_id,
-                            user_id=user_id,
-                            url=panel_layout_url,
+                        logger.info("[handle_chat_message] ═══ STEP 1: NAVIGATION ═══")
+                    navigation_result = await self.navigate_panel_layout(
+                        session_id=session_id,
+                        user_id=user_id,
+                        url=panel_layout_url,
                             wait_for="canvas",  # Primary selector - navigation will continue even if not found
                         )
+                        logger.info(f"[handle_chat_message] Navigation result type: {type(navigation_result)}")
                         logger.info(f"[handle_chat_message] Navigation result: {navigation_result}")
                         
                         # Check if navigation actually failed (page didn't load) vs selector just not found
-                        nav_status = navigation_result.get("status", "")
-                        if isinstance(nav_status, str) and nav_status.lower().startswith("error") and "page may not have loaded" in nav_status.lower():
-                            # Real navigation failure - page didn't load
-                            raise BrowserAutomationError(f"Navigation failed: {nav_status}")
-                        # Otherwise, page loaded successfully (even if canvas selector wasn't found) - proceed with screenshot/extraction
+                        nav_status = navigation_result.get("status", "") if isinstance(navigation_result, dict) else str(navigation_result)
                         
-                        logger.info("[handle_chat_message] Step 2: Taking screenshot...")
-                        screenshot_result = await self.take_panel_screenshot(
-                            session_id=session_id,
-                            user_id=user_id,
-                            project_id=project_id,
-                        )
-                        logger.info(f"[handle_chat_message] Screenshot successful: {bool(screenshot_result.get('base64'))}")
+                        logger.info(f"[handle_chat_message] Navigation status type: {type(nav_status)}, value: {nav_status}")
                         
-                        logger.info("[handle_chat_message] Step 3: Extracting panel list...")
-                        panel_result = await self.extract_panel_list(
-                            session_id=session_id,
-                            user_id=user_id,
-                        )
-                        logger.info(f"[handle_chat_message] Panel extraction successful: {len(panel_result.get('panels', []))} panels found")
-
-                        automation_attachments.extend(
-                            screenshot_result.get("attachments", [])
-                        )
-                        automation_details = {
-                            "navigation": navigation_result,
-                            "panelList": panel_result.get("panels", []),
-                            "panelMetadata": {
-                                key: value
-                                for key, value in panel_result.items()
-                                if key not in {"panels"}
-                            },
-                            "screenshot": screenshot_result.get("metadata", {}),
-                            "source": "browser_automation",
-                            "automationRan": True,
-                        }
-                        context.setdefault("panelAutomation", {}).update(
-                            {
-                                "panelList": automation_details.get("panelList", []),
-                                "panelMetadata": automation_details.get("panelMetadata", {}),
-                                "automationSource": "browser_automation",
-                            }
-                        )
-                        logger.info("[handle_chat_message] ✅ Pre-flight browser automation completed successfully")
+                        # Check for real navigation failures
+                        if isinstance(nav_status, str):
+                            nav_lower = nav_status.lower()
+                            # Check for critical errors that mean navigation failed
+                            critical_errors = [
+                                "page may not have loaded",
+                                "navigation to",
+                                "timed out after",
+                                "error: navigation",
+                                "error: timeout",
+                                "could not navigate",
+                                "failed to navigate"
+                            ]
+                            
+                            if nav_lower.startswith("error"):
+                                if any(critical in nav_lower for critical in critical_errors):
+                                    logger.error(f"[handle_chat_message] ❌ Navigation failed (critical error): {nav_status}")
+                                    raise BrowserAutomationError(f"Navigation failed: {nav_status}")
+                                else:
+                                    # Non-critical error - might be a warning
+                                    logger.warning(f"[handle_chat_message] ⚠️ Navigation warning: {nav_status}")
+                                    # Check if it contains success indicators despite error prefix
+                                    # Canvas timeout is OK - it's optional and not required for data extraction
+                                    if "successfully" in nav_lower or "navigated" in nav_lower or "not found/visible" in nav_lower or "optional selector" in nav_lower:
+                                        navigation_success = True
+                                        if "optional selector" in nav_lower or "canvas" in nav_lower.lower():
+                                            logger.info(f"[handle_chat_message] ✅ Navigation succeeded despite optional canvas timeout (canvas not required for data extraction)")
+                                    else:
+                                        # Unknown error - treat as failure
+                                        logger.error(f"[handle_chat_message] ❌ Navigation failed (unknown error): {nav_status}")
+                                        raise BrowserAutomationError(f"Navigation failed: {nav_status}")
+                            elif "successfully" in nav_lower or "navigated" in nav_lower:
+                                navigation_success = True
+                                logger.info(f"[handle_chat_message] ✅ Navigation succeeded: {nav_status}")
+                            elif "not found/visible" in nav_lower or "but page loaded" in nav_lower or "optional selector" in nav_lower or "panel data can be extracted" in nav_lower:
+                                # Page loaded but selector not found - this is OK, continue
+                                # Canvas is optional - panel data comes from React state/API, not canvas
+                                navigation_success = True
+                                if "optional selector" in nav_lower or "canvas" in nav_lower.lower():
+                                    logger.info(f"[handle_chat_message] ✅ Navigation succeeded - optional canvas not found but page loaded (canvas not required for data extraction)")
+                                else:
+                                    logger.warning(f"[handle_chat_message] ⚠️ Navigation succeeded but selector not found: {nav_status}")
+                            elif nav_lower.startswith("warning"):
+                                # Warning but might still be success
+                                if "page loaded" in nav_lower or "navigated" in nav_lower:
+                                    navigation_success = True
+                                    logger.warning(f"[handle_chat_message] ⚠️ Navigation warning but succeeded: {nav_status}")
+                                else:
+                                    logger.warning(f"[handle_chat_message] ⚠️ Navigation warning: {nav_status}")
+                                    # Assume success for warnings unless explicitly failed
+                                    navigation_success = True
+                            else:
+                                # Unknown status - check if it looks like success
+                                if len(nav_status) > 0 and not nav_lower.startswith("error"):
+                                    # Assume success if not an error
+                                    navigation_success = True
+                                    logger.info(f"[handle_chat_message] ✅ Navigation completed (status: {nav_status})")
+                                else:
+                                    logger.warning(f"[handle_chat_message] ⚠️ Unknown navigation status: {nav_status}")
+                                    # Default to success if we got a response
+                                    navigation_success = True
+                        else:
+                            # Non-string status - assume success if we got a dict back
+                            navigation_success = True
+                            logger.info(f"[handle_chat_message] ✅ Navigation completed (non-string status: {nav_status})")
+                            
                     except BrowserAutomationUnavailableError as unavailable_exc:
-                        automation_error = str(unavailable_exc)
-                        logger.error(f"[handle_chat_message] ❌ Browser automation unavailable: {automation_error}")
-                        logger.error(f"[handle_chat_message] This means browser tools cannot be used. Check BROWSER_TOOLS_AVAILABLE flag.")
+                        automation_error = f"Browser automation unavailable: {str(unavailable_exc)}"
+                        logger.error(f"[handle_chat_message] ❌ {automation_error}")
                         automation_details = {
                             "automationError": automation_error,
                             "source": "browser_automation",
                             "automationRan": False,
+                            "step": "navigation",
+                            "stepFailed": "unavailable"
                         }
-                    except BrowserAutomationError as automation_exc:
-                        automation_error = str(automation_exc)
-                        logger.error(f"[handle_chat_message] ❌ Browser automation failed: {automation_error}")
-                        logger.error(f"[handle_chat_message] Error type: {type(automation_exc).__name__}")
-                        logger.exception("[handle_chat_message] Full exception traceback:", exc_info=automation_exc)
+                    except BrowserAutomationError as nav_exc:
+                        automation_error = f"Navigation failed: {str(nav_exc)}"
+                        logger.error(f"[handle_chat_message] ❌ {automation_error}")
                         automation_details = {
                             "automationError": automation_error,
                             "source": "browser_automation",
                             "automationRan": False,
+                            "step": "navigation",
+                            "stepFailed": "navigation_error",
+                            "navigationResult": str(navigation_result) if navigation_result else None
                         }
-                        fallback_data = await self._get_server_panel_fallback(
-                            project_id=project_id,
-                            auth_token=auth_token,
-                            extra_headers=extra_headers,
+                    except Exception as nav_unexpected:
+                        automation_error = f"Unexpected navigation error: {str(nav_unexpected)}"
+                        logger.error(f"[handle_chat_message] ❌ {automation_error}")
+                        logger.exception("[handle_chat_message] Navigation exception:", exc_info=nav_unexpected)
+                        automation_details = {
+                            "automationError": automation_error,
+                            "source": "browser_automation",
+                            "automationRan": False,
+                            "step": "navigation",
+                            "stepFailed": "unexpected_error"
+                        }
+                    
+                    # Step 2: Screenshot (only if navigation succeeded)
+                    if navigation_success and not automation_error:
+                        try:
+                            logger.info("[handle_chat_message] ═══ STEP 2: SCREENSHOT ═══")
+                    screenshot_result = await self.take_panel_screenshot(
+                        session_id=session_id,
+                        user_id=user_id,
+                        project_id=project_id,
+                    )
+                            if screenshot_result and screenshot_result.get('base64'):
+                                screenshot_success = True
+                                logger.info(f"[handle_chat_message] ✅ Screenshot successful: {len(screenshot_result.get('base64', ''))} chars")
+                                automation_attachments.extend(screenshot_result.get("attachments", []))
+                            else:
+                                logger.warning(f"[handle_chat_message] ⚠️ Screenshot returned but no base64 data")
+                        except BrowserAutomationError as screenshot_exc:
+                            logger.error(f"[handle_chat_message] ❌ Screenshot failed: {screenshot_exc}")
+                            # Don't fail entire automation for screenshot failure
+                            if not automation_error:
+                                automation_error = f"Screenshot failed: {str(screenshot_exc)}"
+                        except Exception as screenshot_unexpected:
+                            logger.error(f"[handle_chat_message] ❌ Unexpected screenshot error: {screenshot_unexpected}")
+                            logger.exception("[handle_chat_message] Screenshot exception:", exc_info=screenshot_unexpected)
+                            if not automation_error:
+                                automation_error = f"Screenshot error: {str(screenshot_unexpected)}"
+                    
+                    # Step 3: Panel Extraction (only if navigation succeeded)
+                    if navigation_success and not automation_error:
+                        try:
+                            logger.info("[handle_chat_message] ═══ STEP 3: PANEL EXTRACTION ═══")
+                    panel_result = await self.extract_panel_list(
+                        session_id=session_id,
+                        user_id=user_id,
+                    )
+                            if panel_result and panel_result.get('panels'):
+                                extraction_success = True
+                                panel_count = len(panel_result.get('panels', []))
+                                logger.info(f"[handle_chat_message] ✅ Panel extraction successful: {panel_count} panels found")
+                            else:
+                                logger.warning(f"[handle_chat_message] ⚠️ Panel extraction returned but no panels found")
+                                extraction_success = False
+                        except BrowserAutomationError as extract_exc:
+                            logger.error(f"[handle_chat_message] ❌ Panel extraction failed: {extract_exc}")
+                            # Don't fail entire automation for extraction failure if we have screenshot
+                            if not automation_error:
+                                automation_error = f"Panel extraction failed: {str(extract_exc)}"
+                        except Exception as extract_unexpected:
+                            logger.error(f"[handle_chat_message] ❌ Unexpected extraction error: {extract_unexpected}")
+                            logger.exception("[handle_chat_message] Extraction exception:", exc_info=extract_unexpected)
+                            if not automation_error:
+                                automation_error = f"Extraction error: {str(extract_unexpected)}"
+                    
+                    # Build automation details
+                    if navigation_success:
+                    automation_details = {
+                        "navigation": navigation_result,
+                            "navigationSuccess": navigation_success,
+                            "screenshotSuccess": screenshot_success,
+                            "extractionSuccess": extraction_success,
+                            "panelList": panel_result.get("panels", []) if panel_result else [],
+                        "panelMetadata": {
+                            key: value
+                                for key, value in (panel_result.items() if panel_result else {})
+                            if key not in {"panels"}
+                            } if panel_result else {},
+                            "screenshot": screenshot_result.get("metadata", {}) if screenshot_result else {},
+                        "source": "browser_automation",
+                        "automationRan": True,
+                    }
+                        
+                        # Only mark as fully successful if we got panels
+                        if extraction_success and panel_result and panel_result.get('panels'):
+                    context.setdefault("panelAutomation", {}).update(
+                        {
+                            "panelList": automation_details.get("panelList", []),
+                            "panelMetadata": automation_details.get("panelMetadata", {}),
+                            "automationSource": "browser_automation",
+                        }
+                    )
+                            logger.info("[handle_chat_message] ✅ Pre-flight browser automation completed successfully")
+                        elif navigation_success:
+                            logger.warning("[handle_chat_message] ⚠️ Pre-flight automation partially succeeded (navigation OK, but extraction failed)")
+                            if automation_error:
+                                logger.warning(f"[handle_chat_message] Error details: {automation_error}")
+                    else:
+                        # Navigation failed - set error details
+                        if not automation_error:
+                            automation_error = "Navigation failed - see navigation result for details"
+                    automation_details = {
+                        "automationError": automation_error,
+                        "source": "browser_automation",
+                        "automationRan": False,
+                            "navigationResult": str(navigation_result) if navigation_result else None
+                        }
+                        
+                        # Try to get fallback data if navigation failed
+                        try:
+                    fallback_data = await self._get_server_panel_fallback(
+                        project_id=project_id,
+                        auth_token=auth_token,
+                        extra_headers=extra_headers,
+                    )
+                    if fallback_data:
+                        fallback_panels = (
+                            fallback_data.get("panels")
+                            if isinstance(fallback_data, dict)
+                            else None
                         )
-                        if fallback_data:
-                            fallback_panels = (
-                                fallback_data.get("panels")
-                                if isinstance(fallback_data, dict)
-                                else None
-                            )
-                            automation_details["fallbackPanels"] = fallback_panels or fallback_data
-                            automation_details["fallbackSource"] = "server_api"
-                            logger.info(f"[handle_chat_message] Using fallback server data: {len(fallback_panels or [])} panels")
-                            context.setdefault("panelAutomation", {}).update(
-                                {
-                                    "fallbackPanels": automation_details.get("fallbackPanels", []),
-                                    "automationSource": "server_api",
-                                }
-                            )
-                    except Exception as unexpected_exc:
-                        automation_error = f"Unexpected error during browser automation: {str(unexpected_exc)}"
-                        logger.error(f"[handle_chat_message] ❌ Unexpected error during browser automation: {automation_error}")
-                        logger.exception("[handle_chat_message] Unexpected exception:", exc_info=unexpected_exc)
-                        automation_details = {
-                            "automationError": automation_error,
-                            "source": "browser_automation",
-                            "automationRan": False,
-                        }
+                        automation_details["fallbackPanels"] = fallback_panels or fallback_data
+                        automation_details["fallbackSource"] = "server_api"
+                                logger.info(f"[handle_chat_message] Using fallback server data: {len(fallback_panels or []) if fallback_panels else 0} panels")
+                        except Exception as fallback_exc:
+                            logger.warning(f"[handle_chat_message] Could not get fallback data: {fallback_exc}")
+                    
+                    logger.info(f"[handle_chat_message] ===== PRE-FLIGHT AUTOMATION COMPLETE =====")
+                    logger.info(f"[handle_chat_message] Summary: nav={navigation_success}, screenshot={screenshot_success}, extraction={extraction_success}, error={bool(automation_error)}")
             elif is_visual_layout_question and not panel_layout_url:
                 logger.warning("[handle_chat_message] Visual layout question detected but panel_layout_url is None")
                 logger.warning(f"[handle_chat_message] Project ID: {project_id}, Frontend URL: {frontend_base_url}")
+                automation_error = f"Panel layout URL could not be constructed. Project ID: {project_id}, Frontend URL: {frontend_base_url}"
 
             frontend_base_url = str(frontend_base_url).rstrip("/") if frontend_base_url else os.getenv("FRONTEND_URL", "http://localhost:3000")
             if project_id and not panel_layout_url:
@@ -2034,11 +2171,12 @@ If any browser tool fails, you MUST:
             expected_output_text = "Executed action results or, if execution is impossible, a clear explanation of why."
             if is_visual_layout_question:
                 expected_output_text = (
+                    "CRITICAL: You MUST ACTUALLY EXECUTE the browser tools - do NOT just describe what you would do. "
                     "Your response MUST begin with: 'I checked the visual panel layout page by navigating to it "
                     f"({panel_layout_url if panel_layout_url else 'the panel layout page'}), taking a screenshot, and extracting panel data sorted by visual position. "
                     "Here's what I observed visually: [describe what you saw in the screenshot]. "
                     "After extracting and sorting panels by their visual position (Y coordinate, then X coordinate), I found: [list panels in visual order].' "
-                    "You MUST use browser_extract with action='panels' to get panels sorted by visual position. "
+                    "You MUST ACTUALLY CALL browser_navigate, browser_screenshot, and browser_extract with action='panels' - do not just describe these steps. "
                     "If you did not use browser tools (browser_navigate, browser_screenshot, browser_extract with action='panels'), "
                     "you MUST explicitly state why and what tools you attempted to use."
                 )
@@ -2079,10 +2217,32 @@ If any browser tool fails, you MUST:
             browser_tools_used = []
             if is_visual_layout_question:
                 logger.info(f"[handle_chat_message] Visual layout question detected - expecting browser automation usage")
-                logger.info(f"[handle_chat_message] Available browser tools: {[tool.name for tool in assistant_agent.tools if 'browser' in tool.name.lower()]}")
+                browser_tool_names = [tool.name for tool in assistant_agent.tools if 'browser' in tool.name.lower()]
+                logger.info(f"[handle_chat_message] Available browser tools: {browser_tool_names}")
+                logger.info(f"[handle_chat_message] Total tools available: {len(assistant_agent.tools)}")
+                logger.info(f"[handle_chat_message] All tool names: {[tool.name for tool in assistant_agent.tools]}")
+                
+                # Log tool details
+                for tool in assistant_agent.tools:
+                    if 'browser' in tool.name.lower():
+                        logger.info(f"[handle_chat_message] Browser tool '{tool.name}': description={tool.description[:100] if hasattr(tool, 'description') else 'N/A'}")
             
+            logger.info("[handle_chat_message] ===== CREW EXECUTION START =====")
             result = crew.kickoff()
+            logger.info(f"[handle_chat_message] ===== CREW EXECUTION COMPLETE =====")
             logger.info(f"[handle_chat_message] Crew completed. Result type: {type(result)}")
+            
+            # Log the raw result for debugging
+            if is_visual_layout_question:
+                logger.info(f"[handle_chat_message] Raw crew result (first 1000 chars): {str(result)[:1000]}")
+                logger.info(f"[handle_chat_message] Crew result attributes: {dir(result)}")
+                if hasattr(result, 'raw'):
+                    logger.info(f"[handle_chat_message] Crew result.raw: {str(result.raw)[:500] if result.raw else 'None'}")
+                if hasattr(result, 'tasks_output'):
+                    logger.info(f"[handle_chat_message] Crew result.tasks_output: {result.tasks_output}")
+                if hasattr(result, 'tasks'):
+                    for i, task in enumerate(result.tasks or []):
+                        logger.info(f"[handle_chat_message] Task {i}: {str(task)[:200]}")
             
             # Log the full result for debugging
             if is_visual_layout_question:

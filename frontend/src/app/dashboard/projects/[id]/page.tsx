@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { fetchProjectById } from '@/lib/api';
 import ProjectEditModal from '@/components/project-edit-modal.jsx'
 import { updateProject } from '@/lib/api'
+import ImageAnalysisTab from '@/components/image-analysis/image-analysis-tab'
 
 interface Project {
   id: string;
@@ -137,6 +138,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
           <TabsTrigger value="panels">Panel Layout</TabsTrigger>
           <TabsTrigger value="documents">Documents</TabsTrigger>
           <TabsTrigger value="qc-data">QC Data</TabsTrigger>
+          <TabsTrigger value="image-analysis">Image Analysis</TabsTrigger>
         </TabsList>
         
         <TabsContent value="overview" className="pt-4">
@@ -220,6 +222,18 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
               <Link href={`/dashboard/projects/${id}/qc-data`}>
                 <Button>View QC Data</Button>
               </Link>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="image-analysis" className="pt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Image Analysis</CardTitle>
+              <CardDescription>Upload an image of destruct or repair work to automatically populate panel layout</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ImageAnalysisTab projectId={id} />
             </CardContent>
           </Card>
         </TabsContent>

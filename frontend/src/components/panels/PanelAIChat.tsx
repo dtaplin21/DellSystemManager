@@ -90,6 +90,20 @@ export default function PanelAIChat({
   }, [messages, projectId, projectInfo])
 
   const sendToMCP = useCallback(async (prompt: string): Promise<MCPChatResponse> => {
+    const requestId = `req-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+    const startTime = Date.now()
+    
+    console.log('[PanelAIChat] ===== SEND BUTTON CLICKED =====', {
+      requestId,
+      timestamp: new Date().toISOString(),
+      prompt: prompt.substring(0, 100), // Log first 100 chars
+      promptLength: prompt.length,
+      projectId,
+      userId: userId || 'anonymous',
+      userTier: userTier || 'free_user',
+      aiServiceUrl: AI_SERVICE_URL
+    })
+
     const payload = {
       projectId: projectId, // Backend expects projectId at top level
       user_id: userId || 'anonymous',
@@ -98,36 +112,108 @@ export default function PanelAIChat({
       context: buildContextPayload()
     }
 
-    // Get authentication headers
-    const { getAuthHeaders } = await import('@/lib/api');
-    const authHeaders = await getAuthHeaders();
+    try {
+      // Get authentication headers
+      console.log('[PanelAIChat] Fetching auth headers...', { requestId })
+      const { getAuthHeaders } = await import('@/lib/api');
+      const authHeaders = await getAuthHeaders();
+      console.log('[PanelAIChat] Auth headers retrieved', { 
+        requestId, 
+        hasAuthHeaders: !!authHeaders,
+        authHeaderKeys: Object.keys(authHeaders || {})
+      })
 
-    const response = await fetch(`${AI_SERVICE_URL}/api/ai/chat`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...authHeaders
-      },
-      body: JSON.stringify(payload)
-    })
+      console.log('[PanelAIChat] Sending request to AI service...', {
+        requestId,
+        url: `${AI_SERVICE_URL}/api/ai/chat`,
+        payloadSize: JSON.stringify(payload).length,
+        contextKeys: Object.keys(payload.context || {})
+      })
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      throw new Error(errorText || `MCP chat failed with status ${response.status}`)
+      const response = await fetch(`${AI_SERVICE_URL}/api/ai/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...authHeaders
+        },
+        body: JSON.stringify(payload)
+      })
+
+      const duration = Date.now() - startTime
+      console.log('[PanelAIChat] Response received', {
+        requestId,
+        status: response.status,
+        statusText: response.statusText,
+        duration: `${duration}ms`,
+        headers: Object.fromEntries(response.headers.entries())
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('[PanelAIChat] ❌ Request failed', {
+          requestId,
+          status: response.status,
+          statusText: response.statusText,
+          errorText: errorText.substring(0, 500), // First 500 chars
+          duration: `${duration}ms`
+        })
+        throw new Error(errorText || `MCP chat failed with status ${response.status}`)
+      }
+
+      const result = await response.json()
+      console.log('[PanelAIChat] ✅ Request successful', {
+        requestId,
+        success: result.success,
+        hasReply: !!result.reply,
+        replyLength: result.reply?.length || 0,
+        hasError: !!result.error,
+        error: result.error,
+        duration: `${duration}ms`,
+        responseKeys: Object.keys(result)
+      })
+
+      return result
+    } catch (error) {
+      const duration = Date.now() - startTime
+      console.error('[PanelAIChat] ❌ Exception in sendToMCP', {
+        requestId,
+        error: error instanceof Error ? {
+          name: error.name,
+          message: error.message,
+          stack: error.stack
+        } : error,
+        duration: `${duration}ms`,
+        projectId,
+        userId: userId || 'anonymous'
+      })
+      throw error
     }
-
-    return response.json()
   }, [userId, userTier, buildContextPayload, projectId])
 
   const handleSendMessage = useCallback(async (text: string) => {
+    const messageId = createMessageId()
+    const startTime = Date.now()
     const trimmed = text.trim()
+    
+    console.log('[PanelAIChat] handleSendMessage called', {
+      messageId,
+      textLength: trimmed.length,
+      isSending,
+      timestamp: new Date().toISOString()
+    })
+
     if (!trimmed || isSending) {
+      console.warn('[PanelAIChat] Message send skipped', {
+        messageId,
+        reason: !trimmed ? 'empty message' : 'already sending',
+        isSending
+      })
       return
     }
 
     const timestamp = new Date().toISOString()
     appendMessage({
-      id: createMessageId(),
+      id: messageId,
       role: 'user',
       content: trimmed,
       timestamp
@@ -136,16 +222,46 @@ export default function PanelAIChat({
     setIsSending(true)
 
     try {
+      console.log('[PanelAIChat] Calling sendToMCP...', { messageId, textPreview: trimmed.substring(0, 50) })
       const result = await sendToMCP(trimmed)
+      const duration = Date.now() - startTime
 
+      console.log('[PanelAIChat] sendToMCP completed', {
+        messageId,
+        success: result.success,
+        hasReply: !!result.reply,
+        hasError: !!result.error,
+        duration: `${duration}ms`
+      })
+
+      const assistantMessage = result.reply || result.error || 'I did not receive a response from the MCP service.'
       appendMessage({
         id: createMessageId(),
         role: 'assistant',
-        content: result.reply || result.error || 'I did not receive a response from the MCP service.',
+        content: assistantMessage,
         timestamp: new Date().toISOString()
       })
+
+      console.log('[PanelAIChat] ✅ Message flow completed successfully', {
+        messageId,
+        totalDuration: `${Date.now() - startTime}ms`
+      })
     } catch (error) {
+      const duration = Date.now() - startTime
       const errorMessage = error instanceof Error ? error.message : 'Unexpected error occurred.'
+      
+      console.error('[PanelAIChat] ❌ Error in handleSendMessage', {
+        messageId,
+        error: error instanceof Error ? {
+          name: error.name,
+          message: error.message,
+          stack: error.stack?.split('\n').slice(0, 5) // First 5 stack lines
+        } : error,
+        duration: `${duration}ms`,
+        projectId,
+        userId: userId || 'anonymous'
+      })
+
       appendMessage({
         id: createMessageId(),
         role: 'assistant',
@@ -154,8 +270,12 @@ export default function PanelAIChat({
       })
     } finally {
       setIsSending(false)
+      console.log('[PanelAIChat] handleSendMessage finished', {
+        messageId,
+        totalDuration: `${Date.now() - startTime}ms`
+      })
     }
-  }, [appendMessage, isSending, sendToMCP])
+  }, [appendMessage, isSending, sendToMCP, projectId, userId])
 
   const handleSubmit = useCallback(() => {
     void handleSendMessage(inputMessage)

@@ -1,5 +1,9 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+const axios = require('axios');
 const router = express.Router();
 const { auth } = require('../middlewares/auth');
 const { db } = require('../db');
@@ -701,6 +705,249 @@ router.get('/requirements/:projectId', async (req, res, next) => {
     res.status(200).json(requirements || []);
   } catch (error) {
     console.error('❌ Error in GET /requirements/:projectId:', error);
+    next(error);
+  }
+});
+
+// Configure multer for image uploads
+const imageStorage = multer.memoryStorage();
+const imageUpload = multer({
+  storage: imageStorage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png|gif|webp/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    
+    if (mimetype && extname) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files (JPEG, PNG, GIF, WEBP) are allowed'));
+    }
+  }
+});
+
+// POST /api/panels/image-analysis/:projectId
+// Analyze an image and extract panel information
+router.post('/image-analysis/:projectId', auth, imageUpload.single('image'), async (req, res, next) => {
+  console.log('🔍 [IMAGE ANALYSIS] === POST /image-analysis/:projectId START ===');
+  
+  try {
+    const { projectId } = req.params;
+    
+    // Validate project ID
+    if (!projectId || projectId.length === 0) {
+      return res.status(400).json({ message: 'Invalid project ID' });
+    }
+    
+    // Verify project access
+    const [project] = await db
+      .select()
+      .from(projects)
+      .where(and(
+        eq(projects.id, projectId),
+        eq(projects.userId, req.user.id)
+      ));
+    
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
+    
+    // Check if image file was uploaded
+    if (!req.file) {
+      return res.status(400).json({ message: 'No image file uploaded' });
+    }
+    
+    console.log('🔍 [IMAGE ANALYSIS] Image received:', {
+      originalname: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size
+    });
+    
+    // Convert image to base64
+    const imageBase64 = req.file.buffer.toString('base64');
+    
+    // Call AI service for vision analysis
+    const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:5001';
+    
+    try {
+      const analysisResponse = await axios.post(
+        `${AI_SERVICE_URL}/api/ai/analyze-image`,
+        {
+          image_base64: imageBase64,
+          image_type: req.file.mimetype,
+          project_id: projectId,
+        },
+        {
+          timeout: 120000, // 2 minutes for vision analysis
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+      
+      console.log('✅ [IMAGE ANALYSIS] AI analysis completed');
+      
+      res.status(200).json({
+        success: true,
+        panels: analysisResponse.data.panels || [],
+        detectedInfo: analysisResponse.data.detectedInfo || {},
+      });
+    } catch (aiError) {
+      console.error('❌ [IMAGE ANALYSIS] AI service error:', aiError.message);
+      
+      if (aiError.code === 'ECONNREFUSED' || aiError.code === 'ETIMEDOUT') {
+        return res.status(503).json({
+          message: 'AI service unavailable. Please ensure the AI service is running.',
+          error: aiError.message,
+        });
+      }
+      
+      return res.status(500).json({
+        message: 'Failed to analyze image',
+        error: aiError.response?.data?.error || aiError.message,
+      });
+    }
+  } catch (error) {
+    console.error('❌ [IMAGE ANALYSIS] Error:', error);
+    next(error);
+  }
+});
+
+// POST /api/panels/populate-from-analysis/:projectId
+// Populate panel layout from AI analysis results and form data
+router.post('/populate-from-analysis/:projectId', auth, async (req, res, next) => {
+  console.log('🔍 [POPULATE PANELS] === POST /populate-from-analysis/:projectId START ===');
+  
+  try {
+    const { projectId } = req.params;
+    const { panels, formData } = req.body;
+    
+    // Validate project ID
+    if (!projectId || projectId.length === 0) {
+      return res.status(400).json({ message: 'Invalid project ID' });
+    }
+    
+    // Validate panels array
+    if (!panels || !Array.isArray(panels) || panels.length === 0) {
+      return res.status(400).json({ message: 'No panels provided' });
+    }
+    
+    // Verify project access
+    const [project] = await db
+      .select()
+      .from(projects)
+      .where(and(
+        eq(projects.id, projectId),
+        eq(projects.userId, req.user.id)
+      ));
+    
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
+    
+    // Get existing panel layout or create new one
+    let [existingLayout] = await db
+      .select()
+      .from(panelLayouts)
+      .where(eq(panelLayouts.projectId, projectId));
+    
+    if (!existingLayout) {
+      [existingLayout] = await db
+        .insert(panelLayouts)
+        .values({
+          id: uuidv4(),
+          projectId,
+          panels: [],
+          width: DEFAULT_LAYOUT_WIDTH,
+          height: DEFAULT_LAYOUT_HEIGHT,
+          scale: DEFAULT_SCALE,
+          lastUpdated: new Date(),
+        })
+        .returning();
+    }
+    
+    // Parse existing panels
+    let currentPanels = [];
+    try {
+      if (existingLayout.panels) {
+        if (Array.isArray(existingLayout.panels)) {
+          currentPanels = existingLayout.panels;
+        } else if (typeof existingLayout.panels === 'string') {
+          currentPanels = JSON.parse(existingLayout.panels || '[]');
+        }
+      }
+    } catch (error) {
+      console.error('Error parsing existing panels:', error);
+      currentPanels = [];
+    }
+    
+    // Create new panels from analysis results
+    const newPanels = panels.map((panel, index) => {
+      const panelId = uuidv4();
+      return {
+        id: panelId,
+        x: panel.x || 100 + (index * 50),
+        y: panel.y || 100 + (index * 30),
+        width: panel.width || 100,
+        height: panel.height || 50,
+        shape: panel.shape || 'rectangle',
+        rotation: panel.rotation || 0,
+        fill: '#87CEEB',
+        color: '#87CEEB',
+        panelNumber: `P${String(index + 1).padStart(3, '0')}`,
+        rollNumber: `ROLL-${index + 1}`,
+        date: formData?.date || new Date().toISOString().slice(0, 10),
+        location: formData?.location || panel.notes || 'AI Generated',
+        material: formData?.material || 'Material type not specified - will be determined during installation',
+        thickness: formData?.thickness || 'Thickness not specified - will be determined during installation',
+        seamsType: formData?.seamsType || 'Standard 6-inch overlap',
+        notes: formData?.notes || panel.notes || 'AI-generated panel',
+        isValid: true,
+        meta: {
+          repairs: [],
+          airTest: { result: 'pending' }
+        }
+      };
+    });
+    
+    // Combine existing and new panels
+    const updatedPanels = [...currentPanels, ...newPanels];
+    
+    // Update panel layout
+    const [updatedLayout] = await db
+      .update(panelLayouts)
+      .set({
+        panels: updatedPanels,
+        lastUpdated: new Date(),
+      })
+      .where(eq(panelLayouts.id, existingLayout.id))
+      .returning();
+    
+    console.log('✅ [POPULATE PANELS] Panel layout updated:', {
+      totalPanels: updatedPanels.length,
+      newPanels: newPanels.length
+    });
+    
+    // Notify via WebSocket if available
+    try {
+      wsSendToRoom(`project:${projectId}`, {
+        type: 'panels_updated',
+        projectId,
+        panelCount: updatedPanels.length,
+      });
+    } catch (wsError) {
+      console.warn('WebSocket notification failed:', wsError);
+    }
+    
+    res.status(200).json({
+      success: true,
+      message: `Successfully populated ${newPanels.length} panel(s)`,
+      panelCount: updatedPanels.length,
+      newPanelCount: newPanels.length,
+    });
+  } catch (error) {
+    console.error('❌ [POPULATE PANELS] Error:', error);
     next(error);
   }
 });

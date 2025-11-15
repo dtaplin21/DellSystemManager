@@ -25,6 +25,12 @@ class BrowserExtractionTool(BaseTool):
     def __init__(self, session_manager: BrowserSessionManager):
         super().__init__()
         self.session_manager = session_manager
+        # Rebuild Pydantic schema to resolve Optional forward references
+        try:
+            if hasattr(self, 'args_schema') and self.args_schema:
+                self.args_schema.model_rebuild()
+        except (AttributeError, Exception):
+            pass
 
     def _run(
         self,
@@ -349,3 +355,13 @@ class BrowserExtractionTool(BaseTool):
             error_msg = f"Unexpected error in extraction tool: {str(e)}"
             logger.error("[%s] %s", session_id, error_msg)
             return error_msg
+
+
+# Rebuild Pydantic schema to resolve Optional forward references
+# CrewAI's BaseTool creates schemas internally, so we rebuild after class definition
+try:
+    if hasattr(BrowserExtractionTool, 'args_schema') and BrowserExtractionTool.args_schema:
+        BrowserExtractionTool.args_schema.model_rebuild()
+    BrowserExtractionTool.model_rebuild()
+except (AttributeError, Exception):
+    pass  # Schema may already be rebuilt or not yet created

@@ -604,6 +604,61 @@ export async function deleteProject(projectId: string): Promise<void> {
   }
 }
 
+export async function analyzeImageAndPopulatePanels(projectId: string, imageFile: File): Promise<any> {
+  const formData = new FormData();
+  formData.append('image', imageFile);
+  
+  const headers = await getAuthHeaders();
+  const { 'Content-Type': _, ...formHeaders } = headers;
+  
+  const response = await fetch(`${BACKEND_URL}/api/panels/image-analysis/${projectId}`, {
+    method: 'POST',
+    headers: formHeaders,
+    body: formData
+  });
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Failed to analyze image: ${response.status} ${response.statusText}`);
+  }
+  
+  return response.json();
+}
+
+export async function populatePanelLayoutFromAnalysis(
+  projectId: string,
+  data: {
+    panels: Array<{
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      shape: string;
+      notes?: string;
+    }>;
+    formData: {
+      material: string;
+      thickness: string;
+      seamsType: string;
+      location: string;
+      date: string;
+      notes: string;
+    };
+  }
+): Promise<any> {
+  const response = await makeAuthenticatedRequest(`/api/panels/populate-from-analysis/${projectId}`, {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+  
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Failed to populate panel layout' }));
+    throw new Error(error.message || 'Failed to populate panel layout');
+  }
+  
+  return response.json();
+}
+
 export async function updateProject(projectId: string, data: {
   name?: string;
   description?: string;
