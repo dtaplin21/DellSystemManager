@@ -1,6 +1,4 @@
-const { supabase, db, pool } = require('../db');
-const { users } = require('../db/schema');
-const { eq } = require('drizzle-orm');
+const { supabase, pool, queryWithRetry } = require('../db');
 const config = require('../config/env');
 const logger = require('../lib/logger');
 
@@ -17,23 +15,29 @@ const auth = async (req, res, next) => {
     if (config.isDevelopment && req.headers[DEV_BYPASS_HEADER] === 'true') {
       logger.warn('[AUTH] Development bypass enabled - using mock authentication');
       try {
-        const result = await pool.query('SELECT id FROM users WHERE email = $1 LIMIT 1', ['dev@example.com']);
+        // Try to get any user from the database first with retry logic
+        const result = await queryWithRetry(
+          'SELECT id, email, display_name, company, subscription, is_admin FROM users LIMIT 1',
+          [],
+          2 // Only 2 retries for dev bypass
+        );
         
         if (result.rows.length > 0) {
+          const dbUser = result.rows[0];
           req.user = {
-            id: result.rows[0].id,
-            email: 'dev@example.com',
-            displayName: 'Development User',
-            company: 'Development Company',
-            subscription: 'premium',
-            isAdmin: true,
+            id: dbUser.id,
+            email: dbUser.email || 'dev@example.com',
+            displayName: dbUser.display_name || 'Development User',
+            company: dbUser.company || 'Development Company',
+            subscription: dbUser.subscription || 'premium',
+            isAdmin: dbUser.is_admin || true,
             profileImageUrl: null
           };
-          logger.debug('[AUTH] Development bypass using real user ID', { userId: req.user.id });
+          logger.debug('[AUTH] Development bypass using real user ID from database', { userId: req.user.id });
           return next();
         }
       } catch (error) {
-        logger.warn('[AUTH] Development bypass failed to fetch dev user', {
+        logger.warn('[AUTH] Development bypass failed to fetch user from database', {
           error: {
             message: error.message,
             stack: config.isDevelopment ? error.stack : undefined
@@ -41,8 +45,10 @@ const auth = async (req, res, next) => {
         });
       }
       
+      // Fallback: Use a valid UUID format for dev user
+      // This is a well-known UUID v4 that can be used for development
       req.user = {
-        id: 'dev-user-123',
+        id: '00000000-0000-0000-0000-000000000001', // Valid UUID format
         email: 'dev@example.com',
         displayName: 'Development User',
         company: 'Development Company',
@@ -50,6 +56,7 @@ const auth = async (req, res, next) => {
         isAdmin: true,
         profileImageUrl: null
       };
+      logger.debug('[AUTH] Development bypass using fallback UUID', { userId: req.user.id });
       return next();
     }
     
@@ -104,10 +111,53 @@ const auth = async (req, res, next) => {
     
     logger.debug('[AUTH] Token verified with Supabase', { userId: supabaseUser.id });
     
-    const [userProfile] = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, supabaseUser.id));
+    // Use direct PostgreSQL query with retry logic for better error handling and timeout control
+    // This avoids connection pool issues and handles transient connection failures
+    let userProfile;
+    try {
+      const result = await queryWithRetry(
+        `SELECT id, email, display_name, company, subscription, is_admin, profile_image_url 
+         FROM users 
+         WHERE id = $1 
+         LIMIT 1`,
+        [supabaseUser.id],
+        3 // 3 retries with exponential backoff
+      );
+      
+      userProfile = result.rows[0] || null;
+    } catch (dbError) {
+      logger.error('[AUTH] Database query failed when fetching user profile after retries', {
+        userId: supabaseUser.id,
+        error: {
+          message: dbError.message,
+          code: dbError.code,
+          stack: config.isDevelopment ? dbError.stack : undefined
+        },
+        poolState: {
+          totalCount: pool.totalCount,
+          idleCount: pool.idleCount,
+          waitingCount: pool.waitingCount
+        }
+      });
+      
+      // If it's a connection/timeout error, return a more specific error
+      if (dbError.message.includes('timeout') || 
+          dbError.message.includes('Connection terminated') ||
+          dbError.message.includes('ECONNREFUSED') ||
+          dbError.message.includes('ENOTFOUND')) {
+        return res.status(503).json({
+          message: 'Database connection timeout. Please try again.',
+          code: 'DATABASE_TIMEOUT',
+          retryable: true
+        });
+      }
+      
+      // For other database errors, return generic error
+      return res.status(500).json({
+        message: 'Database error during authentication.',
+        code: 'DATABASE_ERROR'
+      });
+    }
     
     if (!userProfile) {
       logger.warn('[AUTH] User not found in database', { userId: supabaseUser.id });
@@ -120,11 +170,11 @@ const auth = async (req, res, next) => {
     req.user = {
       id: supabaseUser.id,
       email: supabaseUser.email,
-      displayName: userProfile.displayName || supabaseUser.user_metadata?.display_name || supabaseUser.email?.split('@')[0],
+      displayName: userProfile.display_name || supabaseUser.user_metadata?.display_name || supabaseUser.email?.split('@')[0],
       company: userProfile.company || supabaseUser.user_metadata?.company || null,
       subscription: userProfile.subscription || supabaseUser.user_metadata?.subscription || 'basic',
-      isAdmin: userProfile.isAdmin || false,
-      profileImageUrl: userProfile.profileImageUrl || supabaseUser.user_metadata?.avatar_url || null
+      isAdmin: userProfile.is_admin || false,
+      profileImageUrl: userProfile.profile_image_url || supabaseUser.user_metadata?.avatar_url || null
     };
     
     logger.debug('[AUTH] Authentication successful', {

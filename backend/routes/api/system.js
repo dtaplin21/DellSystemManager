@@ -46,18 +46,37 @@ router.get('/db-test', async (req, res) => {
     timestamp: new Date().toISOString(),
     environment: {},
     connection: {},
+    pool: {},
     queries: {},
+    diagnostics: {},
     errors: []
   };
 
   try {
     // Phase 1: Environment Variables Check
     console.log('🔍 [DB-TEST] Phase 1: Environment Variables Check');
+    const dbUrl = process.env.DATABASE_URL || '';
     testResults.environment = {
       DATABASE_URL: {
         exists: !!process.env.DATABASE_URL,
-        startsWith: process.env.DATABASE_URL ? process.env.DATABASE_URL.substring(0, 20) + '...' : 'N/A',
-        length: process.env.DATABASE_URL ? process.env.DATABASE_URL.length : 0
+        startsWith: dbUrl ? dbUrl.substring(0, 20) + '...' : 'N/A',
+        length: dbUrl.length,
+        // Parse and mask connection details
+        parsed: dbUrl ? (() => {
+          try {
+            const url = new URL(dbUrl);
+            return {
+              protocol: url.protocol,
+              hostname: url.hostname,
+              port: url.port || '5432',
+              database: url.pathname.split('/')[1] || 'unknown',
+              hasUser: !!url.username,
+              hasPassword: !!url.password
+            };
+          } catch {
+            return { format: 'connection_string', valid: false };
+          }
+        })() : null
       },
       SUPABASE_URL: {
         exists: !!process.env.SUPABASE_URL,
@@ -75,12 +94,14 @@ router.get('/db-test', async (req, res) => {
 
     // Phase 2: Database Import Test
     console.log('🔍 [DB-TEST] Phase 2: Database Import Test');
-    let db, pool, supabase;
+    let db, pool, supabase, getPoolHealth, testDatabaseConnection;
     try {
       const dbModule = require('../../db');
       db = dbModule.db;
       pool = dbModule.pool;
       supabase = dbModule.supabase;
+      getPoolHealth = dbModule.getPoolHealth;
+      testDatabaseConnection = dbModule.testDatabaseConnection;
       testResults.connection.import = { status: 'success', message: 'Database module imported successfully' };
     } catch (importError) {
       testResults.connection.import = { 
@@ -93,23 +114,67 @@ router.get('/db-test', async (req, res) => {
       return res.status(500).json(testResults);
     }
 
-    // Phase 3: Connection Pool Test
-    console.log('🔍 [DB-TEST] Phase 3: Connection Pool Test');
-    try {
-      const client = await pool.connect();
-      testResults.connection.pool = { 
-        status: 'success', 
-        message: 'Successfully acquired connection from pool',
+    // Phase 2.5: Pool Health Check
+    console.log('🔍 [DB-TEST] Phase 2.5: Pool Health Check');
+    if (getPoolHealth) {
+      testResults.pool = getPoolHealth();
+    } else {
+      testResults.pool = {
         totalCount: pool.totalCount,
         idleCount: pool.idleCount,
         waitingCount: pool.waitingCount
       };
+    }
+
+    // Phase 2.6: Quick Connection Test
+    console.log('🔍 [DB-TEST] Phase 2.6: Quick Connection Test');
+    if (testDatabaseConnection) {
+      const connectionTest = await testDatabaseConnection(5000);
+      testResults.connection.test = connectionTest;
+      if (!connectionTest.success) {
+        testResults.errors.push(`Connection test failed: ${connectionTest.error}`);
+      }
+    }
+
+    // Phase 3: Connection Pool Test
+    console.log('🔍 [DB-TEST] Phase 3: Connection Pool Test');
+    let client;
+    try {
+      const connectStartTime = Date.now();
+      client = await Promise.race([
+        pool.connect(),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Pool connect timeout after 10 seconds')), 10000)
+        )
+      ]);
+      const connectDuration = Date.now() - connectStartTime;
+      
+      testResults.connection.pool = { 
+        status: 'success', 
+        message: 'Successfully acquired connection from pool',
+        connectDuration,
+        totalCount: pool.totalCount,
+        idleCount: pool.idleCount,
+        waitingCount: pool.waitingCount,
+        host: client.connectionParameters?.host,
+        database: client.connectionParameters?.database,
+        port: client.connectionParameters?.port
+      };
       
       // Phase 4: Basic Query Test
       console.log('🔍 [DB-TEST] Phase 4: Basic Query Test');
-      const basicQuery = await client.query('SELECT NOW() as current_time, version() as db_version');
+      const queryStartTime = Date.now();
+      const basicQuery = await Promise.race([
+        client.query('SELECT NOW() as current_time, version() as db_version'),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Query timeout after 5 seconds')), 5000)
+        )
+      ]);
+      const queryDuration = Date.now() - queryStartTime;
+      
       testResults.queries.basic = {
         status: 'success',
+        duration: queryDuration,
         currentTime: basicQuery.rows[0].current_time,
         version: basicQuery.rows[0].db_version.substring(0, 50) + '...'
       };
@@ -120,7 +185,7 @@ router.get('/db-test', async (req, res) => {
         SELECT table_name, column_name, data_type 
         FROM information_schema.columns 
         WHERE table_schema = 'public' 
-        AND table_name IN ('projects', 'panel_layouts', 'asbuilt_records')
+        AND table_name IN ('projects', 'panel_layouts', 'asbuilt_records', 'users')
         ORDER BY table_name, ordinal_position
       `);
       testResults.queries.schema = {
@@ -156,15 +221,55 @@ router.get('/db-test', async (req, res) => {
       }
 
       client.release();
+      
+      // Phase 7: Final Diagnostics
+      testResults.diagnostics = {
+        poolHealth: getPoolHealth ? getPoolHealth() : {
+          totalCount: pool.totalCount,
+          idleCount: pool.idleCount,
+          waitingCount: pool.waitingCount
+        },
+        summary: {
+          allTestsPassed: testResults.errors.length === 0,
+          totalErrors: testResults.errors.length,
+          connectionWorking: testResults.connection.pool?.status === 'success',
+          queriesWorking: testResults.queries.basic?.status === 'success'
+        }
+      };
+      
+      return res.status(200).json(testResults);
     } catch (connectionError) {
       testResults.connection.pool = {
         status: 'error',
         message: 'Failed to connect to database',
         error: connectionError.message,
         code: connectionError.code,
-        stack: connectionError.stack
+        stack: connectionError.stack,
+        poolState: {
+          totalCount: pool.totalCount,
+          idleCount: pool.idleCount,
+          waitingCount: pool.waitingCount
+        }
       };
       testResults.errors.push(`Connection failed: ${connectionError.message}`);
+      
+      // Add diagnostics even on failure
+      testResults.diagnostics = {
+        poolHealth: getPoolHealth ? getPoolHealth() : {
+          totalCount: pool.totalCount,
+          idleCount: pool.idleCount,
+          waitingCount: pool.waitingCount
+        },
+        summary: {
+          allTestsPassed: false,
+          totalErrors: testResults.errors.length,
+          connectionWorking: false,
+          queriesWorking: false,
+          failureReason: connectionError.message
+        }
+      };
+      
+      return res.status(500).json(testResults);
     }
 
     // Phase 7: Supabase Client Test
