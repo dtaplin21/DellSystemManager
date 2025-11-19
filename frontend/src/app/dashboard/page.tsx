@@ -2,7 +2,16 @@
 export const dynamic = "force-dynamic";
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { makeAuthenticatedRequest } from '@/lib/api';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Button } from '@/components/ui/button';
+import { ChevronDown } from 'lucide-react';
 import './dashboard.css';
 
 interface Project {
@@ -16,6 +25,7 @@ interface Project {
 }
 
 export default function Dashboard() {
+  const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -116,9 +126,36 @@ export default function Dashboard() {
               </div>
               <div className="card-value">Ready</div>
               <div className="card-actions">
-                <Link href="/dashboard/projects" className="btn btn-primary">
-                  Open Workspace
-                </Link>
+                {projects.length > 0 ? (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button className="btn btn-primary">
+                        Open Workspace
+                        <ChevronDown className="ml-2 h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-64 max-h-96 overflow-y-auto">
+                      {projects.map((project) => (
+                        <DropdownMenuItem
+                          key={project.id}
+                          onClick={() => router.push(`/dashboard/projects/${project.id}/ai-workspace`)}
+                          className="cursor-pointer"
+                        >
+                          <div className="flex flex-col">
+                            <span className="font-medium">{project.name}</span>
+                            {project.location && (
+                              <span className="text-xs text-muted-foreground">{project.location}</span>
+                            )}
+                          </div>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : (
+                  <Link href="/dashboard/projects" className="btn btn-primary">
+                    {isLoading ? 'Loading...' : 'No Projects - Create One'}
+                  </Link>
+                )}
               </div>
             </div>
 
@@ -148,10 +185,37 @@ export default function Dashboard() {
                 <span className="action-text">New Project</span>
               </Link>
 
-              <Link href="/dashboard/projects" className="action-item">
-                <div className="action-icon ai">🤖</div>
-                <span className="action-text">AI Panel Workspace</span>
-              </Link>
+              {projects.length > 0 ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <div className="action-item cursor-pointer">
+                      <div className="action-icon ai">🤖</div>
+                      <span className="action-text">AI Panel Workspace</span>
+                    </div>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-64 max-h-96 overflow-y-auto">
+                    {projects.map((project) => (
+                      <DropdownMenuItem
+                        key={project.id}
+                        onClick={() => router.push(`/dashboard/projects/${project.id}/ai-workspace`)}
+                        className="cursor-pointer"
+                      >
+                        <div className="flex flex-col">
+                          <span className="font-medium">{project.name}</span>
+                          {project.location && (
+                            <span className="text-xs text-muted-foreground">{project.location}</span>
+                          )}
+                        </div>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <Link href="/dashboard/projects" className="action-item">
+                  <div className="action-icon ai">🤖</div>
+                  <span className="action-text">AI Panel Workspace</span>
+                </Link>
+              )}
               
               <Link href="/dashboard/qc-data" className="action-item">
                 <div className="action-icon success">📈</div>
