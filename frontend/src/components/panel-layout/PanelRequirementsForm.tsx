@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -42,7 +42,7 @@ import { EnhancedAnalysisDisplay } from '@/components/ai-document-analysis/Enhan
 
 interface PanelRequirementsFormProps {
   projectId: string;
-  documents?: Document[];
+  documents?: ProjectDocument[];
   onRequirementsChange?: (requirements: any, confidence: number) => void;
   onLayoutGenerated?: (result: any) => void;
 }
@@ -91,7 +91,7 @@ interface PanelRequirements {
   };
 }
 
-interface Document {
+interface ProjectDocument {
   id: string;
   name: string;
   type: string;
@@ -110,11 +110,11 @@ export default function PanelRequirementsForm({ projectId, documents: propDocume
   const [generating, setGenerating] = useState(false);
   const [analysis, setAnalysis] = useState<any>(null);
   const [activeTab, setActiveTab] = useState('ai-analysis');
-  const [documents, setDocuments] = useState<Document[]>(propDocuments || []);
+  const [documents, setDocuments] = useState<ProjectDocument[]>(propDocuments || []);
   const [aiAnalyzing, setAiAnalyzing] = useState(false);
   const [aiAnalysisResult, setAiAnalysisResult] = useState<any>(null);
   const [selectedDocumentsForAnalysis, setSelectedDocumentsForAnalysis] = useState<string[]>([]);
-  const [fileInputRef, setFileInputRef] = useState<HTMLInputElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     loadRequirements();
@@ -464,7 +464,7 @@ export default function PanelRequirementsForm({ projectId, documents: propDocume
     <div className="space-y-6">
       {/* Hidden file input for uploads */}
       <input
-        ref={setFileInputRef}
+        ref={fileInputRef}
         type="file"
         multiple
         accept=".pdf,.xlsx,.xls,.dwg,.dxf,.doc,.docx"
@@ -551,7 +551,7 @@ export default function PanelRequirementsForm({ projectId, documents: propDocume
                 <h3 className="text-lg font-semibold">AI Document Analysis</h3>
                 <div className="flex items-center space-x-2">
                   <Button
-                    onClick={() => fileInputRef?.click()}
+                    onClick={() => fileInputRef.current?.click()}
                     disabled={uploading}
                     variant="outline"
                     className="flex items-center space-x-2"
@@ -651,7 +651,7 @@ export default function PanelRequirementsForm({ projectId, documents: propDocume
                       <p>No documents uploaded yet.</p>
                       <p className="text-sm mb-4">Upload documents to analyze them with AI.</p>
                       <Button
-                        onClick={() => fileInputRef?.click()}
+                        onClick={() => fileInputRef.current?.click()}
                         disabled={uploading}
                         className="bg-blue-600 hover:bg-blue-700 text-white"
                       >

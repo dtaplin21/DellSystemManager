@@ -24,7 +24,7 @@ interface ProjectInfo {
   description?: string
 }
 
-interface Document {
+interface ProjectDocument {
   id: string
   name: string
   type: string
@@ -37,7 +37,7 @@ export default function UnifiedAIPanelWorkspace({ projectId }: UnifiedAIPanelWor
   const { toast } = useToast()
   const { user } = useSupabaseAuth()
   const [project, setProject] = useState<ProjectInfo | null>(null)
-  const [documents, setDocuments] = useState<Document[]>([])
+  const [documents, setDocuments] = useState<ProjectDocument[]>([])
   const [activeTab, setActiveTab] = useState<'documents' | 'chat'>('documents')
   const [loadingProject, setLoadingProject] = useState(false)
   const [loadingDocuments, setLoadingDocuments] = useState(false)

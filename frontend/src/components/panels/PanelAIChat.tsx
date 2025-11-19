@@ -55,7 +55,8 @@ export default function PanelAIChat({
   projectId,
   projectInfo,
   userId,
-  userTier
+  userTier,
+  panelLayoutUrl
 }: PanelAIChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>(() => [
     {
@@ -80,10 +81,18 @@ export default function PanelAIChat({
   }, [])
 
   const buildContextPayload = useCallback(() => {
+    // Compute panelLayoutUrl if not provided
+    const computedPanelLayoutUrl = panelLayoutUrl || 
+      projectInfo?.panelLayoutUrl || 
+      `${typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'}/dashboard/projects/${projectId}/panel-layout`
+    
     return {
       projectId,
-      projectInfo,
-      panelLayoutUrl,
+      projectInfo: {
+        ...projectInfo,
+        panelLayoutUrl: computedPanelLayoutUrl
+      },
+      panelLayoutUrl: computedPanelLayoutUrl,
       history: messages.slice(-15).map(msg => ({
         role: msg.role,
         content: msg.content,

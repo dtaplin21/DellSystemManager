@@ -111,7 +111,7 @@ export default function Dashboard() {
                 <div className="card-icon ai">💬</div>
                 <div>
                   <h3 className="card-title">AI Panel Workspace</h3>
-                  <p className="card-description">AI-powered panel operations and chat</p>
+                  <p className="card-description">Unified workspace for document analysis, panel generation, and AI chat</p>
                 </div>
               </div>
               <div className="card-value">Ready</div>
@@ -137,22 +137,6 @@ export default function Dashboard() {
                 </Link>
               </div>
             </div>
-
-            <div className="dashboard-card">
-              <div className="card-header">
-                <div className="card-icon ai">🤖</div>
-                <div>
-                  <h3 className="card-title">AI Panel Generation</h3>
-                  <p className="card-description">Document analysis & layout automation</p>
-                </div>
-              </div>
-              <div className="card-value">Ready</div>
-              <div className="card-actions">
-                <Link href="/dashboard/projects" className="btn btn-primary">
-                  Open Panel Generation
-                </Link>
-              </div>
-            </div>
           </div>
 
           {/* Quick Actions */}
@@ -166,7 +150,7 @@ export default function Dashboard() {
 
               <Link href="/dashboard/projects" className="action-item">
                 <div className="action-icon ai">🤖</div>
-                <span className="action-text">AI Panel Generation</span>
+                <span className="action-text">AI Panel Workspace</span>
               </Link>
               
               <Link href="/dashboard/qc-data" className="action-item">
