@@ -169,7 +169,7 @@ else:
                 logger.info(f"[Browser Tools] Classes found: {classes_found}")
                 
                 if all(classes_found.values()):
-                browser_tools_imported = True
+                    browser_tools_imported = True
                     logger.info("✅ [Browser Tools] Path 1 SUCCESS: Browser tools imported from ai_service directory")
                 else:
                     missing = [name for name, found in classes_found.items() if not found]
@@ -1844,7 +1844,7 @@ class DellSystemAIService:
                     automation_error = f"Frontend is not accessible at {frontend_base_url}. Please ensure the frontend is running on port 3000."
                     logger.error(f"[handle_chat_message] ❌ {automation_error}")
                 else:
-                session_id = f"panel-visual-{project_id or user_id}"
+                    session_id = f"panel-visual-{project_id or user_id}"
                     logger.info(f"[handle_chat_message] ===== PRE-FLIGHT AUTOMATION START =====")
                     logger.info(f"[handle_chat_message] Panel layout URL: {panel_layout_url}")
                     logger.info(f"[handle_chat_message] Session ID: {session_id}, User ID: {user_id}")
@@ -1859,10 +1859,10 @@ class DellSystemAIService:
                     # Step 1: Navigation
                     try:
                         logger.info("[handle_chat_message] ═══ STEP 1: NAVIGATION ═══")
-                    navigation_result = await self.navigate_panel_layout(
-                        session_id=session_id,
-                        user_id=user_id,
-                        url=panel_layout_url,
+                        navigation_result = await self.navigate_panel_layout(
+                            session_id=session_id,
+                            user_id=user_id,
+                            url=panel_layout_url,
                             wait_for="canvas",  # Primary selector - navigation will continue even if not found
                         )
                         logger.info(f"[handle_chat_message] Navigation result type: {type(navigation_result)}")
@@ -1976,11 +1976,11 @@ class DellSystemAIService:
                     if navigation_success and not automation_error:
                         try:
                             logger.info("[handle_chat_message] ═══ STEP 2: SCREENSHOT ═══")
-                    screenshot_result = await self.take_panel_screenshot(
-                        session_id=session_id,
-                        user_id=user_id,
-                        project_id=project_id,
-                    )
+                            screenshot_result = await self.take_panel_screenshot(
+                                session_id=session_id,
+                                user_id=user_id,
+                                project_id=project_id,
+                            )
                             if screenshot_result and screenshot_result.get('base64'):
                                 screenshot_success = True
                                 logger.info(f"[handle_chat_message] ✅ Screenshot successful: {len(screenshot_result.get('base64', ''))} chars")
@@ -2002,10 +2002,10 @@ class DellSystemAIService:
                     if navigation_success and not automation_error:
                         try:
                             logger.info("[handle_chat_message] ═══ STEP 3: PANEL EXTRACTION ═══")
-                    panel_result = await self.extract_panel_list(
-                        session_id=session_id,
-                        user_id=user_id,
-                    )
+                            panel_result = await self.extract_panel_list(
+                                session_id=session_id,
+                                user_id=user_id,
+                            )
                             if panel_result and panel_result.get('panels'):
                                 extraction_success = True
                                 panel_count = len(panel_result.get('panels', []))
@@ -2026,31 +2026,31 @@ class DellSystemAIService:
                     
                     # Build automation details
                     if navigation_success:
-                    automation_details = {
-                        "navigation": navigation_result,
+                        automation_details = {
+                            "navigation": navigation_result,
                             "navigationSuccess": navigation_success,
                             "screenshotSuccess": screenshot_success,
                             "extractionSuccess": extraction_success,
                             "panelList": panel_result.get("panels", []) if panel_result else [],
-                        "panelMetadata": {
-                            key: value
+                            "panelMetadata": {
+                                key: value
                                 for key, value in (panel_result.items() if panel_result else {})
-                            if key not in {"panels"}
+                                if key not in {"panels"}
                             } if panel_result else {},
                             "screenshot": screenshot_result.get("metadata", {}) if screenshot_result else {},
-                        "source": "browser_automation",
-                        "automationRan": True,
-                    }
+                            "source": "browser_automation",
+                            "automationRan": True,
+                        }
                         
                         # Only mark as fully successful if we got panels
                         if extraction_success and panel_result and panel_result.get('panels'):
-                    context.setdefault("panelAutomation", {}).update(
-                        {
-                            "panelList": automation_details.get("panelList", []),
-                            "panelMetadata": automation_details.get("panelMetadata", {}),
-                            "automationSource": "browser_automation",
-                        }
-                    )
+                            context.setdefault("panelAutomation", {}).update(
+                                {
+                                    "panelList": automation_details.get("panelList", []),
+                                    "panelMetadata": automation_details.get("panelMetadata", {}),
+                                    "automationSource": "browser_automation",
+                                }
+                            )
                             logger.info("[handle_chat_message] ✅ Pre-flight browser automation completed successfully")
                         elif navigation_success:
                             logger.warning("[handle_chat_message] ⚠️ Pre-flight automation partially succeeded (navigation OK, but extraction failed)")
@@ -2060,28 +2060,28 @@ class DellSystemAIService:
                         # Navigation failed - set error details
                         if not automation_error:
                             automation_error = "Navigation failed - see navigation result for details"
-                    automation_details = {
-                        "automationError": automation_error,
-                        "source": "browser_automation",
-                        "automationRan": False,
+                        automation_details = {
+                            "automationError": automation_error,
+                            "source": "browser_automation",
+                            "automationRan": False,
                             "navigationResult": str(navigation_result) if navigation_result else None
                         }
                         
                         # Try to get fallback data if navigation failed
                         try:
-                    fallback_data = await self._get_server_panel_fallback(
-                        project_id=project_id,
-                        auth_token=auth_token,
-                        extra_headers=extra_headers,
-                    )
-                    if fallback_data:
-                        fallback_panels = (
-                            fallback_data.get("panels")
-                            if isinstance(fallback_data, dict)
-                            else None
-                        )
-                        automation_details["fallbackPanels"] = fallback_panels or fallback_data
-                        automation_details["fallbackSource"] = "server_api"
+                            fallback_data = await self._get_server_panel_fallback(
+                                project_id=project_id,
+                                auth_token=auth_token,
+                                extra_headers=extra_headers,
+                            )
+                            if fallback_data:
+                                fallback_panels = (
+                                    fallback_data.get("panels")
+                                    if isinstance(fallback_data, dict)
+                                    else None
+                                )
+                                automation_details["fallbackPanels"] = fallback_panels or fallback_data
+                                automation_details["fallbackSource"] = "server_api"
                                 logger.info(f"[handle_chat_message] Using fallback server data: {len(fallback_panels or []) if fallback_panels else 0} panels")
                         except Exception as fallback_exc:
                             logger.warning(f"[handle_chat_message] Could not get fallback data: {fallback_exc}")
