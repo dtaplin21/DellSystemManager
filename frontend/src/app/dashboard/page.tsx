@@ -116,7 +116,7 @@ export default function Dashboard() {
               </div>
               <div className="card-value">Ready</div>
               <div className="card-actions">
-                <Link href="/dashboard/panels" className="btn btn-primary">
+                <Link href="/dashboard/projects" className="btn btn-primary">
                   Open Workspace
                 </Link>
               </div>
@@ -148,7 +148,7 @@ export default function Dashboard() {
               </div>
               <div className="card-value">Ready</div>
               <div className="card-actions">
-                <Link href="/dashboard/ai" className="btn btn-primary">
+                <Link href="/dashboard/projects" className="btn btn-primary">
                   Open Panel Generation
                 </Link>
               </div>
@@ -164,7 +164,7 @@ export default function Dashboard() {
                 <span className="action-text">New Project</span>
               </Link>
 
-              <Link href="/dashboard/ai" className="action-item">
+              <Link href="/dashboard/projects" className="action-item">
                 <div className="action-icon ai">🤖</div>
                 <span className="action-text">AI Panel Generation</span>
               </Link>
