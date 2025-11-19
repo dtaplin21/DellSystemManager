@@ -177,6 +177,9 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                   <Link href={`/dashboard/projects/${id}/qc-data`}>
                     <Button variant="outline" className="w-full">Enter QC Data</Button>
                   </Link>
+                  <Link href={`/dashboard/projects/${id}/ai-workspace`}>
+                    <Button variant="outline" className="w-full">AI Panel Workspace</Button>
+                  </Link>
                   <Button variant="outline" className="w-full">Export Reports</Button>
                 </div>
               </CardContent>

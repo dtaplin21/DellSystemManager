@@ -35,7 +35,7 @@ const AI_CAPABILITIES: AICapability[] = [
     name: 'Document Analysis',
     icon: <Brain className="h-6 w-6" />,
     description: 'Automatically analyze project documents to extract key information and patterns.',
-    route: '/dashboard/ai',
+    route: '/dashboard/projects/[id]/ai-workspace',
     available: true,
     requiredServices: [],
     projectSpecific: true
@@ -62,7 +62,7 @@ const AI_CAPABILITIES: AICapability[] = [
     name: 'Smart Recommendations',
     icon: <FastForward className="h-6 w-6" />,
     description: 'Get personalized recommendations based on your project data.',
-    route: '/dashboard/ai',
+    route: '/dashboard/projects/[id]/ai-workspace',
     available: false,
     requiredServices: ['ai.openai'],
     projectSpecific: true
@@ -71,7 +71,7 @@ const AI_CAPABILITIES: AICapability[] = [
     name: 'Automated Reporting',
     icon: <ArrowRight className="h-6 w-6" />,
     description: 'Generate comprehensive project reports with a single click.',
-    route: '/dashboard/ai',
+    route: '/dashboard/projects/[id]/ai-workspace',
     available: false,
     requiredServices: ['ai.openai'],
     projectSpecific: true
@@ -171,18 +171,30 @@ export default function AIDashboard() {
     }
 
     // Navigate to the appropriate route with project context
-    if (capability.projectSpecific && selectedProjectId) {
-      if (capability.route === '/dashboard/ai') {
-        router.push(`/dashboard/ai?projectId=${selectedProjectId}`);
-      } else if (capability.route === '/dashboard/qc-data') {
-        router.push(`/dashboard/qc-data?projectId=${selectedProjectId}`);
-      } else if (capability.route === '/dashboard/projects') {
-        router.push(`/dashboard/projects/${selectedProjectId}/panel-layout`);
+    if (capability.projectSpecific) {
+      if (!selectedProjectId) {
+        toast({
+          title: 'Select a project',
+          description: 'Choose a project to open this AI workspace.',
+          variant: 'destructive'
+        });
+        return;
       }
-    } else {
-      // For non-project-specific features, navigate to the route directly
-      router.push(capability.route);
+
+      const targetRoute = capability.route.includes('[id]')
+        ? capability.route.replace('[id]', selectedProjectId)
+        : capability.route === '/dashboard/qc-data'
+          ? `/dashboard/qc-data?projectId=${selectedProjectId}`
+          : capability.route === '/dashboard/projects'
+            ? `/dashboard/projects/${selectedProjectId}/panel-layout`
+            : capability.route;
+
+      router.push(targetRoute);
+      return;
     }
+
+    // For non-project-specific features, navigate to the route directly
+    router.push(capability.route);
   };
 
   return (

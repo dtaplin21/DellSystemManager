@@ -10,9 +10,11 @@ interface PanelAIChatProps {
     projectName?: string
     location?: string
     description?: string
+    panelLayoutUrl?: string
   }
   userId?: string
   userTier?: string
+  panelLayoutUrl?: string
 }
 
 type ChatRole = 'user' | 'assistant'
@@ -81,13 +83,14 @@ export default function PanelAIChat({
     return {
       projectId,
       projectInfo,
+      panelLayoutUrl,
       history: messages.slice(-15).map(msg => ({
         role: msg.role,
         content: msg.content,
         timestamp: msg.timestamp
       }))
     }
-  }, [messages, projectId, projectInfo])
+  }, [messages, panelLayoutUrl, projectId, projectInfo])
 
   const sendToMCP = useCallback(async (prompt: string): Promise<MCPChatResponse> => {
     const requestId = `req-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
