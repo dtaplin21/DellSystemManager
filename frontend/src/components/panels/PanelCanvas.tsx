@@ -254,6 +254,7 @@ export function PanelCanvas({
     <div className="relative w-full h-full overflow-hidden canvas-container">
       <canvas
         ref={canvasRef}
+        data-testid="canvas-main"
         className="absolute inset-0 cursor-crosshair"
         style={{ 
           touchAction: 'none',

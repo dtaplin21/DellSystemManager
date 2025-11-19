@@ -1497,6 +1497,7 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
           <div className="w-full h-full pt-16 bg-white"> {/* pt-16 accounts for toolbar height, white background */}
             <canvas
               ref={fullscreenCanvasRef}
+              data-testid="canvas-main"
               width={fullscreenCanvasWidth || window.innerWidth}
               height={fullscreenCanvasHeight || window.innerHeight}
               className="w-full h-full bg-white"

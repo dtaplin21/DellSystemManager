@@ -1863,7 +1863,7 @@ class DellSystemAIService:
                             session_id=session_id,
                             user_id=user_id,
                             url=panel_layout_url,
-                            wait_for="canvas",  # Primary selector - navigation will continue even if not found
+                            wait_for="[data-testid='canvas-main']",  # Works in both fullscreen and non-fullscreen modes
                         )
                         logger.info(f"[handle_chat_message] Navigation result type: {type(navigation_result)}")
                         logger.info(f"[handle_chat_message] Navigation result: {navigation_result}")
@@ -1898,7 +1898,7 @@ class DellSystemAIService:
                                     # Canvas timeout is OK - it's optional and not required for data extraction
                                     if "successfully" in nav_lower or "navigated" in nav_lower or "not found/visible" in nav_lower or "optional selector" in nav_lower:
                                         navigation_success = True
-                                        if "optional selector" in nav_lower or "canvas" in nav_lower.lower():
+                                        if "optional selector" in nav_lower or "canvas" in nav_lower.lower() or "canvas-main" in nav_lower:
                                             logger.info(f"[handle_chat_message] ✅ Navigation succeeded despite optional canvas timeout (canvas not required for data extraction)")
                                     else:
                                         # Unknown error - treat as failure
@@ -1911,7 +1911,7 @@ class DellSystemAIService:
                                 # Page loaded but selector not found - this is OK, continue
                                 # Canvas is optional - panel data comes from React state/API, not canvas
                                 navigation_success = True
-                                if "optional selector" in nav_lower or "canvas" in nav_lower.lower():
+                                if "optional selector" in nav_lower or "canvas" in nav_lower.lower() or "canvas-main" in nav_lower:
                                     logger.info(f"[handle_chat_message] ✅ Navigation succeeded - optional canvas not found but page loaded (canvas not required for data extraction)")
                                 else:
                                     logger.warning(f"[handle_chat_message] ⚠️ Navigation succeeded but selector not found: {nav_status}")

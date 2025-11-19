@@ -111,11 +111,12 @@ class BrowserNavigationTool(BaseTool):
 
                     if wait_for:
                         # Use shorter timeout for optional canvas selector
-                        tab_timeout = getattr(session.security, 'optional_selector_timeout_ms', 5000) if wait_for == "canvas" else session.security.wait_timeout_ms
+                        is_canvas_selector = wait_for == "canvas" or (wait_for and "canvas-main" in wait_for)
+                        tab_timeout = getattr(session.security, 'optional_selector_timeout_ms', 5000) if is_canvas_selector else session.security.wait_timeout_ms
                         try:
                             await page.wait_for_selector(wait_for, timeout=tab_timeout)
                         except Exception as exc:
-                            if wait_for == "canvas":
+                            if is_canvas_selector:
                                 logger.warning("[%s] Optional canvas selector timeout on new tab (continuing anyway): %s", session_id, exc)
                             else:
                                 return f"Error: Timeout waiting for selector '{wait_for}' on new tab: {exc}"
@@ -147,7 +148,8 @@ class BrowserNavigationTool(BaseTool):
             
             # Use shorter timeout for optional selectors like canvas (they're not required for data extraction)
             # Canvas is used for visual rendering but panel data comes from React state/API, not canvas
-            if wait_for == "canvas":
+            is_canvas_selector = wait_for == "canvas" or (wait_for and "canvas-main" in wait_for)
+            if is_canvas_selector:
                 timeout = getattr(session.security, 'optional_selector_timeout_ms', 5000)  # 5 seconds for optional canvas
                 logger.info("[%s] Using shorter timeout for optional canvas selector: %dms", session_id, timeout)
             else:
@@ -277,10 +279,10 @@ class BrowserNavigationTool(BaseTool):
                             page_title = await page.title()
                             
                             # Canvas is optional - panel data comes from React state/API, not canvas
-                            is_optional_selector = wait_for == "canvas"
+                            is_optional_selector = wait_for == "canvas" or (wait_for and "canvas-main" in wait_for)
                             
                             if is_optional_selector:
-                                logger.warning("[%s] ⚠️ Optional selector 'canvas' timeout after %dms (this is OK - canvas not required for data extraction)", session_id, timeout)
+                                logger.warning("[%s] ⚠️ Optional selector '%s' timeout after %dms (this is OK - canvas not required for data extraction)", session_id, wait_for, timeout)
                             else:
                                 logger.error("[%s] ❌ Selector '%s' timeout after %dms", session_id, wait_for, timeout)
                             
@@ -293,8 +295,12 @@ class BrowserNavigationTool(BaseTool):
                                 logger.info("[%s] Total elements on page: %d", session_id, len(all_elements))
                                 
                                 # Try to find similar selectors
-                                if wait_for == "canvas":
-                                    canvas_elements = await page.query_selector_all("canvas")
+                                if is_optional_selector:
+                                    # Check for canvas elements with data-testid
+                                    canvas_elements = await page.query_selector_all("canvas[data-testid='canvas-main']")
+                                    if len(canvas_elements) == 0:
+                                        # Fallback to any canvas element
+                                        canvas_elements = await page.query_selector_all("canvas")
                                     logger.info("[%s] Found %d canvas elements on page", session_id, len(canvas_elements))
                                     if len(canvas_elements) == 0:
                                         logger.info("[%s] Canvas not found - may be conditionally rendered (fullscreen mode) or still loading", session_id)
@@ -302,7 +308,8 @@ class BrowserNavigationTool(BaseTool):
                                         try:
                                             is_visible = await canvas.is_visible()
                                             bounds = await canvas.bounding_box()
-                                            logger.info("[%s]   Canvas %d: visible=%s, bounds=%s", session_id, i+1, is_visible, bounds)
+                                            testid = await canvas.get_attribute("data-testid")
+                                            logger.info("[%s]   Canvas %d: visible=%s, bounds=%s, testid=%s", session_id, i+1, is_visible, bounds, testid)
                                         except Exception:
                                             pass
                             except Exception as debug_error:
@@ -336,8 +343,9 @@ class BrowserNavigationTool(BaseTool):
                         if selector_found:
                             message += f" and found selector '{wait_for}'"
                         else:
-                            if wait_for == "canvas":
-                                message += f" (optional selector 'canvas' not found, but page loaded - panel data can be extracted from React state/API)"
+                            is_canvas_selector = wait_for == "canvas" or (wait_for and "canvas-main" in wait_for)
+                            if is_canvas_selector:
+                                message += f" (optional selector '{wait_for}' not found, but page loaded - panel data can be extracted from React state/API)"
                             else:
                                 message += f" (selector '{wait_for}' not found/visible, but page loaded)"
                     
