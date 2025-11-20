@@ -368,6 +368,22 @@ router.post('/chat', auth, async (req, res) => {
         const frontendBaseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
         const panelLayoutUrl = `${frontendBaseUrl}/dashboard/projects/${projectId}/panel-layout`;
         
+        // Extract auth token from Authorization header for browser automation
+        let authToken = null;
+        const authorizationHeader = req.headers?.authorization;
+        if (authorizationHeader && authorizationHeader.startsWith('Bearer ')) {
+          authToken = authorizationHeader.replace('Bearer ', '');
+          logger.debug('[AI CHAT] Extracted auth token for browser automation', {
+            requestId,
+            tokenPreview: authToken ? authToken.substring(0, 20) + '...' : 'null'
+          });
+        } else {
+          logger.warn('[AI CHAT] No Authorization header found - browser automation may fail', {
+            requestId,
+            hasAuthHeader: !!authorizationHeader
+          });
+        }
+        
         const payload = {
           projectId,
           user_id: req.user?.id || 'anonymous',
@@ -380,7 +396,9 @@ router.post('/chat', auth, async (req, res) => {
             panelLayoutUrl: panelLayoutUrl,
             panel_layout_url: panelLayoutUrl, // Support both naming conventions
             frontendUrl: frontendBaseUrl,
-            frontend_url: frontendBaseUrl
+            frontend_url: frontendBaseUrl,
+            auth_token: authToken,  // Add auth token for browser automation
+            authToken: authToken    // Support both naming conventions
           }
         }
         
