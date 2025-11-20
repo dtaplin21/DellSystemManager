@@ -151,16 +151,57 @@ class SharedContextStore:
 class CrewAgentExecutor:
     """Wraps a CrewAI agent so it can be awaited within async flows"""
 
-    def __init__(self, agent: Agent, process: Process = Process.sequential, tools: Optional[List[BaseTool]] = None):
+    def __init__(self, agent: Agent, process: Process = Process.sequential, tools: Optional[List[BaseTool]] = None, requires_browser_tools: bool = False):
         self.agent = agent
         self.process = process
         self.tools = tools or []
+        self.requires_browser_tools = requires_browser_tools
+
+    def _detect_fake_answer(self, response: str) -> bool:
+        """Detect if agent is describing actions instead of executing them"""
+        fake_indicators = [
+            "i need to", "i would", "i should", "i will", "i'll",
+            "let me", "i can", "i could", "i might",
+            "to navigate", "to take a screenshot", "to extract",
+            "would navigate", "would take", "would extract",
+            "should navigate", "should take", "should extract",
+            "need to navigate", "need to take", "need to extract",
+            "will navigate", "will take", "will extract"
+        ]
+        response_lower = response.lower()
+        fake_count = sum(1 for indicator in fake_indicators if indicator in response_lower)
+        return fake_count >= 2  # Multiple indicators = likely fake
 
     async def execute(self, query: str, context: Optional[Dict[str, Any]] = None) -> str:
+        # Build task description with enforcement for browser tools
+        if self.requires_browser_tools:
+            task_description = f"""CRITICAL INSTRUCTIONS - YOU MUST EXECUTE BROWSER TOOLS:
+
+{query}
+
+🚨 MANDATORY REQUIREMENTS:
+1. You MUST execute browser tools (browser_navigate, browser_screenshot, browser_extract)
+2. DO NOT describe what you would do - ACTUALLY DO IT
+3. DO NOT say "I need to navigate" - ACTUALLY CALL browser_navigate
+4. DO NOT say "I would take a screenshot" - ACTUALLY CALL browser_screenshot
+5. Your response MUST include actual results from tool execution, not descriptions
+
+If you describe actions instead of executing them, your response will be rejected.
+You MUST use the available browser tools to complete this task."""
+            
+            expected_output = """A response that includes:
+1. Confirmation of browser tool execution (e.g., "Navigation successful", "Screenshot captured")
+2. Actual data extracted from browser tools (not descriptions)
+3. Results based on visual analysis performed via tools
+4. NO descriptions of what you would do - only what you actually did"""
+        else:
+            task_description = f"Respond to the following request with actionable insight: {query}"
+            expected_output = "A concise, domain specific response"
+        
         task = Task(
-            description=f"Respond to the following request with actionable insight: {query}",
+            description=task_description,
             agent=self.agent,
-            expected_output="A concise, domain specific response",
+            expected_output=expected_output,
             tools=self.tools,
         )
 
@@ -168,7 +209,7 @@ class CrewAgentExecutor:
             agents=[self.agent],
             tasks=[task],
             process=self.process,
-            verbose=False,
+            verbose=True,  # Enable verbose to see tool calls
             share_crew=True,
         )
 
@@ -177,9 +218,27 @@ class CrewAgentExecutor:
             {"user_context": context or {}, "query": query},
         )
 
-        if isinstance(result, dict) and "output" in result:
-            return result["output"]
-        return str(result)
+        response = result["output"] if isinstance(result, dict) and "output" in result else str(result)
+        
+        # Validate response for browser tool tasks
+        if self.requires_browser_tools:
+            if self._detect_fake_answer(response):
+                logger.warning("[CrewAgentExecutor] Detected fake answer - agent described actions instead of executing")
+                # Check if tools were actually called by examining crew result
+                if isinstance(result, dict):
+                    # Look for tool execution evidence
+                    has_tool_calls = any(
+                        "browser_navigate" in str(result).lower() or
+                        "browser_screenshot" in str(result).lower() or
+                        "browser_extract" in str(result).lower()
+                        for key in result.keys()
+                    )
+                    if not has_tool_calls:
+                        error_msg = "ERROR: You described actions instead of executing browser tools. You MUST actually call browser_navigate, browser_screenshot, and browser_extract tools. Do not describe what you would do - execute the tools now."
+                        logger.error(f"[CrewAgentExecutor] {error_msg}")
+                        return error_msg
+        
+        return response
 
 @dataclass
 class ModelConfig:
@@ -222,6 +281,25 @@ class CostOptimizer:
         """Analyze task complexity based on query and context"""
         query_lower = query.lower()
         
+        # Detect browser tool requirements - these MUST use GPT-4o
+        browser_tool_keywords = [
+            "visual", "layout", "panel layout", "screenshot", "navigate", 
+            "browser", "frontend", "page", "canvas", "ui", "interface",
+            "see", "look", "display", "shown", "arrange", "position"
+        ]
+        requires_browser_tools = any(keyword in query_lower for keyword in browser_tool_keywords)
+        
+        # Check context for browser tool indicators
+        if context:
+            context_str = str(context).lower()
+            if any(keyword in context_str for keyword in browser_tool_keywords + ["panel_layout_url", "visual_analysis"]):
+                requires_browser_tools = True
+        
+        # If browser tools are required, mark as COMPLEX to force GPT-4o
+        if requires_browser_tools:
+            logger.info(f"[CostOptimizer] Browser tools required - forcing COMPLEX complexity")
+            return TaskComplexity.COMPLEX
+        
         # Simple tasks
         if any(word in query_lower for word in ["hello", "help", "status", "simple"]):
             return TaskComplexity.SIMPLE
@@ -237,8 +315,19 @@ class CostOptimizer:
         # Default to moderate
         return TaskComplexity.MODERATE
     
-    def select_optimal_model(self, complexity: TaskComplexity, user_tier: str) -> str:
-        """Select optimal model based on complexity and user tier"""
+    def select_optimal_model(self, complexity: TaskComplexity, user_tier: str, requires_browser_tools: bool = False) -> str:
+        """Select optimal model based on complexity and user tier
+        
+        Args:
+            complexity: Task complexity level
+            user_tier: User subscription tier
+            requires_browser_tools: Whether browser tools are required (forces GPT-4o)
+        """
+        # CRITICAL: Browser tool tasks MUST use GPT-4o for reliable execution
+        if requires_browser_tools or complexity == TaskComplexity.COMPLEX:
+            logger.info(f"[CostOptimizer] Selecting GPT-4o (browser_tools={requires_browser_tools}, complexity={complexity.value})")
+            return "gpt-4o"
+        
         if user_tier == "free_user":
             return "gpt-3.5-turbo"
         elif complexity in [TaskComplexity.SIMPLE, TaskComplexity.MODERATE]:
@@ -379,11 +468,24 @@ class DellSystemAIService:
             # Analyze task complexity
             complexity = self.cost_optimizer.analyze_task_complexity(query, context)
             
-            # Select optimal model
-            optimal_model = self.cost_optimizer.select_optimal_model(complexity, user_tier)
+            # Detect browser tool requirements
+            query_lower = query.lower()
+            browser_tool_keywords = [
+                "visual", "layout", "panel layout", "screenshot", "navigate", 
+                "browser", "frontend", "page", "canvas", "ui", "interface",
+                "see", "look", "display", "shown", "arrange", "position"
+            ]
+            requires_browser_tools = any(keyword in query_lower for keyword in browser_tool_keywords)
+            if context:
+                context_str = str(context).lower()
+                if any(keyword in context_str for keyword in browser_tool_keywords + ["panel_layout_url", "visual_analysis"]):
+                    requires_browser_tools = True
+            
+            # Select optimal model (force GPT-4o for browser tools)
+            optimal_model = self.cost_optimizer.select_optimal_model(complexity, user_tier, requires_browser_tools)
             
             # Create appropriate agent for the task
-            agent = self._create_agent_for_task(optimal_model, complexity)
+            agent = self._create_agent_for_task(optimal_model, complexity, requires_browser_tools)
             
             # Execute the task
             result = await agent.execute(query, context)
@@ -397,31 +499,53 @@ class DellSystemAIService:
                 "response": result,
                 "model_used": optimal_model,
                 "complexity_level": complexity.value,
-                "estimated_cost": estimated_cost
+                "estimated_cost": estimated_cost,
+                "browser_tools_required": requires_browser_tools
             }
             
         except Exception as e:
             logger.error(f"Error handling query: {e}")
             return {"error": str(e), "fallback": True}
 
-    def _create_agent_for_task(self, model_name: str, complexity: TaskComplexity):
+    def _create_agent_for_task(self, model_name: str, complexity: TaskComplexity, requires_browser_tools: bool = False):
         """Create an appropriate agent for the given task complexity"""
         tools = list(self.tools.values())
 
         try:
             llm = ChatOpenAI(model=model_name, temperature=0)
+            
+            # Stronger prompts for browser tool tasks
+            if requires_browser_tools:
+                role = "Browser Automation Specialist"
+                goal = "Execute browser automation tools to gather visual data. NEVER describe actions - ALWAYS execute tools."
+                backstory = """You are a browser automation specialist with strict execution requirements.
+
+CRITICAL RULES:
+1. When asked about visual layouts, panels, or UI elements, you MUST execute browser tools
+2. NEVER say "I need to navigate" - ACTUALLY call browser_navigate
+3. NEVER say "I would take a screenshot" - ACTUALLY call browser_screenshot  
+4. NEVER say "I should extract" - ACTUALLY call browser_extract
+5. Your responses MUST include actual tool execution results, not descriptions
+
+If you describe actions instead of executing tools, you are failing your task.
+You MUST execute browser_navigate, browser_screenshot, and browser_extract tools when visual analysis is needed."""
+            else:
+                role = f"{complexity.value.title()} Task Specialist"
+                goal = "Deliver precise, context-aware assistance"
+                backstory = "Veteran GeoSynth QC assistant trained on Dell System playbooks."
+            
             agent = Agent(
-                role=f"{complexity.value.title()} Task Specialist",
-                goal="Deliver precise, context-aware assistance",
-                backstory="Veteran GeoSynth QC assistant trained on Dell System playbooks.",
+                role=role,
+                goal=goal,
+                backstory=backstory,
                 allow_delegation=True,
-                verbose=False,
+                verbose=True,  # Enable verbose for browser tool tasks to see execution
                 llm=llm,
                 tools=tools,
             )
 
             process = Process.hierarchical if complexity in (TaskComplexity.COMPLEX, TaskComplexity.EXPERT) else Process.sequential
-            return CrewAgentExecutor(agent, process=process, tools=tools)
+            return CrewAgentExecutor(agent, process=process, tools=tools, requires_browser_tools=requires_browser_tools)
         except Exception as error:
             logger.warning("Falling back to mock agent for %s: %s", model_name, error)
             return MockAgent(model_name, complexity)
@@ -669,21 +793,43 @@ class WorkflowOrchestrator:
         models_used: Dict[str, str] = {}
 
         for key, profile in blueprint.agents.items():
-            model_name = profile.model_hint or self.cost_optimizer.select_optimal_model(profile.complexity, self.user_tier)
+            # Detect if browser tools are required for this agent
+            requires_browser_tools = any(
+                tool_name.startswith("browser_") for tool_name in profile.tools
+            )
+            
+            model_name = profile.model_hint or self.cost_optimizer.select_optimal_model(
+                profile.complexity, 
+                self.user_tier, 
+                requires_browser_tools=requires_browser_tools
+            )
+            
             try:
                 llm = ChatOpenAI(model=model_name, temperature=0)
+                
+                # Strengthen backstory for browser tool agents
+                if requires_browser_tools:
+                    enhanced_backstory = f"""{profile.backstory}
+
+CRITICAL: You have access to browser automation tools. When tasks require visual analysis or UI interaction:
+- ALWAYS execute browser_navigate, browser_screenshot, browser_extract tools
+- NEVER describe what you would do - ACTUALLY execute the tools
+- Your responses MUST include actual tool execution results"""
+                else:
+                    enhanced_backstory = profile.backstory
+                
                 agent = Agent(
                     role=profile.role,
                     goal=profile.goal,
-                    backstory=profile.backstory,
+                    backstory=enhanced_backstory,
                     allow_delegation=profile.allow_delegation,
-                    verbose=False,
+                    verbose=requires_browser_tools,  # Enable verbose for browser tool agents
                     llm=llm,
                     tools=[self.tools[name] for name in profile.tools if name in self.tools],
                 )
                 agents[key] = agent
                 models_used[key] = model_name
-                await collaboration.publish(profile.name, "Ready to collaborate", {"model": model_name})
+                await collaboration.publish(profile.name, "Ready to collaborate", {"model": model_name, "browser_tools": requires_browser_tools})
             except Exception as error:
                 logger.warning("Falling back to mock agent for %s: %s", key, error)
                 fallback[key] = MockAgent(model_name, profile.complexity)

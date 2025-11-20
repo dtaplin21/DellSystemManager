@@ -30,6 +30,7 @@ openpyxl>=3.1.0  # For Excel processing
 
 # Browser automation
 playwright>=1.42.0
+nest-asyncio>=1.6.0  # Allows nested event loops (fixes CrewAI threading conflicts)
 
 # Logging and monitoring
 structlog>=23.0.0

@@ -7,9 +7,13 @@ import json
 import logging
 from typing import Any, Optional
 
+import nest_asyncio
 from crewai.tools import BaseTool
 
 from .browser_sessions import BrowserSessionManager
+
+# Apply nest_asyncio to allow nested event loops (fixes CrewAI threading conflicts)
+nest_asyncio.apply()
 
 logger = logging.getLogger(__name__)
 
