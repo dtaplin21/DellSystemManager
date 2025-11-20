@@ -761,10 +761,10 @@ class BrowserSessionManager:
                         return None
                     
                     logger.info(f"[AUTH STATE] Supabase config found: URL={supabase_url[:30]}..., Key={'*' * 20}")
-                
-                # Use Supabase client's setSession() method via the frontend's Supabase client
-                # This properly initializes Supabase's internal state and triggers React auth hooks
-                set_session_script = f"""
+                    
+                    # Use Supabase client's setSession() method via the frontend's Supabase client
+                    # This properly initializes Supabase's internal state and triggers React auth hooks
+                    set_session_script = f"""
                     (async () => {{
                         try {{
                             // Wait for Next.js to load and Supabase client to be available
@@ -834,8 +834,8 @@ class BrowserSessionManager:
                             return {{ success: false, error: error.message || String(error) }};
                         }}
                     }})()
-                """
-                
+                    """
+                    
                     # Execute the script to set session with timeout
                     logger.info(f"[AUTH STATE] Executing Supabase setSession script...")
                     try:
@@ -871,6 +871,9 @@ class BrowserSessionManager:
                         logger.error(f"[AUTH STATE] Failed to save storage state: {e}")
                         return None
                     
+                except Exception as e:
+                    logger.error(f"[AUTH STATE] Error during auth state creation: {e}", exc_info=True)
+                    return None
                 finally:
                     if browser:
                         try:
