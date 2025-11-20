@@ -368,6 +368,7 @@ function Phase4FoundationTestContent() {
       <div className="flex-1 relative">
         <canvas
           ref={canvasRef}
+          data-testid="canvas-main"
           width={viewportSize.width}
           height={viewportSize.height}
           className="absolute inset-0 cursor-crosshair border border-gray-300"

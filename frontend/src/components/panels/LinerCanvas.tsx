@@ -502,6 +502,7 @@ export function LinerCanvas({
   return (
     <canvas
       ref={canvasRef}
+      data-testid="canvas-main"
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}

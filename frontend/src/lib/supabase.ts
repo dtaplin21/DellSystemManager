@@ -56,6 +56,11 @@ const getSupabaseClient = (): SupabaseClient => {
         }
       });
       console.log('✅ [SUPABASE] Real client created successfully');
+      
+      // Expose client on window for browser automation (development/testing only)
+      if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+        (window as any).__SUPABASE_CLIENT__ = supabase;
+      }
     } else {
       console.log('🔧 [SUPABASE] Missing credentials - using mock client');
       supabase = createMockClient();

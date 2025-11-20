@@ -86,7 +86,16 @@ class BrowserNavigationTool(BaseTool):
         
         try:
             logger.info("[%s] Getting browser session...", session_id)
-            session = await self.session_manager.get_session(session_id, user_id)
+            # Extract auth_token and frontend_url from context if available
+            # These would be passed through from the AI service
+            auth_token = getattr(self, '_auth_token', None)
+            frontend_url = getattr(self, '_frontend_url', None)
+            session = await self.session_manager.get_session(
+                session_id=session_id,
+                user_id=user_id,
+                auth_token=auth_token,
+                frontend_url=frontend_url
+            )
             logger.info("[%s] Browser session obtained", session_id)
 
             # Handle tab management actions first

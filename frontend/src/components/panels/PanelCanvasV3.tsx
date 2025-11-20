@@ -168,6 +168,7 @@ export function PanelCanvasV3({
     >
       <canvas
         ref={canvasRef}
+        data-testid="canvas-main"
         width={viewportSize.width}
         height={viewportSize.height}
         className="absolute inset-0 cursor-crosshair"

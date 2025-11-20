@@ -1491,9 +1491,16 @@ class DellSystemAIService:
         user_id: str,
         url: str,
         wait_for: str = "canvas",
+        auth_token: Optional[str] = None,
+        frontend_url: Optional[str] = None,
     ) -> Dict[str, Any]:
         self._ensure_browser_automation()
         navigation_tool = BrowserNavigationTool(self.browser_sessions)
+        # Pass auth_token and frontend_url to navigation tool
+        if auth_token:
+            navigation_tool._auth_token = auth_token
+        if frontend_url:
+            navigation_tool._frontend_url = frontend_url
         result = await navigation_tool._arun(
             action="navigate",
             url=url,
@@ -1859,11 +1866,21 @@ class DellSystemAIService:
                     # Step 1: Navigation
                     try:
                         logger.info("[handle_chat_message] ═══ STEP 1: NAVIGATION ═══")
+                        # Get auth_token and frontend_url from context for browser authentication
+                        auth_token = context.get("authToken") or context.get("auth_token")
+                        frontend_url = (
+                            context.get("frontendUrl")
+                            or context.get("frontend_url")
+                            or os.getenv("FRONTEND_URL", "http://localhost:3000")
+                        )
+                        
                         navigation_result = await self.navigate_panel_layout(
                             session_id=session_id,
                             user_id=user_id,
                             url=panel_layout_url,
                             wait_for="[data-testid='canvas-main']",  # Works in both fullscreen and non-fullscreen modes
+                            auth_token=auth_token,
+                            frontend_url=frontend_url,
                         )
                         logger.info(f"[handle_chat_message] Navigation result type: {type(navigation_result)}")
                         logger.info(f"[handle_chat_message] Navigation result: {navigation_result}")
