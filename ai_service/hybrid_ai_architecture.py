@@ -576,6 +576,316 @@ You MUST execute browser_navigate, browser_screenshot, and browser_extract tools
         except Exception as error:
             logger.warning("Unable to persist orchestrator manifest: %s", error)
 
+    async def handle_chat_message(self, user_id: str, user_tier: str, message: str, context: Dict = None) -> Dict:
+        """Handle chat messages with pre-flight automation and intelligent model routing"""
+        context = context or {}
+        logger.info(f"[handle_chat_message] Processing chat message from user {user_id} (tier: {user_tier})")
+        
+        try:
+            # Analyze task complexity
+            complexity = self.cost_optimizer.analyze_task_complexity(message, context)
+            
+            # Detect browser tool requirements
+            message_lower = message.lower()
+            context_str = str(context).lower()
+            browser_tool_keywords = [
+                "visual", "layout", "panel layout", "screenshot", "navigate", 
+                "browser", "frontend", "page", "canvas", "ui", "interface",
+                "see", "look", "display", "shown", "arrange", "position", "list", "show"
+            ]
+            requires_browser_tools = any(keyword in message_lower for keyword in browser_tool_keywords)
+            if any(keyword in context_str for keyword in browser_tool_keywords + ["panel_layout_url", "visual_analysis", "panelLayoutUrl"]):
+                requires_browser_tools = True
+            
+            logger.info(f"[handle_chat_message] Browser tools required: {requires_browser_tools}, Complexity: {complexity.value}")
+            
+            # Select optimal model (CRITICAL: Force GPT-4o for browser tools)
+            optimal_model = self.cost_optimizer.select_optimal_model(complexity, user_tier, requires_browser_tools)
+            logger.info(f"[handle_chat_message] Selected model: {optimal_model}")
+            
+            # Pre-flight automation for browser tool tasks
+            preflight_success = False
+            preflight_error = None
+            automation_details = {}
+            
+            if requires_browser_tools:
+                logger.info(f"[handle_chat_message] ===== PRE-FLIGHT AUTOMATION START =====")
+                
+                # Get panel layout URL from context
+                panel_layout_url = context.get("panelLayoutUrl") or context.get("panel_layout_url")
+                frontend_url = context.get("frontendUrl") or context.get("frontend_url", "http://localhost:3000")
+                
+                if panel_layout_url and not panel_layout_url.startswith("http"):
+                    panel_layout_url = f"{frontend_url}{panel_layout_url}"
+                
+                if not panel_layout_url:
+                    panel_layout_url = f"{frontend_url}/dashboard/projects/{context.get('projectId', 'unknown')}/panel-layout"
+                
+                logger.info(f"[handle_chat_message] Panel layout URL: {panel_layout_url}")
+                
+                session_id = f"panel-visual-{context.get('projectId', user_id)}"
+                logger.info(f"[handle_chat_message] Session ID: {session_id}, User ID: {user_id}")
+                
+                try:
+                    # STEP 1: Navigation
+                    logger.info(f"[handle_chat_message] ═══ STEP 1: NAVIGATION ═══")
+                    nav_tool = self.tools.get("browser_navigate")
+                    if nav_tool:
+                        # Set auth token and frontend URL for navigation
+                        auth_token = context.get("auth_token") or context.get("authToken")
+                        if hasattr(nav_tool, '_auth_token'):
+                            nav_tool._auth_token = auth_token
+                        if hasattr(nav_tool, '_frontend_url'):
+                            nav_tool._frontend_url = frontend_url
+                        
+                        navigation_result = await nav_tool._arun(
+                            action="navigate",
+                            url=panel_layout_url,
+                            wait_for="[data-testid='canvas-main']",
+                            session_id=session_id,
+                            user_id=user_id,
+                            tab_id=None
+                        )
+                        
+                        logger.info(f"[handle_chat_message] Navigation result type: {type(navigation_result)}")
+                        if isinstance(navigation_result, dict):
+                            nav_status = navigation_result.get("status", str(navigation_result))
+                        else:
+                            nav_status = str(navigation_result)
+                        
+                        logger.info(f"[handle_chat_message] Navigation status type: {type(nav_status)}, value: {nav_status}")
+                        
+                        # Check if navigation succeeded (including optional selector messages)
+                        nav_success = (
+                            "successfully navigated" in nav_status.lower() or
+                            "navigation successful" in nav_status.lower() or
+                            "optional selector" in nav_status.lower() or
+                            "canvas not required" in nav_status.lower()
+                        )
+                        
+                        logger.info(f"[handle_chat_message] {'✅' if nav_success else '❌'} Navigation {'succeeded' if nav_success else 'failed'}: {nav_status}")
+                        automation_details["navigation"] = {"success": nav_success, "status": nav_status}
+                    else:
+                        logger.warning(f"[handle_chat_message] browser_navigate tool not available")
+                        nav_success = False
+                    
+                    # STEP 2: Screenshot
+                    logger.info(f"[handle_chat_message] ═══ STEP 2: SCREENSHOT ═══")
+                    screenshot_tool = self.tools.get("browser_screenshot")
+                    screenshot_success = False
+                    if screenshot_tool and nav_success:
+                        try:
+                            screenshot_result = await screenshot_tool._arun(
+                                full_page=True,
+                                session_id=session_id,
+                                user_id=user_id
+                            )
+                            screenshot_success = True
+                            logger.info(f"[handle_chat_message] ✅ Screenshot successful: {len(str(screenshot_result))} chars")
+                            automation_details["screenshot"] = {"success": True, "size": len(str(screenshot_result))}
+                        except Exception as screenshot_error:
+                            logger.error(f"[handle_chat_message] ❌ Screenshot failed: {screenshot_error}")
+                            automation_details["screenshot"] = {"success": False, "error": str(screenshot_error)}
+                    else:
+                        logger.warning(f"[handle_chat_message] Screenshot skipped (nav_success={nav_success}, tool_available={screenshot_tool is not None})")
+                    
+                    # STEP 3: Panel Extraction
+                    logger.info(f"[handle_chat_message] ═══ STEP 3: PANEL EXTRACTION ═══")
+                    extraction_tool = self.tools.get("browser_extract")
+                    extraction_success = False
+                    if extraction_tool and nav_success:
+                        try:
+                            panel_result = await extraction_tool._arun(
+                                action="panels",
+                                session_id=session_id,
+                                user_id=user_id
+                            )
+                            
+                            # Check if extraction succeeded
+                            if isinstance(panel_result, dict):
+                                extraction_success = panel_result.get("success", False)
+                            elif isinstance(panel_result, str):
+                                try:
+                                    import json
+                                    parsed = json.loads(panel_result)
+                                    extraction_success = parsed.get("success", False)
+                                except:
+                                    extraction_success = "success" in panel_result.lower() and "error" not in panel_result.lower()
+                            
+                            if extraction_success:
+                                logger.info(f"[handle_chat_message] ✅ Panel extraction successful")
+                                automation_details["extraction"] = {"success": True, "data": panel_result}
+                            else:
+                                logger.error(f"[handle_chat_message] ❌ Panel extraction failed: {panel_result}")
+                                automation_details["extraction"] = {"success": False, "error": str(panel_result)}
+                                preflight_error = f"Panel extraction failed: {panel_result}"
+                        except Exception as extraction_error:
+                            logger.error(f"[handle_chat_message] ❌ Panel extraction exception: {extraction_error}")
+                            automation_details["extraction"] = {"success": False, "error": str(extraction_error)}
+                            preflight_error = f"Panel extraction failed: {extraction_error}"
+                    else:
+                        logger.warning(f"[handle_chat_message] Panel extraction skipped (nav_success={nav_success}, tool_available={extraction_tool is not None})")
+                    
+                    # Determine overall pre-flight success
+                    preflight_success = nav_success and screenshot_success
+                    if not extraction_success:
+                        logger.warning(f"[handle_chat_message] ⚠️ Pre-flight automation partially succeeded (navigation OK, but extraction failed)")
+                        logger.warning(f"[handle_chat_message] Error details: {preflight_error}")
+                    
+                    logger.info(f"[handle_chat_message] ===== PRE-FLIGHT AUTOMATION COMPLETE =====")
+                    logger.info(f"[handle_chat_message] Summary: nav={nav_success}, screenshot={screenshot_success}, extraction={extraction_success}, error={preflight_error is not None}")
+                    
+                except Exception as automation_error:
+                    logger.error(f"[handle_chat_message] Pre-flight automation error: {automation_error}")
+                    preflight_error = str(automation_error)
+                    automation_details["error"] = str(automation_error)
+            
+            # Create agent with proper configuration
+            agent = self._create_agent_for_task(optimal_model, complexity, requires_browser_tools)
+            logger.info(f"[handle_chat_message] Agent created with {len(agent.tools)} tools")
+            logger.info(f"[handle_chat_message] Agent tools: {[tool.name if hasattr(tool, 'name') else str(tool) for tool in agent.tools]}")
+            
+            # Build enhanced context with pre-flight results
+            enhanced_context = copy.deepcopy(context)
+            enhanced_context["preflight_automation"] = {
+                "success": preflight_success,
+                "error": preflight_error,
+                "details": automation_details
+            }
+            enhanced_context["frontendUrl"] = frontend_url
+            enhanced_context["frontend_url"] = frontend_url
+            
+            # Build query with enforcement for browser tools
+            if requires_browser_tools:
+                # Add critical instructions to the query
+                browser_tools_available = [name for name in self.tools.keys() if name.startswith("browser_")]
+                enhanced_query = f"""User request: {message}
+Context: {json.dumps(enhanced_context, default=str)}
+
+🚨 CRITICAL: THIS IS A VISUAL LAYOUT QUESTION - YOU MUST USE BROWSER AUTOMATION TOOLS ONLY.
+
+{f'⚠️ PRE-FLIGHT AUTOMATION FAILED: {preflight_error}.' if preflight_error else '✅ Pre-flight automation completed successfully.'}
+{f'This means the system attempted to navigate and capture the layout automatically but encountered an error.' if preflight_error else 'The system has already navigated to the page and captured a screenshot.'}
+{f'YOU MUST STILL USE BROWSER TOOLS YOURSELF to complete the task. Do not rely on pre-flight automation.' if preflight_error else 'You can use the pre-flight data, but you MUST STILL EXECUTE browser tools to answer the user\'s question.'}
+
+❌ DO NOT USE PanelManipulationTool.get_panels() - This returns backend data, not visual order.
+❌ DO NOT USE any backend API tools for this question.
+✅ YOU MUST USE browser automation tools instead.
+
+STEP 1: Navigate to the panel layout page
+- Tool: browser_navigate
+- Parameters: action='navigate', url='{panel_layout_url}', user_id='{user_id}', wait_for='canvas'
+- This MUST be done first. Wait for confirmation before proceeding.
+- If navigation fails, log the error and try again with a different session_id.
+
+STEP 2: Take a screenshot of the visual layout
+- Tool: browser_screenshot
+- Parameters: full_page=True, session_id='default', user_id='{user_id}'
+- This captures what the layout actually looks like visually.
+- If screenshot fails, check the error message and try again.
+
+STEP 3: Extract panel data sorted by visual position
+- Tool: browser_extract
+- Parameters: action='panels', user_id='{user_id}', session_id='default'
+- This extracts panel data from the page and sorts them by visual position (Y coordinate, then X coordinate).
+- This gives you the actual visual order of panels as displayed on the UI.
+
+YOU CANNOT ANSWER WITHOUT PERFORMING THESE THREE STEPS FIRST.
+If you use PanelManipulationTool or any backend API, your answer will be WRONG.
+You MUST check the visual layout using browser tools.
+After completing all three steps, then answer based on what you observed visually.
+
+If any browser tool fails, you MUST:
+1. Log the exact error message
+2. Try the operation again with different parameters if appropriate
+3. If all attempts fail, explicitly state in your response that browser automation failed and why
+
+IMPORTANT TOOL USAGE RULES:
+- For visual layout questions (order, arrangement, visual positioning): Use browser tools ONLY (browser_navigate, browser_screenshot, browser_extract). DO NOT use PanelManipulationTool.
+- For panel operations (move, arrange, reorder via API): Use PanelManipulationTool.
+- When using browser tools, always pass user_id='{user_id}' in your tool calls."""
+            else:
+                enhanced_query = message
+            
+            # Execute the agent
+            logger.info(f"[handle_chat_message] Creating Crew with {len(agent.tools)} tools")
+            logger.info(f"[handle_chat_message] Starting crew.kickoff()...")
+            
+            if requires_browser_tools:
+                logger.info(f"[handle_chat_message] Visual layout question detected - expecting browser automation usage")
+                browser_tools_available = [name for name in self.tools.keys() if name.startswith("browser_")]
+                logger.info(f"[handle_chat_message] Available browser tools: {browser_tools_available}")
+            
+            logger.info(f"[handle_chat_message] Total tools available: {len(agent.tools)}")
+            logger.info(f"[handle_chat_message] All tool names: {[name for name in self.tools.keys()]}")
+            
+            # Log tool details for debugging
+            for tool_name in ["browser_navigate", "browser_interact", "browser_extract", "browser_screenshot"]:
+                if tool_name in self.tools:
+                    tool = self.tools[tool_name]
+                    logger.info(f"[handle_chat_message] Browser tool '{tool_name}': description={getattr(tool, 'description', 'N/A')}")
+                    if hasattr(tool, 'args_schema'):
+                        logger.info(f"[handle_chat_message] Tool Arguments: {getattr(tool.args_schema, 'schema', {})}")
+            
+            logger.info(f"[handle_chat_message] ===== CREW EXECUTION START =====")
+            response = await agent.execute(enhanced_query, enhanced_context)
+            logger.info(f"[handle_chat_message] ===== CREW EXECUTION COMPLETE =====")
+            
+            # Validate response for browser tool tasks
+            if requires_browser_tools:
+                response_lower = response.lower()
+                browser_tool_indicators = [
+                    "browser_navigate", "browser_screenshot", "browser_extract",
+                    "navigation successful", "screenshot captured", "extracted panels"
+                ]
+                has_browser_tools = any(indicator in response_lower for indicator in browser_tool_indicators)
+                
+                if not has_browser_tools:
+                    logger.warning(f"[handle_chat_message] ⚠️ Visual layout question but NO browser tools detected in response!")
+                    logger.warning(f"[handle_chat_message] Response preview: {response[:200]}...")
+                    logger.warning(f"[handle_chat_message] This suggests the agent may not have used browser tools as instructed.")
+                    logger.error(f"[handle_chat_message] ❌ CRITICAL: Visual layout question but browser automation was NOT used!")
+                    logger.error(f"[handle_chat_message] Pre-flight automation succeeded: {preflight_success}")
+                    logger.error(f"[handle_chat_message] Browser tools detected in response: {has_browser_tools}")
+                    logger.error(f"[handle_chat_message] Available browser tools: {browser_tools_available}")
+                    logger.warning(f"[handle_chat_message] Browser automation failed: {preflight_error}")
+            
+            # Track usage
+            estimated_tokens = len(message.split()) * 1.3
+            estimated_cost = self._calculate_cost(optimal_model, estimated_tokens)
+            await self.cost_optimizer.track_usage(user_id, optimal_model, estimated_tokens, estimated_cost)
+            
+            logger.info(f"[handle_chat_message] Extracted response length: {len(response)} characters")
+            
+            return {
+                "reply": response,
+                "response": response,
+                "success": True,
+                "timestamp": time.time(),
+                "user_id": user_id,
+                "model_used": optimal_model,
+                "complexity_level": complexity.value,
+                "estimated_cost": estimated_cost,
+                "browser_tools_required": requires_browser_tools,
+                "preflight_automation": {
+                    "success": preflight_success,
+                    "error": preflight_error,
+                    "details": automation_details
+                }
+            }
+            
+        except Exception as e:
+            logger.error(f"[handle_chat_message] Error handling chat message: {e}")
+            logger.exception(f"[handle_chat_message] Full traceback:")
+            return {
+                "reply": f"I encountered an error processing your request: {str(e)}",
+                "response": f"I encountered an error processing your request: {str(e)}",
+                "success": False,
+                "error": str(e),
+                "timestamp": time.time(),
+                "user_id": user_id
+            }
+
     async def shutdown(self) -> None:
         """Cleanup resources such as browser sessions."""
         await self.browser_sessions.shutdown()

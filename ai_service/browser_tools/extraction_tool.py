@@ -267,11 +267,7 @@ class BrowserExtractionTool(BaseTool):
                             console.log('React state access failed:', e);
                         }
                         
-                        // Method 3: Fetch from API (same endpoint the page uses)
-                        // Note: This will be handled asynchronously if needed
-                        // For now, we'll rely on React state or window object
-                        
-                        // If we still don't have panels, try window object
+                        // Method 3: Try window object
                         if (!panels) {
                             try {
                                 if (window.__PANELS__ || window.panels) {
@@ -280,6 +276,59 @@ class BrowserExtractionTool(BaseTool):
                                 }
                             } catch (e) {
                                 console.log('Window object access failed:', e);
+                            }
+                        }
+                        
+                        // Method 4: Fetch from API (fallback if React state not available)
+                        if (!panels || !Array.isArray(panels) || panels.length === 0) {
+                            try {
+                                // Extract project ID from URL
+                                const urlMatch = window.location.pathname.match(/\/projects\/([^\/]+)/);
+                                const projectId = urlMatch ? urlMatch[1] : null;
+                                
+                                if (projectId) {
+                                    // Try to get auth token from localStorage or cookies
+                                    let authToken = null;
+                                    try {
+                                        const supabaseSession = localStorage.getItem('sb-' + window.location.hostname.split('.')[0] + '-auth-token');
+                                        if (supabaseSession) {
+                                            const session = JSON.parse(supabaseSession);
+                                            authToken = session?.access_token || session?.token;
+                                        }
+                                    } catch (e) {
+                                        console.log('Could not get auth token from localStorage:', e);
+                                    }
+                                    
+                                    // Fetch panels from API
+                                    const apiUrl = `/api/projects/${projectId}/panels`;
+                                    const headers = {
+                                        'Content-Type': 'application/json'
+                                    };
+                                    if (authToken) {
+                                        headers['Authorization'] = `Bearer ${authToken}`;
+                                    }
+                                    
+                                    const response = await fetch(apiUrl, {
+                                        method: 'GET',
+                                        headers: headers,
+                                        credentials: 'include'
+                                    });
+                                    
+                                    if (response.ok) {
+                                        const apiData = await response.json();
+                                        if (apiData && Array.isArray(apiData)) {
+                                            panels = apiData;
+                                            source = 'api_fetch';
+                                        } else if (apiData && Array.isArray(apiData.panels)) {
+                                            panels = apiData.panels;
+                                            source = 'api_fetch';
+                                        }
+                                    } else {
+                                        console.log('API fetch failed:', response.status, response.statusText);
+                                    }
+                                }
+                            } catch (e) {
+                                console.log('API fetch failed:', e);
                             }
                         }
                         
