@@ -4,9 +4,9 @@ openai>=1.0.0
 
 # Hybrid AI Architecture dependencies (Cloud-only)
 crewai>=0.5.0
-langchain>=0.1.0
+langchain>=0.1.0  # CrewAI 0.5.0 requires langchain==0.1.0, but >=0.1.0 allows pip to resolve
 langchain-openai>=0.0.2,<0.0.3
-langchain-community>=0.3.0
+# langchain-community removed - not used in codebase and conflicts with crewai 0.5.0's langchain==0.1.0 requirement
 
 # Database and caching
 redis>=5.0.0

@@ -148,15 +148,15 @@ class BrowserNavigationTool(BaseTool):
                         return f"Error navigating new tab to {url}: {exc}"
 
                     if wait_for:
-                        # Use shorter timeout for optional canvas selector
+                        # Skip waiting for canvas selectors - they're not required
                         is_canvas_selector = wait_for == "canvas" or (wait_for and "canvas-main" in wait_for)
-                        tab_timeout = getattr(session.security, 'optional_selector_timeout_ms', 5000) if is_canvas_selector else session.security.wait_timeout_ms
-                        try:
-                            await page.wait_for_selector(wait_for, timeout=tab_timeout)
-                        except Exception as exc:
-                            if is_canvas_selector:
-                                logger.warning("[%s] Optional canvas selector timeout on new tab (continuing anyway): %s", session_id, exc)
-                            else:
+                        if is_canvas_selector:
+                            logger.info("[%s] Skipping wait for canvas selector on new tab (canvas not required)", session_id)
+                        else:
+                            tab_timeout = session.security.wait_timeout_ms
+                            try:
+                                await page.wait_for_selector(wait_for, timeout=tab_timeout)
+                            except Exception as exc:
                                 return f"Error: Timeout waiting for selector '{wait_for}' on new tab: {exc}"
 
                 await self._capture_state(session, page, action, tab_name)
@@ -184,12 +184,12 @@ class BrowserNavigationTool(BaseTool):
             page = await session.ensure_page(tab_id)
             logger.info("[%s] Page obtained, current URL: %s", session_id, page.url)
             
-            # Use shorter timeout for optional selectors like canvas (they're not required for data extraction)
+            # Canvas selectors are skipped entirely - no timeout needed
             # Canvas is used for visual rendering but panel data comes from React state/API, not canvas
             is_canvas_selector = wait_for == "canvas" or (wait_for and "canvas-main" in wait_for)
             if is_canvas_selector:
-                timeout = getattr(session.security, 'optional_selector_timeout_ms', 5000)  # 5 seconds for optional canvas
-                logger.info("[%s] Using shorter timeout for optional canvas selector: %dms", session_id, timeout)
+                logger.info("[%s] Canvas selector detected - will skip waiting (canvas not required)", session_id)
+                timeout = 0  # Not used since we skip waiting
             else:
                 timeout = session.security.wait_timeout_ms  # Full timeout for required selectors
             logger.info("[%s] Wait timeout: %dms, Navigation timeout: %dms", session_id, timeout, session.security.navigation_timeout_ms)
@@ -272,109 +272,79 @@ class BrowserNavigationTool(BaseTool):
                         return f"Error: {error_msg}"
 
                     # Wait for specific selector if provided (this ensures page is ready)
+                    # SKIP waiting for canvas selectors - they're not required and cause timeouts
                     selector_found = False
                     if wait_for:
-                        logger.info("[%s] ===== SELECTOR WAIT PHASE =====", session_id)
-                        logger.info("[%s] Waiting for selector '%s' (timeout=%dms, state=attached)", session_id, wait_for, timeout)
+                        # Check if this is a canvas selector - skip waiting for canvas entirely
+                        is_canvas_selector = wait_for == "canvas" or (wait_for and "canvas-main" in wait_for)
                         
-                        # Log page state before waiting
-                        try:
-                            page_content = await page.content()
-                            logger.debug("[%s] Page content length: %d characters", session_id, len(page_content))
-                            # Check if selector exists in HTML (even if not visible)
-                            if wait_for in page_content or f'<{wait_for}' in page_content or f'id="{wait_for}"' in page_content:
-                                logger.info("[%s] Selector '%s' appears in page HTML", session_id, wait_for)
-                            else:
-                                logger.warning("[%s] Selector '%s' not found in page HTML", session_id, wait_for)
-                        except Exception as content_check_error:
-                            logger.debug("[%s] Could not check page content: %s", session_id, content_check_error)
-                        
-                        try:
-                            selector_wait_start = time.time()
-                            await asyncio.wait_for(
-                                page.wait_for_selector(wait_for, timeout=timeout, state="attached"),
-                                timeout=timeout / 1000.0 + 2
-                            )
-                            selector_wait_duration = time.time() - selector_wait_start
-                            logger.info("[%s] ✅ Selector '%s' found (attached) in %.2fs", session_id, wait_for, selector_wait_duration)
+                        if is_canvas_selector:
+                            logger.info("[%s] ⚠️ Skipping wait for canvas selector '%s' - canvas not required for data extraction", session_id, wait_for)
+                            logger.info("[%s] Page loaded successfully, proceeding without canvas wait", session_id)
+                            selector_found = False  # Canvas not found, but that's OK
+                        else:
+                            logger.info("[%s] ===== SELECTOR WAIT PHASE =====", session_id)
+                            logger.info("[%s] Waiting for selector '%s' (timeout=%dms, state=attached)", session_id, wait_for, timeout)
                             
-                            # Check if element is actually visible (not just attached)
-                            element = await page.query_selector(wait_for)
-                            if element:
-                                is_visible = await element.is_visible()
-                                element_bounds = await element.bounding_box()
-                                logger.info("[%s] Element visibility check: visible=%s, bounds=%s", session_id, is_visible, element_bounds)
-                                if is_visible:
-                                    logger.info("[%s] ✅ Selector '%s' found and visible, page is ready", session_id, wait_for)
-                                    selector_found = True
-                                else:
-                                    logger.warning("[%s] ⚠️ Selector '%s' found but not visible (bounds: %s)", session_id, wait_for, element_bounds)
-                            else:
-                                logger.warning("[%s] ⚠️ Selector '%s' query returned None", session_id, wait_for)
-                        except asyncio.TimeoutError:
-                            # Check if page loaded but selector not found - be lenient if page loaded successfully
-                            current_url = page.url
-                            page_title = await page.title()
-                            
-                            # Canvas is optional - panel data comes from React state/API, not canvas
-                            is_optional_selector = wait_for == "canvas" or (wait_for and "canvas-main" in wait_for)
-                            
-                            if is_optional_selector:
-                                logger.warning("[%s] ⚠️ Optional selector '%s' timeout after %dms (this is OK - canvas not required for data extraction)", session_id, wait_for, timeout)
-                            else:
-                                logger.error("[%s] ❌ Selector '%s' timeout after %dms", session_id, wait_for, timeout)
-                            
-                            logger.info("[%s] Current URL: %s, Page title: %s", session_id, current_url, page_title)
-                            
-                            # Try to get more info about why selector wasn't found
+                            # Log page state before waiting
                             try:
-                                # Check if selector exists in DOM at all
-                                all_elements = await page.query_selector_all("*")
-                                logger.info("[%s] Total elements on page: %d", session_id, len(all_elements))
-                                
-                                # Try to find similar selectors
-                                if is_optional_selector:
-                                    # Check for canvas elements with data-testid
-                                    canvas_elements = await page.query_selector_all("canvas[data-testid='canvas-main']")
-                                    if len(canvas_elements) == 0:
-                                        # Fallback to any canvas element
-                                        canvas_elements = await page.query_selector_all("canvas")
-                                    logger.info("[%s] Found %d canvas elements on page", session_id, len(canvas_elements))
-                                    if len(canvas_elements) == 0:
-                                        logger.info("[%s] Canvas not found - may be conditionally rendered (fullscreen mode) or still loading", session_id)
-                                    for i, canvas in enumerate(canvas_elements):
-                                        try:
-                                            is_visible = await canvas.is_visible()
-                                            bounds = await canvas.bounding_box()
-                                            testid = await canvas.get_attribute("data-testid")
-                                            logger.info("[%s]   Canvas %d: visible=%s, bounds=%s, testid=%s", session_id, i+1, is_visible, bounds, testid)
-                                        except Exception:
-                                            pass
-                            except Exception as debug_error:
-                                logger.debug("[%s] Could not get debug info: %s", session_id, debug_error)
-                            
-                            # Check if we're on the correct page (URL changed from about:blank)
-                            if current_url != "about:blank" and url in current_url:
-                                if is_optional_selector:
-                                    logger.info("[%s] ✅ Page loaded successfully. Optional selector '%s' not found but continuing (not required for data extraction)", session_id, wait_for)
+                                page_content = await page.content()
+                                logger.debug("[%s] Page content length: %d characters", session_id, len(page_content))
+                                # Check if selector exists in HTML (even if not visible)
+                                if wait_for in page_content or f'<{wait_for}' in page_content or f'id="{wait_for}"' in page_content:
+                                    logger.info("[%s] Selector '%s' appears in page HTML", session_id, wait_for)
                                 else:
+                                    logger.warning("[%s] Selector '%s' not found in page HTML", session_id, wait_for)
+                            except Exception as content_check_error:
+                                logger.debug("[%s] Could not check page content: %s", session_id, content_check_error)
+                            
+                            try:
+                                selector_wait_start = time.time()
+                                await asyncio.wait_for(
+                                    page.wait_for_selector(wait_for, timeout=timeout, state="attached"),
+                                    timeout=timeout / 1000.0 + 2
+                                )
+                                selector_wait_duration = time.time() - selector_wait_start
+                                logger.info("[%s] ✅ Selector '%s' found (attached) in %.2fs", session_id, wait_for, selector_wait_duration)
+                                
+                                # Check if element is actually visible (not just attached)
+                                element = await page.query_selector(wait_for)
+                                if element:
+                                    is_visible = await element.is_visible()
+                                    element_bounds = await element.bounding_box()
+                                    logger.info("[%s] Element visibility check: visible=%s, bounds=%s", session_id, is_visible, element_bounds)
+                                    if is_visible:
+                                        logger.info("[%s] ✅ Selector '%s' found and visible, page is ready", session_id, wait_for)
+                                        selector_found = True
+                                    else:
+                                        logger.warning("[%s] ⚠️ Selector '%s' found but not visible (bounds: %s)", session_id, wait_for, element_bounds)
+                                else:
+                                    logger.warning("[%s] ⚠️ Selector '%s' query returned None", session_id, wait_for)
+                            except asyncio.TimeoutError:
+                                # Check if page loaded but selector not found
+                                current_url = page.url
+                                page_title = await page.title()
+                                logger.error("[%s] ❌ Selector '%s' timeout after %dms", session_id, wait_for, timeout)
+                                logger.info("[%s] Current URL: %s, Page title: %s", session_id, current_url, page_title)
+                                
+                                # Check if we're on the correct page (URL changed from about:blank)
+                                if current_url != "about:blank" and url in current_url:
                                     logger.warning("[%s] ⚠️ Selector '%s' timeout but page loaded successfully. URL: %s, Title: %s", session_id, wait_for, current_url, page_title)
-                                # Don't fail - page loaded, selector just not found/visible yet
-                                selector_found = False
-                            else:
-                                logger.error("[%s] ❌ Selector '%s' timeout and page may not have loaded. URL: %s, Title: %s", session_id, wait_for, current_url, page_title)
-                                return f"Error: Timeout waiting for selector '{wait_for}' on {url} after {timeout}ms. Page may not have loaded correctly. Current URL: {current_url}"
-                        except Exception as e:
-                            logger.error("[%s] ❌ Error waiting for selector '%s': %s", session_id, wait_for, str(e))
-                            logger.error("[%s] Exception type: %s", session_id, type(e).__name__)
-                            logger.exception("[%s] Full exception traceback:", session_id, exc_info=e)
-                            # Check if page loaded despite selector error
-                            current_url = page.url
-                            if current_url != "about:blank" and url in current_url:
-                                logger.warning("[%s] ⚠️ Selector error but page loaded, continuing...", session_id)
-                                selector_found = False
-                            else:
-                                return f"Error waiting for selector '{wait_for}': {str(e)}"
+                                    selector_found = False
+                                else:
+                                    logger.error("[%s] ❌ Selector '%s' timeout and page may not have loaded. URL: %s, Title: %s", session_id, wait_for, current_url, page_title)
+                                    return f"Error: Timeout waiting for selector '{wait_for}' on {url} after {timeout}ms. Page may not have loaded correctly. Current URL: {current_url}"
+                            except Exception as e:
+                                logger.error("[%s] ❌ Error waiting for selector '%s': %s", session_id, wait_for, str(e))
+                                logger.error("[%s] Exception type: %s", session_id, type(e).__name__)
+                                logger.exception("[%s] Full exception traceback:", session_id, exc_info=e)
+                                # Check if page loaded despite selector error
+                                current_url = page.url
+                                if current_url != "about:blank" and url in current_url:
+                                    logger.warning("[%s] ⚠️ Selector error but page loaded, continuing...", session_id)
+                                    selector_found = False
+                                else:
+                                    return f"Error waiting for selector '{wait_for}': {str(e)}"
 
                     message = f"Successfully navigated to {url}"
                     if wait_for:
