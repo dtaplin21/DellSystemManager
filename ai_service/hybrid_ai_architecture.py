@@ -254,13 +254,6 @@ class CostOptimizer:
     def __init__(self, redis_client: redis.Redis):
         self.redis = redis_client
         self.models = {
-            "gpt-3.5-turbo": ModelConfig(
-                name="gpt-3.5-turbo",
-                provider=ModelProvider.OPENAI,
-                cost_per_1k_tokens=0.002,
-                max_tokens=4096,
-                capabilities=["text", "reasoning"]
-            ),
             "gpt-4o": ModelConfig(
                 name="gpt-4o",
                 provider=ModelProvider.OPENAI,
@@ -323,19 +316,9 @@ class CostOptimizer:
             user_tier: User subscription tier
             requires_browser_tools: Whether browser tools are required (forces GPT-4o)
         """
-        # CRITICAL: Browser tool tasks MUST use GPT-4o for reliable execution
-        if requires_browser_tools or complexity == TaskComplexity.COMPLEX:
-            logger.info(f"[CostOptimizer] Selecting GPT-4o (browser_tools={requires_browser_tools}, complexity={complexity.value})")
-            return "gpt-4o"
-        
-        if user_tier == "free_user":
-            return "gpt-3.5-turbo"
-        elif complexity in [TaskComplexity.SIMPLE, TaskComplexity.MODERATE]:
-            return "gpt-3.5-turbo"
-        elif complexity == TaskComplexity.COMPLEX:
-            return "gpt-4o"
-        else:  # EXPERT
-            return "gpt-4o"
+        # Always use GPT-4o for all tasks
+        logger.info(f"[CostOptimizer] Selecting GPT-4o (browser_tools={requires_browser_tools}, complexity={complexity.value}, user_tier={user_tier})")
+        return "gpt-4o"
     
     def track_usage(self, user_id: str, model: str, tokens: int, cost: float):
         """Track usage for cost optimization"""
@@ -512,6 +495,12 @@ class DellSystemAIService:
         tools = list(self.tools.values())
 
         try:
+            # CRITICAL: Force GPT-4o for browser tool tasks
+            if requires_browser_tools and model_name != "gpt-4o":
+                logger.warning(f"[_create_agent_for_task] Forcing GPT-4o for browser tools (was: {model_name})")
+                model_name = "gpt-4o"
+            
+            logger.info(f"[_create_agent_for_task] Creating LLM with model: {model_name} (requires_browser_tools={requires_browser_tools})")
             llm = ChatOpenAI(model=model_name, temperature=0)
             
             # Stronger prompts for browser tool tasks
@@ -741,6 +730,7 @@ You MUST execute browser_navigate, browser_screenshot, and browser_extract tools
                     automation_details["error"] = str(automation_error)
             
             # Create agent with proper configuration
+            logger.info(f"[handle_chat_message] Creating agent with model: {optimal_model}, requires_browser_tools: {requires_browser_tools}")
             agent = self._create_agent_for_task(optimal_model, complexity, requires_browser_tools)
             logger.info(f"[handle_chat_message] Agent created with {len(agent.tools)} tools")
             logger.info(f"[handle_chat_message] Agent tools: {[tool.name if hasattr(tool, 'name') else str(tool) for tool in agent.tools]}")

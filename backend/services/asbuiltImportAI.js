@@ -926,7 +926,7 @@ Respond with ONLY the domain name (e.g., "panel_placement").`;
 
     const startTime = Date.now();
     const completion = await this.openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
+      model: "gpt-4o",
       max_tokens: 50,
       messages: [{ role: "user", content: prompt }]
     });
@@ -1021,7 +1021,7 @@ Respond with ONLY the domain name (e.g., "panel_placement").`;
     try {
       const startTime = Date.now();
       const completion = await this.openai.chat.completions.create({
-        model: "gpt-3.5-turbo",
+        model: "gpt-4o",
         max_tokens: 1024,
         messages
       });

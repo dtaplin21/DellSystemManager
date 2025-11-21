@@ -246,8 +246,8 @@ Hybrid AI architecture status
 
 | Tier | Max Cost/Request | Daily Limit | Available Models |
 |------|------------------|-------------|------------------|
-| Free | $0.01 | 10 | GPT-3.5, Llama3-8B |
-| Paid | $0.10 | 100 | GPT-3.5, GPT-4, Claude, Llama3 |
+| Free | $0.01 | 10 | GPT-4o, Llama3-8B |
+| Paid | $0.10 | 100 | GPT-4o, Claude, Llama3 |
 | Enterprise | $1.00 | 1000 | All models |
 
 ### Model Configuration

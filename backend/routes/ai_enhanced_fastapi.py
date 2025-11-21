@@ -41,7 +41,7 @@ async def health_check():
             health_status["redis_connection"] = "healthy"
         except:
             health_status["redis_connection"] = "unhealthy"
-        health_status["available_models"] = ["llama3:8b", "gpt-3.5-turbo", "gpt-4-turbo"]
+        health_status["available_models"] = ["llama3:8b", "gpt-4o", "gpt-4-turbo"]
         return health_status
     except Exception as e:
         logger.error(f"Health check failed: {e}")

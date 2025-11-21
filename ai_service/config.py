@@ -19,7 +19,7 @@ class AIServiceConfig:
     
     # AI Model settings
     DEFAULT_MODEL = os.getenv("DEFAULT_AI_MODEL", "gpt-4o")
-    FALLBACK_MODEL = os.getenv("FALLBACK_AI_MODEL", "gpt-3.5-turbo")
+    FALLBACK_MODEL = os.getenv("FALLBACK_AI_MODEL", "gpt-4o")
     
     # Cost optimization settings
     ENABLE_COST_OPTIMIZATION = os.getenv("ENABLE_COST_OPTIMIZATION", "true").lower() == "true"
@@ -30,17 +30,17 @@ class AIServiceConfig:
         "free_user": {
             "max_cost_per_request": 0.01,
             "max_requests_per_day": 10,
-            "available_models": ["gpt-3.5-turbo", "llama3_8b"]
+            "available_models": ["gpt-4o", "llama3_8b"]
         },
         "paid_user": {
             "max_cost_per_request": 0.10,
             "max_requests_per_day": 100,
-            "available_models": ["gpt-3.5-turbo", "gpt-4o", "claude_3_haiku", "llama3_8b", "llama3_70b"]
+            "available_models": ["gpt-4o", "claude_3_haiku", "llama3_8b", "llama3_70b"]
         },
         "enterprise": {
             "max_cost_per_request": 1.00,
             "max_requests_per_day": 1000,
-            "available_models": ["gpt-3.5-turbo", "gpt-4o", "claude_3_sonnet", "llama3_8b", "llama3_70b"]
+            "available_models": ["gpt-4o", "claude_3_sonnet", "llama3_8b", "llama3_70b"]
         }
     }
     

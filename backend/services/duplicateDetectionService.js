@@ -241,7 +241,7 @@ class DuplicateDetectionService {
       console.log('🤖 [DuplicateDetection] Prompt length:', prompt.length);
       
       const response = await this.openai.chat.completions.create({
-        model: "gpt-3.5-turbo",
+        model: "gpt-4o",
         messages: [{ role: "user", content: prompt }],
         max_tokens: 1500,
         temperature: 0.7
@@ -606,7 +606,7 @@ class DuplicateDetectionService {
 
     try {
       const response = await this.openai.chat.completions.create({
-        model: "gpt-3.5-turbo",
+        model: "gpt-4o",
         messages: [{ role: "user", content: prompt }],
         max_tokens: 1000
       });

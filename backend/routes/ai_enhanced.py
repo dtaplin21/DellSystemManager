@@ -215,11 +215,11 @@ async def get_available_models():
                     "max_tokens": 128000,
                     "cost_per_1k_tokens": 0.03
                 },
-                "gpt-3.5-turbo": {
-                    "name": "GPT-3.5 Turbo",
-                    "capabilities": ["text_analysis", "basic_reasoning", "document_processing"],
-                    "max_tokens": 16384,
-                    "cost_per_1k_tokens": 0.002
+                "gpt-4o": {
+                    "name": "GPT-4o",
+                    "capabilities": ["text_analysis", "reasoning", "document_processing", "vision"],
+                    "max_tokens": 128000,
+                    "cost_per_1k_tokens": 0.015
                 }
             },
             "local": {
@@ -245,7 +245,7 @@ async def health_check():
         # Test OpenAI connection
         try:
             response = openai.ChatCompletion.create(
-                model="gpt-3.5-turbo",
+                model="gpt-4o",
                 messages=[{"role": "user", "content": "Hello"}],
                 max_tokens=5
             )

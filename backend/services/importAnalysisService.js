@@ -49,7 +49,7 @@ class ImportAnalysisService {
       const prompt = this.buildSummaryPrompt(analysis, importData);
       
       const response = await this.openai.chat.completions.create({
-        model: "gpt-3.5-turbo",
+        model: "gpt-4o",
         messages: [{ role: "user", content: prompt }],
         max_tokens: 2000,
         temperature: 0.7
@@ -61,7 +61,7 @@ class ImportAnalysisService {
         ...analysis,
         summary: aiSummary,
         generatedAt: new Date().toISOString(),
-        model: "gpt-3.5-turbo"
+        model: "gpt-4o"
       };
     } catch (error) {
       console.error('❌ [ImportAnalysis] Error generating AI summary:', error);
