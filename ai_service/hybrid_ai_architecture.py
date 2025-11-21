@@ -19,7 +19,7 @@ from crewai import Agent, Crew, Process, Task
 from crewai.tools import BaseTool
 from langchain_openai import ChatOpenAI
 
-from .browser_tools import (
+from browser_tools import (
     BrowserExtractionTool,
     BrowserInteractionTool,
     BrowserNavigationTool,
@@ -30,7 +30,7 @@ from .browser_tools import (
     BrowserSecurityConfig,
     BrowserSessionManager,
 )
-from .openai_service import OpenAIService
+from openai_service import OpenAIService
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

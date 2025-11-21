@@ -59,7 +59,7 @@ fi
 
 # Install Python dependencies
 print_status "Installing Python dependencies..."
-cd ai-service
+cd ai_service
 
 if [ -f "requirements.txt" ]; then
     pip3 install -r requirements.txt
@@ -101,8 +101,8 @@ cd ..
 print_status "Setting up environment variables..."
 
 # Create .env files if they don't exist
-if [ ! -f "ai-service/.env" ]; then
-    cat > ai-service/.env << EOF
+if [ ! -f "ai_service/.env" ]; then
+    cat > ai_service/.env << EOF
 # AI Service Environment Variables
 OPENAI_API_KEY=your_openai_api_key_here
 
@@ -114,7 +114,7 @@ REDIS_PORT=6379
 FLASK_ENV=development
 FLASK_DEBUG=1
 EOF
-    print_success "Created ai-service/.env"
+    print_success "Created ai_service/.env"
 fi
 
 if [ ! -f "frontend/.env.local" ]; then
@@ -133,15 +133,15 @@ fi
 
 # Test OpenAI API key
 print_status "Testing OpenAI API key..."
-if [ -f "ai-service/.env" ]; then
-    OPENAI_KEY=$(grep "OPENAI_API_KEY" ai-service/.env | cut -d'=' -f2)
+if [ -f "ai_service/.env" ]; then
+    OPENAI_KEY=$(grep "OPENAI_API_KEY" ai_service/.env | cut -d'=' -f2)
     if [ "$OPENAI_KEY" != "your_openai_api_key_here" ]; then
         print_success "OpenAI API key found"
     else
-        print_warning "Please set your OpenAI API key in ai-service/.env"
+        print_warning "Please set your OpenAI API key in ai_service/.env"
     fi
 else
-    print_warning "ai-service/.env not found"
+    print_warning "ai_service/.env not found"
 fi
 
 # Test Python dependencies
@@ -166,10 +166,10 @@ print_success "Setup completed successfully!"
 
 echo ""
 print_status "Next steps:"
-echo "1. Set your OpenAI API key in ai-service/.env"
+echo "1. Set your OpenAI API key in ai_service/.env"
 echo "2. Set your Supabase credentials in frontend/.env.local"
 echo "3. Start the services:"
-echo "   - AI Service: cd ai-service && python3 app.py"
+echo "   - AI Service: cd ai_service && python3 app.py"
 echo "   - Backend: cd backend && npm run dev"
 echo "   - Frontend: cd frontend && npm run dev"
 echo ""

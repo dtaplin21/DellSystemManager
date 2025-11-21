@@ -380,11 +380,11 @@ def get_available_models():
                     "max_tokens": 128000,
                     "cost_per_1k_tokens": 0.03
                 },
-                "gpt-3.5-turbo": {
-                    "name": "GPT-3.5 Turbo",
-                    "capabilities": ["text_analysis", "basic_reasoning", "document_processing"],
-                    "max_tokens": 16384,
-                    "cost_per_1k_tokens": 0.002
+                "gpt-4o": {
+                    "name": "GPT-4o",
+                    "capabilities": ["text_analysis", "vision", "reasoning", "document_processing"],
+                    "max_tokens": 128000,
+                    "cost_per_1k_tokens": 0.015
                 }
             },
             "local": {

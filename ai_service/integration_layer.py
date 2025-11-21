@@ -8,15 +8,20 @@ from typing import Dict, List, Optional, Any
 from flask import current_app
 import json
 
+logger = logging.getLogger(__name__)
+
 # Import the hybrid AI architecture
 try:
-    from hybrid_ai_architecture import DellSystemAIService, HybridWorkflowOrchestrator
-except ImportError:
+    from hybrid_ai_architecture import DellSystemAIService
+    logger.debug(f"DellSystemAIService imported: {DellSystemAIService}")
+except ImportError as e:
     # Fallback if hybrid architecture is not available
+    logger.warning(f"⚠️ Failed to import hybrid AI architecture (ImportError): {e}")
     DellSystemAIService = None
-    HybridWorkflowOrchestrator = None
-
-logger = logging.getLogger(__name__)
+except Exception as e:
+    # Catch any other errors during import (e.g., initialization errors)
+    logger.error(f"❌ Error importing hybrid AI architecture: {e}", exc_info=True)
+    DellSystemAIService = None
 
 class AIServiceIntegration:
     """Integration layer between Flask app and hybrid AI architecture"""
@@ -31,16 +36,52 @@ class AIServiceIntegration:
         """Initialize the AI service with fallback handling"""
         try:
             if DellSystemAIService:
-                self.ai_service = DellSystemAIService(
-                    redis_host=self.redis_host,
-                    redis_port=self.redis_port
-                )
-                logger.info("✅ Hybrid AI Architecture initialized successfully")
+                # Create Redis client first
+                import redis
+                try:
+                    redis_client = redis.Redis(
+                        host=self.redis_host,
+                        port=self.redis_port,
+                        decode_responses=True,
+                        socket_connect_timeout=5,
+                        socket_timeout=5
+                    )
+                    # Test connection
+                    redis_client.ping()
+                    logger.info(f"✅ Redis connected to {self.redis_host}:{self.redis_port}")
+                except Exception as redis_error:
+                    logger.warning(f"⚠️ Redis connection failed ({redis_error})")
+                    logger.warning("⚠️ Attempting to initialize AI service without Redis (some features may be limited)")
+                    # Try to create a minimal Redis client that will fail gracefully
+                    # For now, we'll still try to initialize but Redis-dependent features won't work
+                    try:
+                        # Create a fake Redis client that will raise errors when used
+                        # but allows the service to initialize
+                        class FakeRedis:
+                            def ping(self): raise redis.ConnectionError("Redis not available")
+                            def get(self, *args): return None
+                            def set(self, *args): return False
+                            def delete(self, *args): return 0
+                        redis_client = FakeRedis()
+                        logger.warning("⚠️ Using fallback Redis client - Redis features disabled")
+                    except:
+                        redis_client = None
+                
+                if redis_client:
+                    try:
+                        self.ai_service = DellSystemAIService(redis_client=redis_client)
+                        logger.info("✅ Hybrid AI Architecture initialized successfully")
+                    except Exception as init_error:
+                        logger.error(f"❌ Failed to initialize DellSystemAIService: {init_error}", exc_info=True)
+                        self.ai_service = None
+                else:
+                    logger.error("❌ Cannot initialize AI service - Redis connection required")
+                    self.ai_service = None
             else:
                 logger.warning("⚠️ Hybrid AI Architecture not available, using fallback")
                 self.ai_service = None
         except Exception as e:
-            logger.error(f"❌ Failed to initialize AI service: {e}")
+            logger.error(f"❌ Failed to initialize AI service: {e}", exc_info=True)
             self.ai_service = None
     
     def is_hybrid_ai_available(self) -> bool:

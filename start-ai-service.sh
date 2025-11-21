@@ -6,8 +6,8 @@
 echo "🚀 Starting AI Service..."
 echo ""
 
-# Navigate to ai-service directory
-cd "$(dirname "$0")/ai-service" || exit 1
+# Navigate to ai_service directory (updated directory with LiteLLM fixes)
+cd "$(dirname "$0")/ai_service" || exit 1
 
 # Check if Python is available
 if ! command -v python3 &> /dev/null; then
@@ -41,6 +41,11 @@ export PORT=${PORT:-5001}
 export FLASK_APP=app.py
 export FLASK_ENV=development
 export FLASK_DEBUG=1
+
+# CRITICAL: Set LiteLLM environment variables BEFORE importing CrewAI/LiteLLM
+# LiteLLM reads these at import time, so they must be set early
+export LITELLM_MODEL=${LITELLM_MODEL:-gpt-4o}
+export OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o}
 
 # Set AI service URL for backend
 export AI_SERVICE_URL=http://localhost:5001

@@ -255,7 +255,7 @@ class ModelConfig:
 MODEL_CONFIGS = {
     "llama3_8b": ModelConfig("llama3:8b", ModelTier.LOCAL, 0.0, 8192, ["chat", "reasoning"]),
     "llama3_70b": ModelConfig("llama3:70b", ModelTier.LOCAL, 0.0, 8192, ["complex_reasoning", "analysis"]),
-    "gpt_3_5_turbo": ModelConfig("gpt-3.5-turbo", ModelTier.CLOUD_LITE, 0.002, 16384, ["chat", "basic_analysis"], "OPENAI_API_KEY"),
+    "gpt_4o": ModelConfig("gpt-4o", ModelTier.CLOUD_PREMIUM, 0.015, 128000, ["chat", "vision", "reasoning", "analysis"], "OPENAI_API_KEY"),
     "gpt_4_turbo": ModelConfig("gpt-4-turbo", ModelTier.CLOUD_PREMIUM, 0.03, 128000, ["complex_reasoning", "multimodal"], "OPENAI_API_KEY"),
     "claude_3_haiku": ModelConfig("claude-3-haiku-20240307", ModelTier.CLOUD_LITE, 0.001, 200000, ["document_analysis", "summarization"], "ANTHROPIC_API_KEY"),
     "claude_3_sonnet": ModelConfig("claude-3-sonnet-20240229", ModelTier.CLOUD_PREMIUM, 0.015, 200000, ["complex_analysis", "reasoning"], "ANTHROPIC_API_KEY"),
@@ -284,12 +284,12 @@ class CostOptimizer:
             if agent_type in ["layout", "qc_analysis", "personalization"]:
                 return MODEL_CONFIGS["llama3_8b"]  # Free local
             else:
-                return MODEL_CONFIGS["gpt_3_5_turbo"]  # Cheap cloud
+                return MODEL_CONFIGS["gpt_4o"]  # Use GPT-4o
         
         # Complex queries -> Based on user tier
         elif query_complexity == "complex":
             if user_tier == "free_user":
-                return MODEL_CONFIGS["gpt_3_5_turbo"]  # Cheapest cloud option
+                return MODEL_CONFIGS["gpt_4o"]  # Use GPT-4o
             elif user_tier == "paid_user":
                 if agent_type == "document_analysis":
                     return MODEL_CONFIGS["claude_3_haiku"]  # Better for documents
@@ -299,7 +299,7 @@ class CostOptimizer:
                 return MODEL_CONFIGS["gpt_4_turbo"]    # No restrictions
         
         # Default fallback
-        return MODEL_CONFIGS["gpt_3_5_turbo"]
+        return MODEL_CONFIGS["gpt_4o"]
     
     def _get_user_usage(self, user_tier: str) -> float:
         """Get current usage for user tier"""
@@ -1238,7 +1238,7 @@ class HybridAgentFactory:
                 logger.warning(f"[_create_llm] Claude not fully implemented, using GPT fallback")
                 if OpenAI is None:
                     raise ImportError("OpenAI LLM not available - please install langchain-community or langchain-openai")
-                return OpenAI(api_key=api_key, model_name="gpt-3.5-turbo")
+                return OpenAI(api_key=api_key, model_name="gpt-4o")
         else:
             # If no API key and not local, we can't create the LLM
             if model_config.tier != ModelTier.LOCAL:

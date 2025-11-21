@@ -244,9 +244,77 @@ def optimize_panels():
         logger.error(traceback.format_exc())
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/ai/chat', methods=['POST'])
+def chat_message():
+    """Handle chat messages using hybrid AI architecture - Backend API endpoint"""
+    try:
+        data = request.json
+        message = data.get('message', '')
+        user_id = data.get('user_id', 'default_user')
+        user_tier = data.get('user_tier', 'paid_user')
+        context = data.get('context', {})
+        
+        # Fix: Extract projectId from top-level data and add to context
+        project_id = data.get('projectId') or context.get('projectId') or context.get('project_id')
+        if project_id and 'projectId' not in context:
+            context['projectId'] = project_id
+        
+        logger.info(f"[Chat Endpoint] Request received - user_id: {user_id}, project_id: {project_id}, message_length: {len(message)}")
+        logger.debug(f"[Chat Endpoint] Context keys: {list(context.keys())}")
+        
+        if not message:
+            return jsonify({'error': 'No message provided', 'success': False}), 400
+        
+        if not ai_integration.is_hybrid_ai_available():
+            logger.warning("[Chat Endpoint] Hybrid AI not available, returning error")
+            return jsonify({
+                'error': 'Hybrid AI architecture not available',
+                'success': False,
+                'details': 'The AI service is not fully initialized. Please check service logs.'
+            }), 503
+        
+        # Use hybrid AI architecture for chat
+        chat_result = run_async(ai_integration.chat_message_hybrid(
+            message=message,
+            context=context,
+            user_id=user_id,
+            user_tier=user_tier
+        ))
+        
+        logger.info(f"[Chat Endpoint] Result: success={chat_result.get('success')}, has_response={bool(chat_result.get('response'))}, error={chat_result.get('error')}")
+        
+        if chat_result.get('success'):
+            return jsonify({
+                'reply': chat_result.get('response', 'No response generated'),  # Map response to reply for frontend compatibility
+                'response': chat_result.get('response', 'No response generated'),
+                'success': True,
+                'user_id': chat_result.get('user_id', user_id),
+                'timestamp': chat_result.get('timestamp', '')
+            }), 200
+        else:
+            # Log the error details before returning
+            error_msg = chat_result.get('error', 'Chat failed')
+            logger.error(f"[Chat Endpoint] Chat failed: {error_msg}")
+            logger.error(f"[Chat Endpoint] Full result: {chat_result}")
+            return jsonify({
+                'error': error_msg,
+                'success': False,
+                'details': chat_result.get('response')  # Include any response even if success=false
+            }), 500
+    
+    except Exception as e:
+        logger.error(f"Chat message failed: {e}", exc_info=True)
+        error_trace = traceback.format_exc()
+        logger.error(f"Full traceback: {error_trace}")
+        return jsonify({
+            'error': str(e),
+            'success': False,
+            'details': error_trace if os.getenv("FLASK_DEBUG") == "1" else None
+        }), 500
+
 @app.route('/hybrid/chat', methods=['POST'])
 def hybrid_chat():
-    """Handle chat messages using hybrid AI architecture"""
+    """Handle chat messages using hybrid AI architecture - Alternative endpoint"""
     try:
         data = request.json
         

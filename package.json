@@ -12,7 +12,7 @@
     "dev:all": "concurrently --names \"FRONTEND,BACKEND,AI\" --prefix-colors \"blue,green,yellow\" \"npm run dev:frontend\" \"npm run dev:backend\" \"npm run dev:ai\"",
     "dev:frontend": "cd frontend && npm run dev",
     "dev:backend": "cd backend && npm run dev",
-    "dev:ai": "cd ai-service && PORT=5001 python3 app.py"
+    "dev:ai": "cd ai_service && PORT=5001 LITELLM_MODEL=gpt-4o OPENAI_MODEL=gpt-4o python3 app.py"
   },
   "private": true,
   "keywords": [],
