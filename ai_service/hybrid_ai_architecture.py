@@ -36,6 +36,24 @@ from .openai_service import OpenAIService
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# CRITICAL: Configure LiteLLM to use GPT-4o (CrewAI uses LiteLLM internally)
+# Set environment variable that LiteLLM respects
+os.environ.setdefault("LITELLM_MODEL", "gpt-4o")
+os.environ.setdefault("OPENAI_MODEL", "gpt-4o")
+
+try:
+    import litellm
+    # Force LiteLLM to use GPT-4o and disable cost optimization
+    litellm.drop_params = True  # Don't drop model parameter
+    litellm.suppress_debug_info = False  # Show debug info
+    # Disable LiteLLM's automatic model selection
+    litellm.set_verbose = True  # Enable verbose logging
+    logger.info("[hybrid_ai_architecture] LiteLLM configured - environment variables set: LITELLM_MODEL=gpt-4o, OPENAI_MODEL=gpt-4o")
+except ImportError:
+    logger.warning("[hybrid_ai_architecture] LiteLLM not directly imported (CrewAI uses it internally)")
+except Exception as e:
+    logger.warning(f"[hybrid_ai_architecture] Could not configure LiteLLM: {e}")
+
 class ModelProvider(Enum):
     """Available AI model providers"""
     OPENAI = "openai"
@@ -500,8 +518,35 @@ class DellSystemAIService:
                 logger.warning(f"[_create_agent_for_task] Forcing GPT-4o for browser tools (was: {model_name})")
                 model_name = "gpt-4o"
             
+            # CRITICAL: Always force GPT-4o - never use GPT-3.5
+            if model_name != "gpt-4o":
+                logger.warning(f"[_create_agent_for_task] ⚠️ Model override: {model_name} -> gpt-4o")
+                model_name = "gpt-4o"
+            
             logger.info(f"[_create_agent_for_task] Creating LLM with model: {model_name} (requires_browser_tools={requires_browser_tools})")
-            llm = ChatOpenAI(model=model_name, temperature=0)
+            
+            # CRITICAL: Set LiteLLM environment variables before creating ChatOpenAI (CrewAI uses LiteLLM internally)
+            os.environ["LITELLM_MODEL"] = model_name
+            os.environ["OPENAI_MODEL"] = model_name
+            logger.info(f"[_create_agent_for_task] LiteLLM environment variables set: LITELLM_MODEL={model_name}, OPENAI_MODEL={model_name}")
+            
+            # Explicitly set model parameter to prevent any override
+            llm = ChatOpenAI(
+                model=model_name,
+                temperature=0,
+                openai_api_key=os.getenv("OPENAI_API_KEY")  # Explicit API key to prevent fallback
+            )
+            
+            # CRITICAL: Verify the LLM model after creation
+            actual_model = getattr(llm, 'model_name', None) or getattr(llm, 'model', None)
+            logger.info(f"[_create_agent_for_task] LLM created - requested: {model_name}, actual: {actual_model}")
+            if actual_model and actual_model != model_name:
+                logger.error(f"[_create_agent_for_task] ❌ MODEL MISMATCH! Requested {model_name} but got {actual_model}")
+                # Force set the model attribute if possible
+                if hasattr(llm, 'model_name'):
+                    llm.model_name = model_name
+                if hasattr(llm, 'model'):
+                    llm.model = model_name
             
             # Stronger prompts for browser tool tasks
             if requires_browser_tools:
@@ -532,6 +577,19 @@ You MUST execute browser_navigate, browser_screenshot, and browser_extract tools
                 llm=llm,
                 tools=tools,
             )
+            
+            # CRITICAL: Verify agent's LLM model after Agent creation
+            agent_llm = getattr(agent, 'llm', None)
+            if agent_llm:
+                agent_model = getattr(agent_llm, 'model_name', None) or getattr(agent_llm, 'model', None)
+                logger.info(f"[_create_agent_for_task] Agent LLM model after creation: {agent_model}")
+                if agent_model and agent_model != model_name:
+                    logger.error(f"[_create_agent_for_task] ❌ AGENT MODEL MISMATCH! Expected {model_name} but agent has {agent_model}")
+                    # Try to force set the model
+                    if hasattr(agent_llm, 'model_name'):
+                        agent_llm.model_name = model_name
+                    if hasattr(agent_llm, 'model'):
+                        agent_llm.model = model_name
 
             process = Process.hierarchical if complexity in (TaskComplexity.COMPLEX, TaskComplexity.EXPERT) else Process.sequential
             return CrewAgentExecutor(agent, process=process, tools=tools, requires_browser_tools=requires_browser_tools)
@@ -1105,7 +1163,17 @@ class WorkflowOrchestrator:
             )
             
             try:
-                llm = ChatOpenAI(model=model_name, temperature=0)
+                # CRITICAL: Always force GPT-4o - never use GPT-3.5
+                if model_name != "gpt-4o":
+                    logger.warning(f"[WorkflowOrchestrator] ⚠️ Model override: {model_name} -> gpt-4o")
+                    model_name = "gpt-4o"
+                
+                # Explicitly set model parameter to prevent any override
+                llm = ChatOpenAI(
+                    model=model_name,
+                    temperature=0,
+                    openai_api_key=os.getenv("OPENAI_API_KEY")  # Explicit API key to prevent fallback
+                )
                 
                 # Strengthen backstory for browser tool agents
                 if requires_browser_tools:
