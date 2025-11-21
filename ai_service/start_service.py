@@ -18,6 +18,13 @@ from app import app
 
 def setup_environment():
     """Setup environment variables and logging"""
+    # CRITICAL: Set LiteLLM environment variables BEFORE importing CrewAI/LiteLLM
+    # LiteLLM reads these at import time, so they must be set early
+    if not os.getenv("LITELLM_MODEL"):
+        os.environ["LITELLM_MODEL"] = "gpt-4o"
+    if not os.getenv("OPENAI_MODEL"):
+        os.environ["OPENAI_MODEL"] = "gpt-4o"
+    
     # Set default environment variables if not set
     if not os.getenv("FLASK_ENV"):
         os.environ["FLASK_ENV"] = "development"
@@ -120,6 +127,8 @@ def main():
     logger.info(f"Hybrid AI: {'Enabled' if config.ENABLE_HYBRID_AI else 'Disabled'}")
     logger.info(f"Local Models: {'Enabled' if config.ENABLE_LOCAL_MODELS else 'Disabled'}")
     logger.info(f"Cost Optimization: {'Enabled' if config.ENABLE_COST_OPTIMIZATION else 'Disabled'}")
+    logger.info(f"LiteLLM Model: {os.getenv('LITELLM_MODEL', 'not set')}")
+    logger.info(f"OpenAI Model: {os.getenv('OPENAI_MODEL', 'not set')}")
     logger.info("=" * 50)
     
     try:

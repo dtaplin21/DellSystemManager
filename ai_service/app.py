@@ -5,6 +5,14 @@ import logging
 import tempfile
 import json
 import traceback
+
+# CRITICAL: Set LiteLLM environment variables BEFORE importing CrewAI/LiteLLM
+# LiteLLM reads these at import time, so they must be set early
+if not os.getenv("LITELLM_MODEL"):
+    os.environ["LITELLM_MODEL"] = "gpt-4o"
+if not os.getenv("OPENAI_MODEL"):
+    os.environ["OPENAI_MODEL"] = "gpt-4o"
+
 from document_processor import DocumentProcessor
 from openai_service import OpenAIService
 from utils import setup_logging, save_temp_file
