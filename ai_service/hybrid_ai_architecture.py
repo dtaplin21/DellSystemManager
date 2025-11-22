@@ -344,72 +344,9 @@ class CostOptimizer:
         pass
 
 # === TOOL DEFINITIONS ===
-class BaseTool:
-    """Base class for all AI tools"""
-    
-    def __init__(self, name: str, description: str):
-        self.name = name
-        self.description = description
-    
-    async def execute(self, **kwargs) -> Dict:
-        """Execute the tool - to be implemented by subclasses"""
-        raise NotImplementedError
-
-class PanelLayoutOptimizer(BaseTool):
-    """Tool for optimizing panel layouts"""
-    
-    def __init__(self):
-        super().__init__(
-            name="panel_layout_optimizer",
-            description="Optimizes panel layouts for maximum efficiency and coverage"
-        )
-    
-    async def execute(self, panel_data: Dict, constraints: Dict) -> Dict:
-        """Optimize panel layout based on constraints"""
-        # Mock implementation - replace with actual optimization logic
-        return {
-            "optimized_layout": panel_data,
-            "efficiency_score": 0.85,
-            "recommendations": ["Consider rotating panels 45 degrees for better coverage"]
-        }
-
-class DocumentAnalyzer(BaseTool):
-    """Tool for analyzing documents and extracting insights"""
-    
-    def __init__(self):
-        super().__init__(
-            name="document_analyzer",
-            description="Analyzes documents to extract key information and insights"
-        )
-    
-    async def execute(self, document_content: str, analysis_type: str) -> Dict:
-        """Analyze document content"""
-        # Mock implementation - replace with actual document analysis
-        return {
-            "analysis_type": analysis_type,
-            "key_insights": ["Document contains technical specifications", "Multiple panel types identified"],
-            "confidence_score": 0.92
-        }
-
-class ProjectConfigAgent(BaseTool):
-    """Tool for configuring new projects"""
-    
-    def __init__(self):
-        super().__init__(
-            name="project_config_agent",
-            description="Configures new projects with optimal settings and workflows"
-        )
-    
-    async def execute(self, project_requirements: Dict) -> Dict:
-        """Configure project based on requirements"""
-        # Mock implementation - replace with actual project configuration
-        return {
-            "project_config": {
-                "workflow": "standard_optimization",
-                "quality_checks": ["panel_alignment", "coverage_analysis"],
-                "estimated_duration": "2-3 hours"
-            }
-        }
+# Note: All tools now inherit from CrewAI's BaseTool (imported at top of file)
+# Mock tools (PanelLayoutOptimizer, DocumentAnalyzer, ProjectConfigAgent) have been removed
+# Only browser tools remain, which properly inherit from crewai.tools.BaseTool
 
 class DellSystemAIService:
     """Main AI service orchestrator"""
@@ -435,11 +372,8 @@ class DellSystemAIService:
         self._persist_orchestrator_manifest()
 
     def _initialize_tools(self) -> Dict[str, BaseTool]:
-        """Initialize available tools"""
+        """Initialize available tools - only browser tools (all inherit from CrewAI's BaseTool)"""
         tools = {
-            "panel_optimizer": PanelLayoutOptimizer(),
-            "document_analyzer": DocumentAnalyzer(),
-            "project_config": ProjectConfigAgent(),
             "browser_navigate": BrowserNavigationTool(self.browser_sessions),
             "browser_interact": BrowserInteractionTool(self.browser_sessions),
             "browser_extract": BrowserExtractionTool(self.browser_sessions),
@@ -988,7 +922,7 @@ class WorkflowOrchestrator:
                         goal="Assemble an end-to-end QC workflow tailored to project constraints",
                         backstory="Veteran PM who has launched hundreds of geosynthetic projects.",
                         complexity=TaskComplexity.MODERATE,
-                        tools=["project_config"],
+                        tools=[],
                     ),
                     "qa": AgentProfile(
                         name="Quality Analyst",
@@ -996,7 +930,7 @@ class WorkflowOrchestrator:
                         goal="Ensure every configured step satisfies compliance requirements",
                         backstory="Meticulous auditor focused on specification adherence.",
                         complexity=TaskComplexity.COMPLEX,
-                        tools=["document_analyzer"],
+                        tools=[],
                     ),
                     "reporter": AgentProfile(
                         name="Communication Specialist",
@@ -1043,7 +977,7 @@ class WorkflowOrchestrator:
                         goal="Design the highest efficiency layout respecting constraints",
                         backstory="Geometric optimization specialist",
                         complexity=TaskComplexity.COMPLEX,
-                        tools=["panel_optimizer"],
+                        tools=[],
                     ),
                     "compliance": AgentProfile(
                         name="Compliance Partner",
@@ -1051,7 +985,7 @@ class WorkflowOrchestrator:
                         goal="Ensure optimized layout respects specifications",
                         backstory="Expert in specification governance",
                         complexity=TaskComplexity.MODERATE,
-                        tools=["document_analyzer"],
+                        tools=[],
                     ),
                 },
                 tasks=[

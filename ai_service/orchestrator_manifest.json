@@ -21,9 +21,7 @@
             "role": "Project Configuration Specialist",
             "goal": "Assemble an end-to-end QC workflow tailored to project constraints",
             "complexity": "moderate",
-            "tools": [
-              "project_config"
-            ],
+            "tools": [],
             "allowDelegation": true
           },
           {
@@ -32,9 +30,7 @@
             "role": "Quality and Compliance Analyst",
             "goal": "Ensure every configured step satisfies compliance requirements",
             "complexity": "complex",
-            "tools": [
-              "document_analyzer"
-            ],
+            "tools": [],
             "allowDelegation": true
           },
           {
@@ -80,9 +76,7 @@
             "role": "Panel Layout Optimizer",
             "goal": "Design the highest efficiency layout respecting constraints",
             "complexity": "complex",
-            "tools": [
-              "panel_optimizer"
-            ],
+            "tools": [],
             "allowDelegation": true
           },
           {
@@ -91,9 +85,7 @@
             "role": "Specification Compliance Officer",
             "goal": "Ensure optimized layout respects specifications",
             "complexity": "moderate",
-            "tools": [
-              "document_analyzer"
-            ],
+            "tools": [],
             "allowDelegation": true
           }
         ],
