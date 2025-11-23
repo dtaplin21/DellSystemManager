@@ -9,6 +9,7 @@ from typing import Any, Optional
 
 import nest_asyncio
 from crewai.tools import BaseTool
+from pydantic import BaseModel
 
 from .browser_sessions import BrowserSessionManager
 
@@ -16,6 +17,17 @@ from .browser_sessions import BrowserSessionManager
 nest_asyncio.apply()
 
 logger = logging.getLogger(__name__)
+
+
+class BrowserVisionAnalysisToolSchema(BaseModel):
+    """Explicit Pydantic schema for browser vision analysis tool with proper defaults."""
+    question: Optional[str] = None
+    screenshot_base64: Optional[str] = None
+    session_id: str = "default"
+    user_id: Optional[str] = None
+    tab_id: Optional[str] = None
+    selector: Optional[str] = None
+    full_page: bool = True
 
 
 class BrowserVisionAnalysisTool(BaseTool):
@@ -26,6 +38,7 @@ class BrowserVisionAnalysisTool(BaseTool):
         "Capture or reuse screenshots and analyze them with a vision model to "
         "detect UI state, errors, or visual changes."
     )
+    args_schema: type = BrowserVisionAnalysisToolSchema
     session_manager: Any = None
     openai_service: Any = None
     default_prompt: str = "Describe the visible UI, highlight changes, and note any errors or warnings."
@@ -40,37 +53,6 @@ class BrowserVisionAnalysisTool(BaseTool):
         self.session_manager = session_manager
         self.openai_service = openai_service
         self.default_prompt = default_prompt
-        # Force schema creation and rebuild to resolve Optional forward references
-        # CrewAI's BaseTool creates schema lazily, so we need to access it first
-        self._ensure_schema_rebuilt()
-    
-    def _ensure_schema_rebuilt(self):
-        """Ensure the Pydantic schema is created and rebuilt to resolve ForwardRefs."""
-        try:
-            # Force schema creation by accessing it
-            if hasattr(self, 'args_schema'):
-                schema = self.args_schema
-                if schema is not None:
-                    # Rebuild with proper namespace that includes Optional
-                    # This resolves ForwardRef('Optional[str]') to Optional[str]
-                    from typing import Optional, Union
-                    # Create namespace with required types
-                    types_namespace = {
-                        'Optional': Optional,
-                        'Union': Union,
-                        'str': str,
-                        'int': int,
-                        'float': float,
-                        'bool': bool,
-                        'Any': Any,
-                    }
-                    # Rebuild schema with types namespace
-                    schema.model_rebuild(_types_namespace=types_namespace)
-                    # Also rebuild the tool model itself
-                    if hasattr(self, 'model_rebuild'):
-                        self.model_rebuild()
-        except (AttributeError, Exception) as e:
-            logger.debug(f"Schema rebuild skipped (may not be created yet): {e}")
 
     def _run(
         self,

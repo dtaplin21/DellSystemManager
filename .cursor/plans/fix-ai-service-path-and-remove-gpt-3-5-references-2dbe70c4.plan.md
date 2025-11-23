@@ -36,6 +36,7 @@
 **Problem**: Hierarchical process being used with single agent, causing browser tools to fail.
 
 **Root Cause**:
+
 - Browser tools force `TaskComplexity.COMPLEX` (line 311-312)
 - COMPLEX sets `process=Process.hierarchical` (line 528)
 - But Crew only has ONE agent: `agents=[self.agent]` (line 227)
@@ -44,6 +45,7 @@
 **File: `ai_service/hybrid_ai_architecture.py`** (MODIFY)
 
 **Line 528**: Fix process type selection
+
 - Current: `process = Process.hierarchical if complexity in (TaskComplexity.COMPLEX, TaskComplexity.EXPERT) else Process.sequential`
 - Problem: Browser tools get COMPLEX → hierarchical → fails with single agent
 - Fix: Always use `Process.sequential` for single-agent crews
@@ -52,12 +54,14 @@
 **File: `ai_service/hybrid_ai_architecture.py`** (MODIFY)
 
 **Line 560-870**: Route browser tools to `web_automation` workflow
+
 - Current: Always creates single agent for browser tools
 - Fix: Route browser tool tasks to `WorkflowOrchestrator.execute_workflow("web_automation", ...)`
 - This uses proper sequential process with browser automation agent
 - Fallback to single agent if workflow fails
 
 **Success Criteria**:
+
 - Browser tools execute properly (no hierarchical process error)
 - Single agent tasks use sequential process
 - Browser tool tasks use web_automation workflow (sequential)

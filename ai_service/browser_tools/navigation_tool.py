@@ -10,6 +10,7 @@ from typing import Any, Optional
 
 import nest_asyncio
 from crewai.tools import BaseTool
+from pydantic import BaseModel
 
 from .browser_sessions import BrowserSessionManager
 
@@ -19,47 +20,28 @@ nest_asyncio.apply()
 logger = logging.getLogger(__name__)
 
 
+class BrowserNavigationToolSchema(BaseModel):
+    """Explicit Pydantic schema for browser navigation tool with proper defaults."""
+    action: str
+    url: Optional[str] = None
+    wait_for: Optional[str] = None
+    session_id: str = "default"
+    user_id: Optional[str] = None
+    tab_id: Optional[str] = None
+    selector: Optional[str] = None
+
+
 class BrowserNavigationTool(BaseTool):
     name: str = "browser_navigate"
     description: str = (
         "Navigate to URLs, control history, capture page content, and manage tabs."
     )
+    args_schema: type = BrowserNavigationToolSchema
     session_manager: Any = None
 
     def __init__(self, session_manager: BrowserSessionManager):
         super().__init__()
         self.session_manager = session_manager
-        # Force schema creation and rebuild to resolve Optional forward references
-        # CrewAI's BaseTool creates schema lazily, so we need to access it first
-        self._ensure_schema_rebuilt()
-    
-    def _ensure_schema_rebuilt(self):
-        """Ensure the Pydantic schema is created and rebuilt to resolve ForwardRefs."""
-        try:
-            # Force schema creation by accessing it
-            if hasattr(self, 'args_schema'):
-                schema = self.args_schema
-                if schema is not None:
-                    # Rebuild with proper namespace that includes Optional
-                    # This resolves ForwardRef('Optional[str]') to Optional[str]
-                    from typing import Optional, Union
-                    # Create namespace with required types
-                    types_namespace = {
-                        'Optional': Optional,
-                        'Union': Union,
-                        'str': str,
-                        'int': int,
-                        'float': float,
-                        'bool': bool,
-                        'Any': Any,
-                    }
-                    # Rebuild schema with types namespace
-                    schema.model_rebuild(_types_namespace=types_namespace)
-                    # Also rebuild the tool model itself
-                    if hasattr(self, 'model_rebuild'):
-                        self.model_rebuild()
-        except (AttributeError, Exception) as e:
-            logger.debug(f"Schema rebuild skipped (may not be created yet): {e}")
 
     def _run(
         self,
@@ -469,29 +451,3 @@ class BrowserNavigationTool(BaseTool):
             logger.debug("Failed to capture navigation state: %s", exc)
 
 
-# Rebuild Pydantic schema to resolve Optional forward references
-# CrewAI's BaseTool creates schemas lazily, so we need to ensure it's created first
-def _rebuild_navigation_schema():
-    """Rebuild schema after module load to resolve ForwardRefs."""
-    try:
-        # Create a temporary instance to force schema creation
-        # We can't actually create one without session_manager, so we'll do it lazily
-        # The __init__ method will handle rebuilding for actual instances
-        pass
-    except Exception:
-        pass
-
-# Try to rebuild at module level if possible
-try:
-    # Check if we can access the class schema
-    if hasattr(BrowserNavigationTool, 'args_schema'):
-        schema = getattr(BrowserNavigationTool, 'args_schema', None)
-        if schema is not None:
-            schema.model_rebuild()
-    # Also try rebuilding the model itself
-    if hasattr(BrowserNavigationTool, 'model_rebuild'):
-        BrowserNavigationTool.model_rebuild()
-except (AttributeError, Exception):
-    # Schema may not be created yet (lazy creation by CrewAI)
-    # Individual instances will rebuild in __init__
-    pass

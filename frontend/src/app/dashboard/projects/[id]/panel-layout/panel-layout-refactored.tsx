@@ -81,6 +81,33 @@ export default function PanelLayoutRefactored() {
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
+
+  // Expose panel data to window object for AI extraction
+  useEffect(() => {
+    if (panels && panels.length > 0) {
+      // Expose panels to window for AI extraction
+      (window as any).__PANEL_DATA__ = {
+        panels: panels.map(p => ({
+          id: p.id,
+          panelNumber: p.panel_number,
+          rollNumber: p.roll_number,
+          x: p.x,
+          y: p.y,
+          width: p.width,
+          height: p.height,
+          rotation: p.rotation || 0
+        })),
+        source: 'react_state',
+        timestamp: Date.now(),
+        projectId: projectId
+      };
+    } else {
+      // Clear if no panels
+      if ((window as any).__PANEL_DATA__) {
+        delete (window as any).__PANEL_DATA__;
+      }
+    }
+  }, [panels, projectId]);
   
   // Don't render anything on server side to prevent SSR issues
   if (!isHydrated) {

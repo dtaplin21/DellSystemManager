@@ -9,6 +9,7 @@ from typing import Any, Optional
 
 import nest_asyncio
 from crewai.tools import BaseTool
+from pydantic import BaseModel
 
 from .browser_sessions import BrowserSessionManager
 
@@ -18,45 +19,24 @@ nest_asyncio.apply()
 logger = logging.getLogger(__name__)
 
 
+class BrowserScreenshotToolSchema(BaseModel):
+    """Explicit Pydantic schema for browser screenshot tool with proper defaults."""
+    selector: Optional[str] = None
+    session_id: str = "default"
+    full_page: bool = True
+    user_id: Optional[str] = None
+    tab_id: Optional[str] = None
+
+
 class BrowserScreenshotTool(BaseTool):
     name: str = "browser_screenshot"
     description: str = "Capture a screenshot of the current page or a selector."
+    args_schema: type = BrowserScreenshotToolSchema
     session_manager: Any = None
 
     def __init__(self, session_manager: BrowserSessionManager):
         super().__init__()
         self.session_manager = session_manager
-        # Force schema creation and rebuild to resolve Optional forward references
-        # CrewAI's BaseTool creates schema lazily, so we need to access it first
-        self._ensure_schema_rebuilt()
-    
-    def _ensure_schema_rebuilt(self):
-        """Ensure the Pydantic schema is created and rebuilt to resolve ForwardRefs."""
-        try:
-            # Force schema creation by accessing it
-            if hasattr(self, 'args_schema'):
-                schema = self.args_schema
-                if schema is not None:
-                    # Rebuild with proper namespace that includes Optional
-                    # This resolves ForwardRef('Optional[str]') to Optional[str]
-                    from typing import Optional, Union
-                    # Create namespace with required types
-                    types_namespace = {
-                        'Optional': Optional,
-                        'Union': Union,
-                        'str': str,
-                        'int': int,
-                        'float': float,
-                        'bool': bool,
-                        'Any': Any,
-                    }
-                    # Rebuild schema with types namespace
-                    schema.model_rebuild(_types_namespace=types_namespace)
-                    # Also rebuild the tool model itself
-                    if hasattr(self, 'model_rebuild'):
-                        self.model_rebuild()
-        except (AttributeError, Exception) as e:
-            logger.debug(f"Schema rebuild skipped (may not be created yet): {e}")
 
     def _run(
         self,
@@ -177,18 +157,3 @@ class BrowserScreenshotTool(BaseTool):
             return f"Error: {error_msg}"
 
 
-# Rebuild Pydantic schema to resolve Optional forward references
-# CrewAI's BaseTool creates schemas lazily, so individual instances will rebuild in __init__
-try:
-    # Check if we can access the class schema
-    if hasattr(BrowserScreenshotTool, 'args_schema'):
-        schema = getattr(BrowserScreenshotTool, 'args_schema', None)
-        if schema is not None:
-            schema.model_rebuild()
-    # Also try rebuilding the model itself
-    if hasattr(BrowserScreenshotTool, 'model_rebuild'):
-        BrowserScreenshotTool.model_rebuild()
-except (AttributeError, Exception):
-    # Schema may not be created yet (lazy creation by CrewAI)
-    # Individual instances will rebuild in __init__
-    pass

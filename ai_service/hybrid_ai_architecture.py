@@ -525,11 +525,93 @@ You MUST execute browser_navigate, browser_screenshot, and browser_extract tools
                     if hasattr(agent_llm, 'model'):
                         agent_llm.model = model_name
 
-            process = Process.hierarchical if complexity in (TaskComplexity.COMPLEX, TaskComplexity.EXPERT) else Process.sequential
+            # CRITICAL FIX: NEVER use hierarchical with single agent - always sequential
+            # Hierarchical processes REQUIRE multiple agents or manager LLM/agent
+            # Single agent + hierarchical = validation error
+            process = Process.sequential  # Always sequential for single agent
+            logger.info(f"[_create_agent_for_task] Using Process.sequential for single agent (complexity={complexity.value})")
             return CrewAgentExecutor(agent, process=process, tools=tools, requires_browser_tools=requires_browser_tools)
         except Exception as error:
             logger.warning("Falling back to mock agent for %s: %s", model_name, error)
             return MockAgent(model_name, complexity)
+
+    def _extract_requested_actions(self, message: str) -> List[Dict[str, Any]]:
+        """Extract user-requested actions from message"""
+        message_lower = message.lower()
+        actions = []
+        
+        # Detect move/rearrange requests
+        if any(word in message_lower for word in ["move", "rearrange", "reorder", "position"]):
+            actions.append({
+                "type": "rearrange_panels",
+                "description": "User wants to move or rearrange panels"
+            })
+        
+        # Detect click/interaction requests
+        if any(word in message_lower for word in ["click", "select", "choose", "press"]):
+            actions.append({
+                "type": "interact",
+                "description": "User wants to click or interact with UI elements"
+            })
+        
+        # Detect form fill requests
+        if any(word in message_lower for word in ["fill", "enter", "update", "change"]):
+            actions.append({
+                "type": "form_fill",
+                "description": "User wants to fill or update form fields"
+            })
+        
+        return actions
+
+    def _combine_agent_outputs(self, workflow_result: Dict) -> str:
+        """Combine outputs from multiple agents into coherent response"""
+        if not isinstance(workflow_result, dict):
+            return str(workflow_result)
+        
+        # Extract outputs from each agent task
+        outputs = []
+        
+        # Navigator output
+        if "navigate-to-panel-layout" in workflow_result:
+            nav_output = workflow_result["navigate-to-panel-layout"]
+            if isinstance(nav_output, dict):
+                nav_text = nav_output.get("output", str(nav_output))
+            else:
+                nav_text = str(nav_output)
+            outputs.append(f"✅ Navigation: {nav_text}")
+        
+        # Visual analyst output
+        if "analyze-visual-layout" in workflow_result:
+            visual_output = workflow_result["analyze-visual-layout"]
+            if isinstance(visual_output, dict):
+                visual_text = visual_output.get("output", str(visual_output))
+            else:
+                visual_text = str(visual_output)
+            outputs.append(f"📊 Visual Analysis: {visual_text}")
+        
+        # Interaction executor output
+        if "execute-user-actions" in workflow_result:
+            action_output = workflow_result["execute-user-actions"]
+            if isinstance(action_output, dict):
+                action_text = action_output.get("output", str(action_output))
+            else:
+                action_text = str(action_output)
+            outputs.append(f"⚙️ Actions Executed: {action_text}")
+        
+        # Validator output
+        if "validate-results" in workflow_result:
+            validation_output = workflow_result["validate-results"]
+            if isinstance(validation_output, dict):
+                validation_text = validation_output.get("output", str(validation_output))
+            else:
+                validation_text = str(validation_output)
+            outputs.append(f"✓ Validation: {validation_text}")
+        
+        # Combine with workflow summary
+        if "output" in workflow_result:
+            return workflow_result["output"]
+        
+        return "\n\n".join(outputs) if outputs else "Workflow completed successfully."
 
     def _calculate_cost(self, model_name: str, tokens: int) -> float:
         """Calculate cost for using a specific model"""
@@ -721,12 +803,6 @@ You MUST execute browser_navigate, browser_screenshot, and browser_extract tools
                     preflight_error = str(automation_error)
                     automation_details["error"] = str(automation_error)
             
-            # Create agent with proper configuration
-            logger.info(f"[handle_chat_message] Creating agent with model: {optimal_model}, requires_browser_tools: {requires_browser_tools}")
-            agent = self._create_agent_for_task(optimal_model, complexity, requires_browser_tools)
-            logger.info(f"[handle_chat_message] Agent created with {len(agent.tools)} tools")
-            logger.info(f"[handle_chat_message] Agent tools: {[tool.name if hasattr(tool, 'name') else str(tool) for tool in agent.tools]}")
-            
             # Build enhanced context with pre-flight results
             enhanced_context = copy.deepcopy(context)
             enhanced_context["preflight_automation"] = {
@@ -736,6 +812,88 @@ You MUST execute browser_navigate, browser_screenshot, and browser_extract tools
             }
             enhanced_context["frontendUrl"] = frontend_url
             enhanced_context["frontend_url"] = frontend_url
+            
+            # Route browser tools to multi-agent workflow
+            if requires_browser_tools:
+                logger.info(f"[handle_chat_message] Routing browser tool task to multi-agent workflow")
+                
+                try:
+                    orchestrator = self.get_orchestrator(user_id, user_tier)
+                    
+                    # Extract requested actions from user message
+                    requested_actions = self._extract_requested_actions(message)
+                    
+                    # Build workflow payload
+                    workflow_payload = {
+                        "panel_layout_url": panel_layout_url,
+                        "frontend_url": frontend_url,
+                        "user_id": user_id,
+                        "session_id": session_id,
+                        "user_message": message,
+                        "user_context": enhanced_context,
+                        "preflight_automation": {
+                            "success": preflight_success,
+                            "details": automation_details
+                        },
+                        "requested_actions": requested_actions,
+                    }
+                    
+                    logger.info(f"[handle_chat_message] Executing multi-agent browser automation workflow")
+                    workflow_result = await orchestrator.execute_workflow(
+                        "multi_agent_browser_automation",
+                        payload=workflow_payload,
+                        metadata={
+                            "trigger": "chat",
+                            "source": "unified_ai_panel_workspace",
+                            "user_id": user_id,
+                            "user_tier": user_tier,
+                            "project_id": context.get("projectId"),
+                        }
+                    )
+                    
+                    # Extract response from workflow
+                    response = workflow_result.get("output", "")
+                    if not response:
+                        # Fallback: Combine agent outputs
+                        response = self._combine_agent_outputs(workflow_result)
+                    
+                    logger.info(f"[handle_chat_message] Multi-agent workflow completed successfully")
+                    
+                    # Track usage
+                    estimated_tokens = len(message.split()) * 1.3
+                    estimated_cost = self._calculate_cost(optimal_model, estimated_tokens)
+                    await self.cost_optimizer.track_usage(user_id, optimal_model, estimated_tokens, estimated_cost)
+                    
+                    return {
+                        "reply": response,
+                        "response": response,
+                        "success": True,
+                        "timestamp": time.time(),
+                        "user_id": user_id,
+                        "model_used": optimal_model,
+                        "workflow_used": "multi_agent_browser_automation",
+                        "agents_used": ["navigator", "visual_analyst", "interaction_executor", "validator"],
+                        "complexity_level": complexity.value,
+                        "estimated_cost": estimated_cost,
+                        "browser_tools_required": True,
+                        "preflight_automation": {
+                            "success": preflight_success,
+                            "error": preflight_error,
+                            "details": automation_details
+                        },
+                        "workflow_details": workflow_result.get("details", {}),
+                    }
+                except Exception as workflow_error:
+                    logger.error(f"[handle_chat_message] Multi-agent workflow failed: {workflow_error}")
+                    logger.exception(f"[handle_chat_message] Workflow error traceback:")
+                    # Fallback to single agent
+                    logger.warning(f"[handle_chat_message] Falling back to single agent")
+            
+            # Non-browser tasks OR fallback: use single agent
+            logger.info(f"[handle_chat_message] Creating single agent with model: {optimal_model}, requires_browser_tools: {requires_browser_tools}")
+            agent = self._create_agent_for_task(optimal_model, complexity, requires_browser_tools)
+            logger.info(f"[handle_chat_message] Agent created with {len(agent.tools)} tools")
+            logger.info(f"[handle_chat_message] Agent tools: {[tool.name if hasattr(tool, 'name') else str(tool) for tool in agent.tools]}")
             
             # Build query with enforcement for browser tools
             if requires_browser_tools:
@@ -1049,6 +1207,92 @@ class WorkflowOrchestrator:
                         agent="web_automation",
                         expected_output="Extracted data payloads, screenshot references, and notable runtime events",
                         context_keys=["payload"],
+                    ),
+                ],
+            ),
+            "multi_agent_browser_automation": WorkflowBlueprint(
+                id="multi_agent_browser_automation",
+                name="Multi-Agent Browser Automation",
+                description="Collaborative browser automation with specialized agents for navigation, analysis, execution, and validation",
+                process=Process.sequential,  # Sequential because agents depend on each other
+                agents={
+                    "navigator": AgentProfile(
+                        name="Navigation Specialist",
+                        role="Browser Navigation Coordinator",
+                        goal="Navigate to target pages, verify page loads, handle redirects and authentication",
+                        backstory="Expert browser navigator with deep understanding of web routing, authentication flows, and page load verification. Specializes in getting to the right page reliably.",
+                        complexity=TaskComplexity.MODERATE,
+                        tools=[
+                            "browser_navigate",
+                            "browser_screenshot",  # For verification
+                        ],
+                    ),
+                    "visual_analyst": AgentProfile(
+                        name="Visual Layout Analyst",
+                        role="Visual Layout Specialist",
+                        goal="Capture and analyze visual state of panel layouts, extract panel data sorted by visual position",
+                        backstory="Visual analysis expert trained to understand spatial layouts, panel arrangements, and UI state. Specializes in extracting meaningful data from visual representations.",
+                        complexity=TaskComplexity.COMPLEX,
+                        tools=[
+                            "browser_screenshot",
+                            "browser_vision_analyze",
+                            "browser_extract",
+                        ],
+                    ),
+                    "interaction_executor": AgentProfile(
+                        name="Interaction Specialist",
+                        role="UI Interaction Executor",
+                        goal="Execute user-requested actions on the panel layout (move panels, click buttons, fill forms, update positions)",
+                        backstory="UI automation specialist with expertise in precise element interaction, drag-and-drop operations, and form manipulation. Ensures actions are executed accurately.",
+                        complexity=TaskComplexity.COMPLEX,
+                        tools=[
+                            "browser_interact",
+                            "browser_extract",
+                            "browser_screenshot",  # Before/after verification
+                        ],
+                    ),
+                    "validator": AgentProfile(
+                        name="Validation Coordinator",
+                        role="Quality Assurance Validator",
+                        goal="Verify actions completed correctly, validate data integrity, catch errors, and generate validation reports",
+                        backstory="QA specialist focused on validation and error detection. Reviews agent outputs, verifies data consistency, and ensures all actions completed successfully.",
+                        complexity=TaskComplexity.MODERATE,
+                        tools=[
+                            "browser_extract",
+                            "browser_screenshot",
+                            "browser_performance",
+                            "browser_realtime",  # For error detection
+                        ],
+                    ),
+                },
+                tasks=[
+                    WorkflowTaskTemplate(
+                        id="navigate-to-panel-layout",
+                        description="Navigate to the panel layout page specified in the context. Verify the page loaded successfully, handle any authentication redirects, and confirm the canvas element is present.",
+                        agent="navigator",
+                        expected_output="Navigation confirmation with page URL, load status, and canvas element verification",
+                        context_keys=["payload", "panel_layout_url"],
+                    ),
+                    WorkflowTaskTemplate(
+                        id="analyze-visual-layout",
+                        description="Capture a screenshot of the current panel layout, analyze the visual arrangement using vision analysis, and extract panel data sorted by visual position (Y coordinate, then X coordinate).",
+                        agent="visual_analyst",
+                        expected_output="Screenshot reference, visual analysis results, and extracted panel data with visual positioning",
+                        context_keys=["payload", "history"],
+                    ),
+                    WorkflowTaskTemplate(
+                        id="execute-user-actions",
+                        description="Execute any user-requested actions on the panel layout (if actions are specified). This includes moving panels, clicking buttons, filling forms, or updating panel positions. Capture before/after screenshots to verify changes.",
+                        agent="interaction_executor",
+                        expected_output="List of actions performed, before/after screenshots, and updated panel state",
+                        context_keys=["payload", "history", "user_message"],
+                    ),
+                    WorkflowTaskTemplate(
+                        id="validate-results",
+                        description="Verify all actions completed successfully, validate the extracted panel data for consistency, check for any errors in the browser console or network requests, and generate a comprehensive validation report.",
+                        agent="validator",
+                        expected_output="Validation report with success status, data integrity checks, error detection, and final panel state",
+                        context_keys=["payload", "history"],
                     ),
                 ],
             ),
