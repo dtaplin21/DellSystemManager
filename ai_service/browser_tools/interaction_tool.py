@@ -11,7 +11,7 @@ from typing import Any, Dict, Optional
 
 import nest_asyncio
 from crewai.tools import BaseTool
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from .browser_sessions import BrowserSessionManager
 
@@ -25,11 +25,11 @@ class BrowserInteractionToolSchema(BaseModel):
     """Explicit Pydantic schema for browser interaction tool with proper defaults."""
     action: str
     selector: str  # Required for interaction actions (click, type, etc.)
-    value: Optional[str] = None
-    session_id: str = "default"
-    file_path: Optional[str] = None
-    user_id: Optional[str] = None
-    tab_id: Optional[str] = None
+    value: Optional[str] = Field(default=None)
+    session_id: str = Field(default="default")
+    file_path: Optional[str] = Field(default=None)
+    user_id: Optional[str] = Field(default=None)
+    tab_id: Optional[str] = Field(default=None)
 
 
 class BrowserInteractionTool(BaseTool):

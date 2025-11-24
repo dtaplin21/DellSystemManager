@@ -8,7 +8,7 @@ from typing import Any, List, Optional, Union
 
 import nest_asyncio
 from crewai.tools import BaseTool
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from .browser_sessions import BrowserSessionManager
 
@@ -21,11 +21,11 @@ logger = logging.getLogger(__name__)
 class BrowserExtractionToolSchema(BaseModel):
     """Explicit Pydantic schema for browser extraction tool with proper defaults."""
     action: str
-    selector: Optional[str] = None
-    session_id: str = "default"
-    user_id: Optional[str] = None
-    tab_id: Optional[str] = None
-    output_format: str = "text"
+    selector: Optional[str] = Field(default=None)
+    session_id: str = Field(default="default")
+    user_id: Optional[str] = Field(default=None)
+    tab_id: Optional[str] = Field(default=None)
+    output_format: str = Field(default="text")
 
 
 class BrowserExtractionTool(BaseTool):

@@ -9,7 +9,7 @@ from typing import Any, Optional
 
 import nest_asyncio
 from crewai.tools import BaseTool
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from .browser_sessions import BrowserSessionManager
 
@@ -21,13 +21,13 @@ logger = logging.getLogger(__name__)
 
 class BrowserVisionAnalysisToolSchema(BaseModel):
     """Explicit Pydantic schema for browser vision analysis tool with proper defaults."""
-    question: Optional[str] = None
-    screenshot_base64: Optional[str] = None
-    session_id: str = "default"
-    user_id: Optional[str] = None
-    tab_id: Optional[str] = None
-    selector: Optional[str] = None
-    full_page: bool = True
+    question: Optional[str] = Field(default=None)
+    screenshot_base64: Optional[str] = Field(default=None)
+    session_id: str = Field(default="default")
+    user_id: Optional[str] = Field(default=None)
+    tab_id: Optional[str] = Field(default=None)
+    selector: Optional[str] = Field(default=None)
+    full_page: bool = Field(default=True)
 
 
 class BrowserVisionAnalysisTool(BaseTool):

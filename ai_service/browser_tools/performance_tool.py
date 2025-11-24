@@ -9,7 +9,7 @@ from typing import Any, Optional
 
 import nest_asyncio
 from crewai.tools import BaseTool
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from .browser_sessions import BrowserSessionManager
 
@@ -22,10 +22,10 @@ logger = logging.getLogger(__name__)
 class BrowserPerformanceToolSchema(BaseModel):
     """Explicit Pydantic schema for browser performance tool with proper defaults."""
     action: str
-    session_id: str = "default"
-    user_id: Optional[str] = None
-    tab_id: Optional[str] = None
-    limit: int = 50
+    session_id: str = Field(default="default")
+    user_id: Optional[str] = Field(default=None)
+    tab_id: Optional[str] = Field(default=None)
+    limit: int = Field(default=50)
 
 
 class BrowserPerformanceTool(BaseTool):

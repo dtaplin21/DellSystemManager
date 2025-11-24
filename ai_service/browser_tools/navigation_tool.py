@@ -10,7 +10,7 @@ from typing import Any, Optional
 
 import nest_asyncio
 from crewai.tools import BaseTool
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from .browser_sessions import BrowserSessionManager
 
@@ -23,12 +23,12 @@ logger = logging.getLogger(__name__)
 class BrowserNavigationToolSchema(BaseModel):
     """Explicit Pydantic schema for browser navigation tool with proper defaults."""
     action: str
-    url: Optional[str] = None
-    wait_for: Optional[str] = None
-    session_id: str = "default"
-    user_id: Optional[str] = None
-    tab_id: Optional[str] = None
-    selector: Optional[str] = None
+    url: Optional[str] = Field(default=None)
+    wait_for: Optional[str] = Field(default=None)
+    session_id: str = Field(default="default")
+    user_id: Optional[str] = Field(default=None)
+    tab_id: Optional[str] = Field(default=None)
+    selector: Optional[str] = Field(default=None)
 
 
 class BrowserNavigationTool(BaseTool):

@@ -9,7 +9,7 @@ from typing import Any, Optional
 
 import nest_asyncio
 from crewai.tools import BaseTool
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from .browser_sessions import BrowserSessionManager
 
@@ -21,11 +21,11 @@ logger = logging.getLogger(__name__)
 
 class BrowserScreenshotToolSchema(BaseModel):
     """Explicit Pydantic schema for browser screenshot tool with proper defaults."""
-    selector: Optional[str] = None
-    session_id: str = "default"
-    full_page: bool = True
-    user_id: Optional[str] = None
-    tab_id: Optional[str] = None
+    selector: Optional[str] = Field(default=None)
+    session_id: str = Field(default="default")
+    full_page: bool = Field(default=True)
+    user_id: Optional[str] = Field(default=None)
+    tab_id: Optional[str] = Field(default=None)
 
 
 class BrowserScreenshotTool(BaseTool):
