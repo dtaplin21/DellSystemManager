@@ -12,12 +12,14 @@ import time
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple, Literal
 
 import redis
+import requests
 from crewai import Agent, Crew, Process, Task
 from crewai.tools import BaseTool
 from langchain_openai import ChatOpenAI
+from pydantic import BaseModel, Field, PrivateAttr, ValidationError
 
 from browser_tools import (
     BrowserExtractionTool,
@@ -347,6 +349,652 @@ class CostOptimizer:
 # Note: All tools now inherit from CrewAI's BaseTool (imported at top of file)
 # Mock tools (PanelLayoutOptimizer, DocumentAnalyzer, ProjectConfigAgent) have been removed
 # Only browser tools remain, which properly inherit from crewai.tools.BaseTool
+
+
+class PanelManipulationInput(BaseModel):
+    """Validated inputs for panel manipulation operations."""
+
+    action: Literal["get_panels", "move_panel", "batch_move", "reorder_panels_numerically"] = Field(
+        ...,
+        description="Panel manipulation action to perform.",
+    )
+    project_id: Optional[str] = Field(
+        default=None,
+        description="Target project identifier. Falls back to tool context when omitted.",
+    )
+    panel_id: Optional[str] = Field(
+        default=None,
+        description="Panel identifier required for single-panel operations.",
+    )
+    position: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="New position object (expects numeric x/y and optional rotation).",
+    )
+    moves: Optional[List[Dict[str, Any]]] = Field(
+        default=None,
+        description="List of move operations for batch updates. Each item should include panelId and newPosition.",
+    )
+    include_layout: bool = Field(
+        default=False,
+        description="When true, include the refreshed layout in the response.",
+    )
+
+
+class PanelManipulationTool(BaseTool):
+    """Execute panel layout operations through the backend API."""
+
+    name: str = "panel_manipulation"
+    description: str = (
+        "Execute panel layout operations via API. Use this tool ONLY for operations such as moving, "
+        "reordering, or batch operations. Supported actions: 'get_panels', 'move_panel', 'batch_move', "
+        "'reorder_panels_numerically'. "
+        "⚠️ IMPORTANT: DO NOT use this tool for visual layout questions or questions about panel order/arrangement. "
+        "For visual questions, use browser automation tools (browser_navigate, browser_extract, browser_screenshot) instead."
+    )
+    args_schema: type = PanelManipulationInput
+    base_url: str = Field(
+        default="http://localhost:8003",
+        description="Base URL for the backend service handling panel layout operations.",
+    )
+    browser_base_url: str = Field(
+        default="http://localhost:3000",
+        description="Base URL for the browser automation/visual extraction service.",
+    )
+    default_headers: Dict[str, str] = Field(
+        default_factory=dict,
+        description="Default HTTP headers applied to every panel manipulation request.",
+    )
+    project_id: Optional[str] = Field(
+        default=None,
+        description="Default project identifier applied when a request omits the project_id argument.",
+    )
+    auth_token: Optional[str] = Field(
+        default=None,
+        description="Bearer token used when authenticating requests to the panel manipulation API.",
+    )
+    caller_session: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Session payload forwarded to downstream services for authenticated requests.",
+    )
+    _session: requests.Session = PrivateAttr()
+    _timeout: int = PrivateAttr(default=15)
+
+    def __init__(
+        self,
+        base_url: Optional[str] = None,
+        default_headers: Optional[Dict[str, str]] = None,
+        project_id: Optional[str] = None,
+        auth_token: Optional[str] = None,
+        caller_session: Optional[Dict[str, Any]] = None,
+        browser_base_url: Optional[str] = None,
+        browser_service_url: Optional[str] = None,
+    ):
+        resolved_base_url = (base_url or "http://localhost:8003").rstrip("/")
+        resolved_browser_base = (
+            browser_service_url
+            or browser_base_url
+            or os.getenv("BROWSER_SERVICE_URL")
+            or resolved_base_url
+        )
+        headers = dict(default_headers or {})
+        if "x-dev-bypass" not in headers and os.getenv("DISABLE_DEV_BYPASS") != "1":
+            headers["x-dev-bypass"] = "true"
+
+        init_data: Dict[str, Any] = {
+            "base_url": resolved_base_url,
+            "browser_base_url": resolved_browser_base.rstrip("/"),
+            "default_headers": headers,
+            "project_id": project_id,
+            "auth_token": auth_token,
+            "caller_session": dict(caller_session or {}),
+        }
+
+        super().__init__(**init_data)
+
+        # Normalize runtime attributes now that Pydantic validation has completed.
+        self.base_url = (self.base_url or "http://localhost:8003").rstrip("/")
+        self.browser_base_url = (self.browser_base_url or self.base_url).rstrip("/")
+        self.default_headers = dict(self.default_headers or {})
+        if "x-dev-bypass" not in self.default_headers and os.getenv("DISABLE_DEV_BYPASS") != "1":
+            self.default_headers["x-dev-bypass"] = "true"
+        self.caller_session = dict(self.caller_session or {})
+
+        self._session = requests.Session()
+        self._timeout = 15
+
+    @property
+    def session(self) -> requests.Session:
+        """HTTP session used for issuing panel API requests."""
+
+        return self._session
+
+    @property
+    def timeout(self) -> int:
+        """Default timeout (seconds) applied to API requests."""
+
+        return self._timeout
+
+    def with_context(
+        self,
+        project_id: Optional[str] = None,
+        auth_token: Optional[str] = None,
+        extra_headers: Optional[Dict[str, str]] = None,
+        caller_session: Optional[Dict[str, Any]] = None,
+        base_url: Optional[str] = None,
+        browser_base_url: Optional[str] = None,
+    ) -> "PanelManipulationTool":
+        """Return a copy of the tool bound to a specific project/auth context."""
+
+        headers = dict(self.default_headers)
+        if extra_headers:
+            headers.update(extra_headers)
+
+        session_payload = dict(self.caller_session)
+        if caller_session:
+            session_payload.update(caller_session)
+
+        return PanelManipulationTool(
+            base_url=base_url or self.base_url,
+            default_headers=headers,
+            project_id=project_id or self.project_id,
+            auth_token=auth_token or self.auth_token,
+            caller_session=session_payload,
+            browser_base_url=browser_base_url or self.browser_base_url,
+        )
+
+    def _run(self, **kwargs: Any) -> str:
+        try:
+            input_data = self.args_schema(**kwargs)
+        except ValidationError as exc:
+            raise ValueError(f"Invalid panel manipulation arguments: {exc}") from exc
+
+        result = self._execute(input_data)
+        return json.dumps(result, default=str)
+
+    async def _arun(self, **kwargs: Any) -> str:
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, lambda: self._run(**kwargs))
+
+    # --- Internal helpers -------------------------------------------------
+    def _execute(self, data: PanelManipulationInput) -> Dict[str, Any]:
+        action = data.action
+
+        if action == "get_panels":
+            project_id = self._require_project_id(data.project_id)
+            layout = self._get_layout(project_id)
+            return {"action": action, "projectId": project_id, "layout": layout}
+
+        if action == "move_panel":
+            return self._move_panel(data)
+
+        if action == "batch_move":
+            return self._batch_move(data)
+
+        if action == "reorder_panels_numerically":
+            project_id = self._require_project_id(data.project_id)
+            summary = self._reorder_panels(project_id, include_layout=data.include_layout)
+            return {"action": action, **summary}
+
+        raise ValueError(f"Unsupported panel manipulation action: {action}")
+
+    def _move_panel(self, data: PanelManipulationInput) -> Dict[str, Any]:
+        project_id = self._require_project_id(data.project_id)
+        if not data.panel_id:
+            raise ValueError("panel_id is required for move_panel operations.")
+        position = self._validate_position(data.position)
+
+        payload = {
+            "projectId": project_id,
+            "panelId": data.panel_id,
+            "newPosition": position,
+        }
+
+        response = self._request(
+            method="POST",
+            path="/api/panel-layout/move-panel",
+            json_payload=payload,
+        )
+
+        logger.info(
+            "✅ [PanelManipulationTool] Moved panel %s to (%.2f, %.2f)",
+            data.panel_id,
+            position["x"],
+            position["y"],
+        )
+
+        result = {
+            "action": "move_panel",
+            "projectId": project_id,
+            "panelId": data.panel_id,
+            "position": position,
+            "response": response,
+        }
+
+        if data.include_layout:
+            result["layout"] = self._get_layout(project_id)
+
+        return result
+
+    def _batch_move(self, data: PanelManipulationInput) -> Dict[str, Any]:
+        project_id = self._require_project_id(data.project_id)
+        if not data.moves or not isinstance(data.moves, list):
+            raise ValueError("moves must be a non-empty list for batch_move operations.")
+
+        operations = []
+        for move in data.moves:
+            panel_id = move.get("panelId") or move.get("panel_id")
+            new_position = self._validate_position(move.get("newPosition") or move.get("new_position"))
+
+            if not panel_id:
+                raise ValueError("Each move must include a 'panelId'.")
+
+            operations.append(
+                {
+                    "type": "MOVE_PANEL",
+                    "payload": {
+                        "panelId": panel_id,
+                        "newPosition": new_position,
+                    },
+                }
+            )
+
+        payload = {
+            "projectId": project_id,
+            "operations": operations,
+        }
+
+        response = self._request(
+            method="POST",
+            path="/api/panel-layout/batch-operations",
+            json_payload=payload,
+        )
+
+        result = {
+            "action": "batch_move",
+            "projectId": project_id,
+            "operations": operations,
+            "response": response,
+        }
+
+        if data.include_layout:
+            result["layout"] = self._get_layout(project_id)
+
+        return result
+
+    def _reorder_panels(self, project_id: str, include_layout: bool = False) -> Dict[str, Any]:
+        logger.info(f"[PanelManipulationTool] Starting reorder_panels_numerically for project_id: {project_id}")
+        layout_data = self._get_layout(project_id)
+        panels = layout_data.get("panels") or []
+
+        if not panels:
+            logger.warning(f"[PanelManipulationTool] No panels found for project_id: {project_id}")
+            return {"projectId": project_id, "message": "No panels found to reorder.", "moves_executed": []}
+        
+        logger.info(f"[PanelManipulationTool] Found {len(panels)} panels to reorder")
+
+        sorted_panels = sorted(panels, key=self._panel_sort_key)
+        spacing_x = 450
+        spacing_y = 350
+        base_x = 200
+        base_y = 200
+        columns = 5
+
+        operations = []
+        for index, panel in enumerate(sorted_panels):
+            panel_id = panel.get("id")
+            if not panel_id:
+                logger.warning("Skipping panel without ID during reorder: %s", panel)
+                continue
+
+            column = index % columns
+            row = index // columns
+            target_x = base_x + (column * spacing_x)
+            target_y = base_y + (row * spacing_y)
+
+            operations.append(
+                {
+                    "type": "MOVE_PANEL",
+                    "payload": {
+                        "panelId": panel_id,
+                        "newPosition": {
+                            "x": float(target_x),
+                            "y": float(target_y),
+                            "rotation": float(panel.get("rotation", 0) or 0),
+                        },
+                    },
+                }
+            )
+
+        if not operations:
+            return {"projectId": project_id, "message": "No valid panels found for reordering.", "moves_executed": []}
+
+        payload = {
+            "projectId": project_id,
+            "operations": operations,
+        }
+
+        logger.info(f"[PanelManipulationTool] Executing batch_move with {len(operations)} operations")
+        response = self._request(
+            method="POST",
+            path="/api/panel-layout/batch-operations",
+            json_payload=payload,
+        )
+
+        logger.info(f"[PanelManipulationTool] Batch move response: {response}")
+        logger.info(
+            "🚚 [PanelManipulationTool] Completed batch move with %d operations",
+            len(operations),
+        )
+
+        summary = {
+            "projectId": project_id,
+            "moves_executed": len(operations),
+            "operations": operations,
+            "response": response,
+            "message": f"Successfully reordered {len(operations)} panels numerically",
+        }
+
+        if include_layout:
+            summary["layout"] = self._get_layout(project_id)
+
+        logger.info(
+            "🔢 [PanelManipulationTool] Reordered %d panels for project %s",
+            len(operations),
+            project_id,
+        )
+        return summary
+
+    def _panel_sort_key(self, panel: Dict[str, Any]) -> Tuple[int, str]:
+        raw_number = panel.get("panelNumber") or panel.get("panel_number") or panel.get("id") or ""
+        digits = "".join(ch for ch in str(raw_number) if ch.isdigit())
+        try:
+            numeric = int(digits) if digits else float("inf")
+        except ValueError:
+            numeric = float("inf")
+        return numeric, str(raw_number)
+
+    def _request(
+        self,
+        method: str,
+        path: str,
+        json_payload: Optional[Dict[str, Any]] = None,
+        params: Optional[Dict[str, Any]] = None,
+        headers: Optional[Dict[str, str]] = None,
+        base_url: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        url_base = (base_url or self.base_url).rstrip("/")
+        url = f"{url_base}{path}"
+        combined_headers = dict(self.default_headers)
+
+        if headers:
+            combined_headers.update(headers)
+
+        if self.auth_token:
+            combined_headers.setdefault("Authorization", f"Bearer {self.auth_token}")
+
+        logger.info(
+            f"[PanelManipulationTool] {method} {url} (headers: {list(combined_headers.keys())})"
+        )
+        if json_payload:
+            logger.debug(
+                f"[PanelManipulationTool] Payload keys: {list(json_payload.keys())}"
+            )
+
+        try:
+            response = self.session.request(
+                method=method.upper(),
+                url=url,
+                json=json_payload,
+                params=params,
+                headers=combined_headers,
+                timeout=self.timeout,
+            )
+            logger.info(f"[PanelManipulationTool] Response status: {response.status_code}")
+        except requests.RequestException as exc:
+            logger.error(f"[PanelManipulationTool] Request exception: {exc}")
+            raise ValueError(f"Panel manipulation request failed: {exc}") from exc
+
+        if response.status_code == 401:
+            logger.error(f"[PanelManipulationTool] Unauthorized (401) for {url}")
+            raise ValueError(
+                "Panel manipulation request was unauthorized. Verify authentication headers."
+            )
+
+        if not response.ok:
+            try:
+                error_payload = response.json()
+            except ValueError:
+                error_payload = response.text
+            logger.error(
+                f"[PanelManipulationTool] Request failed ({response.status_code}): {error_payload}"
+            )
+            raise ValueError(
+                f"Panel manipulation request failed ({response.status_code}): {error_payload}"
+            )
+
+        try:
+            result = response.json()
+            logger.debug(f"[PanelManipulationTool] Response keys: {list(result.keys()) if isinstance(result, dict) else 'not a dict'}")
+            logger.info("📬 [PanelManipulationTool] %s %s succeeded", method.upper(), path)
+            return result
+        except ValueError as exc:
+            logger.error(
+                f"[PanelManipulationTool] JSON parse error: {exc}, response text: {response.text[:200]}"
+            )
+            raise ValueError(
+                f"Panel manipulation response could not be parsed: {exc}"
+            ) from exc
+
+    def _browser_request(
+        self,
+        method: str,
+        path: str,
+        json_payload: Optional[Dict[str, Any]] = None,
+        params: Optional[Dict[str, Any]] = None,
+        headers: Optional[Dict[str, str]] = None,
+    ) -> Dict[str, Any]:
+        return self._request(
+            method=method,
+            path=path,
+            json_payload=json_payload,
+            params=params,
+            headers=headers,
+            base_url=self.browser_base_url,
+        )
+
+    def _compact_dict(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        return {k: v for k, v in payload.items() if v not in (None, "", [], {})}
+
+    def _resolve_panel_layout_url(self, project_id: str) -> str:
+        session_data = self.caller_session or {}
+        for key in ("panel_layout_url", "panelLayoutUrl", "panelLayoutURL"):
+            value = session_data.get(key)
+            if value:
+                return str(value)
+
+        frontend_base = (
+            session_data.get("frontend_url")
+            or session_data.get("frontendUrl")
+            or os.getenv("FRONTEND_URL", "http://localhost:3000")
+        )
+        frontend_base = str(frontend_base).rstrip("/")
+        return f"{frontend_base}/dashboard/projects/{project_id}/panel-layout"
+
+    def _build_browser_payload(
+        self,
+        base: Dict[str, Any],
+        *,
+        project_id: Optional[str] = None,
+        tab_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        payload = dict(base)
+        session_data = dict(self.caller_session or {})
+
+        if project_id:
+            payload.setdefault("projectId", project_id)
+            session_data.setdefault("projectId", project_id)
+
+        if tab_id:
+            payload.setdefault("tabId", tab_id)
+
+        if session_data:
+            payload.setdefault("session", session_data)
+
+            key_mappings = {
+                "sessionId": ["sessionId", "session_id"],
+                "browserSessionId": ["browserSessionId", "browser_session_id"],
+                "workspaceId": ["workspaceId", "workspace_id"],
+                "workspaceSlug": ["workspaceSlug", "workspace_slug"],
+                "workspaceKey": ["workspaceKey", "workspace_key"],
+                "userId": ["userId", "user_id"],
+                "tabId": ["tabId", "tab_id"],
+                "callerSessionId": ["callerSessionId", "caller_session_id"],
+                "panelLayoutUrl": ["panelLayoutUrl", "panel_layout_url"],
+                "frontendUrl": ["frontendUrl", "frontend_url"],
+                "baseUrl": ["baseUrl", "base_url"],
+                "browserBaseUrl": ["browserBaseUrl", "browser_base_url"],
+                "environment": ["environment", "env"],
+            }
+
+            for canonical, options in key_mappings.items():
+                for option in options:
+                    if option in session_data and session_data[option] is not None:
+                        payload.setdefault(canonical, session_data[option])
+                        break
+
+        return self._compact_dict(payload)
+
+    def navigate_panel_layout(
+        self,
+        project_id: Optional[str] = None,
+        *,
+        wait_for_selector: Optional[str] = None,
+        tab_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        target_project = self._require_project_id(project_id)
+        url = self._resolve_panel_layout_url(target_project)
+
+        payload = self._build_browser_payload(
+            {
+                "action": "navigate",
+                "url": url,
+                "waitFor": wait_for_selector,
+            },
+            project_id=target_project,
+            tab_id=tab_id,
+        )
+
+        logger.info(
+            "[PanelManipulationTool] Navigating browser session to panel layout URL: %s",
+            url,
+        )
+        return self._browser_request(
+            method="POST",
+            path="/browser/navigate",
+            json_payload=payload,
+        )
+
+    def take_panel_screenshot(
+        self,
+        *,
+        selector: Optional[str] = None,
+        full_page: bool = True,
+        tab_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        payload = self._build_browser_payload(
+            {
+                "selector": selector,
+                "fullPage": full_page,
+            },
+            tab_id=tab_id,
+        )
+
+        logger.info(
+            "[PanelManipulationTool] Requesting browser screenshot (selector=%s, full_page=%s)",
+            selector,
+            full_page,
+        )
+        return self._browser_request(
+            method="POST",
+            path="/browser/screenshot",
+            json_payload=payload,
+        )
+
+    def extract_panel_list(
+        self,
+        *,
+        selector: Optional[str] = None,
+        tab_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        payload = self._build_browser_payload(
+            {
+                "action": "panels",
+                "selector": selector,
+            },
+            tab_id=tab_id,
+        )
+
+        logger.info(
+            "[PanelManipulationTool] Requesting panel list extraction (selector=%s)",
+            selector,
+        )
+        return self._browser_request(
+            method="POST",
+            path="/browser/extract",
+            json_payload=payload,
+        )
+
+    def _get_layout(self, project_id: str) -> Dict[str, Any]:
+        try:
+            logger.info(f"[PanelManipulationTool] Fetching layout for project_id: {project_id}")
+            response = self._request(
+                method="GET",
+                path=f"/api/panel-layout/get-layout/{project_id}",
+            )
+            logger.info(f"[PanelManipulationTool] Layout response received: {list(response.keys())}")
+            
+            layout = response.get("layout")
+            if layout is None:
+                logger.warning("Layout response missing 'layout' key. Raw response: %s", response)
+                # Try to use response directly if it has panels
+                if "panels" in response:
+                    logger.info("Using response directly as layout")
+                    return response
+                return {}
+            
+            logger.info(f"[PanelManipulationTool] Layout retrieved: {len(layout.get('panels', []))} panels")
+            logger.info("🧾 [PanelManipulationTool] Layout fetch succeeded for project %s", project_id)
+            return layout
+        except Exception as e:
+            logger.error(f"[PanelManipulationTool] Error getting layout: {e}")
+            raise
+
+    def _require_project_id(self, project_id: Optional[str]) -> str:
+        resolved = project_id or self.project_id
+        if not resolved:
+            raise ValueError("A project_id must be provided either in the tool arguments or context.")
+        return resolved
+
+    def _validate_position(self, position: Optional[Dict[str, Any]]) -> Dict[str, float]:
+        if not position or not isinstance(position, dict):
+            raise ValueError("position must be an object containing numeric x and y values.")
+
+        try:
+            x = float(position["x"])
+            y = float(position["y"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ValueError("position must include numeric 'x' and 'y' values.") from exc
+
+        validated = {"x": x, "y": y}
+
+        if "rotation" in position and position["rotation"] is not None:
+            try:
+                validated["rotation"] = float(position["rotation"])
+            except (TypeError, ValueError) as exc:
+                raise ValueError("rotation must be numeric when provided.") from exc
+
+        return validated
+
 
 class DellSystemAIService:
     """Main AI service orchestrator"""
