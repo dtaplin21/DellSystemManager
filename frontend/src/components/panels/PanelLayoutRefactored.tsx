@@ -91,8 +91,8 @@ function PanelLayoutContent({
       (window as any).__PANEL_DATA__ = {
         panels: panels.map(p => ({
           id: p.id,
-          panelNumber: p.panel_number,
-          rollNumber: p.roll_number,
+          panelNumber: (p as any).panelNumber || (p as any).panel_number,
+          rollNumber: (p as any).rollNumber || (p as any).roll_number,
           x: p.x,
           y: p.y,
           width: p.width,
