@@ -340,7 +340,7 @@ class CostOptimizer:
         logger.info(f"[CostOptimizer] Selecting GPT-4o (browser_tools={requires_browser_tools}, complexity={complexity.value}, user_tier={user_tier})")
         return "gpt-4o"
     
-    def track_usage(self, user_id: str, model: str, tokens: int, cost: float):
+    async def track_usage(self, user_id: str, model: str, tokens: int, cost: float):
         """Track usage for cost optimization"""
         # Implementation for usage tracking
         pass
@@ -1775,7 +1775,7 @@ class WorkflowOrchestrator:
                 id="panel_optimization",
                 name="Panel Optimization",
                 description="Optimize panel layout with engineering and compliance review",
-                process=Process.parallel,
+                process=Process.sequential,  # Changed from Process.parallel (doesn't exist) - agents run sequentially
                 agents={
                     "optimizer": AgentProfile(
                         name="Layout Optimizer",

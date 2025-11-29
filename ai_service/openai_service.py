@@ -300,3 +300,120 @@ class OpenAIService:
         except Exception as e:
             logger.error(f"Error in generate_project_recommendations: {str(e)}")
             return {"error": f"Error generating recommendations: {str(e)}"}
+    
+    async def detect_defects_in_image(self, image_base64: str, project_id: str = None) -> Dict[str, Any]:
+        """
+        Detect defects in geosynthetic material images using GPT-4o vision model.
+        
+        Args:
+            image_base64: Base64 encoded image
+            project_id: Optional project ID for context
+            
+        Returns:
+            Dictionary containing detected defects, locations, severity, and recommendations
+        """
+        if not image_base64:
+            raise ValueError('image_base64 is required for defect detection')
+
+        defect_detection_prompt = """You are an expert geosynthetic quality control inspector specializing in defect detection.
+
+Analyze this geosynthetic material image and detect ALL defects present. Look for:
+
+DEFECT TYPES TO DETECT:
+1. **Tears/Holes**: Any rips, punctures, or holes in the material
+2. **Seam Defects**: Welding issues, incomplete seams, seam separation
+3. **Surface Damage**: Scratches, abrasions, surface contamination
+4. **Edge Damage**: Fraying, edge tears, edge contamination
+5. **Material Degradation**: Discoloration, UV damage, chemical damage
+6. **Contamination**: Foreign materials, stains, oil/grease spots
+7. **Dimensional Issues**: Wrinkles, folds, misalignment
+8. **Installation Defects**: Improper overlap, gaps, misplacement
+
+FOR EACH DEFECT FOUND, provide:
+- **Type**: Specific defect category
+- **Location**: Describe position (e.g., "top-left quadrant", "center-right", "bottom edge")
+- **Size**: Estimate dimensions (e.g., "5cm x 2cm", "approximately 10cm diameter")
+- **Severity**: minor / moderate / severe
+- **Confidence**: How certain you are (high/medium/low)
+- **Recommended Action**: repair_required / monitor / replace_panel / document_only
+
+Return your analysis as a JSON object with this exact structure:
+{
+  "defects": [
+    {
+      "id": 1,
+      "type": "tear",
+      "location": "center-right quadrant",
+      "size": "5cm x 2cm",
+      "severity": "moderate",
+      "confidence": "high",
+      "description": "Horizontal tear approximately 5cm long",
+      "action": "repair_required",
+      "estimated_position": {
+        "x_percent": 75,
+        "y_percent": 50
+      }
+    }
+  ],
+  "overall_assessment": "Overall condition assessment",
+  "total_defects": 0,
+  "critical_defects": 0,
+  "recommendations": ["List of recommendations"]
+}
+
+IMPORTANT:
+- Be thorough - examine the entire image carefully
+- If no defects are found, return empty defects array
+- Provide accurate size estimates based on visible reference points
+- Use x_percent and y_percent (0-100) for approximate position mapping
+- Be conservative with severity ratings - when in doubt, choose lower severity"""
+
+        def _call() -> Dict[str, Any]:
+            try:
+                response = openai.chat.completions.create(
+                    model="gpt-4o",
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": "You are a precision defect detection system. Always return valid JSON."
+                        },
+                        {
+                            "role": "user",
+                            "content": [
+                                {"type": "text", "text": defect_detection_prompt},
+                                {"type": "image_url", "image_url": f"data:image/png;base64,{image_base64}"}
+                            ],
+                        }
+                    ],
+                    max_tokens=3000,  # Higher limit for detailed defect analysis
+                    temperature=0,  # Zero temperature for consistent detection
+                    response_format={"type": "json_object"},  # Force JSON output
+                )
+                
+                result_text = response.choices[0].message.content.strip()
+                
+                # Parse JSON response
+                try:
+                    result_json = json.loads(result_text)
+                    return result_json
+                except json.JSONDecodeError as e:
+                    logger.error(f"Failed to parse JSON from defect detection: {result_text}")
+                    # Fallback: try to extract JSON from text if wrapped
+                    import re
+                    json_match = re.search(r'\{.*\}', result_text, re.DOTALL)
+                    if json_match:
+                        try:
+                            return json.loads(json_match.group())
+                        except:
+                            pass
+                    return {
+                        "error": "Invalid JSON response from defect detection",
+                        "raw_response": result_text,
+                        "defects": []
+                    }
+                    
+            except Exception as exc:
+                logger.error(f"Error detecting defects: {exc}")
+                raise
+
+        return await asyncio.to_thread(_call)

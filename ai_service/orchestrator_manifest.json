@@ -1,5 +1,5 @@
 {
-  "generatedAt": 1710000000,
+  "generatedAt": 1764442916.152693,
   "manifest": {
     "capabilities": {
       "multiAgent": true,
@@ -13,7 +13,7 @@
         "id": "new_project_setup",
         "name": "New Project Setup",
         "description": "Configure a new GeoSynth QC project with quality and documentation guardrails",
-        "process": "HIERARCHICAL",
+        "process": "hierarchical",
         "agents": [
           {
             "key": "config",
@@ -68,7 +68,7 @@
         "id": "panel_optimization",
         "name": "Panel Optimization",
         "description": "Optimize panel layout with engineering and compliance review",
-        "process": "PARALLEL",
+        "process": "sequential",
         "agents": [
           {
             "key": "optimizer",
@@ -108,7 +108,7 @@
         "id": "web_automation",
         "name": "Browser Automation",
         "description": "Automate navigation, interactions, and data capture from approved web applications",
-        "process": "SEQUENTIAL",
+        "process": "sequential",
         "agents": [
           {
             "key": "web_automation",
@@ -120,7 +120,10 @@
               "browser_navigate",
               "browser_interact",
               "browser_extract",
-              "browser_screenshot"
+              "browser_screenshot",
+              "browser_vision_analyze",
+              "browser_realtime",
+              "browser_performance"
             ],
             "allowDelegation": true
           }
@@ -134,15 +137,101 @@
           },
           {
             "id": "perform-interactions",
-            "description": "Execute the form fills, clicks, or downloads specified in the request",
+            "description": "Execute the form fills, clicks, drags, or downloads specified in the request. After each interaction capture a screenshot and run vision analysis to verify UI state and surface errors.",
             "agent": "web_automation",
-            "expectedOutput": "List of interactions performed with success state"
+            "expectedOutput": "List of interactions performed with success state and any vision insights"
           },
           {
             "id": "collect-artifacts",
-            "description": "Extract requested data or screenshots for downstream processing",
+            "description": "Extract requested data, capture before/after screenshots, and summarize any console, network, or realtime events relevant to the task",
             "agent": "web_automation",
-            "expectedOutput": "Extracted data payloads and optional screenshot references"
+            "expectedOutput": "Extracted data payloads, screenshot references, and notable runtime events"
+          }
+        ]
+      },
+      {
+        "id": "multi_agent_browser_automation",
+        "name": "Multi-Agent Browser Automation",
+        "description": "Collaborative browser automation with specialized agents for navigation, analysis, execution, and validation",
+        "process": "sequential",
+        "agents": [
+          {
+            "key": "navigator",
+            "name": "Navigation Specialist",
+            "role": "Browser Navigation Coordinator",
+            "goal": "Navigate to target pages, verify page loads, handle redirects and authentication",
+            "complexity": "moderate",
+            "tools": [
+              "browser_navigate",
+              "browser_screenshot"
+            ],
+            "allowDelegation": true
+          },
+          {
+            "key": "visual_analyst",
+            "name": "Visual Layout Analyst",
+            "role": "Visual Layout Specialist",
+            "goal": "Capture and analyze visual state of panel layouts, extract panel data sorted by visual position",
+            "complexity": "complex",
+            "tools": [
+              "browser_screenshot",
+              "browser_vision_analyze",
+              "browser_extract"
+            ],
+            "allowDelegation": true
+          },
+          {
+            "key": "interaction_executor",
+            "name": "Interaction Specialist",
+            "role": "UI Interaction Executor",
+            "goal": "Execute user-requested actions on the panel layout (move panels, click buttons, fill forms, update positions)",
+            "complexity": "complex",
+            "tools": [
+              "browser_interact",
+              "browser_extract",
+              "browser_screenshot"
+            ],
+            "allowDelegation": true
+          },
+          {
+            "key": "validator",
+            "name": "Validation Coordinator",
+            "role": "Quality Assurance Validator",
+            "goal": "Verify actions completed correctly, validate data integrity, catch errors, and generate validation reports",
+            "complexity": "moderate",
+            "tools": [
+              "browser_extract",
+              "browser_screenshot",
+              "browser_performance",
+              "browser_realtime"
+            ],
+            "allowDelegation": true
+          }
+        ],
+        "tasks": [
+          {
+            "id": "navigate-to-panel-layout",
+            "description": "Navigate to the panel layout page specified in the context. Verify the page loaded successfully, handle any authentication redirects, and confirm the canvas element is present.",
+            "agent": "navigator",
+            "expectedOutput": "Navigation confirmation with page URL, load status, and canvas element verification"
+          },
+          {
+            "id": "analyze-visual-layout",
+            "description": "Capture a screenshot of the current panel layout, analyze the visual arrangement using vision analysis, and extract panel data sorted by visual position (Y coordinate, then X coordinate).",
+            "agent": "visual_analyst",
+            "expectedOutput": "Screenshot reference, visual analysis results, and extracted panel data with visual positioning"
+          },
+          {
+            "id": "execute-user-actions",
+            "description": "Execute any user-requested actions on the panel layout (if actions are specified). This includes moving panels, clicking buttons, filling forms, or updating panel positions. Capture before/after screenshots to verify changes.",
+            "agent": "interaction_executor",
+            "expectedOutput": "List of actions performed, before/after screenshots, and updated panel state"
+          },
+          {
+            "id": "validate-results",
+            "description": "Verify all actions completed successfully, validate the extracted panel data for consistency, check for any errors in the browser console or network requests, and generate a comprehensive validation report.",
+            "agent": "validator",
+            "expectedOutput": "Validation report with success status, data integrity checks, error detection, and final panel state"
           }
         ]
       }

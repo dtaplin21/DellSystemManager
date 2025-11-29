@@ -388,6 +388,87 @@ def hybrid_status():
         logger.error(f"Error getting hybrid AI status: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/ai/detect-defects', methods=['POST'])
+def detect_defects():
+    """Detect defects in uploaded image using GPT-4o vision model"""
+    try:
+        data = request.json
+        
+        if not data or 'image_base64' not in data:
+            return jsonify({'error': 'image_base64 is required'}), 400
+        
+        image_base64 = data['image_base64']
+        project_id = data.get('project_id')
+        metadata = data.get('metadata', {})
+        
+        logger.info(f"Detecting defects in image for project: {project_id}")
+        
+        # Call defect detection
+        defect_result = run_async(openai_service.detect_defects_in_image(
+            image_base64=image_base64,
+            project_id=project_id
+        ))
+        
+        return jsonify(defect_result), 200
+        
+    except Exception as e:
+        logger.error(f"Error detecting defects: {str(e)}")
+        logger.error(traceback.format_exc())
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/ai/automate-panel-population', methods=['POST'])
+def automate_panel_population():
+    """Automate panel layout population using browser tools based on defect data"""
+    try:
+        data = request.json
+        
+        if not data or 'project_id' not in data:
+            return jsonify({'error': 'project_id is required'}), 400
+        
+        project_id = data['project_id']
+        defect_data = data.get('defect_data', {})
+        user_id = data.get('user_id')
+        upload_id = data.get('upload_id')
+        
+        logger.info(f"Automating panel population for project: {project_id}, upload: {upload_id}")
+        
+        if not ai_integration.is_hybrid_ai_available():
+            return jsonify({
+                'status': 'failed',
+                'error': 'Hybrid AI architecture not available'
+            }), 503
+        
+        # Use hybrid AI with browser tools to automate panel population
+        # This will navigate to the panel layout page and create panels based on defects
+        automation_result = run_async(ai_integration.automate_panel_population_from_defects(
+            project_id=project_id,
+            defect_data=defect_data,
+            user_id=user_id,
+            upload_id=upload_id
+        ))
+        
+        if automation_result.get('success'):
+            return jsonify({
+                'status': 'success',
+                'message': 'Panel layout updated successfully',
+                'panels_created': automation_result.get('panels_created', 0),
+                'details': automation_result
+            }), 200
+        else:
+            return jsonify({
+                'status': 'failed',
+                'error': automation_result.get('error', 'Automation failed'),
+                'details': automation_result
+            }), 500
+        
+    except Exception as e:
+        logger.error(f"Error automating panel population: {str(e)}")
+        logger.error(traceback.format_exc())
+        return jsonify({
+            'status': 'failed',
+            'error': str(e)
+        }), 500
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))
     app.run(host='0.0.0.0', port=port, debug=True)
