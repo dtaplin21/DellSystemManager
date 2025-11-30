@@ -1,7 +1,6 @@
 import Foundation
 import UIKit
 import Combine
-import Network
 
 class ImageUploadService: ObservableObject {
     static let shared = ImageUploadService()
@@ -15,8 +14,7 @@ class ImageUploadService: ObservableObject {
     func uploadDefectPhoto(
         image: UIImage,
         projectId: String,
-        metadata: DefectMetadata?,
-        useOfflineQueue: Bool = true
+        metadata: DefectMetadata?
     ) async throws -> UploadResult {
         await MainActor.run {
             self.isUploading = true
@@ -27,46 +25,6 @@ class ImageUploadService: ObservableObject {
         // Compress image
         guard let compressedImageData = compressImage(image) else {
             throw ImageUploadError.compressionFailed
-        }
-        
-        // Check network connectivity
-        let monitor = NWPathMonitor()
-        let semaphore = DispatchSemaphore(value: 0)
-        var isConnected = false
-        
-        monitor.pathUpdateHandler = { path in
-            isConnected = path.status == .satisfied
-            semaphore.signal()
-        }
-        
-        let queue = DispatchQueue(label: "NetworkCheck")
-        monitor.start(queue: queue)
-        semaphore.wait()
-        monitor.cancel()
-        
-        // If offline and queue is enabled, add to queue
-        if !isConnected && useOfflineQueue {
-            let imageName = "defect_\(UUID().uuidString).jpg"
-            OfflineQueueService.shared.addToQueue(
-                projectId: projectId,
-                image: compressedImageData,
-                imageName: imageName,
-                metadata: metadata
-            )
-            
-            await MainActor.run {
-                self.isUploading = false
-                self.uploadProgress = 1.0
-            }
-            
-            // Return a queued result
-            return UploadResult(
-                success: true,
-                defects: [],
-                automationStatus: "queued",
-                message: "Image queued for upload when connection is restored",
-                uploadId: nil
-            )
         }
         
         // Create upload endpoint

@@ -92,13 +92,5 @@ struct UploadResult: Codable {
         case message
         case uploadId = "upload_id"
     }
-    
-    init(success: Bool, defects: [Defect], automationStatus: String?, message: String, uploadId: String?) {
-        self.success = success
-        self.defects = defects
-        self.automationStatus = automationStatus
-        self.message = message
-        self.uploadId = uploadId
-    }
 }
 
