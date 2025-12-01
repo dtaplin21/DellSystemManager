@@ -77,7 +77,7 @@ struct ProjectListView: View {
         .task {
             await loadProjects()
         }
-        .onChange(of: refreshTrigger) { _ in
+        .onChange(of: refreshTrigger) { oldValue, newValue in
             Task {
                 await loadProjects()
             }

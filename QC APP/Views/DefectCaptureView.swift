@@ -105,13 +105,13 @@ struct DefectCaptureView: View {
                 )
             }
         }
-        .onChange(of: selectedImage) { newImage in
-            if newImage != nil {
+        .onChange(of: selectedImage) { oldValue, newValue in
+            if newValue != nil {
                 showMetadataForm = true
             }
         }
-        .onChange(of: uploadResult) { newResult in
-            if newResult != nil {
+        .onChange(of: uploadResult) { oldValue, newValue in
+            if newValue != nil {
                 showUploadResults = true
             }
         }
