@@ -15,6 +15,7 @@
 		FED396A82EDBBDFB0026C657 /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FED396A02EDBBDFB0026C657 /* AuthService.swift */; };
 		FED396A92EDBBDFB0026C657 /* ImageUploadService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FED396A12EDBBDFB0026C657 /* ImageUploadService.swift */; };
 		FED396AA2EDBBDFB0026C657 /* ImageCompressor.swift in Sources */ = {isa = PBXBuildFile; fileRef = FED396A42EDBBDFB0026C657 /* ImageCompressor.swift */; };
+		FED396B52EDBBE4E0026C657 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FED396AC2EDBBE4E0026C657 /* ContentView.swift */; };
 		FED396B62EDBBE4E0026C657 /* CameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FED396AB2EDBBE4E0026C657 /* CameraView.swift */; };
 		FED396B72EDBBE4E0026C657 /* UploadResultsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FED396B32EDBBE4E0026C657 /* UploadResultsView.swift */; };
 		FED396B82EDBBE4E0026C657 /* DefectCaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FED396AD2EDBBE4E0026C657 /* DefectCaptureView.swift */; };
@@ -57,6 +58,7 @@
 		FED396A22EDBBDFB0026C657 /* ProjectService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectService.swift; sourceTree = "<group>"; };
 		FED396A42EDBBDFB0026C657 /* ImageCompressor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageCompressor.swift; sourceTree = "<group>"; };
 		FED396AB2EDBBE4E0026C657 /* CameraView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraView.swift; sourceTree = "<group>"; };
+		FED396AC2EDBBE4E0026C657 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		FED396AD2EDBBE4E0026C657 /* DefectCaptureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DefectCaptureView.swift; sourceTree = "<group>"; };
 		FED396AE2EDBBE4E0026C657 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
 		FED396AF2EDBBE4E0026C657 /* MetadataFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetadataFormView.swift; sourceTree = "<group>"; };
@@ -169,6 +171,7 @@
 		FED396B42EDBBE4E0026C657 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				FED396AC2EDBBE4E0026C657 /* ContentView.swift */,
 				FED396AB2EDBBE4E0026C657 /* CameraView.swift */,
 				FED396AD2EDBBE4E0026C657 /* DefectCaptureView.swift */,
 				FED396AE2EDBBE4E0026C657 /* LoginView.swift */,
@@ -333,6 +336,7 @@
 				FED396A82EDBBDFB0026C657 /* AuthService.swift in Sources */,
 				FED396A92EDBBDFB0026C657 /* ImageUploadService.swift in Sources */,
 				FED396AA2EDBBDFB0026C657 /* ImageCompressor.swift in Sources */,
+				FED396B52EDBBE4E0026C657 /* ContentView.swift in Sources */,
 				FED396B62EDBBE4E0026C657 /* CameraView.swift in Sources */,
 				FED396B72EDBBE4E0026C657 /* UploadResultsView.swift in Sources */,
 				FED396B82EDBBE4E0026C657 /* DefectCaptureView.swift in Sources */,

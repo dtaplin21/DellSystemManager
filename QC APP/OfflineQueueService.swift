@@ -1,6 +1,8 @@
 import Foundation
 import SwiftData
 import Network
+import Combine
+import UIKit
 
 @MainActor
 class OfflineQueueService: ObservableObject {

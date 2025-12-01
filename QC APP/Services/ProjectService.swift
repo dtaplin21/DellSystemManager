@@ -1,6 +1,7 @@
 import Foundation
+import Combine
 
-class ProjectService {
+class ProjectService: ObservableObject {
     static let shared = ProjectService()
     
     private let apiClient = APIClient.shared
