@@ -1,0 +1,95 @@
+{
+  "name": "geosynth-qc-desktop",
+  "version": "1.0.0",
+  "description": "GeoSynth QC Pro - Desktop Application for Construction Companies",
+  "main": "electron/main.js",
+  "author": "GeoSynth QC Pro",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm run dev:electron\" \"npm run dev:next\"",
+    "dev:electron": "electron .",
+    "dev:next": "cd ../frontend && npm run dev",
+    "build": "npm run build:next && npm run build:electron",
+    "build:next": "cd ../frontend && npm run build",
+    "build:electron": "electron-builder",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "pack": "electron-builder --dir",
+    "dist": "npm run build && electron-builder --publish=never",
+    "dist:win": "npm run build && electron-builder --win --publish=never",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "dependencies": {
+    "electron-updater": "^6.1.7"
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1",
+    "concurrently": "^8.2.2"
+  },
+  "build": {
+    "appId": "com.geosynth.qcpro",
+    "productName": "GeoSynth QC Pro",
+    "directories": {
+      "output": "build"
+    },
+    "files": [
+      "electron/**/*",
+      "src/**/*",
+      "../frontend/.next/**/*",
+      "../frontend/public/**/*",
+      "../frontend/package.json",
+      "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
+      "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}",
+      "!**/node_modules/*.d.ts",
+      "!**/node_modules/.bin",
+      "!**/*.{iml,o,hprof,orig,pyc,pyo,rbc,swp,csproj,sln,xproj}",
+      "!.editorconfig",
+      "!**/._*",
+      "!**/{.DS_Store,.git,.hg,.svn,CVS,RCS,SCCS,.gitignore,.gitattributes}",
+      "!**/{__pycache__,thumbs.db,.flowconfig,.idea,.vs,.nyc_output}",
+      "!**/{appveyor.yml,.travis.yml,circle.yml}",
+      "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64",
+            "ia32"
+          ]
+        }
+      ],
+      "icon": "resources/icons/icon.ico",
+      "publisherName": "GeoSynth QC Pro",
+      "requestedExecutionLevel": "asInvoker"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "GeoSynth QC Pro",
+      "include": "resources/installer/installer.nsh"
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "icon": "resources/icons/icon.icns",
+      "category": "public.app-category.business"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "icon": "resources/icons/icon.png",
+      "category": "Office"
+    }
+  }
+}
+
