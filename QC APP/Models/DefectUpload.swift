@@ -28,7 +28,7 @@ struct DefectUploadRequest: Codable {
     }
 }
 
-struct Defect: Codable, Identifiable {
+struct Defect: Codable, Identifiable, Equatable {
     let id: Int
     let type: String
     let location: String
@@ -52,7 +52,7 @@ struct Defect: Codable, Identifiable {
     }
 }
 
-struct DefectPosition: Codable {
+struct DefectPosition: Codable, Equatable {
     let xPercent: Double
     let yPercent: Double
     
@@ -78,7 +78,7 @@ struct DefectDetectionResult: Codable {
     }
 }
 
-struct UploadResult: Codable {
+struct UploadResult: Codable, Equatable {
     let success: Bool
     let defects: [Defect]
     let automationStatus: String?

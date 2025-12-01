@@ -1,6 +1,6 @@
 import Foundation
 
-enum APIError: Error {
+enum APIError: Error, LocalizedError {
     case invalidURL
     case noData
     case decodingError(Error)
@@ -8,6 +8,28 @@ enum APIError: Error {
     case serverError(Int, String?)
     case unauthorized
     case unknown
+    
+    var errorDescription: String? {
+        switch self {
+        case .invalidURL:
+            return "Invalid server URL. Please check your configuration."
+        case .noData:
+            return "No data received from server."
+        case .decodingError(let error):
+            return "Failed to parse server response: \(error.localizedDescription)"
+        case .networkError(let error):
+            return "Network error: \(error.localizedDescription). Please check your internet connection and ensure the server is running."
+        case .serverError(let code, let message):
+            if let message = message, !message.isEmpty {
+                return "Server error (\(code)): \(message)"
+            }
+            return "Server error (\(code)). Please try again later."
+        case .unauthorized:
+            return "Invalid email or password. Please check your credentials."
+        case .unknown:
+            return "An unknown error occurred. Please try again."
+        }
+    }
 }
 
 class APIClient {
@@ -80,7 +102,14 @@ class APIClient {
             }
             
             if httpResponse.statusCode >= 400 {
-                let errorMessage = String(data: data, encoding: .utf8)
+                // Try to parse error message from JSON response
+                var errorMessage: String?
+                if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let message = json["message"] as? String {
+                    errorMessage = message
+                } else {
+                    errorMessage = String(data: data, encoding: .utf8)
+                }
                 throw APIError.serverError(httpResponse.statusCode, errorMessage)
             }
             
@@ -152,7 +181,14 @@ class APIClient {
             }
             
             if httpResponse.statusCode >= 400 {
-                let errorMessage = String(data: data, encoding: .utf8)
+                // Try to parse error message from JSON response
+                var errorMessage: String?
+                if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let message = json["message"] as? String {
+                    errorMessage = message
+                } else {
+                    errorMessage = String(data: data, encoding: .utf8)
+                }
                 throw APIError.serverError(httpResponse.statusCode, errorMessage)
             }
             
