@@ -14,10 +14,13 @@ class AuthService: ObservableObject {
     private init() {
         // Try to restore session from keychain
         if let token = keychainService.getToken() {
+            print("🔑 Restored auth token from keychain")
             apiClient.setAuthToken(token)
             Task {
                 await loadUser()
             }
+        } else {
+            print("⚠️ No token found in keychain")
         }
     }
     
@@ -34,6 +37,7 @@ class AuthService: ObservableObject {
             // Store token
             keychainService.saveToken(response.token)
             apiClient.setAuthToken(response.token)
+            print("✅ Login successful - Token stored. User ID: \(response.user.id)")
             
             // Update state
             await MainActor.run {

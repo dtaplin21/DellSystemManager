@@ -61,6 +61,9 @@ class APIClient {
         ]
         if let token = authToken {
             headers["Authorization"] = "Bearer \(token)"
+            print("🔑 Sending request with auth token: \(token.prefix(20))...")
+        } else {
+            print("⚠️ No auth token available for request")
         }
         return headers
     }

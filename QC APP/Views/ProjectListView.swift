@@ -86,10 +86,18 @@ struct ProjectListView: View {
     
     private func loadProjects() async {
         isLoading = true
+        errorMessage = nil
         do {
-            projects = try await projectService.getProjects()
+            let fetchedProjects = try await projectService.getProjects()
+            await MainActor.run {
+                projects = fetchedProjects
+                print("✅ Loaded \(fetchedProjects.count) projects")
+            }
         } catch {
-            errorMessage = error.localizedDescription
+            await MainActor.run {
+                errorMessage = error.localizedDescription
+                print("❌ Error loading projects: \(error.localizedDescription)")
+            }
         }
         isLoading = false
     }

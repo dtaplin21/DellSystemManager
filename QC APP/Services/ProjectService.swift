@@ -8,14 +8,19 @@ class ProjectService: ObservableObject {
     
     func getProjects() async throws -> [Project] {
         struct Response: Codable {
-            let success: Bool
+            let success: Bool?
             let projects: [Project]
         }
-        let response: Response = try await apiClient.request(
-            endpoint: "/api/mobile/projects",
-            method: .get
-        )
-        return response.projects
+        do {
+            let response: Response = try await apiClient.request(
+                endpoint: "/api/mobile/projects",
+                method: .get
+            )
+            return response.projects
+        } catch {
+            print("❌ Error fetching projects: \(error)")
+            throw error
+        }
     }
     
     func createProject(name: String, description: String?, location: String?) async throws -> Project {
