@@ -5,7 +5,7 @@ struct Project: Codable, Identifiable {
     let name: String
     let description: String?
     let location: String?
-    let userId: String
+    let userId: String?
     let createdAt: String?
     let updatedAt: String?
     

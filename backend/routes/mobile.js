@@ -37,9 +37,20 @@ router.get('/projects', auth, async (req, res, next) => {
       .where(eq(projects.userId, req.user.id))
       .orderBy(projects.createdAt);
     
+    // Map Drizzle camelCase to snake_case for iOS compatibility
+    const mappedProjects = userProjects.map(project => ({
+      id: project.id,
+      name: project.name,
+      description: project.description,
+      location: project.location,
+      user_id: project.userId, // Explicitly map userId to user_id
+      created_at: project.createdAt ? project.createdAt.toISOString() : null,
+      updated_at: project.updatedAt ? project.updatedAt.toISOString() : null
+    }));
+    
     res.json({
       success: true,
-      projects: userProjects
+      projects: mappedProjects
     });
   } catch (error) {
     logger.error('[MOBILE] Error fetching projects', { error: error.message });
