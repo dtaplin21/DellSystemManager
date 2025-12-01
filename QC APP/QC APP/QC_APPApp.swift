@@ -6,7 +6,7 @@
 //
 
 import SwiftUI
-import swiftData
+import SwiftData
 
 
 @main

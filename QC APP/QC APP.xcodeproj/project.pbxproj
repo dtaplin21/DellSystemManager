@@ -15,7 +15,6 @@
 		FED396A82EDBBDFB0026C657 /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FED396A02EDBBDFB0026C657 /* AuthService.swift */; };
 		FED396A92EDBBDFB0026C657 /* ImageUploadService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FED396A12EDBBDFB0026C657 /* ImageUploadService.swift */; };
 		FED396AA2EDBBDFB0026C657 /* ImageCompressor.swift in Sources */ = {isa = PBXBuildFile; fileRef = FED396A42EDBBDFB0026C657 /* ImageCompressor.swift */; };
-		FED396B52EDBBE4E0026C657 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FED396AC2EDBBE4E0026C657 /* ContentView.swift */; };
 		FED396B62EDBBE4E0026C657 /* CameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FED396AB2EDBBE4E0026C657 /* CameraView.swift */; };
 		FED396B72EDBBE4E0026C657 /* UploadResultsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FED396B32EDBBE4E0026C657 /* UploadResultsView.swift */; };
 		FED396B82EDBBE4E0026C657 /* DefectCaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FED396AD2EDBBE4E0026C657 /* DefectCaptureView.swift */; };
@@ -24,6 +23,8 @@
 		FED396BB2EDBBE4E0026C657 /* ProjectSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FED396B22EDBBE4E0026C657 /* ProjectSetupView.swift */; };
 		FED396BC2EDBBE4E0026C657 /* PhotoLibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FED396B02EDBBE4E0026C657 /* PhotoLibraryView.swift */; };
 		FED396BD2EDBBE4E0026C657 /* MetadataFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FED396AF2EDBBE4E0026C657 /* MetadataFormView.swift */; };
+		FED396C12EDBCCE60026C657 /* UploadQueueItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = FED396C02EDBCCE50026C657 /* UploadQueueItem.swift */; };
+		FED396C32EDBCE240026C657 /* OfflineQueueService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FED396C22EDBCE240026C657 /* OfflineQueueService.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -56,7 +57,6 @@
 		FED396A22EDBBDFB0026C657 /* ProjectService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectService.swift; sourceTree = "<group>"; };
 		FED396A42EDBBDFB0026C657 /* ImageCompressor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageCompressor.swift; sourceTree = "<group>"; };
 		FED396AB2EDBBE4E0026C657 /* CameraView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraView.swift; sourceTree = "<group>"; };
-		FED396AC2EDBBE4E0026C657 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		FED396AD2EDBBE4E0026C657 /* DefectCaptureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DefectCaptureView.swift; sourceTree = "<group>"; };
 		FED396AE2EDBBE4E0026C657 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
 		FED396AF2EDBBE4E0026C657 /* MetadataFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetadataFormView.swift; sourceTree = "<group>"; };
@@ -64,6 +64,8 @@
 		FED396B12EDBBE4E0026C657 /* ProjectListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectListView.swift; sourceTree = "<group>"; };
 		FED396B22EDBBE4E0026C657 /* ProjectSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectSetupView.swift; sourceTree = "<group>"; };
 		FED396B32EDBBE4E0026C657 /* UploadResultsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UploadResultsView.swift; sourceTree = "<group>"; };
+		FED396C02EDBCCE50026C657 /* UploadQueueItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UploadQueueItem.swift; sourceTree = "<group>"; };
+		FED396C22EDBCE240026C657 /* OfflineQueueService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineQueueService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -112,6 +114,8 @@
 		FED396602EDBBB520026C657 = {
 			isa = PBXGroup;
 			children = (
+				FED396C22EDBCE240026C657 /* OfflineQueueService.swift */,
+				FED396C02EDBCCE50026C657 /* UploadQueueItem.swift */,
 				FED396B42EDBBE4E0026C657 /* Views */,
 				FED396A32EDBBDFB0026C657 /* Services */,
 				FED396A52EDBBDFB0026C657 /* Utilities */,
@@ -166,7 +170,6 @@
 			isa = PBXGroup;
 			children = (
 				FED396AB2EDBBE4E0026C657 /* CameraView.swift */,
-				FED396AC2EDBBE4E0026C657 /* ContentView.swift */,
 				FED396AD2EDBBE4E0026C657 /* DefectCaptureView.swift */,
 				FED396AE2EDBBE4E0026C657 /* LoginView.swift */,
 				FED396AF2EDBBE4E0026C657 /* MetadataFormView.swift */,
@@ -330,13 +333,14 @@
 				FED396A82EDBBDFB0026C657 /* AuthService.swift in Sources */,
 				FED396A92EDBBDFB0026C657 /* ImageUploadService.swift in Sources */,
 				FED396AA2EDBBDFB0026C657 /* ImageCompressor.swift in Sources */,
-				FED396B52EDBBE4E0026C657 /* ContentView.swift in Sources */,
 				FED396B62EDBBE4E0026C657 /* CameraView.swift in Sources */,
 				FED396B72EDBBE4E0026C657 /* UploadResultsView.swift in Sources */,
 				FED396B82EDBBE4E0026C657 /* DefectCaptureView.swift in Sources */,
+				FED396C32EDBCE240026C657 /* OfflineQueueService.swift in Sources */,
 				FED396B92EDBBE4E0026C657 /* ProjectListView.swift in Sources */,
 				FED396BA2EDBBE4E0026C657 /* LoginView.swift in Sources */,
 				FED396BB2EDBBE4E0026C657 /* ProjectSetupView.swift in Sources */,
+				FED396C12EDBCCE60026C657 /* UploadQueueItem.swift in Sources */,
 				FED396BC2EDBBE4E0026C657 /* PhotoLibraryView.swift in Sources */,
 				FED396BD2EDBBE4E0026C657 /* MetadataFormView.swift in Sources */,
 			);
@@ -501,6 +505,11 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "QC-APP-Info.plist";
+				INFOPLIST_KEY_LSApplicationCategoryType = "";
+				INFOPLIST_KEY_NSCameraUsageDescription = "e need camera access to capture defect photos for quality control";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "We need location to tag defect locations on the project site.\nWe need location to tag defect locations on the project site.\nWe need location to tag defect locations on the project site.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "We need photo library access to select defect images";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -511,7 +520,7 @@
 				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 26.1;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.6;
@@ -519,15 +528,15 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "Grand-Gaia.QC-APP";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
-				SDKROOT = auto;
+				SDKROOT = iphoneos;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TARGETED_DEVICE_FAMILY = "1,2";
 				XROS_DEPLOYMENT_TARGET = 26.1;
 			};
 			name = Debug;
@@ -545,6 +554,11 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "QC-APP-Info.plist";
+				INFOPLIST_KEY_LSApplicationCategoryType = "";
+				INFOPLIST_KEY_NSCameraUsageDescription = "e need camera access to capture defect photos for quality control";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "We need location to tag defect locations on the project site.\nWe need location to tag defect locations on the project site.\nWe need location to tag defect locations on the project site.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "We need photo library access to select defect images";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -555,7 +569,7 @@
 				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 26.1;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.6;
@@ -563,15 +577,15 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "Grand-Gaia.QC-APP";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
-				SDKROOT = auto;
+				SDKROOT = iphoneos;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TARGETED_DEVICE_FAMILY = "1,2";
 				XROS_DEPLOYMENT_TARGET = 26.1;
 			};
 			name = Release;
@@ -589,14 +603,14 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "Grand-Gaia.QC-APPTests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = auto;
+				SDKROOT = iphoneos;
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/QC APP.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/QC APP";
 				XROS_DEPLOYMENT_TARGET = 26.1;
 			};
@@ -615,14 +629,14 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "Grand-Gaia.QC-APPTests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = auto;
+				SDKROOT = iphoneos;
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/QC APP.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/QC APP";
 				XROS_DEPLOYMENT_TARGET = 26.1;
 			};
@@ -640,14 +654,14 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "Grand-Gaia.QC-APPUITests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = auto;
+				SDKROOT = iphoneos;
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_TARGET_NAME = "QC APP";
 				XROS_DEPLOYMENT_TARGET = 26.1;
 			};
@@ -665,14 +679,14 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "Grand-Gaia.QC-APPUITests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = auto;
+				SDKROOT = iphoneos;
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_TARGET_NAME = "QC APP";
 				XROS_DEPLOYMENT_TARGET = 26.1;
 			};
