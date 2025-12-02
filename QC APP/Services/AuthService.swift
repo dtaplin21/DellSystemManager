@@ -68,8 +68,10 @@ class AuthService: ObservableObject {
         // This would require a /api/auth/me endpoint or similar
         // For now, we'll just check if token exists
         if keychainService.getToken() != nil {
+            // Don't auto-authenticate - let the user log in to verify token is valid
+            // Token might be expired
             await MainActor.run {
-                self.isAuthenticated = true
+                self.isAuthenticated = false
             }
         }
     }

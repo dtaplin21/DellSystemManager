@@ -48,6 +48,25 @@ class ImageUploadService: ObservableObject {
             if let longitude = metadata.longitude {
                 fields["longitude"] = String(longitude)
             }
+            if let formType = metadata.formType {
+                fields["formType"] = formType
+            }
+            // Add form data as JSON string
+            if let formData = metadata.formData {
+                do {
+                    // Convert [String: AnyCodable] to [String: Any] for encoding
+                    var formDataDict: [String: Any] = [:]
+                    for (key, value) in formData {
+                        formDataDict[key] = value.value
+                    }
+                    let jsonData = try JSONSerialization.data(withJSONObject: formDataDict, options: [])
+                    if let jsonString = String(data: jsonData, encoding: .utf8) {
+                        fields["formData"] = jsonString
+                    }
+                } catch {
+                    print("⚠️ Failed to encode form data: \(error)")
+                }
+            }
         }
         
         do {

@@ -93,6 +93,18 @@ struct ProjectListView: View {
                 projects = fetchedProjects
                 print("✅ Loaded \(fetchedProjects.count) projects")
             }
+        } catch let error as APIError {
+            await MainActor.run {
+                let errorMsg = error.localizedDescription
+                errorMessage = errorMsg
+                print("❌ Error loading projects: \(errorMsg)")
+                
+                // If unauthorized, log out the user
+                if case .unauthorized = error {
+                    print("🔓 Token expired or invalid - logging out")
+                    authService.logout()
+                }
+            }
         } catch {
             await MainActor.run {
                 errorMessage = error.localizedDescription

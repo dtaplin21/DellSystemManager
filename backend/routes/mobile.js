@@ -5,7 +5,7 @@ const { v4: uuidv4 } = require('uuid');
 const router = express.Router();
 const { auth } = require('../middlewares/auth');
 const { db } = require('../db');
-const { projects } = require('../db/schema');
+const { projects, panelLayouts } = require('../db/schema');
 const { eq, and } = require('drizzle-orm');
 const logger = require('../lib/logger');
 
@@ -111,12 +111,13 @@ router.post('/upload-defect/:projectId', auth, upload.single('image'), async (re
   
   try {
     const { projectId } = req.params;
-    const { location, notes, defectType, latitude, longitude } = req.body;
+    const { location, notes, defectType, latitude, longitude, formType, formData } = req.body;
     
     logger.info('[MOBILE] Defect upload started', {
       uploadId,
       projectId,
-      userId: req.user.id
+      userId: req.user.id,
+      formType: formType || 'none'
     });
     
     // Validate project access
@@ -243,6 +244,90 @@ router.post('/upload-defect/:projectId', auth, upload.single('image'), async (re
       automationStatus = 'failed';
     }
     
+    // Store form data in asbuilt_records if form type and data provided
+    let asbuiltRecordId = null;
+    if (formType && formData) {
+      try {
+        const AsbuiltService = require('../services/asbuiltService');
+        const asbuiltService = new AsbuiltService();
+        
+        // Parse form data JSON string if needed
+        let parsedFormData = formData;
+        if (typeof formData === 'string') {
+          try {
+            parsedFormData = JSON.parse(formData);
+          } catch (e) {
+            logger.warn('[MOBILE] Failed to parse formData JSON', { error: e.message });
+            parsedFormData = {};
+          }
+        }
+        
+        // Extract panel number from form data to find panel ID
+        const panelNumber = parsedFormData.panelNumber || parsedFormData.panelNumbers;
+        let panelId = null;
+        
+        if (panelNumber) {
+          // Try to find panel in panel_layouts
+          try {
+            const panelLayoutsResult = await db
+              .select()
+              .from(panelLayouts)
+              .where(eq(panelLayouts.projectId, projectId))
+              .limit(1);
+            
+            if (panelLayoutsResult.length > 0) {
+              const layout = panelLayoutsResult[0];
+              if (layout.panels && Array.isArray(layout.panels)) {
+                // Find panel by panelNumber in the panels array
+                const panel = layout.panels.find((p) => 
+                  p.panelNumber === panelNumber || 
+                  p.panel_number === panelNumber ||
+                  p.id === panelNumber
+                );
+                if (panel) {
+                  panelId = panel.id || panel.panelId || uuidv4();
+                }
+              }
+            }
+          } catch (panelError) {
+            logger.warn('[MOBILE] Could not find panel ID', { error: panelError.message });
+          }
+        }
+        
+        // Use a default panel ID if not found (required by schema)
+        if (!panelId) {
+          panelId = uuidv4();
+          logger.info('[MOBILE] Using generated panel ID', { panelId });
+        }
+        
+        // Create asbuilt record
+        const record = await asbuiltService.createRecord({
+          projectId,
+          panelId,
+          domain: formType,
+          sourceDocId: null,
+          rawData: parsedFormData,
+          mappedData: parsedFormData, // For mobile, raw and mapped are the same
+          aiConfidence: 1.0, // User-entered data has 100% confidence
+          requiresReview: false,
+          createdBy: req.user.id
+        });
+        
+        asbuiltRecordId = record.id;
+        logger.info('[MOBILE] As-built record created', {
+          recordId: asbuiltRecordId,
+          domain: formType,
+          panelId
+        });
+      } catch (asbuiltError) {
+        logger.error('[MOBILE] Failed to create as-built record', {
+          error: asbuiltError.message,
+          formType
+        });
+        // Don't fail the upload if as-built record creation fails
+      }
+    }
+    
     // Return results
     res.json({
       success: true,
@@ -252,6 +337,8 @@ router.post('/upload-defect/:projectId', auth, upload.single('image'), async (re
       critical_defects: defectResult.critical_defects || 0,
       recommendations: defectResult.recommendations || [],
       automation_status: automationStatus,
+      form_type: formType || null,
+      asbuilt_record_id: asbuiltRecordId,
       message: automationStatus === 'success' 
         ? 'Defect uploaded and panel layout updated automatically'
         : 'Defect uploaded. Panel layout update may be pending.',

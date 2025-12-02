@@ -25,7 +25,7 @@ enum APIError: Error, LocalizedError {
             }
             return "Server error (\(code)). Please try again later."
         case .unauthorized:
-            return "Invalid email or password. Please check your credentials."
+            return "Authentication failed. Your session may have expired. Please log in again."
         case .unknown:
             return "An unknown error occurred. Please try again."
         }
@@ -101,7 +101,18 @@ class APIClient {
             
             // Handle errors
             if httpResponse.statusCode == 401 {
-                throw APIError.unauthorized
+                // Try to parse the specific error message from JSON
+                var errorMessage: String?
+                if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let message = json["message"] as? String {
+                    errorMessage = message
+                }
+                // If we have a specific message, use it; otherwise use generic unauthorized
+                if let message = errorMessage {
+                    throw APIError.serverError(401, message)
+                } else {
+                    throw APIError.unauthorized
+                }
             }
             
             if httpResponse.statusCode >= 400 {

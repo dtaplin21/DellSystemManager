@@ -6,6 +6,8 @@ struct DefectMetadata: Codable {
     let defectType: String?
     let latitude: Double?
     let longitude: Double?
+    let formType: String?
+    let formData: [String: AnyCodable]?
     
     enum CodingKeys: String, CodingKey {
         case location
@@ -13,6 +15,66 @@ struct DefectMetadata: Codable {
         case defectType = "defect_type"
         case latitude
         case longitude
+        case formType = "form_type"
+        case formData = "form_data"
+    }
+    
+    init(location: String? = nil,
+         notes: String? = nil,
+         defectType: String? = nil,
+         latitude: Double? = nil,
+         longitude: Double? = nil,
+         formType: String? = nil,
+         formData: [String: Any]? = nil) {
+        self.location = location
+        self.notes = notes
+        self.defectType = defectType
+        self.latitude = latitude
+        self.longitude = longitude
+        self.formType = formType
+        self.formData = formData?.mapValues { AnyCodable($0) }
+    }
+}
+
+// Helper to encode [String: Any] as JSON
+struct AnyCodable: Codable {
+    let value: Any
+    
+    init(_ value: Any) {
+        self.value = value
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        
+        if let bool = try? container.decode(Bool.self) {
+            value = bool
+        } else if let int = try? container.decode(Int.self) {
+            value = int
+        } else if let double = try? container.decode(Double.self) {
+            value = double
+        } else if let string = try? container.decode(String.self) {
+            value = string
+        } else {
+            throw DecodingError.dataCorruptedError(in: container, debugDescription: "Cannot decode AnyCodable")
+        }
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        
+        switch value {
+        case let bool as Bool:
+            try container.encode(bool)
+        case let int as Int:
+            try container.encode(int)
+        case let double as Double:
+            try container.encode(double)
+        case let string as String:
+            try container.encode(string)
+        default:
+            throw EncodingError.invalidValue(value, EncodingError.Context(codingPath: container.codingPath, debugDescription: "Cannot encode value"))
+        }
     }
 }
 

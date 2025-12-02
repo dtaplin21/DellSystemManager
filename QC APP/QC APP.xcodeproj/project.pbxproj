@@ -26,6 +26,9 @@
 		FED396BD2EDBBE4E0026C657 /* MetadataFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FED396AF2EDBBE4E0026C657 /* MetadataFormView.swift */; };
 		FED396C12EDBCCE60026C657 /* UploadQueueItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = FED396C02EDBCCE50026C657 /* UploadQueueItem.swift */; };
 		FED396C32EDBCE240026C657 /* OfflineQueueService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FED396C22EDBCE240026C657 /* OfflineQueueService.swift */; };
+		89D27B64248047159CE042EC /* AsbuiltForm.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20D638F1878423EA06E97C4 /* AsbuiltForm.swift */; };
+		E54A19B744DA42B991CEA1BD /* FormTypeSelectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6B63C66026C4ECBADFFBD52 /* FormTypeSelectionView.swift */; };
+		C932AFBBEC4E4AE6B91EBDC5 /* AsbuiltFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EDC8A1319324DF79D08C1C1 /* AsbuiltFormView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -68,6 +71,9 @@
 		FED396B32EDBBE4E0026C657 /* UploadResultsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UploadResultsView.swift; sourceTree = "<group>"; };
 		FED396C02EDBCCE50026C657 /* UploadQueueItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UploadQueueItem.swift; sourceTree = "<group>"; };
 		FED396C22EDBCE240026C657 /* OfflineQueueService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineQueueService.swift; sourceTree = "<group>"; };
+		F20D638F1878423EA06E97C4 /* AsbuiltForm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AsbuiltForm.swift; sourceTree = "<group>"; };
+		D6B63C66026C4ECBADFFBD52 /* FormTypeSelectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FormTypeSelectionView.swift; sourceTree = "<group>"; };
+		2EDC8A1319324DF79D08C1C1 /* AsbuiltFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AsbuiltFormView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -145,6 +151,7 @@
 				FED396982EDBBDB60026C657 /* DefectUpload.swift */,
 				FED396992EDBBDB60026C657 /* Project.swift */,
 				FED3969A2EDBBDB60026C657 /* User.swift */,
+				F20D638F1878423EA06E97C4 /* AsbuiltForm.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -180,6 +187,8 @@
 				FED396B12EDBBE4E0026C657 /* ProjectListView.swift */,
 				FED396B22EDBBE4E0026C657 /* ProjectSetupView.swift */,
 				FED396B32EDBBE4E0026C657 /* UploadResultsView.swift */,
+				D6B63C66026C4ECBADFFBD52 /* FormTypeSelectionView.swift */,
+				2EDC8A1319324DF79D08C1C1 /* AsbuiltFormView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -347,6 +356,9 @@
 				FED396C12EDBCCE60026C657 /* UploadQueueItem.swift in Sources */,
 				FED396BC2EDBBE4E0026C657 /* PhotoLibraryView.swift in Sources */,
 				FED396BD2EDBBE4E0026C657 /* MetadataFormView.swift in Sources */,
+				89D27B64248047159CE042EC /* AsbuiltForm.swift in Sources */,
+				E54A19B744DA42B991CEA1BD /* FormTypeSelectionView.swift in Sources */,
+				C932AFBBEC4E4AE6B91EBDC5 /* AsbuiltFormView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
