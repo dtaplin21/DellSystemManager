@@ -132,11 +132,28 @@ class APIClient {
             decoder.keyDecodingStrategy = .convertFromSnakeCase
             return try decoder.decode(T.self, from: data)
         } catch let error as APIError {
+            // Track error via telemetry
+            TelemetryService.shared.trackError(error, context: [
+                "endpoint": endpoint,
+                "method": method.rawValue
+            ])
             throw error
         } catch let error as DecodingError {
-            throw APIError.decodingError(error)
+            let apiError = APIError.decodingError(error)
+            TelemetryService.shared.trackError(apiError, context: [
+                "endpoint": endpoint,
+                "method": method.rawValue,
+                "errorType": "decoding"
+            ])
+            throw apiError
         } catch {
-            throw APIError.networkError(error)
+            let apiError = APIError.networkError(error)
+            TelemetryService.shared.trackError(apiError, context: [
+                "endpoint": endpoint,
+                "method": method.rawValue,
+                "errorType": "network"
+            ])
+            throw apiError
         }
     }
     

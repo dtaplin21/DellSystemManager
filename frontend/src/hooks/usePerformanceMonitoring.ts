@@ -34,8 +34,8 @@ const DEFAULT_THRESHOLDS: PerformanceThresholds = {
 };
 
 const DEFAULT_CONFIG: PerformanceConfig = {
-  enabled: process.env.NODE_ENV === 'development',
-  samplingRate: 0.1, // Monitor 10% of users
+  enabled: process.env.NODE_ENV === 'development' || process.env.NEXT_PUBLIC_TELEMETRY_ENABLED === 'true',
+  samplingRate: process.env.NODE_ENV === 'production' ? 0.1 : 1.0, // Monitor 10% in prod, 100% in dev
   thresholds: DEFAULT_THRESHOLDS,
   monitoringInterval: 5000, // 5 seconds
 };
@@ -200,7 +200,23 @@ export function usePerformanceMonitoring(config: Partial<PerformanceConfig> = {}
   const sendMetric = useCallback((metric: string, value: number, tags?: Record<string, string>) => {
     if (!finalConfig.enabled || Math.random() > finalConfig.samplingRate) return;
     
-    // DataDog example
+    // Use centralized telemetry service
+    if (typeof window !== 'undefined') {
+      try {
+        const { trackPerformance } = require('../lib/telemetry');
+        trackPerformance({
+          name: metric,
+          value,
+          unit: 'ms',
+          tags,
+        });
+      } catch (err) {
+        // Telemetry not available, fall back to console
+        console.log('[Performance]', metric, value, tags);
+      }
+    }
+    
+    // DataDog example (if configured)
     if (typeof window !== 'undefined' && (window as any).DD_LOGS) {
       (window as any).DD_LOGS.logger.info('performance_metric', {
         metric,
@@ -210,7 +226,7 @@ export function usePerformanceMonitoring(config: Partial<PerformanceConfig> = {}
       });
     }
     
-    // LogRocket example
+    // LogRocket example (if configured)
     if (typeof window !== 'undefined' && (window as any).LogRocket) {
       (window as any).LogRocket.track('Performance Metric', {
         metric,
@@ -219,7 +235,7 @@ export function usePerformanceMonitoring(config: Partial<PerformanceConfig> = {}
       });
     }
     
-    // Custom analytics
+    // Custom analytics (if configured)
     if (typeof window !== 'undefined' && (window as any).gtag) {
       (window as any).gtag('event', 'performance_metric', {
         metric_name: metric,

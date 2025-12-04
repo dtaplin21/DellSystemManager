@@ -16,6 +16,8 @@ class ImageUploadService: ObservableObject {
         image: UIImage,
         projectId: String,
         metadata: DefectMetadata?,
+        formType: String? = nil,
+        formFields: [String: String]? = nil,
         useOfflineQueue: Bool = true
     ) async throws -> UploadResult {
         await MainActor.run {
@@ -92,6 +94,17 @@ class ImageUploadService: ObservableObject {
             }
         }
         
+        if let formType = formType, !formType.isEmpty {
+            fields["formType"] = formType
+        }
+        
+        if let formFields = formFields, !formFields.isEmpty {
+            if let jsonData = try? JSONSerialization.data(withJSONObject: formFields, options: []),
+               let jsonString = String(data: jsonData, encoding: .utf8) {
+                fields["formData"] = jsonString
+            }
+        }
+        
         do {
             // Upload using multipart form
             let data = try await apiClient.uploadMultipart(
@@ -140,4 +153,3 @@ enum ImageUploadError: Error {
     case invalidImage
     case uploadFailed(String)
 }
-

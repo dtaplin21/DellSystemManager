@@ -1,4 +1,5 @@
 import { useCallback, useRef } from 'react';
+import { captureError, type ErrorContext as TelemetryErrorContext } from '../lib/telemetry';
 
 interface ErrorContext {
   component: string;
@@ -39,6 +40,22 @@ export function useErrorHandler(options: UseErrorHandlerOptions = {}) {
       context,
       errorCount: errorCountRef.current,
     });
+
+    // Send to telemetry service
+    try {
+      const telemetryContext: TelemetryErrorContext = {
+        component: context.component,
+        operation: context.operation,
+        metadata: {
+          ...context.data,
+          errorCount: errorCountRef.current,
+        },
+      };
+      captureError(error, telemetryContext);
+    } catch (telemetryError) {
+      // Silently fail - telemetry shouldn't break error handling
+      console.warn('[ErrorHandler] Failed to send to telemetry:', telemetryError);
+    }
 
     // Call custom error handler
     onError?.(error, context);

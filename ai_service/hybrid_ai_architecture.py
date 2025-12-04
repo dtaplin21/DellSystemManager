@@ -342,8 +342,20 @@ class CostOptimizer:
     
     async def track_usage(self, user_id: str, model: str, tokens: int, cost: float):
         """Track usage for cost optimization"""
-        # Implementation for usage tracking
-        pass
+        # Track via telemetry service
+        try:
+            from telemetry import get_telemetry
+            telemetry = get_telemetry()
+            telemetry.track_cost(
+                user_id=user_id,
+                user_tier='paid_user',  # TODO: Get from context
+                service='ai_service',
+                cost=cost,
+                model=model,
+                tokens=tokens
+            )
+        except Exception as e:
+            logger.debug(f'Failed to track usage via telemetry: {e}')
 
 # === TOOL DEFINITIONS ===
 # Note: All tools now inherit from CrewAI's BaseTool (imported at top of file)

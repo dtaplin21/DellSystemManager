@@ -5,10 +5,10 @@ import os
 import logging
 import asyncio
 import uuid
-import requests
 from typing import Dict, List, Optional, Any
 from flask import current_app
 import json
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -299,94 +299,144 @@ class AIServiceIntegration:
                 except Exception as e:
                     logger.warning(f"Panel extraction failed: {e}")
             
-            # Create panels via backend API
-            panels_created = 0
-            backend_url = os.getenv("BACKEND_URL", "http://localhost:8003")
+            session_id = f"mobile_{upload_id}" if upload_id else "mobile_default"
+            interaction_tool = browser_tools.get("browser_interact")
+            screenshot_tool = browser_tools.get("browser_screenshot")
             
-            for defect in defects:
-                try:
-                    # Calculate panel position from defect position
-                    x_percent = defect.get("estimated_position", {}).get("x_percent", 50)
-                    y_percent = defect.get("estimated_position", {}).get("y_percent", 50)
-                    
-                    # Convert percentage to coordinates (assuming 4000x4000 layout)
-                    layout_width = 4000
-                    layout_height = 4000
-                    x = (x_percent / 100) * layout_width
-                    y = (y_percent / 100) * layout_height
-                    
-                    # Default panel size
-                    width = 100  # feet
-                    height = 50  # feet
-                    
-                    # Get current layout first
+            if not interaction_tool:
+                return {
+                    "success": False,
+                    "error": "Browser interaction tool not available"
+                }
+            
+            async def perform_interaction(action: str, selector: str, value: Optional[str] = None) -> str:
+                result = await interaction_tool._arun(
+                    action=action,
+                    selector=selector,
+                    value=value,
+                    session_id=session_id,
+                    user_id=user_id
+                )
+                if isinstance(result, str) and result.lower().startswith("error"):
+                    raise RuntimeError(result)
+                return result
+            
+            async def click_with_fallback(selectors: List[str]) -> None:
+                last_error = None
+                for selector in selectors:
                     try:
-                        layout_response = requests.get(
-                            f"{backend_url}/api/panels/layout/{project_id}",
-                            headers={"x-dev-bypass": "true"} if os.getenv("DISABLE_DEV_BYPASS") != "1" else {},
-                            timeout=10
-                        )
-                        current_layout = layout_response.json() if layout_response.ok else {}
-                        current_panels = current_layout.get("panels", [])
-                    except:
-                        current_panels = []
-                    
-                    # Create new panel
-                    new_panel = {
-                        "id": str(uuid.uuid4()),
-                        "x": x,
-                        "y": y,
-                        "width": width,
-                        "height": height,
-                        "shape": "rectangle",
-                        "rotation": 0,
-                        "panelNumber": f"P{panels_created + 1:03d}",
-                        "rollNumber": f"ROLL-{panels_created + 1}",
-                        "defect_id": defect.get("id"),
-                        "defect_type": defect.get("type"),
-                        "severity": defect.get("severity"),
-                        "notes": f"Auto-created from defect: {defect.get('description', '')}",
-                        "isValid": True,
-                        "meta": {
-                            "defects": [defect],
-                            "repairs": [],
-                            "airTest": {"result": "pending"}
-                        }
-                    }
-                    
-                    # Update layout with new panel
-                    updated_panels = current_panels + [new_panel]
-                    
-                    # Use PATCH endpoint to update panel layout
-                    patch_url = f"{backend_url}/api/panels/layout/{project_id}"
-                    headers = {
-                        "Content-Type": "application/json"
-                    }
-                    if os.getenv("DISABLE_DEV_BYPASS") != "1":
-                        headers["x-dev-bypass"] = "true"
-                    
-                    update_response = requests.patch(
-                        patch_url,
-                        json={"panels": updated_panels},
-                        headers=headers,
-                        timeout=15
-                    )
-                    
-                    if update_response.ok:
-                        panels_created += 1
-                        logger.info(f"Created panel for defect {defect.get('id')}")
+                        await perform_interaction("click", selector)
+                        return
+                    except Exception as interaction_error:
+                        last_error = interaction_error
+                        logger.debug(f"Selector {selector} click failed: {interaction_error}")
+                if last_error:
+                    raise last_error
+            
+            initial_panel_count = len(current_panels)
+            panels_created = 0
+            created_panel_numbers: List[str] = []
+            
+            for index, defect in enumerate(defects, start=1):
+                try:
+                    severity = (defect.get("severity") or "").lower()
+                    if severity == "severe":
+                        length_ft, width_ft = (140, 70)
+                    elif severity == "moderate":
+                        length_ft, width_ft = (110, 55)
                     else:
-                        logger.warning(f"Failed to create panel for defect {defect.get('id')}: {update_response.status_code}")
-                        
-                except Exception as e:
-                    logger.error(f"Error creating panel for defect {defect.get('id')}: {e}")
+                        length_ft, width_ft = (90, 45)
+                    
+                    estimated = defect.get("estimated_position", {}) or {}
+                    x_percent = estimated.get("x_percent", 50)
+                    y_percent = estimated.get("y_percent", 50)
+                    
+                    location_desc = defect.get("location") or f"{x_percent:.0f}% / {y_percent:.0f}% of canvas"
+                    defect_description = defect.get("description", "").strip() or defect.get("type", "Detected defect")
+                    panel_number = str(
+                        defect.get("panel_number")
+                        or defect.get("panelNumber")
+                        or f"P-{index:03d}"
+                    )
+                    roll_number = defect.get("roll_number") or defect.get("rollNumber") or f"ROLL-{index:03d}"
+                    form_notes = f"{defect_description} | severity: {defect.get('severity', 'n/a')}"
+                    date_value = datetime.utcnow().strftime("%Y-%m-%d")
+                    
+                    await click_with_fallback([
+                        "button:has-text(\"Add Panel\")",
+                        "text=Add Panel"
+                    ])
+                    await asyncio.sleep(0.5)
+                    
+                    await perform_interaction("type", "input[name=\"panelNumber\"]", panel_number)
+                    await perform_interaction("type", "input[name=\"rollNumber\"]", roll_number)
+                    await perform_interaction("type", "input[name=\"length\"]", f"{length_ft}")
+                    await perform_interaction("type", "input[name=\"width\"]", f"{width_ft}")
+                    await perform_interaction("type", "input[name=\"date\"]", date_value)
+                    await perform_interaction("type", "textarea[name=\"location\"]", f"{location_desc} — {form_notes}")
+                    await perform_interaction("select", "select[name=\"shape\"]", "rectangle")
+                    
+                    await click_with_fallback([
+                        "button:has-text(\"Create Panel\")",
+                        "text=Create Panel"
+                    ])
+                    
+                    await asyncio.sleep(1)
+                    panels_created += 1
+                    created_panel_numbers.append(panel_number)
+                    logger.info(f"✅ Created panel via browser automation for defect {defect.get('id')}")
+                except Exception as defect_error:
+                    logger.error(f"Failed to create panel for defect {defect.get('id')}: {defect_error}")
                     continue
             
+            verification_panels = current_panels
+            verification_details = {
+                "initial_count": initial_panel_count,
+                "final_count": initial_panel_count + panels_created,
+                "created_panel_numbers": created_panel_numbers
+            }
+            if extract_tool:
+                try:
+                    post_extract = await extract_tool._arun(
+                        action="panels",
+                        session_id=session_id,
+                        user_id=user_id
+                    )
+                    if isinstance(post_extract, str):
+                        try:
+                            parsed = json.loads(post_extract)
+                            if parsed.get("success"):
+                                verification_panels = parsed.get("panels", verification_panels)
+                                verification_details["final_count"] = len(verification_panels)
+                                verification_details["new_panels_detected"] = [
+                                    panel for panel in verification_panels
+                                    if panel.get("panelNumber") in created_panel_numbers
+                                ]
+                        except json.JSONDecodeError as decode_error:
+                            logger.debug(f"Panel verification JSON parse failed: {decode_error}")
+                except Exception as verify_error:
+                    logger.warning(f"Post-creation extraction failed: {verify_error}")
+            
+            screenshot_base64 = None
+            if screenshot_tool:
+                try:
+                    screenshot_result = await screenshot_tool._arun(
+                        session_id=session_id,
+                        user_id=user_id,
+                        full_page=True
+                    )
+                    if isinstance(screenshot_result, str) and not screenshot_result.lower().startswith("error"):
+                        screenshot_base64 = screenshot_result
+                except Exception as screenshot_error:
+                    logger.warning(f"Screenshot capture failed: {screenshot_error}")
+            
             return {
-                "success": True,
+                "success": panels_created > 0,
                 "message": f"Created {panels_created} panels from {len(defects)} defects",
                 "panels_created": panels_created,
-                "defects_processed": len(defects)
+                "defects_processed": len(defects),
+                "verification": verification_details,
+                "screenshot": screenshot_base64
             }
             
         except Exception as e:

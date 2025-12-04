@@ -93,6 +93,7 @@ app.get('/api/health', async (req, res) => {
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/projects', require('./routes/projects'));
 app.use('/api/documents', require('./routes/documents'));
+app.use('/api/telemetry', require('./routes/telemetry'));
 app.use('/api/panels', require('./routes/panels'));
 app.use('/api/qc-data', require('./routes/qc-data'));
 app.use('/api/payments', require('./routes/payments'));

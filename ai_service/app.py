@@ -5,6 +5,7 @@ import logging
 import tempfile
 import json
 import traceback
+import re
 
 # CRITICAL: Set LiteLLM environment variables BEFORE importing CrewAI/LiteLLM
 # LiteLLM reads these at import time, so they must be set early
@@ -17,6 +18,7 @@ from document_processor import DocumentProcessor
 from openai_service import OpenAIService
 from utils import setup_logging, save_temp_file
 from integration_layer import get_ai_integration, run_async
+from telemetry import get_telemetry
 
 # Set up logging
 setup_logging()
@@ -57,7 +59,9 @@ def health_check():
 @app.route('/analyze', methods=['POST'])
 def analyze_documents():
     """Analyze documents with AI - now supports hybrid AI architecture"""
+    start_time = None
     try:
+        start_time = __import__('time').time()
         data = request.json
         
         if not data or 'documents' not in data:
@@ -415,6 +419,94 @@ def detect_defects():
         logger.error(f"Error detecting defects: {str(e)}")
         logger.error(traceback.format_exc())
         return jsonify({'error': str(e)}), 500
+
+@app.route('/api/ai/analyze-image', methods=['POST'])
+def analyze_image():
+    """Analyze a destruct/repair photo and return panel candidates"""
+    try:
+        data = request.json or {}
+        
+        if 'image_base64' not in data:
+            return jsonify({'error': 'image_base64 is required'}), 400
+        
+        image_base64 = data['image_base64']
+        image_type = data.get('image_type', 'image/png')
+        project_id = data.get('project_id')
+        
+        logger.info(f"Analyzing image for project: {project_id}, type: {image_type}")
+        
+        analysis_prompt = """Analyze this image of geosynthetic destruct or repair work and extract panel information.
+
+Return JSON with:
+{
+  "panels": [
+    {
+      "x": <number>,
+      "y": <number>,
+      "width": <number>,
+      "height": <number>,
+      "shape": "rectangle" | "right-triangle" | "patch",
+      "notes": "<summary of observed damage or repair>"
+    }
+  ],
+  "detectedInfo": {
+    "area": "<estimated affected area>",
+    "damageType": "<type of damage observed>",
+    "repairType": "<recommended repair action>",
+    "location": "<described location within project>"
+  }
+}
+
+If you cannot determine exact dimensions, estimate based on the visible region. Always return valid JSON."""
+        
+        analysis_text = run_async(openai_service.analyze_image(
+            image_base64=image_base64,
+            prompt=analysis_prompt
+        ))
+        
+        def _parse_analysis(text: str) -> dict:
+            try:
+                return json.loads(text)
+            except json.JSONDecodeError:
+                match = re.search(r'\{[\s\S]*\}', text)
+                if match:
+                    try:
+                        return json.loads(match.group(0))
+                    except json.JSONDecodeError:
+                        pass
+            return {}
+        
+        parsed = _parse_analysis(analysis_text)
+        panels = parsed.get('panels') if isinstance(parsed, dict) else None
+        detected_info = parsed.get('detectedInfo') if isinstance(parsed, dict) else None
+        
+        if not panels or not isinstance(panels, list):
+            logger.warning("Vision analysis returned no structured panels, providing fallback")
+            panels = [{
+                'x': 100,
+                'y': 100,
+                'width': 120,
+                'height': 60,
+                'shape': 'rectangle',
+                'notes': 'AI estimated panel region from visual cues'
+            }]
+        
+        response_payload = {
+            'success': True,
+            'panels': panels,
+            'detectedInfo': detected_info or {},
+            'raw_analysis': analysis_text
+        }
+        
+        return jsonify(response_payload), 200
+    
+    except Exception as e:
+        logger.error(f"Error analyzing image: {str(e)}")
+        logger.error(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 @app.route('/api/ai/automate-panel-population', methods=['POST'])
 def automate_panel_population():

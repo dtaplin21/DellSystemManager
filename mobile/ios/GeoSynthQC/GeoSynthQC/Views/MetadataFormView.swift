@@ -10,6 +10,17 @@ struct MetadataFormView: View {
     @State private var location = ""
     @State private var notes = ""
     @State private var defectType = ""
+    @State private var panelNumber = ""
+    @State private var material = ""
+    @State private var thickness = ""
+    @State private var seamsType = ""
+    @State private var selectedFormType = "defect_report"
+    
+    private let formTypes: [(id: String, label: String)] = [
+        ("defect_report", "Defect Report"),
+        ("repair_form", "Repair / Patch"),
+        ("asbuilt_form", "As-built Record")
+    ]
     
     var body: some View {
         NavigationView {
@@ -26,6 +37,20 @@ struct MetadataFormView: View {
                     TextField("Defect Type (Optional)", text: $defectType)
                     TextField("Notes (Optional)", text: $notes, axis: .vertical)
                         .lineLimit(3...6)
+                }
+                
+                Section(header: Text("As-Built Form Data")) {
+                    Picker("Form Type", selection: $selectedFormType) {
+                        ForEach(formTypes, id: \.id) { form in
+                            Text(form.label).tag(form.id)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    
+                    TextField("Panel Number (Optional)", text: $panelNumber)
+                    TextField("Material (Optional)", text: $material)
+                    TextField("Thickness (Optional)", text: $thickness)
+                    TextField("Seams Type (Optional)", text: $seamsType)
                 }
             }
             .navigationTitle("Upload Defect")
@@ -55,12 +80,39 @@ struct MetadataFormView: View {
             longitude: nil
         )
         
+        var formFields: [String: String] = [:]
+        if !panelNumber.isEmpty {
+            formFields["panelNumber"] = panelNumber
+        }
+        if !material.isEmpty {
+            formFields["material"] = material
+        }
+        if !thickness.isEmpty {
+            formFields["thickness"] = thickness
+        }
+        if !seamsType.isEmpty {
+            formFields["seamsType"] = seamsType
+        }
+        if let locationValue = metadata.location {
+            formFields["location"] = locationValue
+        }
+        if let notesValue = metadata.notes {
+            formFields["notes"] = notesValue
+        }
+        if let defectValue = metadata.defectType {
+            formFields["defectType"] = defectValue
+        }
+        
+        let preparedFormFields = formFields.isEmpty ? nil : formFields
+        
         Task {
             do {
                 let result = try await uploadService.uploadDefectPhoto(
                     image: image,
                     projectId: project.id,
-                    metadata: metadata
+                    metadata: metadata,
+                    formType: selectedFormType,
+                    formFields: preparedFormFields
                 )
                 await MainActor.run {
                     uploadResult = result
@@ -72,4 +124,3 @@ struct MetadataFormView: View {
         }
     }
 }
-
