@@ -53,7 +53,7 @@ class TelemetryService {
   private errorQueue: Array<{ error: Error; context: ErrorContext }> = [];
   private metricQueue: Array<PerformanceMetric> = [];
   private costQueue: Array<CostMetric> = [];
-  private flushInterval: NodeJS.Timeout | null = null;
+  private flushInterval: ReturnType<typeof setTimeout> | null = null;
 
   constructor(config: TelemetryConfig) {
     this.config = config;
