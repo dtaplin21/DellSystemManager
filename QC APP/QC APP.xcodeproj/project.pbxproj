@@ -29,6 +29,8 @@
 		89D27B64248047159CE042EC /* AsbuiltForm.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20D638F1878423EA06E97C4 /* AsbuiltForm.swift */; };
 		E54A19B744DA42B991CEA1BD /* FormTypeSelectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6B63C66026C4ECBADFFBD52 /* FormTypeSelectionView.swift */; };
 		C932AFBBEC4E4AE6B91EBDC5 /* AsbuiltFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EDC8A1319324DF79D08C1C1 /* AsbuiltFormView.swift */; };
+		A1B2C3D4E5F6A7B8C9D0E1F2 /* TelemetryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E1F3 /* TelemetryService.swift */; };
+		B2C3D4E5F6A7B8C9D0E1F2A3 /* FormExtractionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E5F6A7B8C9D0E1F2A4 /* FormExtractionService.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -74,6 +76,8 @@
 		F20D638F1878423EA06E97C4 /* AsbuiltForm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AsbuiltForm.swift; sourceTree = "<group>"; };
 		D6B63C66026C4ECBADFFBD52 /* FormTypeSelectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FormTypeSelectionView.swift; sourceTree = "<group>"; };
 		2EDC8A1319324DF79D08C1C1 /* AsbuiltFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AsbuiltFormView.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6A7B8C9D0E1F3 /* TelemetryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TelemetryService.swift; sourceTree = "<group>"; };
+		B2C3D4E5F6A7B8C9D0E1F2A4 /* FormExtractionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FormExtractionService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -163,6 +167,8 @@
 				FED396A02EDBBDFB0026C657 /* AuthService.swift */,
 				FED396A12EDBBDFB0026C657 /* ImageUploadService.swift */,
 				FED396A22EDBBDFB0026C657 /* ProjectService.swift */,
+				A1B2C3D4E5F6A7B8C9D0E1F3 /* TelemetryService.swift */,
+				B2C3D4E5F6A7B8C9D0E1F2A4 /* FormExtractionService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -359,6 +365,8 @@
 				89D27B64248047159CE042EC /* AsbuiltForm.swift in Sources */,
 				E54A19B744DA42B991CEA1BD /* FormTypeSelectionView.swift in Sources */,
 				C932AFBBEC4E4AE6B91EBDC5 /* AsbuiltFormView.swift in Sources */,
+				A1B2C3D4E5F6A7B8C9D0E1F2 /* TelemetryService.swift in Sources */,
+				B2C3D4E5F6A7B8C9D0E1F2A3 /* FormExtractionService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
