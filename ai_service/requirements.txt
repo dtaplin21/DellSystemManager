@@ -3,8 +3,9 @@
 openai>=1.0.0
 
 # Hybrid AI Architecture dependencies (Cloud-only)
-crewai>=0.5.0
-langchain>=0.1.0  # CrewAI 0.5.0 requires langchain==0.1.0, but >=0.1.0 allows pip to resolve
+# CrewAI 0.5.0 requires langchain 0.1.x and older langchain-openai
+crewai>=0.5.0,<0.6.0
+langchain>=0.1.0,<0.2.0  # CrewAI 0.5.0 requires langchain 0.1.x
 langchain-openai>=0.0.2,<0.0.3
 # langchain-community removed - not used in codebase and conflicts with crewai 0.5.0's langchain==0.1.0 requirement
 
@@ -19,8 +20,8 @@ uvicorn>=0.24.0
 
 # Data processing
 pandas>=2.0.0
-numpy>=1.24.0
-pydantic>=2.0.0
+numpy>=1.24.0,<2.0.0  # Limit to numpy 1.x for better compatibility
+pydantic>=2.0.0,<3.0.0
 
 # File handling and utilities
 python-multipart>=0.0.6
@@ -36,8 +37,13 @@ nest-asyncio>=1.6.0  # Allows nested event loops (fixes CrewAI threading conflic
 structlog>=23.0.0
 requests>=2.31.0
 
+# Token counting - langchain-openai 0.0.2 requires tiktoken<0.6.0
+# Keeping at 0.5.2 to satisfy langchain-openai constraints
+# Note: litellm (used by CrewAI) may show warnings but should still function
+tiktoken>=0.5.2,<0.6.0
+
 # Development and testing
 pytest>=7.0.0
 pytest-asyncio>=0.21.0
 black>=23.0.0
-flake8>=6.0.0 
+flake8>=6.0.0

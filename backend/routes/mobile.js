@@ -8,6 +8,7 @@ const { db } = require('../db');
 const { projects, panelLayouts } = require('../db/schema');
 const { eq, and } = require('drizzle-orm');
 const logger = require('../lib/logger');
+const FormFieldExtractor = require('../services/form-field-extractor');
 
 // Configure multer for image uploads
 const upload = multer({
@@ -100,6 +101,98 @@ router.post('/projects', auth, async (req, res, next) => {
     });
   } catch (error) {
     logger.error('[MOBILE] Error creating project', { error: error.message });
+    next(error);
+  }
+});
+
+// POST /api/mobile/extract-form-data/:projectId
+// Extract form fields from defect image using AI vision
+router.post('/extract-form-data/:projectId', auth, upload.single('image'), async (req, res, next) => {
+  try {
+    const { projectId } = req.params;
+    
+    logger.info('[MOBILE] Form field extraction started', {
+      projectId,
+      userId: req.user.id
+    });
+    
+    // Validate project access
+    const [project] = await db
+      .select()
+      .from(projects)
+      .where(and(
+        eq(projects.id, projectId),
+        eq(projects.userId, req.user.id)
+      ));
+    
+    if (!project) {
+      return res.status(404).json({
+        success: false,
+        message: 'Project not found or access denied'
+      });
+    }
+    
+    // Validate image file
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No image file uploaded'
+      });
+    }
+    
+    // Check if OpenAI API key is configured
+    if (!process.env.OPENAI_API_KEY) {
+      logger.error('[MOBILE] OpenAI API key not configured');
+      return res.status(503).json({
+        success: false,
+        message: 'AI extraction service is not available. OPENAI_API_KEY not configured.',
+        extractedFields: {},
+        confidence: 0
+      });
+    }
+    
+    try {
+      const extractor = new FormFieldExtractor();
+      const result = await extractor.extractFormFields(
+        req.file.buffer,
+        req.file.mimetype || 'image/jpeg'
+      );
+      
+      logger.info('[MOBILE] Form field extraction completed', {
+        projectId,
+        fieldsExtracted: Object.keys(result.extractedFields).filter(
+          key => result.extractedFields[key] !== null
+        ).length,
+        confidence: result.confidence
+      });
+      
+      res.json({
+        success: true,
+        extractedFields: result.extractedFields,
+        confidence: result.confidence,
+        message: 'Form fields extracted successfully'
+      });
+    } catch (extractionError) {
+      logger.error('[MOBILE] Form field extraction error', {
+        projectId,
+        error: extractionError.message,
+        stack: extractionError.stack
+      });
+      
+      // Return partial success - allow manual entry
+      res.status(200).json({
+        success: false,
+        extractedFields: {},
+        confidence: 0,
+        message: 'Could not extract form data from image. Please enter manually.',
+        error: process.env.NODE_ENV === 'development' ? extractionError.message : undefined
+      });
+    }
+  } catch (error) {
+    logger.error('[MOBILE] Error in form field extraction endpoint', {
+      error: error.message,
+      stack: error.stack
+    });
     next(error);
   }
 });
