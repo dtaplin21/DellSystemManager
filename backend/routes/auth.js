@@ -70,11 +70,10 @@ router.post('/signup', async (req, res) => {
       return res.status(400).json({ message: 'User already exists' });
     }
     
-    // Create user in Supabase
-    const { data: supabaseUser, error: supabaseError } = await supabase.auth.signUp({
-      email,
-      password,
-    });
+    // Create user in Supabase (with retry logic for network errors)
+    const { data: supabaseUser, error: supabaseError } = await retrySupabaseOperation(
+      () => supabase.auth.signUp({ email, password })
+    );
     
     if (supabaseError) {
       logger.error('[AUTH:signup] Supabase signup error', {
@@ -104,11 +103,10 @@ router.post('/signup', async (req, res) => {
       createdAt: new Date(),
     }).returning();
 
-    // Sign in the user to get a session
-    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    // Sign in the user to get a session (with retry logic for network errors)
+    const { data: signInData, error: signInError } = await retrySupabaseOperation(
+      () => supabase.auth.signInWithPassword({ email, password })
+    );
 
     if (signInError) {
       logger.warn('[AUTH:signup] Failed to sign in after signup', {
@@ -154,6 +152,84 @@ router.post('/signup', async (req, res) => {
   }
 });
 
+// Helper function to retry Supabase operations with exponential backoff
+async function retrySupabaseOperation(operation, maxRetries = 3) {
+  let lastError;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const result = await operation();
+      
+      // Supabase methods return { data, error } objects
+      // If there's an error, check if it's a network error that should be retried
+      if (result?.error) {
+        const error = result.error;
+        const errorMessage = error.message || '';
+        const errorCause = error.cause || {};
+        
+        // Check if it's a retryable network error
+        const isRetryable = 
+          errorMessage.includes('fetch failed') ||
+          errorMessage.includes('ENOTFOUND') ||
+          errorMessage.includes('ECONNREFUSED') ||
+          errorMessage.includes('ETIMEDOUT') ||
+          errorMessage.includes('ECONNRESET') ||
+          errorCause.code === 'ENOTFOUND' ||
+          errorCause.code === 'ECONNREFUSED' ||
+          errorCause.code === 'ETIMEDOUT' ||
+          errorCause.code === 'ECONNRESET';
+        
+        // If it's not retryable or we've exhausted retries, return the result
+        if (!isRetryable || attempt === maxRetries) {
+          return result;
+        }
+        
+        // Calculate exponential backoff delay: 500ms, 1000ms, 2000ms
+        const delay = Math.min(500 * Math.pow(2, attempt - 1), 2000);
+        logger.warn(`[AUTH] Network error in Supabase operation (attempt ${attempt}/${maxRetries}), retrying in ${delay}ms`, {
+          error: errorMessage,
+          code: errorCause.code || error.code
+        });
+        
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue; // Retry the operation
+      }
+      
+      // Success - return the result
+      return result;
+    } catch (error) {
+      lastError = error;
+      
+      // Check if it's a retryable network error (thrown exception)
+      const isRetryable = 
+        error.message?.includes('fetch failed') ||
+        error.message?.includes('ENOTFOUND') ||
+        error.message?.includes('ECONNREFUSED') ||
+        error.message?.includes('ETIMEDOUT') ||
+        error.message?.includes('ECONNRESET') ||
+        error.cause?.code === 'ENOTFOUND' ||
+        error.cause?.code === 'ECONNREFUSED' ||
+        error.cause?.code === 'ETIMEDOUT' ||
+        error.cause?.code === 'ECONNRESET';
+      
+      if (!isRetryable || attempt === maxRetries) {
+        throw error;
+      }
+      
+      // Calculate exponential backoff delay: 500ms, 1000ms, 2000ms
+      const delay = Math.min(500 * Math.pow(2, attempt - 1), 2000);
+      logger.warn(`[AUTH] Network error (attempt ${attempt}/${maxRetries}), retrying in ${delay}ms`, {
+        error: error.message,
+        code: error.cause?.code || error.code
+      });
+      
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  
+  throw lastError;
+}
+
 // Login
 router.post('/login', async (req, res) => {
   try {
@@ -167,11 +243,10 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ message: validationError.details[0].message });
     }
     
-    // Sign in with Supabase
-    const { data: supabaseUser, error: supabaseError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    // Sign in with Supabase (with retry logic for network errors)
+    const { data: supabaseUser, error: supabaseError } = await retrySupabaseOperation(
+      () => supabase.auth.signInWithPassword({ email, password })
+    );
     
     if (supabaseError) {
       logger.warn('[AUTH:login] Supabase auth error', {
@@ -235,11 +310,10 @@ router.post('/google', async (req, res) => {
   try {
     const { idToken } = req.body;
     
-    // Sign in with Google using Supabase
-    const { data: supabaseUser, error: supabaseError } = await supabase.auth.signInWithIdToken({
-      provider: 'google',
-      token: idToken,
-    });
+    // Sign in with Google using Supabase (with retry logic for network errors)
+    const { data: supabaseUser, error: supabaseError } = await retrySupabaseOperation(
+      () => supabase.auth.signInWithIdToken({ provider: 'google', token: idToken })
+    );
     
     if (supabaseError) {
       return res.status(401).json({ 
@@ -281,8 +355,10 @@ router.post('/google', async (req, res) => {
 // Logout
 router.post('/logout', auth, async (req, res) => {
   try {
-    // Sign out from Supabase
-    const { error } = await supabase.auth.signOut();
+    // Sign out from Supabase (with retry logic for network errors)
+    const { error } = await retrySupabaseOperation(
+      () => supabase.auth.signOut()
+    );
     
     if (error) {
       throw error;
