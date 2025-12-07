@@ -4,6 +4,7 @@ struct LoginView: View {
     @StateObject private var authService = AuthService.shared
     @State private var email = ""
     @State private var password = ""
+    @State private var showPassword = false
     @State private var isLoading = false
     @State private var errorMessage: String?
     
@@ -29,8 +30,20 @@ struct LoginView: View {
                     .autocapitalization(.none)
                     .keyboardType(.emailAddress)
                 
-                SecureField("Password", text: $password)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                HStack {
+                    if showPassword {
+                        TextField("Password", text: $password)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                            .textContentType(.password)
+                    } else {
+                        SecureField("Password", text: $password)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                    }
+                    Button(action: { showPassword.toggle() }) {
+                        Image(systemName: showPassword ? "eye.slash.fill" : "eye.fill")
+                            .foregroundColor(.secondary)
+                    }
+                }
                 
                 if let error = errorMessage {
                     Text(error)

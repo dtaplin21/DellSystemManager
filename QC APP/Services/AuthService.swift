@@ -64,12 +64,50 @@ class AuthService: ObservableObject {
     }
     
     private func loadUser() async {
-        // Try to get current user info
-        // This would require a /api/auth/me endpoint or similar
-        // For now, we'll just check if token exists
-        if keychainService.getToken() != nil {
-            // Don't auto-authenticate - let the user log in to verify token is valid
-            // Token might be expired
+        guard let token = keychainService.getToken() else {
+            await MainActor.run {
+                self.isAuthenticated = false
+            }
+            return
+        }
+        
+        // Verify token by calling backend
+        do {
+            struct UserResponse: Codable {
+                let user: User
+            }
+            let response: UserResponse = try await apiClient.request(
+                endpoint: "/api/auth/user",
+                method: .get
+            )
+            
+            // Token is valid, auto-authenticate
+            await MainActor.run {
+                self.currentUser = response.user
+                self.isAuthenticated = true
+                self.authError = nil
+            }
+            print("✅ Auto-login successful - Token verified. User ID: \(response.user.id)")
+        } catch {
+            // Token is invalid or expired
+            if let apiError = error as? APIError,
+               case .serverError(let code, _) = apiError,
+               code == 401 {
+                // Token expired/invalid - clear it
+                print("⚠️ Token expired or invalid - clearing from keychain")
+                keychainService.deleteToken()
+                apiClient.clearAuthToken()
+            } else if let apiError = error as? APIError,
+                      case .unauthorized = apiError {
+                // Unauthorized - clear token
+                print("⚠️ Unauthorized - clearing token from keychain")
+                keychainService.deleteToken()
+                apiClient.clearAuthToken()
+            } else {
+                // Network error or other error - keep token but don't auto-login
+                print("⚠️ Network error during auto-login - keeping token. Error: \(error.localizedDescription)")
+            }
+            // For any error, don't auto-authenticate
             await MainActor.run {
                 self.isAuthenticated = false
             }
