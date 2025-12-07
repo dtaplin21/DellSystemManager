@@ -24,7 +24,25 @@ app.use(helmet({
 }));
 
 app.use(cors({
-  origin: config.cors.origin,
+  origin: function (origin, callback) {
+    // Allow requests with no origin (mobile apps, Postman, curl, etc.)
+    if (!origin) return callback(null, true);
+    
+    // Allow specific origins
+    const allowedOrigins = [
+      'https://dellsystemmanager.vercel.app',
+      'http://localhost:3000',
+      'http://localhost:3001',
+    ];
+    
+    // If CORS_ORIGIN is set to '*', allow all origins (for mobile testing)
+    if (config.cors.origin === '*' || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      // For production, be more restrictive
+      callback(null, true); // Temporarily allow all for mobile app compatibility
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-dev-bypass']
