@@ -250,8 +250,21 @@ router.post('/upload-defect/:projectId', auth, upload.single('image'), async (re
     // Call AI service for defect detection
     const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:5001';
     
+    logger.info('[MOBILE] AI service configuration', {
+      uploadId,
+      aiServiceUrl: AI_SERVICE_URL,
+      hasEnvVar: !!process.env.AI_SERVICE_URL
+    });
+    
     let defectResult;
     try {
+      logger.debug('[MOBILE] Calling AI service for defect detection', {
+        uploadId,
+        url: `${AI_SERVICE_URL}/api/ai/detect-defects`,
+        imageSize: imageBase64.length,
+        projectId
+      });
+      
       const defectResponse = await axios.post(
         `${AI_SERVICE_URL}/api/ai/detect-defects`,
         {
@@ -276,30 +289,79 @@ router.post('/upload-defect/:projectId', auth, upload.single('image'), async (re
         }
       );
       
+      logger.debug('[MOBILE] AI service response received', {
+        uploadId,
+        status: defectResponse.status,
+        hasData: !!defectResponse.data
+      });
+      
       defectResult = defectResponse.data;
+      
+      // Validate response structure
+      if (!defectResult) {
+        throw new Error('AI service returned empty response');
+      }
+      
+      // Ensure defects array exists
+      if (!defectResult.defects) {
+        defectResult.defects = [];
+      }
+      
       logger.info('[MOBILE] Defect detection completed', {
         uploadId,
-        defectsFound: defectResult.defects?.length || 0
+        defectsFound: defectResult.defects?.length || 0,
+        hasAssessment: !!defectResult.overall_assessment
       });
     } catch (aiError) {
       logger.error('[MOBILE] AI service error', {
         uploadId,
         error: aiError.message,
-        code: aiError.code
+        code: aiError.code,
+        responseStatus: aiError.response?.status,
+        responseData: aiError.response?.data,
+        stack: aiError.stack
       });
       
-      if (aiError.code === 'ECONNREFUSED' || aiError.code === 'ETIMEDOUT') {
+      // Handle connection errors
+      if (aiError.code === 'ECONNREFUSED' || aiError.code === 'ETIMEDOUT' || aiError.code === 'ENOTFOUND') {
         return res.status(503).json({
           success: false,
-          message: 'AI service unavailable. Please ensure the AI service is running.',
-          error: aiError.message
+          message: `AI service unavailable at ${AI_SERVICE_URL}. Please ensure the AI service is running and AI_SERVICE_URL is configured correctly.`,
+          error: aiError.message,
+          code: aiError.code
         });
       }
       
+      // Handle HTTP errors from AI service
+      if (aiError.response) {
+        const errorData = aiError.response.data;
+        const errorMessage = errorData?.error || errorData?.message || aiError.message;
+        
+        logger.error('[MOBILE] AI service HTTP error', {
+          uploadId,
+          status: aiError.response.status,
+          statusText: aiError.response.statusText,
+          data: errorData,
+          errorMessage: errorMessage
+        });
+        
+        // If AI service returns 500, it means there's an issue with the AI service itself
+        // Return a more helpful error message
+        return res.status(500).json({
+          success: false,
+          message: 'AI service encountered an error while processing the image',
+          error: errorMessage,
+          aiServiceStatus: aiError.response.status,
+          suggestion: 'This may be due to: OpenAI API key issues, image processing errors, or AI service configuration problems. Check AI service logs for details.'
+        });
+      }
+      
+      // Handle other errors
       return res.status(500).json({
         success: false,
         message: 'Failed to detect defects in image',
-        error: aiError.response?.data?.error || aiError.message
+        error: aiError.message,
+        code: aiError.code
       });
     }
     
@@ -422,7 +484,7 @@ router.post('/upload-defect/:projectId', auth, upload.single('image'), async (re
     }
     
     // Return results
-    res.json({
+    const response = {
       success: true,
       defects: defectResult.defects || [],
       overall_assessment: defectResult.overall_assessment || 'Analysis complete',
@@ -436,15 +498,35 @@ router.post('/upload-defect/:projectId', auth, upload.single('image'), async (re
         ? 'Defect uploaded and panel layout updated automatically'
         : 'Defect uploaded. Panel layout update may be pending.',
       upload_id: uploadId
+    };
+    
+    logger.info('[MOBILE] Upload completed successfully', {
+      uploadId,
+      defectsCount: response.defects.length,
+      automationStatus
     });
+    
+    res.json(response);
     
   } catch (error) {
     logger.error('[MOBILE] Error processing defect upload', {
       uploadId,
       error: error.message,
-      stack: error.stack
+      stack: error.stack,
+      name: error.name,
+      code: error.code
     });
-    next(error);
+    
+    // Return a proper error response instead of passing to error handler
+    // This ensures the mobile app gets a consistent error format
+    res.status(500).json({
+      success: false,
+      message: 'An unexpected error occurred while processing the upload',
+      error: process.env.NODE_ENV === 'production' 
+        ? 'Internal server error' 
+        : error.message,
+      upload_id: uploadId
+    });
   }
 });
 

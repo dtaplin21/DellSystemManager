@@ -163,10 +163,13 @@ class APIClient {
         imageName: String,
         additionalFields: [String: String] = [:]
     ) async throws -> Data {
+        print("🌐 [APIClient] uploadMultipart - endpoint: \(endpoint), baseURL: \(baseURL)")
         guard let url = URL(string: "\(baseURL)\(endpoint)") else {
+            print("❌ [APIClient] Invalid URL: \(baseURL)\(endpoint)")
             throw APIError.invalidURL
         }
         
+        print("📡 [APIClient] Creating multipart request to: \(url.absoluteString)")
         let boundary = UUID().uuidString
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -199,15 +202,21 @@ class APIClient {
         body.append("--\(boundary)--\r\n".data(using: .utf8)!)
         
         request.httpBody = body
+        print("📦 [APIClient] Request body size: \(body.count) bytes, fields: \(additionalFields.count)")
         
         do {
+            print("🚀 [APIClient] Sending request...")
             let (data, response) = try await URLSession.shared.data(for: request)
             
             guard let httpResponse = response as? HTTPURLResponse else {
+                print("❌ [APIClient] Invalid response type")
                 throw APIError.unknown
             }
             
+            print("📥 [APIClient] Response status: \(httpResponse.statusCode)")
+            
             if httpResponse.statusCode == 401 {
+                print("❌ [APIClient] Unauthorized (401)")
                 throw APIError.unauthorized
             }
             
@@ -220,13 +229,17 @@ class APIClient {
                 } else {
                     errorMessage = String(data: data, encoding: .utf8)
                 }
+                print("❌ [APIClient] Server error (\(httpResponse.statusCode)): \(errorMessage ?? "Unknown error")")
                 throw APIError.serverError(httpResponse.statusCode, errorMessage)
             }
             
+            print("✅ [APIClient] Request successful, response size: \(data.count) bytes")
             return data
         } catch let error as APIError {
+            print("❌ [APIClient] API Error: \(error.localizedDescription)")
             throw error
         } catch {
+            print("❌ [APIClient] Network Error: \(error.localizedDescription)")
             throw APIError.networkError(error)
         }
     }

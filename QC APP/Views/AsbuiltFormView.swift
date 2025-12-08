@@ -11,6 +11,7 @@ struct AsbuiltFormView: View {
     @State private var formData: [String: Any] = [:]
     @State private var validationErrors: [String: String] = [:]
     @State private var isLoading = false
+    @State private var uploadErrorMessage: String?
     
     private var fields: [AsbuiltFormField] {
         AsbuiltFormConfig.getFields(for: formType)
@@ -61,6 +62,15 @@ struct AsbuiltFormView: View {
                                     .font(.caption)
                             }
                         }
+                    }
+                }
+                
+                // Upload Errors
+                if let errorMessage = uploadErrorMessage {
+                    Section {
+                        Text(errorMessage)
+                            .foregroundColor(.red)
+                            .font(.caption)
                     }
                 }
             }
@@ -131,11 +141,18 @@ struct AsbuiltFormView: View {
     
     // MARK: - Upload
     private func uploadImage() {
+        print("🔵 [AsbuiltFormView] Upload button tapped")
+        
         guard validateForm() else {
+            print("⚠️ [AsbuiltFormView] Form validation failed")
             return
         }
         
+        print("✅ [AsbuiltFormView] Form validation passed")
+        print("📋 [AsbuiltFormView] Form data: \(formData)")
+        
         isLoading = true
+        uploadErrorMessage = nil
         
         let metadata = DefectMetadata(
             location: nil,
@@ -147,6 +164,8 @@ struct AsbuiltFormView: View {
             formData: formData.isEmpty ? nil : formData
         )
         
+        print("📤 [AsbuiltFormView] Starting upload for project: \(project.id), formType: \(formType.rawValue)")
+        
         Task {
             do {
                 let result = try await uploadService.uploadDefectPhoto(
@@ -154,15 +173,25 @@ struct AsbuiltFormView: View {
                     projectId: project.id,
                     metadata: metadata
                 )
+                print("✅ [AsbuiltFormView] Upload successful: \(result.message)")
                 await MainActor.run {
                     uploadResult = result
                     isPresented = false
                 }
             } catch {
-                // Error is handled by uploadService
-            }
-            await MainActor.run {
-                isLoading = false
+                print("❌ [AsbuiltFormView] Upload failed: \(error.localizedDescription)")
+                let errorMessage: String
+                if let apiError = error as? APIError {
+                    errorMessage = apiError.localizedDescription
+                } else if let uploadError = uploadService.uploadError {
+                    errorMessage = uploadError
+                } else {
+                    errorMessage = error.localizedDescription
+                }
+                await MainActor.run {
+                    uploadErrorMessage = errorMessage
+                    isLoading = false
+                }
             }
         }
     }
