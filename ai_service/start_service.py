@@ -132,8 +132,15 @@ def main():
     logger.info("=" * 50)
     
     try:
+        # Log all registered routes before starting
+        logger.info("=" * 50)
+        logger.info("Registered Flask routes:")
+        for rule in app.url_map.iter_rules():
+            logger.info(f"  {list(rule.methods)} {rule}")
+        logger.info("=" * 50)
+        
         # Start the Flask service
-        logger.info("🚀 Starting Flask service...")
+        logger.info(f"🚀 Starting Flask service on {config.SERVICE_HOST}:{config.SERVICE_PORT}...")
         app.run(
             host=config.SERVICE_HOST,
             port=config.SERVICE_PORT,

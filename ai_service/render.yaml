@@ -1,0 +1,30 @@
+# Render configuration for AI Service
+services:
+  - type: web
+    name: quality-control-quality-assurance
+    env: python
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: python start_service.py
+    envVars:
+      - key: PORT
+        value: 5001
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: REDIS_HOST
+        sync: false
+      - key: REDIS_PORT
+        sync: false
+      - key: REDIS_PASSWORD
+        sync: false
+      - key: FLASK_APP
+        value: app.py
+      - key: FLASK_ENV
+        value: production
+      - key: DEBUG
+        value: "false"
+      - key: LOG_LEVEL
+        value: INFO
+

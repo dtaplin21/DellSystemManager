@@ -395,6 +395,7 @@ def hybrid_status():
 @app.route('/api/ai/detect-defects', methods=['POST'])
 def detect_defects():
     """Detect defects in uploaded image using GPT-4o vision model"""
+    logger.info(f"[detect_defects] Endpoint called - Method: {request.method}, Path: {request.path}")
     try:
         data = request.json
         
@@ -561,6 +562,27 @@ def automate_panel_population():
             'error': str(e)
         }), 500
 
+# Debug endpoint to list all registered routes
+@app.route('/debug/routes', methods=['GET'])
+def list_routes():
+    """List all registered routes for debugging"""
+    routes = []
+    for rule in app.url_map.iter_rules():
+        routes.append({
+            'endpoint': rule.endpoint,
+            'methods': list(rule.methods),
+            'path': str(rule)
+        })
+    return jsonify({'routes': routes}), 200
+
 if __name__ == '__main__':
+    # Log all registered routes on startup
+    logger.info("=" * 50)
+    logger.info("Registered Flask routes:")
+    for rule in app.url_map.iter_rules():
+        logger.info(f"  {list(rule.methods)} {rule}")
+    logger.info("=" * 50)
+    
     port = int(os.environ.get('PORT', 5001))
+    logger.info(f"🚀 Starting Flask app on port {port}")
     app.run(host='0.0.0.0', port=port, debug=True)
