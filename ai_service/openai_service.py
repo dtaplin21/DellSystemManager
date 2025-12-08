@@ -190,7 +190,7 @@ class OpenAIService:
                             "role": "user",
                             "content": [
                                 {"type": "text", "text": prompt},
-                                {"type": "image_url", "image_url": f"data:image/png;base64,{image_base64}"}
+                                {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_base64}"}}
                             ],
                         }
                     ],
@@ -381,7 +381,7 @@ IMPORTANT:
                             "role": "user",
                             "content": [
                                 {"type": "text", "text": defect_detection_prompt},
-                                {"type": "image_url", "image_url": f"data:image/png;base64,{image_base64}"}
+                                {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_base64}"}}
                             ],
                         }
                     ],
