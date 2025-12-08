@@ -1,6 +1,7 @@
-# Render configuration for GeoSynth QC Pro Backend
+# Render configuration for GeoSynth QC Pro
 # This file should be at the root of the repository for Render to auto-detect it
 services:
+  # Backend Service (Node.js)
   - type: web
     name: geosynth-qc-backend
     env: node
@@ -31,4 +32,45 @@ services:
         sync: false
       - key: AI_SERVICE_URL
         sync: false
+
+  # AI Service (Python/Flask)
+  - type: web
+    name: quality-control-quality-assurance
+    env: python
+    pythonVersion: 3.11
+    plan: starter
+    rootDir: ai_service
+    pythonVersion: 3.11
+    buildCommand: |
+      pip install --upgrade pip
+      export CARGO_HOME=/tmp/cargo
+      export RUSTUP_HOME=/tmp/rustup
+      export PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1
+      curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --no-modify-path
+      export PATH="/tmp/rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin:$PATH"
+      pip install -r requirements.txt
+    startCommand: python start_service.py
+    envVars:
+      - key: PORT
+        value: 5001
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: REDIS_HOST
+        sync: false
+      - key: REDIS_PORT
+        sync: false
+      - key: REDIS_PASSWORD
+        sync: false
+      - key: FLASK_APP
+        value: app.py
+      - key: FLASK_ENV
+        value: production
+      - key: DEBUG
+        value: "false"
+      - key: LOG_LEVEL
+        value: INFO
+      - key: PYO3_USE_ABI3_FORWARD_COMPATIBILITY
+        value: "1"
 

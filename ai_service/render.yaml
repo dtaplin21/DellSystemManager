@@ -3,12 +3,24 @@ services:
   - type: web
     name: quality-control-quality-assurance
     env: python
+    pythonVersion: 3.11
     plan: starter
-    buildCommand: pip install -r requirements.txt
+    buildCommand: |
+      pip install --upgrade pip
+      export CARGO_HOME=/tmp/cargo
+      export RUSTUP_HOME=/tmp/rustup
+      export PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1
+      curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --no-modify-path
+      export PATH="/tmp/rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin:$PATH"
+      pip install -r requirements.txt
     startCommand: python start_service.py
     envVars:
       - key: PORT
         value: 5001
+      - key: CARGO_HOME
+        value: /tmp/cargo
+      - key: RUSTUP_HOME
+        value: /tmp/rustup
       - key: OPENAI_API_KEY
         sync: false
       - key: ANTHROPIC_API_KEY
@@ -27,4 +39,6 @@ services:
         value: "false"
       - key: LOG_LEVEL
         value: INFO
+      - key: PYO3_USE_ABI3_FORWARD_COMPATIBILITY
+        value: "1"
 
