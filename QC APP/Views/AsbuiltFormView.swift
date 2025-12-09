@@ -13,8 +13,17 @@ struct AsbuiltFormView: View {
     @State private var isLoading = false
     @State private var uploadErrorMessage: String?
     
-    private var fields: [AsbuiltFormField] {
-        AsbuiltFormConfig.getFields(for: formType)
+    // Cache fields to prevent recalculation on each view update
+    private let fields: [AsbuiltFormField]
+    
+    // Initialize fields once when view is created
+    init(image: UIImage, project: Project, formType: AsbuiltFormType, isPresented: Binding<Bool>, uploadResult: Binding<UploadResult?>) {
+        self.image = image
+        self.project = project
+        self.formType = formType
+        self._isPresented = isPresented
+        self._uploadResult = uploadResult
+        self.fields = AsbuiltFormConfig.getFields(for: formType)
     }
     
     var body: some View {
@@ -40,7 +49,7 @@ struct AsbuiltFormView: View {
                 
                 // Dynamic Form Fields
                 Section(header: Text("Form Information")) {
-                    ForEach(fields) { field in
+                    ForEach(fields, id: \.key) { field in
                         FormFieldView(
                             field: field,
                             value: Binding(
