@@ -204,10 +204,10 @@ router.post('/extract-form-data/:projectId', auth, upload.single('image'), async
             
             return res.json({
               success: true,
-              extractedFields: extractedFields,
+              extracted_fields: extractedFields, // Use snake_case to match Swift CodingKeys
               confidence: 0.85, // Default confidence for AI extraction
               message: 'Form fields extracted successfully',
-              formType: formType
+              form_type: formType // Use snake_case to match Swift CodingKeys
             });
           } else {
             throw new Error('AI service returned unsuccessful response');
@@ -224,10 +224,10 @@ router.post('/extract-form-data/:projectId', auth, upload.single('image'), async
           // Fall through to return empty fields
           return res.status(200).json({
             success: false,
-            extractedFields: {},
+            extracted_fields: {}, // Use snake_case to match Swift CodingKeys
             confidence: 0,
             message: 'Could not extract form data from image. Please enter manually.',
-            formType: formType
+            form_type: formType // Use snake_case to match Swift CodingKeys
           });
         }
       } else {

@@ -238,7 +238,26 @@ class FormExtractionService {
             // Decode response
             let decoder = JSONDecoder()
             decoder.keyDecodingStrategy = .convertFromSnakeCase
-            let response = try decoder.decode(AsbuiltFormExtractionResponse.self, from: data)
+            let response: AsbuiltFormExtractionResponse
+            do {
+                response = try decoder.decode(AsbuiltFormExtractionResponse.self, from: data)
+            } catch let decodingError as DecodingError {
+                print("❌ [FormExtractionService] Decoding error: \(decodingError)")
+                if case .keyNotFound(let key, let context) = decodingError {
+                    print("   Missing key: \(key.stringValue), path: \(context.codingPath)")
+                }
+                if case .typeMismatch(let type, let context) = decodingError {
+                    print("   Type mismatch: expected \(type), path: \(context.codingPath)")
+                }
+                if case .valueNotFound(let type, let context) = decodingError {
+                    print("   Value not found: expected \(type), path: \(context.codingPath)")
+                }
+                // Try to print the raw response for debugging
+                if let jsonString = String(data: data, encoding: .utf8) {
+                    print("   Raw response: \(jsonString.prefix(500))")
+                }
+                throw FormExtractionError.invalidResponse
+            }
             
             if response.success {
                 return response.extractedFields
