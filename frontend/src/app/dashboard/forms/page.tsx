@@ -35,6 +35,16 @@ interface Form {
   approved_at?: string;
   rejection_reason?: string;
   review_notes?: string;
+  automation_job?: {
+    job_id: string;
+    status: 'queued' | 'processing' | 'completed' | 'failed';
+    progress: number;
+    result?: any;
+    error_message?: string;
+    created_at: string;
+    started_at?: string;
+    completed_at?: string;
+  };
 }
 
 export default function FormsPage() {
@@ -82,6 +92,25 @@ export default function FormsPage() {
       fetchStats();
     }
   }, [projectId, activeTab, filters]);
+
+  // Poll for job status updates (only for processing jobs)
+  useEffect(() => {
+    if (!projectId) return;
+
+    // Check if there are any processing jobs
+    const hasProcessingJobs = forms.some(
+      form => form.automation_job?.status === 'processing' || form.automation_job?.status === 'queued'
+    );
+
+    if (!hasProcessingJobs) return;
+
+    // Poll every 5 seconds for processing jobs
+    const interval = setInterval(() => {
+      fetchForms();
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [projectId, forms]);
 
   const fetchForms = async () => {
     if (!projectId) return;
@@ -230,6 +259,30 @@ export default function FormsPage() {
   const handleViewForm = (form: Form) => {
     setSelectedForm(form);
     setShowDetailModal(true);
+  };
+
+  const handleRetryJob = async (jobId: string) => {
+    if (!confirm('Retry this automation job?')) return;
+
+    try {
+      const response = await makeAuthenticatedRequest(
+        `/api/jobs/${jobId}/retry`,
+        {
+          method: 'POST'
+        }
+      );
+
+      const data = await response.json();
+
+      if (data.success) {
+        alert('Job retry queued successfully');
+        await fetchForms();
+      } else {
+        alert(`Failed to retry job: ${data.error}`);
+      }
+    } catch (err: any) {
+      alert(`Failed to retry job: ${err.message}`);
+    }
   };
 
   if (projects.length === 0 && !projectsLoading) {
@@ -399,6 +452,7 @@ export default function FormsPage() {
                   onReject={handleReject}
                   onBulkApprove={handleBulkApprove}
                   onBulkReject={handleBulkReject}
+                  onRetryJob={handleRetryJob}
                 />
               )}
             </CardContent>

@@ -446,37 +446,42 @@ router.post('/upload-defect/:projectId', auth, upload.single('image'), async (re
       });
     }
     
-    // Trigger browser automation workflow
-    let automationStatus = 'pending';
+    // Create browser automation job in queue (non-blocking)
+    let automationJobId = null;
+    let automationStatus = 'queued';
+    
     try {
-      const automationResponse = await axios.post(
-        `${AI_SERVICE_URL}/api/ai/automate-panel-population`,
-        {
-          project_id: projectId,
-          defect_data: defectResult,
-          user_id: req.user.id,
-          upload_id: uploadId
-        },
-        {
-          timeout: 180000, // 3 minutes for browser automation
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        }
-      );
+      const jobQueue = require('../services/jobQueue');
       
-      automationStatus = automationResponse.data.status || 'success';
-      logger.info('[MOBILE] Browser automation completed', {
+      // Ensure queue is initialized
+      if (!jobQueue.automationQueue) {
+        jobQueue.initialize();
+      }
+      
+      // Create job in queue (will be processed by worker)
+      const jobResult = await jobQueue.addAutomationJob({
+        project_id: projectId,
+        defect_data: defectResult,
+        user_id: req.user.id,
+        upload_id: uploadId,
+        asbuilt_record_id: null // Will be updated after record creation
+      });
+      
+      automationJobId = jobResult.jobId;
+      automationStatus = 'queued';
+      
+      logger.info('[MOBILE] Browser automation job created', {
         uploadId,
+        jobId: automationJobId,
         status: automationStatus
       });
-    } catch (automationError) {
-      logger.error('[MOBILE] Browser automation error', {
+    } catch (jobError) {
+      logger.error('[MOBILE] Failed to create automation job', {
         uploadId,
-        error: automationError.message
+        error: jobError.message
       });
       
-      // Don't fail the upload if automation fails - defects were still detected
+      // Don't fail the upload if job creation fails - defects were still detected
       automationStatus = 'failed';
     }
     
@@ -556,6 +561,34 @@ router.post('/upload-defect/:projectId', auth, upload.single('image'), async (re
           domain: formType,
           panelId
         });
+        
+        // Update automation job with asbuilt_record_id if job was created
+        if (automationJobId) {
+          try {
+            const { Pool } = require('pg');
+            const pool = new Pool({
+              connectionString: require('../config/env').databaseUrl,
+              ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+            });
+            
+            await pool.query(
+              'UPDATE automation_jobs SET asbuilt_record_id = $1, project_id = $2 WHERE job_id = $3',
+              [asbuiltRecordId, projectId, automationJobId]
+            );
+            
+            await pool.end();
+            
+            logger.info('[MOBILE] Updated automation job with asbuilt record ID', {
+              jobId: automationJobId,
+              recordId: asbuiltRecordId
+            });
+          } catch (updateError) {
+            logger.warn('[MOBILE] Failed to update automation job with record ID', {
+              error: updateError.message
+            });
+            // Don't fail - job will still process
+          }
+        }
       } catch (asbuiltError) {
         logger.error('[MOBILE] Failed to create as-built record', {
           error: asbuiltError.message,
@@ -574,10 +607,13 @@ router.post('/upload-defect/:projectId', auth, upload.single('image'), async (re
       critical_defects: defectResult.critical_defects || 0,
       recommendations: defectResult.recommendations || [],
       automation_status: automationStatus,
+      automation_job_id: automationJobId,
       form_type: formType || null,
       asbuilt_record_id: asbuiltRecordId,
-      message: automationStatus === 'success' 
-        ? 'Defect uploaded and panel layout updated automatically'
+      message: automationStatus === 'queued'
+        ? 'Defect uploaded. Panel automation queued and will process in background.'
+        : automationStatus === 'failed'
+        ? 'Defect uploaded. Panel automation job creation failed.'
         : 'Defect uploaded. Panel layout update may be pending.',
       upload_id: uploadId
     };

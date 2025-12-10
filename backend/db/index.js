@@ -683,6 +683,19 @@ async function applyMigrations() {
       });
     }
 
+    // Apply automation jobs table migration
+    try {
+      const automationJobsMigrationPath = path.join(__dirname, 'migrations', '007_add_automation_jobs_table.sql');
+      const automationJobsSql = await fs.readFile(automationJobsMigrationPath, 'utf8');
+      await client.query(automationJobsSql);
+      logger.debug('Automation jobs table migration applied');
+    } catch (automationJobsErr) {
+      logger.warn('Automation jobs table migration not applied', {
+        error: { message: automationJobsErr.message },
+        hint: 'If permissions restrict file reads, run the SQL manually in the DB. The migration file is at backend/db/migrations/007_add_automation_jobs_table.sql'
+      });
+    }
+
     client.release();
     logger.info('Database migrations completed successfully');
   } catch (error) {

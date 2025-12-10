@@ -10,6 +10,7 @@ import {
   Smartphone,
   Clock
 } from 'lucide-react';
+import AutomationStatusBadge from './AutomationStatusBadge';
 
 interface Form {
   id: string;
@@ -24,6 +25,16 @@ interface Form {
   approved_at?: string;
   rejection_reason?: string;
   review_notes?: string;
+  automation_job?: {
+    job_id: string;
+    status: 'queued' | 'processing' | 'completed' | 'failed';
+    progress: number;
+    result?: any;
+    error_message?: string;
+    created_at: string;
+    started_at?: string;
+    completed_at?: string;
+  };
 }
 
 interface FormReviewTableProps {
@@ -33,6 +44,7 @@ interface FormReviewTableProps {
   onReject: (formId: string, reason: string, notes?: string) => void;
   onBulkApprove: (formIds: string[]) => void;
   onBulkReject: (formIds: string[], reason: string) => void;
+  onRetryJob?: (jobId: string) => void;
 }
 
 const DOMAIN_LABELS: Record<string, string> = {
@@ -50,7 +62,8 @@ export default function FormReviewTable({
   onApprove,
   onReject,
   onBulkApprove,
-  onBulkReject
+  onBulkReject,
+  onRetryJob
 }: FormReviewTableProps) {
   const [selectedForms, setSelectedForms] = useState<Set<string>>(new Set());
   const [bulkRejectReason, setBulkRejectReason] = useState('');
@@ -169,7 +182,8 @@ export default function FormReviewTable({
               </th>
               <th className="text-left py-3 px-4 font-medium text-gray-600">Form</th>
               <th className="text-left py-3 px-4 font-medium text-gray-600">Type</th>
-              <th className="text-left py-3 px-4 font-medium text-gray-600">Status</th>
+              <th className="text-left py-3 px-4 font-medium text-gray-600">Review Status</th>
+              <th className="text-left py-3 px-4 font-medium text-gray-600">Automation</th>
               <th className="text-left py-3 px-4 font-medium text-gray-600">Submitted</th>
               <th className="text-left py-3 px-4 font-medium text-gray-600">Actions</th>
             </tr>
@@ -203,6 +217,12 @@ export default function FormReviewTable({
                   </td>
                   <td className="py-3 px-4">
                     {getStatusBadge(form.status)}
+                  </td>
+                  <td className="py-3 px-4">
+                    <AutomationStatusBadge 
+                      job={form.automation_job} 
+                      onRetry={onRetryJob}
+                    />
                   </td>
                   <td className="py-3 px-4 text-sm text-gray-500">
                     {new Date(form.created_at).toLocaleDateString()}

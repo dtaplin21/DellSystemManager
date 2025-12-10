@@ -10,8 +10,12 @@ import {
   Smartphone,
   Clock,
   User,
-  Calendar
+  Calendar,
+  RefreshCw,
+  Loader2
 } from 'lucide-react';
+import AutomationStatusBadge from './AutomationStatusBadge';
+import { makeAuthenticatedRequest } from '@/lib/api';
 
 interface Form {
   id: string;
@@ -26,6 +30,16 @@ interface Form {
   approved_at?: string;
   rejection_reason?: string;
   review_notes?: string;
+  automation_job?: {
+    job_id: string;
+    status: 'queued' | 'processing' | 'completed' | 'failed';
+    progress: number;
+    result?: any;
+    error_message?: string;
+    created_at: string;
+    started_at?: string;
+    completed_at?: string;
+  };
 }
 
 interface FormDetailModalProps {
@@ -149,6 +163,105 @@ export default function FormDetailModal({
               </div>
             </div>
           </div>
+
+          {/* Automation Job Status */}
+          {form.automation_job && (
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Automation Status</h3>
+                <AutomationStatusBadge 
+                  job={form.automation_job}
+                  onRetry={async (jobId) => {
+                    if (!confirm('Retry this automation job?')) return;
+                    try {
+                      const response = await makeAuthenticatedRequest(
+                        `/api/jobs/${jobId}/retry`,
+                        { method: 'POST' }
+                      );
+                      const data = await response.json();
+                      if (data.success) {
+                        alert('Job retry queued successfully');
+                        window.location.reload();
+                      } else {
+                        alert(`Failed to retry job: ${data.error}`);
+                      }
+                    } catch (err: any) {
+                      alert(`Failed to retry job: ${err.message}`);
+                    }
+                  }}
+                />
+              </div>
+
+              {/* Progress Bar */}
+              {(form.automation_job.status === 'processing' || form.automation_job.status === 'queued') && (
+                <div className="mb-4">
+                  <div className="flex items-center justify-between text-sm text-gray-600 mb-1">
+                    <span>Progress</span>
+                    <span>{form.automation_job.progress}%</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div
+                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${form.automation_job.progress}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Job Details */}
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-gray-600">Job ID:</span>
+                  <span className="ml-2 font-mono text-xs">{form.automation_job.job_id}</span>
+                </div>
+                <div>
+                  <span className="text-gray-600">Created:</span>
+                  <span className="ml-2">
+                    {new Date(form.automation_job.created_at).toLocaleString()}
+                  </span>
+                </div>
+                {form.automation_job.started_at && (
+                  <div>
+                    <span className="text-gray-600">Started:</span>
+                    <span className="ml-2">
+                      {new Date(form.automation_job.started_at).toLocaleString()}
+                    </span>
+                  </div>
+                )}
+                {form.automation_job.completed_at && (
+                  <div>
+                    <span className="text-gray-600">Completed:</span>
+                    <span className="ml-2">
+                      {new Date(form.automation_job.completed_at).toLocaleString()}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Result */}
+              {form.automation_job.status === 'completed' && form.automation_job.result && (
+                <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded">
+                  <h4 className="font-semibold text-green-900 mb-2">Result</h4>
+                  <div className="text-sm text-green-800">
+                    {form.automation_job.result.panels_created && (
+                      <p>Panels Created: {form.automation_job.result.panels_created}</p>
+                    )}
+                    {form.automation_job.result.message && (
+                      <p>{form.automation_job.result.message}</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Error Message */}
+              {form.automation_job.status === 'failed' && form.automation_job.error_message && (
+                <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded">
+                  <h4 className="font-semibold text-red-900 mb-2">Error</h4>
+                  <p className="text-sm text-red-800">{form.automation_job.error_message}</p>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Rejection Reason (if rejected) */}
           {form.status === 'rejected' && form.rejection_reason && (

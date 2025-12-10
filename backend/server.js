@@ -125,6 +125,7 @@ app.use('/api/system', require('./routes/api/system'));
 app.use('/api/connected-workflow', require('./routes/connected-workflow'));
 app.use('/api/asbuilt', require('./routes/asbuilt'));
 app.use('/api/forms', require('./routes/forms'));
+app.use('/api/jobs', require('./routes/jobs'));
 app.use('/api/document-processing', require('./routes/documentProcessing'));
 logger.debug('Routes registered', {
   routes: [
@@ -255,6 +256,22 @@ async function startServer() {
     }
     
     logger.info('AI services status', { aiServiceAvailable, openaiServiceAvailable });
+
+    // Initialize job queue (for background automation jobs)
+    let jobQueueAvailable = false;
+    try {
+      const jobQueue = require('./services/jobQueue');
+      jobQueue.initialize();
+      jobQueueAvailable = true;
+      logger.info('Job queue initialized successfully');
+    } catch (error) {
+      logger.warn('Job queue initialization failed. Background automation jobs will not be available.', {
+        error: {
+          message: error.message,
+          hint: 'Ensure Redis is running and REDIS_URL or REDIS_HOST is configured'
+        }
+      });
+    }
     
     // Connect to database
     try {

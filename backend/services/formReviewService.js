@@ -79,20 +79,78 @@ class FormReviewService {
         params.push(`%${search}%`);
       }
 
-      query += ` ORDER BY created_at DESC LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`;
+      // Check if automation_jobs table exists
+      const tableCheck = await client.query(`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_name = 'automation_jobs'
+        )
+      `);
+      const hasAutomationJobsTable = tableCheck.rows[0]?.exists || false;
+
+      // Join with automation_jobs if table exists
+      if (hasAutomationJobsTable) {
+        query = query.replace(
+          'SELECT * FROM asbuilt_records',
+          `SELECT 
+            ar.*,
+            aj.job_id as automation_job_id,
+            aj.status as automation_status,
+            aj.progress as automation_progress,
+            aj.result as automation_result,
+            aj.error_message as automation_error_message,
+            aj.created_at as automation_created_at,
+            aj.started_at as automation_started_at,
+            aj.completed_at as automation_completed_at
+          FROM asbuilt_records ar
+          LEFT JOIN automation_jobs aj ON ar.id = aj.asbuilt_record_id`
+        );
+      }
+
+      query += ` ORDER BY ar.created_at DESC LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`;
       params.push(limit, offset);
 
       const result = await client.query(query, params);
       
-      // Parse JSON fields
-      return result.rows.map(row => ({
-        ...row,
-        raw_data: typeof row.raw_data === 'string' ? JSON.parse(row.raw_data) : row.raw_data,
-        mapped_data: typeof row.mapped_data === 'string' ? JSON.parse(row.mapped_data) : row.mapped_data,
-        // Set defaults if columns don't exist
-        source: row.source || 'import',
-        status: row.status || 'pending'
-      }));
+      // Parse JSON fields and structure automation job data
+      return result.rows.map(row => {
+        const form = {
+          ...row,
+          raw_data: typeof row.raw_data === 'string' ? JSON.parse(row.raw_data) : row.raw_data,
+          mapped_data: typeof row.mapped_data === 'string' ? JSON.parse(row.mapped_data) : row.mapped_data,
+          // Set defaults if columns don't exist
+          source: row.source || 'import',
+          status: row.status || 'pending'
+        };
+
+        // Add automation job data if available
+        if (row.automation_job_id) {
+          form.automation_job = {
+            job_id: row.automation_job_id,
+            status: row.automation_status || 'queued',
+            progress: row.automation_progress || 0,
+            result: typeof row.automation_result === 'string' 
+              ? JSON.parse(row.automation_result) 
+              : row.automation_result,
+            error_message: row.automation_error_message,
+            created_at: row.automation_created_at,
+            started_at: row.automation_started_at,
+            completed_at: row.automation_completed_at
+          };
+        }
+
+        // Remove automation fields from top level
+        delete form.automation_job_id;
+        delete form.automation_status;
+        delete form.automation_progress;
+        delete form.automation_result;
+        delete form.automation_error_message;
+        delete form.automation_created_at;
+        delete form.automation_started_at;
+        delete form.automation_completed_at;
+
+        return form;
+      });
     } catch (error) {
       console.error('❌ [FORMS] Error in getForms:', error);
       console.error('❌ [FORMS] Error details:', {
@@ -124,6 +182,15 @@ class FormReviewService {
       const hasSourceColumn = columnCheck.rows.some(r => r.column_name === 'source');
       const hasStatusColumn = columnCheck.rows.some(r => r.column_name === 'status');
 
+      // Check if automation_jobs table exists
+      const tableCheck = await client.query(`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_name = 'automation_jobs'
+        )
+      `);
+      const hasAutomationJobsTable = tableCheck.rows[0]?.exists || false;
+
       let query = `
         SELECT 
           COUNT(*) as total
@@ -142,22 +209,44 @@ class FormReviewService {
           0 as rejected
         `;
       }
+
+      // Add automation job statistics if table exists
+      if (hasAutomationJobsTable) {
+        query = query.replace(
+          'FROM asbuilt_records',
+          `FROM asbuilt_records ar
+          LEFT JOIN automation_jobs aj ON ar.id = aj.asbuilt_record_id`
+        );
+        query += `,
+          COUNT(DISTINCT aj.id) FILTER (WHERE aj.status = 'processing' OR aj.status = 'queued') as automation_processing,
+          COUNT(DISTINCT aj.id) FILTER (WHERE aj.status = 'completed') as automation_completed,
+          COUNT(DISTINCT aj.id) FILTER (WHERE aj.status = 'failed') as automation_failed
+        `;
+      } else {
+        query += `,
+          0 as automation_processing,
+          0 as automation_completed,
+          0 as automation_failed
+        `;
+      }
+      
+      const tableAlias = hasAutomationJobsTable ? 'ar' : 'asbuilt_records';
       
       query += `,
-          COUNT(*) FILTER (WHERE domain = 'panel_placement') as panel_placement,
-          COUNT(*) FILTER (WHERE domain = 'repairs') as repairs,
-          COUNT(*) FILTER (WHERE domain = 'panel_seaming') as panel_seaming,
-          COUNT(*) FILTER (WHERE domain = 'non_destructive') as non_destructive,
-          COUNT(*) FILTER (WHERE domain = 'trial_weld') as trial_weld,
-          COUNT(*) FILTER (WHERE domain = 'destructive') as destructive
-        FROM asbuilt_records
-        WHERE project_id = $1
+          COUNT(*) FILTER (WHERE ${tableAlias}.domain = 'panel_placement') as panel_placement,
+          COUNT(*) FILTER (WHERE ${tableAlias}.domain = 'repairs') as repairs,
+          COUNT(*) FILTER (WHERE ${tableAlias}.domain = 'panel_seaming') as panel_seaming,
+          COUNT(*) FILTER (WHERE ${tableAlias}.domain = 'non_destructive') as non_destructive,
+          COUNT(*) FILTER (WHERE ${tableAlias}.domain = 'trial_weld') as trial_weld,
+          COUNT(*) FILTER (WHERE ${tableAlias}.domain = 'destructive') as destructive
+        FROM ${hasAutomationJobsTable ? 'asbuilt_records ar LEFT JOIN automation_jobs aj ON ar.id = aj.asbuilt_record_id' : 'asbuilt_records'}
+        WHERE ${tableAlias}.project_id = $1
       `;
       
       const params = [projectId];
       
       if (hasSourceColumn) {
-        query += ` AND source = $2`;
+        query += ` AND ${tableAlias}.source = $2`;
         params.push(source);
       }
 

@@ -47,7 +47,9 @@
     "uuid": "^8.3.2",
     "ws": "^8.18.3",
     "xlsx": "^0.18.5",
-    "zod": "^3.25.76"
+    "zod": "^3.25.76",
+    "bull": "^4.11.0",
+    "ioredis": "^5.3.0"
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.8",
