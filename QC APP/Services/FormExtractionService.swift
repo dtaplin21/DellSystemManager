@@ -237,7 +237,9 @@ class FormExtractionService {
             
             // Decode response
             let decoder = JSONDecoder()
-            decoder.keyDecodingStrategy = .convertFromSnakeCase
+            // Note: Not using .convertFromSnakeCase because:
+            // 1. Top-level response uses explicit CodingKeys (extracted_fields -> extractedFields)
+            // 2. Nested ExtractedAsbuiltFormFields has camelCase keys from AI service matching property names
             let response: AsbuiltFormExtractionResponse
             do {
                 response = try decoder.decode(AsbuiltFormExtractionResponse.self, from: data)

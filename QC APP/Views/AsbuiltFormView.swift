@@ -51,6 +51,45 @@ struct AsbuiltFormView: View {
                     }
                 }
                 
+                // AI Extraction Status - Prominent at top
+                if isExtracting {
+                    Section {
+                        HStack(spacing: 12) {
+                            ProgressView()
+                                .scaleEffect(1.2)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("AI Analyzing Image")
+                                    .font(.headline)
+                                Text("Extracting form data... Please wait.")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.vertical, 8)
+                    }
+                } else if let error = extractionError {
+                    Section {
+                        HStack {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundColor(.orange)
+                            Text("Could not auto-fill form: \(error)")
+                                .font(.caption)
+                                .foregroundColor(.orange)
+                        }
+                    }
+                } else if extractionAttempted && !formData.isEmpty {
+                    Section {
+                        HStack {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.green)
+                            Text("Form auto-filled from image")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
+                
                 // Dynamic Form Fields
                 Section(header: Text("Form Information")) {
                     ForEach(fields, id: \.key) { field in
@@ -60,10 +99,13 @@ struct AsbuiltFormView: View {
                                 get: { getValue(for: field.key) },
                                 set: { setValue(for: field.key, value: $0) }
                             ),
-                            validationError: validationErrors[field.key]
+                            validationError: validationErrors[field.key],
+                            isDisabled: isExtracting
                         )
                     }
                 }
+                .disabled(isExtracting)
+                .opacity(isExtracting ? 0.6 : 1.0)
                 
                 // Validation Errors
                 if !validationErrors.isEmpty {
@@ -84,35 +126,6 @@ struct AsbuiltFormView: View {
                         Text(errorMessage)
                             .foregroundColor(.red)
                             .font(.caption)
-                    }
-                }
-                
-                // Extraction Status
-                if isExtracting {
-                    Section {
-                        HStack {
-                            ProgressView()
-                                .scaleEffect(0.8)
-                            Text("Analyzing image and extracting form data...")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                } else if let error = extractionError {
-                    Section {
-                        Text("Could not auto-fill form: \(error)")
-                            .foregroundColor(.orange)
-                            .font(.caption)
-                    }
-                } else if extractionAttempted && !formData.isEmpty {
-                    Section {
-                        HStack {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(.green)
-                            Text("Form auto-filled from image")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
                     }
                 }
             }
@@ -372,6 +385,7 @@ struct FormFieldView: View {
     let field: AsbuiltFormField
     @Binding var value: String
     let validationError: String?
+    let isDisabled: Bool
     
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -384,15 +398,20 @@ struct FormFieldView: View {
                 }
             }
             
+            Group {
             switch field.type {
             case .text:
                 TextField("Enter \(field.label)", text: $value)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .disabled(isDisabled)
+                        .opacity(isDisabled ? 0.6 : 1.0)
                 
             case .number:
                 TextField("Enter \(field.label)", text: $value)
                     .keyboardType(.decimalPad)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .disabled(isDisabled)
+                        .opacity(isDisabled ? 0.6 : 1.0)
                 
             case .date:
                 DatePicker(
@@ -403,6 +422,8 @@ struct FormFieldView: View {
                     ),
                     displayedComponents: .date
                 )
+                    .disabled(isDisabled)
+                    .opacity(isDisabled ? 0.6 : 1.0)
                 
             case .datetime:
                 DatePicker(
@@ -413,11 +434,15 @@ struct FormFieldView: View {
                     ),
                     displayedComponents: [.date, .hourAndMinute]
                 )
+                    .disabled(isDisabled)
+                    .opacity(isDisabled ? 0.6 : 1.0)
                 
             case .textarea:
                 TextField("Enter \(field.label)", text: $value, axis: .vertical)
                     .lineLimit(3...6)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .disabled(isDisabled)
+                        .opacity(isDisabled ? 0.6 : 1.0)
                 
             case .select:
                 if let options = field.options {
@@ -428,6 +453,9 @@ struct FormFieldView: View {
                         }
                     }
                     .pickerStyle(.menu)
+                        .disabled(isDisabled)
+                        .opacity(isDisabled ? 0.6 : 1.0)
+                    }
                 }
             }
             
