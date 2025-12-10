@@ -110,9 +110,11 @@ router.post('/projects', auth, async (req, res, next) => {
 router.post('/extract-form-data/:projectId', auth, upload.single('image'), async (req, res, next) => {
   try {
     const { projectId } = req.params;
+    const { formType } = req.body; // Get form type from request body
     
     logger.info('[MOBILE] Form field extraction started', {
       projectId,
+      formType: formType || 'none',
       userId: req.user.id
     });
     
@@ -151,27 +153,106 @@ router.post('/extract-form-data/:projectId', auth, upload.single('image'), async
       });
     }
     
+    // List of as-built form types that should use AI service
+    const asbuiltFormTypes = [
+      'panel_placement',
+      'panel_seaming',
+      'non_destructive',
+      'trial_weld',
+      'repairs',
+      'destructive'
+    ];
+    
     try {
-      const extractor = new FormFieldExtractor();
-      const result = await extractor.extractFormFields(
-        req.file.buffer,
-        req.file.mimetype || 'image/jpeg'
-      );
-      
-      logger.info('[MOBILE] Form field extraction completed', {
-        projectId,
-        fieldsExtracted: Object.keys(result.extractedFields).filter(
-          key => result.extractedFields[key] !== null
-        ).length,
-        confidence: result.confidence
-      });
-      
-      res.json({
-        success: true,
-        extractedFields: result.extractedFields,
-        confidence: result.confidence,
-        message: 'Form fields extracted successfully'
-      });
+      // If formType is an as-built form, use AI service endpoint
+      if (formType && asbuiltFormTypes.includes(formType)) {
+        logger.info('[MOBILE] Using AI service for as-built form extraction', {
+          projectId,
+          formType
+        });
+        
+        const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:5001';
+        const imageBase64 = req.file.buffer.toString('base64');
+        const imageType = req.file.mimetype || 'image/jpeg';
+        
+        try {
+          const aiResponse = await axios.post(
+            `${AI_SERVICE_URL}/api/ai/extract-asbuilt-fields`,
+            {
+              image_base64: imageBase64,
+              form_type: formType,
+              project_id: projectId
+            },
+            {
+              timeout: 120000, // 2 minutes
+              headers: {
+                'Content-Type': 'application/json'
+              }
+            }
+          );
+          
+          if (aiResponse.data && aiResponse.data.success) {
+            const extractedFields = aiResponse.data.extracted_fields || {};
+            
+            logger.info('[MOBILE] As-built form field extraction completed', {
+              projectId,
+              formType,
+              fieldsExtracted: Object.keys(extractedFields).filter(
+                key => extractedFields[key] !== null && extractedFields[key] !== undefined
+              ).length
+            });
+            
+            return res.json({
+              success: true,
+              extractedFields: extractedFields,
+              confidence: 0.85, // Default confidence for AI extraction
+              message: 'Form fields extracted successfully',
+              formType: formType
+            });
+          } else {
+            throw new Error('AI service returned unsuccessful response');
+          }
+        } catch (aiError) {
+          logger.error('[MOBILE] AI service extraction error', {
+            projectId,
+            formType,
+            error: aiError.message,
+            responseStatus: aiError.response?.status,
+            responseData: aiError.response?.data
+          });
+          
+          // Fall through to return empty fields
+          return res.status(200).json({
+            success: false,
+            extractedFields: {},
+            confidence: 0,
+            message: 'Could not extract form data from image. Please enter manually.',
+            formType: formType
+          });
+        }
+      } else {
+        // Use existing FormFieldExtractor for defect reports or when formType not specified
+        const extractor = new FormFieldExtractor();
+        const result = await extractor.extractFormFields(
+          req.file.buffer,
+          req.file.mimetype || 'image/jpeg'
+        );
+        
+        logger.info('[MOBILE] Form field extraction completed', {
+          projectId,
+          fieldsExtracted: Object.keys(result.extractedFields).filter(
+            key => result.extractedFields[key] !== null
+          ).length,
+          confidence: result.confidence
+        });
+        
+        res.json({
+          success: true,
+          extractedFields: result.extractedFields,
+          confidence: result.confidence,
+          message: 'Form fields extracted successfully'
+        });
+      }
     } catch (extractionError) {
       logger.error('[MOBILE] Form field extraction error', {
         projectId,

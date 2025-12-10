@@ -8,10 +8,14 @@ struct AsbuiltFormView: View {
     @Binding var uploadResult: UploadResult?
     
     @StateObject private var uploadService = ImageUploadService.shared
+    private let extractionService = FormExtractionService.shared
     @State private var formData: [String: Any] = [:]
     @State private var validationErrors: [String: String] = [:]
     @State private var isLoading = false
     @State private var uploadErrorMessage: String?
+    @State private var isExtracting = false
+    @State private var extractionError: String?
+    @State private var extractionAttempted = false
     
     // Cache fields to prevent recalculation on each view update
     private let fields: [AsbuiltFormField]
@@ -82,9 +86,43 @@ struct AsbuiltFormView: View {
                             .font(.caption)
                     }
                 }
+                
+                // Extraction Status
+                if isExtracting {
+                    Section {
+                        HStack {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                            Text("Analyzing image and extracting form data...")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                } else if let error = extractionError {
+                    Section {
+                        Text("Could not auto-fill form: \(error)")
+                            .foregroundColor(.orange)
+                            .font(.caption)
+                    }
+                } else if extractionAttempted && !formData.isEmpty {
+                    Section {
+                        HStack {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.green)
+                            Text("Form auto-filled from image")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
             }
             .navigationTitle("Complete Form")
             .navigationBarTitleDisplayMode(.inline)
+            .onAppear {
+                if !extractionAttempted {
+                    extractFormFields()
+                }
+            }
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") {
@@ -203,6 +241,118 @@ struct AsbuiltFormView: View {
                 }
             }
         }
+    }
+    
+    // MARK: - Form Field Extraction
+    private func extractFormFields() {
+        guard !isExtracting && !extractionAttempted else { return }
+        
+        isExtracting = true
+        extractionError = nil
+        extractionAttempted = true
+        
+        print("🔍 [AsbuiltFormView] Starting form field extraction for form type: \(formType.rawValue)")
+        
+        Task {
+            do {
+                let extracted = try await extractionService.extractAsbuiltFormFields(
+                    image: image,
+                    formType: formType.rawValue,
+                    projectId: project.id
+                )
+                
+                print("✅ [AsbuiltFormView] Form field extraction completed")
+                print("📋 [AsbuiltFormView] Extracted fields: \(extracted)")
+                
+                await MainActor.run {
+                    populateFormFromExtraction(extracted)
+                    isExtracting = false
+                }
+            } catch {
+                print("❌ [AsbuiltFormView] Form field extraction failed: \(error.localizedDescription)")
+            await MainActor.run {
+                    extractionError = error.localizedDescription
+                    isExtracting = false
+                }
+            }
+        }
+    }
+    
+    private func populateFormFromExtraction(_ extracted: ExtractedAsbuiltFormFields) {
+        print("📝 [AsbuiltFormView] Populating form from extracted data")
+        
+        // Map extracted fields to form data based on form type
+        switch formType {
+        case .panelPlacement:
+            if let dateTime = extracted.dateTime { formData["dateTime"] = dateTime }
+            if let panelNumber = extracted.panelNumber { formData["panelNumber"] = panelNumber }
+            if let locationNote = extracted.locationNote { formData["locationNote"] = locationNote }
+            if let weatherComments = extracted.weatherComments { formData["weatherComments"] = weatherComments }
+            
+        case .panelSeaming:
+            if let dateTime = extracted.dateTime { formData["dateTime"] = dateTime }
+            if let panelNumbers = extracted.panelNumbers { formData["panelNumbers"] = panelNumbers }
+            if let seamLength = extracted.seamLength { formData["seamLength"] = seamLength }
+            if let seamerInitials = extracted.seamerInitials { formData["seamerInitials"] = seamerInitials }
+            if let machineNumber = extracted.machineNumber { formData["machineNumber"] = machineNumber }
+            if let wedgeTemp = extracted.wedgeTemp { formData["wedgeTemp"] = wedgeTemp }
+            if let nipRollerSpeed = extracted.nipRollerSpeed { formData["nipRollerSpeed"] = nipRollerSpeed }
+            if let barrelTemp = extracted.barrelTemp { formData["barrelTemp"] = barrelTemp }
+            if let preheatTemp = extracted.preheatTemp { formData["preheatTemp"] = preheatTemp }
+            if let trackPeelInside = extracted.trackPeelInside { formData["trackPeelInside"] = trackPeelInside }
+            if let trackPeelOutside = extracted.trackPeelOutside { formData["trackPeelOutside"] = trackPeelOutside }
+            if let tensileLbsPerIn = extracted.tensileLbsPerIn { formData["tensileLbsPerIn"] = tensileLbsPerIn }
+            if let tensileRate = extracted.tensileRate { formData["tensileRate"] = tensileRate }
+            if let vboxPassFail = extracted.vboxPassFail { formData["vboxPassFail"] = vboxPassFail }
+            if let weatherComments = extracted.weatherComments { formData["weatherComments"] = weatherComments }
+            
+        case .nonDestructive:
+            if let dateTime = extracted.dateTime { formData["dateTime"] = dateTime }
+            if let panelNumbers = extracted.panelNumbers { formData["panelNumbers"] = panelNumbers }
+            if let operatorInitials = extracted.operatorInitials { formData["operatorInitials"] = operatorInitials }
+            if let vboxPassFail = extracted.vboxPassFail { formData["vboxPassFail"] = vboxPassFail }
+            if let notes = extracted.notes { formData["notes"] = notes }
+            
+        case .trialWeld:
+            if let dateTime = extracted.dateTime { formData["dateTime"] = dateTime }
+            if let seamerInitials = extracted.seamerInitials { formData["seamerInitials"] = seamerInitials }
+            if let machineNumber = extracted.machineNumber { formData["machineNumber"] = machineNumber }
+            if let wedgeTemp = extracted.wedgeTemp { formData["wedgeTemp"] = wedgeTemp }
+            if let nipRollerSpeed = extracted.nipRollerSpeed { formData["nipRollerSpeed"] = nipRollerSpeed }
+            if let barrelTemp = extracted.barrelTemp { formData["barrelTemp"] = barrelTemp }
+            if let preheatTemp = extracted.preheatTemp { formData["preheatTemp"] = preheatTemp }
+            if let trackPeelInside = extracted.trackPeelInside { formData["trackPeelInside"] = trackPeelInside }
+            if let trackPeelOutside = extracted.trackPeelOutside { formData["trackPeelOutside"] = trackPeelOutside }
+            if let tensileLbsPerIn = extracted.tensileLbsPerIn { formData["tensileLbsPerIn"] = tensileLbsPerIn }
+            if let tensileRate = extracted.tensileRate { formData["tensileRate"] = tensileRate }
+            if let passFail = extracted.passFail { formData["passFail"] = passFail }
+            if let ambientTemp = extracted.ambientTemp { formData["ambientTemp"] = ambientTemp }
+            if let comments = extracted.comments { formData["comments"] = comments }
+            
+        case .repairs:
+            if let date = extracted.date { formData["date"] = date }
+            if let repairId = extracted.repairId { formData["repairId"] = repairId }
+            if let panelNumbers = extracted.panelNumbers { formData["panelNumbers"] = panelNumbers }
+            if let extruderNumber = extracted.extruderNumber { formData["extruderNumber"] = extruderNumber }
+            if let operatorInitials = extracted.operatorInitials { formData["operatorInitials"] = operatorInitials }
+            if let typeDetailLocation = extracted.typeDetailLocation { formData["typeDetailLocation"] = typeDetailLocation }
+            if let vboxPassFail = extracted.vboxPassFail { formData["vboxPassFail"] = vboxPassFail }
+            
+        case .destructive:
+            if let date = extracted.date { formData["date"] = date }
+            if let panelNumbers = extracted.panelNumbers { formData["panelNumbers"] = panelNumbers }
+            if let sampleId = extracted.sampleId { formData["sampleId"] = sampleId }
+            if let testerInitials = extracted.testerInitials { formData["testerInitials"] = testerInitials }
+            if let machineNumber = extracted.machineNumber { formData["machineNumber"] = machineNumber }
+            if let trackPeelInside = extracted.trackPeelInside { formData["trackPeelInside"] = trackPeelInside }
+            if let trackPeelOutside = extracted.trackPeelOutside { formData["trackPeelOutside"] = trackPeelOutside }
+            if let tensileLbsPerIn = extracted.tensileLbsPerIn { formData["tensileLbsPerIn"] = tensileLbsPerIn }
+            if let tensileRate = extracted.tensileRate { formData["tensileRate"] = tensileRate }
+            if let passFail = extracted.passFail { formData["passFail"] = passFail }
+            if let comments = extracted.comments { formData["comments"] = comments }
+        }
+        
+        print("✅ [AsbuiltFormView] Form populated with \(formData.count) fields")
     }
     
     private func colorForFormType(_ formType: AsbuiltFormType) -> Color {

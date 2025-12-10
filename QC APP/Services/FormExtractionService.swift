@@ -23,6 +23,81 @@ struct ExtractedFormFields: Codable {
     }
 }
 
+struct ExtractedAsbuiltFormFields: Codable {
+    // Common fields
+    let dateTime: String?
+    let date: String?
+    
+    // Panel fields
+    let panelNumber: String?
+    let panelNumbers: String?
+    
+    // Location/Notes
+    let locationNote: String?
+    let weatherComments: String?
+    let notes: String?
+    let comments: String?
+    
+    // Seaming fields
+    let seamLength: Double?
+    let seamerInitials: String?
+    let machineNumber: String?
+    let wedgeTemp: Double?
+    let nipRollerSpeed: String?
+    let barrelTemp: Double?
+    let preheatTemp: Double?
+    let trackPeelInside: Double?
+    let trackPeelOutside: Double?
+    let tensileLbsPerIn: Double?
+    let tensileRate: String?
+    let vboxPassFail: String?
+    
+    // Operator/Tester fields
+    let operatorInitials: String?
+    let testerInitials: String?
+    
+    // Repair fields
+    let repairId: String?
+    let extruderNumber: String?
+    let typeDetailLocation: String?
+    
+    // Testing fields
+    let sampleId: String?
+    let passFail: String?
+    let ambientTemp: Double?
+    
+    enum CodingKeys: String, CodingKey {
+        case dateTime
+        case date
+        case panelNumber
+        case panelNumbers
+        case locationNote
+        case weatherComments
+        case notes
+        case comments
+        case seamLength
+        case seamerInitials
+        case machineNumber
+        case wedgeTemp
+        case nipRollerSpeed
+        case barrelTemp
+        case preheatTemp
+        case trackPeelInside
+        case trackPeelOutside
+        case tensileLbsPerIn
+        case tensileRate
+        case vboxPassFail
+        case operatorInitials
+        case testerInitials
+        case repairId
+        case extruderNumber
+        case typeDetailLocation
+        case sampleId
+        case passFail
+        case ambientTemp
+    }
+}
+
 struct FormExtractionResponse: Codable {
     let success: Bool
     let extractedFields: ExtractedFormFields
@@ -34,6 +109,22 @@ struct FormExtractionResponse: Codable {
         case extractedFields = "extracted_fields"
         case confidence
         case message
+    }
+}
+
+struct AsbuiltFormExtractionResponse: Codable {
+    let success: Bool
+    let extractedFields: ExtractedAsbuiltFormFields
+    let confidence: Double
+    let message: String?
+    let formType: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case success
+        case extractedFields = "extracted_fields"
+        case confidence
+        case message
+        case formType = "form_type"
     }
 }
 
@@ -104,6 +195,84 @@ class FormExtractionService {
                     thickness: nil,
                     seamsType: nil,
                     formType: nil
+                )
+            }
+        } catch let error as APIError {
+            switch error {
+            case .serverError(let code, let message):
+                throw FormExtractionError.serverError(code, message)
+            case .networkError(let err):
+                throw FormExtractionError.networkError(err)
+            default:
+                throw FormExtractionError.invalidResponse
+            }
+        } catch {
+            throw FormExtractionError.networkError(error)
+        }
+    }
+    
+    /// Extract as-built form fields from image
+    func extractAsbuiltFormFields(
+        image: UIImage,
+        formType: String,
+        projectId: String
+    ) async throws -> ExtractedAsbuiltFormFields {
+        // Compress image
+        guard let compressedImageData = compressImage(image) else {
+            throw FormExtractionError.compressionFailed
+        }
+        
+        // Create endpoint
+        let endpoint = "/api/mobile/extract-form-data/\(projectId)"
+        
+        do {
+            // Upload using multipart form with formType
+            let additionalFields = ["formType": formType]
+            let data = try await apiClient.uploadMultipart(
+                endpoint: endpoint,
+                imageData: compressedImageData,
+                imageName: "extract_\(UUID().uuidString).jpg",
+                additionalFields: additionalFields
+            )
+            
+            // Decode response
+            let decoder = JSONDecoder()
+            decoder.keyDecodingStrategy = .convertFromSnakeCase
+            let response = try decoder.decode(AsbuiltFormExtractionResponse.self, from: data)
+            
+            if response.success {
+                return response.extractedFields
+            } else {
+                // Return empty fields if extraction failed
+                return ExtractedAsbuiltFormFields(
+                    dateTime: nil,
+                    date: nil,
+                    panelNumber: nil,
+                    panelNumbers: nil,
+                    locationNote: nil,
+                    weatherComments: nil,
+                    notes: nil,
+                    comments: nil,
+                    seamLength: nil,
+                    seamerInitials: nil,
+                    machineNumber: nil,
+                    wedgeTemp: nil,
+                    nipRollerSpeed: nil,
+                    barrelTemp: nil,
+                    preheatTemp: nil,
+                    trackPeelInside: nil,
+                    trackPeelOutside: nil,
+                    tensileLbsPerIn: nil,
+                    tensileRate: nil,
+                    vboxPassFail: nil,
+                    operatorInitials: nil,
+                    testerInitials: nil,
+                    repairId: nil,
+                    extruderNumber: nil,
+                    typeDetailLocation: nil,
+                    sampleId: nil,
+                    passFail: nil,
+                    ambientTemp: nil
                 )
             }
         } catch let error as APIError {

@@ -301,6 +301,310 @@ class OpenAIService:
             logger.error(f"Error in generate_project_recommendations: {str(e)}")
             return {"error": f"Error generating recommendations: {str(e)}"}
     
+    async def extract_asbuilt_form_fields(self, image_base64: str, form_type: str, project_id: str = None) -> Dict[str, Any]:
+        """
+        Extract as-built form fields from image using GPT-4o vision model.
+        
+        Args:
+            image_base64: Base64 encoded image
+            form_type: Type of as-built form (panel_placement, panel_seaming, non_destructive, trial_weld, repairs, destructive)
+            project_id: Optional project ID for context
+            
+        Returns:
+            Dictionary containing extracted form fields
+        """
+        if not image_base64:
+            raise ValueError('image_base64 is required for form field extraction')
+        
+        # Define form-type-specific prompts
+        form_prompts = {
+            'panel_placement': """Extract information from this panel placement as-built form image.
+
+Look for and extract:
+- Date & Time (dateTime): Date and time of panel placement
+- Panel Number (panelNumber): Panel identifier/number
+- Location Note (locationNote): Location description or notes
+- Weather Comments (weatherComments): Weather conditions or comments
+
+Return JSON with only the fields you can confidently detect:
+{
+  "dateTime": "YYYY-MM-DDTHH:mm" or null,
+  "panelNumber": "string or null",
+  "locationNote": "string or null",
+  "weatherComments": "string or null"
+}
+
+If a field is not visible or unclear, set it to null. Return valid JSON only.""",
+            
+            'panel_seaming': """Extract information from this panel seaming as-built form image.
+
+Look for and extract:
+- Date & Time (dateTime): Date and time of seaming operation
+- Panel Numbers (panelNumbers): Panel identifiers being seamed together
+- Seam Length (seamLength): Length of seam in feet (number)
+- Seamer Initials (seamerInitials): Initials of person performing seaming
+- Machine Number (machineNumber): Seaming machine identifier
+- Wedge Temperature (wedgeTemp): Temperature in °F (number)
+- Nip Roller Speed (nipRollerSpeed): Speed setting
+- Barrel Temperature (barrelTemp): Temperature in °F (number)
+- Preheat Temperature (preheatTemp): Temperature in °F (number)
+- Track Peel Inside (trackPeelInside): Measurement value (number)
+- Track Peel Outside (trackPeelOutside): Measurement value (number)
+- Tensile (lbs/in) (tensileLbsPerIn): Tensile strength value (number)
+- Tensile Rate (tensileRate): Rate value
+- VBox Result (vboxPassFail): "Pass", "Fail", or "N/A"
+- Weather Comments (weatherComments): Weather conditions or comments
+
+Return JSON with only the fields you can confidently detect:
+{
+  "dateTime": "YYYY-MM-DDTHH:mm" or null,
+  "panelNumbers": "string or null",
+  "seamLength": number or null,
+  "seamerInitials": "string or null",
+  "machineNumber": "string or null",
+  "wedgeTemp": number or null,
+  "nipRollerSpeed": "string or null",
+  "barrelTemp": number or null,
+  "preheatTemp": number or null,
+  "trackPeelInside": number or null,
+  "trackPeelOutside": number or null,
+  "tensileLbsPerIn": number or null,
+  "tensileRate": "string or null",
+  "vboxPassFail": "Pass" | "Fail" | "N/A" | null,
+  "weatherComments": "string or null"
+}
+
+If a field is not visible or unclear, set it to null. Return valid JSON only.""",
+            
+            'non_destructive': """Extract information from this non-destructive testing as-built form image.
+
+Look for and extract:
+- Date & Time (dateTime): Date and time of test
+- Panel Numbers (panelNumbers): Panel identifiers tested
+- Operator Initials (operatorInitials): Initials of test operator
+- VBox Result (vboxPassFail): "Pass" or "Fail"
+- Notes (notes): Additional notes or comments
+
+Return JSON with only the fields you can confidently detect:
+{
+  "dateTime": "YYYY-MM-DDTHH:mm" or null,
+  "panelNumbers": "string or null",
+  "operatorInitials": "string or null",
+  "vboxPassFail": "Pass" | "Fail" | null,
+  "notes": "string or null"
+}
+
+If a field is not visible or unclear, set it to null. Return valid JSON only.""",
+            
+            'trial_weld': """Extract information from this trial weld as-built form image.
+
+Look for and extract:
+- Date & Time (dateTime): Date and time of trial weld
+- Seamer Initials (seamerInitials): Initials of person performing weld
+- Machine Number (machineNumber): Welding machine identifier
+- Wedge Temperature (wedgeTemp): Temperature in °F (number)
+- Nip Roller Speed (nipRollerSpeed): Speed setting
+- Barrel Temperature (barrelTemp): Temperature in °F (number)
+- Preheat Temperature (preheatTemp): Temperature in °F (number)
+- Track Peel Inside (trackPeelInside): Measurement value (number)
+- Track Peel Outside (trackPeelOutside): Measurement value (number)
+- Tensile (lbs/in) (tensileLbsPerIn): Tensile strength value (number)
+- Tensile Rate (tensileRate): Rate value
+- Result (passFail): "Pass" or "Fail"
+- Ambient Temperature (ambientTemp): Temperature in °F (number)
+- Comments (comments): Additional comments
+
+Return JSON with only the fields you can confidently detect:
+{
+  "dateTime": "YYYY-MM-DDTHH:mm" or null,
+  "seamerInitials": "string or null",
+  "machineNumber": "string or null",
+  "wedgeTemp": number or null,
+  "nipRollerSpeed": "string or null",
+  "barrelTemp": number or null,
+  "preheatTemp": number or null,
+  "trackPeelInside": number or null,
+  "trackPeelOutside": number or null,
+  "tensileLbsPerIn": number or null,
+  "tensileRate": "string or null",
+  "passFail": "Pass" | "Fail" | null,
+  "ambientTemp": number or null,
+  "comments": "string or null"
+}
+
+If a field is not visible or unclear, set it to null. Return valid JSON only.""",
+            
+            'repairs': """Extract information from this repair as-built form image.
+
+Look for and extract:
+- Date (date): Date of repair (YYYY-MM-DD)
+- Repair ID (repairId): Repair identifier in format "R-{number}" (e.g., "R-2", "R-15", "R-123")
+  IMPORTANT: The repair ID MUST include the "R-" prefix followed by a number.
+  Look for patterns like: "R-2", "R-15", "R-123", "R - 5", "r-10" (normalize to "R-{number}")
+  If you see just a number without "R-" prefix, it is NOT a valid repair ID.
+- Panel Numbers (panelNumbers): Panel identifiers repaired
+- Extruder Number (extruderNumber): Extruder machine identifier
+- Operator Initials (operatorInitials): Initials of repair operator
+- Type/Detail/Location (typeDetailLocation): Description of repair type, detail, and location
+- VBox Result (vboxPassFail): "Pass" or "Fail"
+
+EXAMPLES FOR REPAIR ID:
+✅ CORRECT: "R-2" → extract as "R-2"
+✅ CORRECT: "R-15" → extract as "R-15"
+✅ CORRECT: "R - 5" → extract as "R-5" (normalize spaces)
+✅ CORRECT: "r-10" → extract as "R-10" (normalize case)
+❌ INCORRECT: "2" → do NOT extract (missing R- prefix)
+❌ INCORRECT: "Repair 2" → do NOT extract (not in R-{number} format)
+❌ INCORRECT: "R2" → do NOT extract (missing hyphen, not in R-{number} format)
+
+Return JSON with only the fields you can confidently detect:
+{
+  "date": "YYYY-MM-DD" or null,
+  "repairId": "string or null",
+  "panelNumbers": "string or null",
+  "extruderNumber": "string or null",
+  "operatorInitials": "string or null",
+  "typeDetailLocation": "string or null",
+  "vboxPassFail": "Pass" | "Fail" | null
+}
+
+If a field is not visible or unclear, set it to null. Return valid JSON only.""",
+            
+            'destructive': """Extract information from this destructive testing as-built form image.
+
+Look for and extract:
+- Date (date): Date of test (YYYY-MM-DD)
+- Panel Numbers (panelNumbers): Panel identifiers tested
+- Sample ID (sampleId): Sample identifier in format "D-{number}" (e.g., "D-5", "D-12", "D-99")
+  IMPORTANT: The sample ID MUST include the "D-" prefix followed by a number.
+  Look for patterns like: "D-5", "D-12", "D-99", "D - 3", "d-7" (normalize to "D-{number}")
+  If you see just a number without "D-" prefix, it is NOT a valid sample ID.
+- Tester Initials (testerInitials): Initials of person performing test
+- Machine Number (machineNumber): Testing machine identifier
+- Track Peel Inside (trackPeelInside): Measurement value (number)
+- Track Peel Outside (trackPeelOutside): Measurement value (number)
+- Tensile (lbs/in) (tensileLbsPerIn): Tensile strength value (number)
+- Tensile Rate (tensileRate): Rate value
+- Result (passFail): "Pass" or "Fail"
+- Comments (comments): Additional comments
+
+EXAMPLES FOR SAMPLE ID:
+✅ CORRECT: "D-5" → extract as "D-5"
+✅ CORRECT: "D-12" → extract as "D-12"
+✅ CORRECT: "D - 3" → extract as "D-3" (normalize spaces)
+✅ CORRECT: "d-7" → extract as "D-7" (normalize case)
+❌ INCORRECT: "5" → do NOT extract (missing D- prefix)
+❌ INCORRECT: "Sample 5" → do NOT extract (not in D-{number} format)
+❌ INCORRECT: "D5" → do NOT extract (missing hyphen, not in D-{number} format)
+
+Return JSON with only the fields you can confidently detect:
+{
+  "date": "YYYY-MM-DD" or null,
+  "panelNumbers": "string or null",
+  "sampleId": "string or null",
+  "testerInitials": "string or null",
+  "machineNumber": "string or null",
+  "trackPeelInside": number or null,
+  "trackPeelOutside": number or null,
+  "tensileLbsPerIn": number or null,
+  "tensileRate": "string or null",
+  "passFail": "Pass" | "Fail" | null,
+  "comments": "string or null"
+}
+
+If a field is not visible or unclear, set it to null. Return valid JSON only."""
+        }
+        
+        # Get prompt for form type, default to panel_placement if unknown
+        prompt = form_prompts.get(form_type, form_prompts['panel_placement'])
+        
+        def _call() -> Dict[str, Any]:
+            try:
+                response = openai.chat.completions.create(
+                    model="gpt-4o",
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": """You are an expert at extracting data from as-built quality control forms. Always return valid JSON matching the exact schema requested.
+
+IMPORTANT ID FORMAT RULES:
+- Repair IDs must include "R-" prefix (e.g., "R-2", "R-15")
+- Destructive test sample IDs must include "D-" prefix (e.g., "D-5", "D-12")
+- Always extract the complete ID including the prefix
+- Normalize variations (spaces, case) to standard format
+- If an ID is missing its required prefix, do not extract it"""
+                        },
+                        {
+                            "role": "user",
+                            "content": [
+                                {"type": "text", "text": prompt},
+                                {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_base64}"}}
+                            ],
+                        }
+                    ],
+                    max_tokens=2000,
+                    temperature=0,
+                    response_format={"type": "json_object"},
+                )
+                
+                result_text = response.choices[0].message.content.strip()
+                
+                # Parse JSON response
+                try:
+                    result_json = json.loads(result_text)
+                    
+                    # Post-process: Validate and normalize ID formats
+                    import re
+                    
+                    # Validate and normalize repair IDs (R-{number} format)
+                    if 'repairId' in result_json and result_json['repairId']:
+                        repair_id = str(result_json['repairId']).strip()
+                        # Check if it matches R-{number} pattern
+                        if not re.match(r'^R-\d+$', repair_id, re.IGNORECASE):
+                            # Try to normalize: remove spaces, ensure proper format
+                            normalized = re.sub(r'[^Rr0-9-]', '', repair_id)
+                            # Check if normalized version matches pattern
+                            if re.match(r'^[Rr]-\d+$', normalized, re.IGNORECASE):
+                                result_json['repairId'] = normalized.upper()
+                                logger.info(f"Normalized repair ID: '{repair_id}' -> '{normalized.upper()}'")
+                            else:
+                                logger.warning(f"Repair ID '{repair_id}' does not match R-{{number}} format, setting to null")
+                                result_json['repairId'] = None
+                    
+                    # Validate and normalize sample IDs (D-{number} format)
+                    if 'sampleId' in result_json and result_json['sampleId']:
+                        sample_id = str(result_json['sampleId']).strip()
+                        # Check if it matches D-{number} pattern
+                        if not re.match(r'^D-\d+$', sample_id, re.IGNORECASE):
+                            # Try to normalize: remove spaces, ensure proper format
+                            normalized = re.sub(r'[^Dd0-9-]', '', sample_id)
+                            # Check if normalized version matches pattern
+                            if re.match(r'^[Dd]-\d+$', normalized, re.IGNORECASE):
+                                result_json['sampleId'] = normalized.upper()
+                                logger.info(f"Normalized sample ID: '{sample_id}' -> '{normalized.upper()}'")
+                            else:
+                                logger.warning(f"Sample ID '{sample_id}' does not match D-{{number}} format, setting to null")
+                                result_json['sampleId'] = None
+                    
+                    return result_json
+                except json.JSONDecodeError as e:
+                    logger.error(f"JSON decode error in extract_asbuilt_form_fields: {str(e)}")
+                    logger.error(f"Response text: {result_text[:500]}")
+                    # Try to extract JSON from text
+                    import re
+                    match = re.search(r'\{[\s\S]*\}', result_text)
+                    if match:
+                        try:
+                            return json.loads(match.group(0))
+                        except json.JSONDecodeError:
+                            pass
+                    return {}
+            except Exception as e:
+                logger.error(f"Error in OpenAI API call for form extraction: {str(e)}")
+                raise
+        
+        return await asyncio.to_thread(_call)
+    
     async def detect_defects_in_image(self, image_base64: str, project_id: str = None) -> Dict[str, Any]:
         """
         Detect defects in geosynthetic material images using GPT-4o vision model.

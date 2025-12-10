@@ -509,6 +509,40 @@ If you cannot determine exact dimensions, estimate based on the visible region. 
             'error': str(e)
         }), 500
 
+@app.route('/api/ai/extract-asbuilt-fields', methods=['POST'])
+def extract_asbuilt_fields():
+    """Extract as-built form fields from image using GPT-4o vision model"""
+    logger.info(f"[extract_asbuilt_fields] Endpoint called - Method: {request.method}, Path: {request.path}")
+    try:
+        data = request.json or {}
+        
+        if 'image_base64' not in data:
+            return jsonify({'error': 'image_base64 is required'}), 400
+        
+        image_base64 = data['image_base64']
+        form_type = data.get('form_type', 'panel_placement')
+        project_id = data.get('project_id')
+        
+        logger.info(f"Extracting as-built form fields for form type: {form_type}, project: {project_id}")
+        
+        # Call form field extraction
+        extracted_fields = run_async(openai_service.extract_asbuilt_form_fields(
+            image_base64=image_base64,
+            form_type=form_type,
+            project_id=project_id
+        ))
+        
+        return jsonify({
+            'success': True,
+            'form_type': form_type,
+            'extracted_fields': extracted_fields
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error extracting as-built form fields: {str(e)}")
+        logger.error(traceback.format_exc())
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/ai/automate-panel-population', methods=['POST'])
 def automate_panel_population():
     """Automate panel layout population using browser tools based on defect data"""
