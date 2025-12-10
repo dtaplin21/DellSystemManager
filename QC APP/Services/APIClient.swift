@@ -38,6 +38,14 @@ class APIClient {
     private let baseURL: String
     private var authToken: String?
     
+    // Custom URLSession with extended timeout for long-running operations (AI form extraction)
+    private lazy var longTimeoutSession: URLSession = {
+        let configuration = URLSessionConfiguration.default
+        configuration.timeoutIntervalForRequest = 180.0 // 3 minutes (backend has 2 min, add buffer)
+        configuration.timeoutIntervalForResource = 180.0 // 3 minutes
+        return URLSession(configuration: configuration)
+    }()
+    
     init() {
         // Get from Info.plist or use default
         if let apiURL = Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") as? String, !apiURL.isEmpty {
@@ -206,7 +214,8 @@ class APIClient {
         
         do {
             print("🚀 [APIClient] Sending request...")
-            let (data, response) = try await URLSession.shared.data(for: request)
+            // Use longTimeoutSession for multipart uploads (especially AI form extraction which can take 2+ minutes)
+            let (data, response) = try await longTimeoutSession.data(for: request)
             
             guard let httpResponse = response as? HTTPURLResponse else {
                 print("❌ [APIClient] Invalid response type")
