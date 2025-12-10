@@ -670,6 +670,19 @@ async function applyMigrations() {
       });
     }
 
+    // Apply form review columns migration
+    try {
+      const formReviewMigrationPath = path.join(__dirname, 'migrations', '006_add_form_review_columns.sql');
+      const formReviewSql = await fs.readFile(formReviewMigrationPath, 'utf8');
+      await client.query(formReviewSql);
+      logger.debug('Form review columns migration applied');
+    } catch (formReviewErr) {
+      logger.warn('Form review columns migration not applied', {
+        error: { message: formReviewErr.message },
+        hint: 'If permissions restrict file reads, run the SQL manually in the DB. The migration file is at backend/db/migrations/006_add_form_review_columns.sql'
+      });
+    }
+
     client.release();
     logger.info('Database migrations completed successfully');
   } catch (error) {

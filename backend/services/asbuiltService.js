@@ -25,14 +25,15 @@ class AsbuiltService {
         mappedData,
         aiConfidence,
         requiresReview,
-        createdBy
+        createdBy,
+        source = 'import' // Default to 'import', can be 'mobile', 'web', or 'import'
       } = recordData;
 
       const query = `
         INSERT INTO asbuilt_records (
           id, project_id, panel_id, domain, source_doc_id, 
-          raw_data, mapped_data, ai_confidence, requires_review, created_by
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+          raw_data, mapped_data, ai_confidence, requires_review, created_by, source, status
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
         RETURNING *
       `;
 
@@ -46,7 +47,9 @@ class AsbuiltService {
         JSON.stringify(mappedData),
         aiConfidence,
         requiresReview || false,
-        createdBy
+        createdBy,
+        source,
+        'pending' // New forms start as pending
       ];
 
       const result = await client.query(query, values);

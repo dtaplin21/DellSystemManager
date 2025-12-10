@@ -124,6 +124,7 @@ app.use('/api/handwriting', require('./routes/handwriting'));
 app.use('/api/system', require('./routes/api/system'));
 app.use('/api/connected-workflow', require('./routes/connected-workflow'));
 app.use('/api/asbuilt', require('./routes/asbuilt'));
+app.use('/api/forms', require('./routes/forms'));
 app.use('/api/document-processing', require('./routes/documentProcessing'));
 logger.debug('Routes registered', {
   routes: [

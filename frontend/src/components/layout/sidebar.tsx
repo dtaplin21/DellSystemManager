@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { LayoutDashboard, FolderOpen, FileText, FileSpreadsheet, Settings, UserCircle, CreditCard, TestTube, LucideIcon } from 'lucide-react';
+import { LayoutDashboard, FolderOpen, FileText, FileSpreadsheet, Settings, UserCircle, CreditCard, TestTube, Smartphone, LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // Define TypeScript interfaces
@@ -61,6 +61,12 @@ export default function Sidebar() {
       href: '/dashboard/documents/asbuilt',
       icon: FileSpreadsheet,
       current: Boolean(isActive('/dashboard/documents/asbuilt'))
+    },
+    {
+      name: 'Mobile Forms',
+      href: '/dashboard/forms',
+      icon: Smartphone,
+      current: Boolean(isActive('/dashboard/forms'))
     },
     {
       section: 'Development',

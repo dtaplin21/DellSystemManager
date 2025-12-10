@@ -536,7 +536,7 @@ router.post('/upload-defect/:projectId', auth, upload.single('image'), async (re
           logger.info('[MOBILE] Using generated panel ID', { panelId });
         }
         
-        // Create asbuilt record
+        // Create asbuilt record with source='mobile'
         const record = await asbuiltService.createRecord({
           projectId,
           panelId,
@@ -546,7 +546,8 @@ router.post('/upload-defect/:projectId', auth, upload.single('image'), async (re
           mappedData: parsedFormData, // For mobile, raw and mapped are the same
           aiConfidence: 1.0, // User-entered data has 100% confidence
           requiresReview: false,
-          createdBy: req.user.id
+          createdBy: req.user.id,
+          source: 'mobile' // Mark as mobile app submission
         });
         
         asbuiltRecordId = record.id;
