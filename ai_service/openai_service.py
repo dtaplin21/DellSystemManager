@@ -602,6 +602,108 @@ IMPORTANT ID FORMAT RULES:
             except Exception as e:
                 logger.error(f"Error in OpenAI API call for form extraction: {str(e)}")
                 raise
+
+    async def create_panels_from_forms(self, forms_data: List[Dict[str, Any]], project_id: str = None) -> Dict[str, Any]:
+        """
+        Analyze form data and generate intelligent panel creation instructions.
+        
+        Args:
+            forms_data: List of form records with mapped_data
+            project_id: Optional project ID for context
+            
+        Returns:
+            Dictionary containing panel creation instructions and recommendations
+        """
+        if not forms_data or len(forms_data) == 0:
+            return {
+                "panels": [],
+                "repairs": [],
+                "recommendations": [],
+                "conflicts": []
+            }
+        
+        try:
+            # Prepare form data summary for AI analysis
+            form_summary = []
+            for form in forms_data:
+                mapped_data = form.get('mapped_data', {})
+                if isinstance(mapped_data, str):
+                    mapped_data = json.loads(mapped_data)
+                
+                form_summary.append({
+                    "domain": form.get('domain'),
+                    "panelNumber": mapped_data.get('panelNumber') or mapped_data.get('panelNumbers'),
+                    "date": mapped_data.get('date') or mapped_data.get('dateTime'),
+                    "location": mapped_data.get('locationNote') or mapped_data.get('location'),
+                    "repairId": mapped_data.get('repairId'),
+                    "formId": form.get('id')
+                })
+            
+            # Use GPT-4o to analyze forms and generate panel creation strategy
+            response = openai.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": """You are an expert geosynthetic panel layout designer. Your role is to analyze form data and generate intelligent panel creation instructions.
+
+Analyze the provided forms and:
+1. Identify unique panels that need to be created
+2. Determine optimal panel placement based on form data
+3. Identify repairs that need to be associated with panels
+4. Detect conflicts or duplicates
+5. Provide recommendations for panel layout optimization
+
+Return a JSON object with:
+- panels: Array of panel creation instructions with optimal positioning
+- repairs: Array of repair records to associate with panels
+- recommendations: Array of optimization recommendations
+- conflicts: Array of detected conflicts or issues"""
+                    },
+                    {
+                        "role": "user",
+                        "content": f"""Analyze these forms and generate panel creation instructions:
+
+Forms Data:
+{json.dumps(form_summary, indent=2)}
+
+Project ID: {project_id or 'N/A'}
+
+Generate intelligent panel creation instructions that:
+1. Create panels from panel_placement forms
+2. Associate repairs with correct panels based on panelNumbers
+3. Optimize panel positioning to avoid overlaps
+4. Handle duplicate panel numbers appropriately
+5. Provide recommendations for layout improvements
+
+Return valid JSON only."""
+                    }
+                ],
+                max_tokens=4000,
+                temperature=0.3,
+                response_format={"type": "json_object"}
+            )
+            
+            result_text = response.choices[0].message.content.strip()
+            result_json = json.loads(result_text)
+            
+            logger.info(f"Generated panel creation instructions: {len(result_json.get('panels', []))} panels, {len(result_json.get('repairs', []))} repairs")
+            
+            return result_json
+            
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON decode error in create_panels_from_forms: {str(e)}")
+            logger.error(f"Response text: {result_text[:500]}")
+            # Return basic structure on error
+            return {
+                "panels": [],
+                "repairs": [],
+                "recommendations": [],
+                "conflicts": [{"error": "Failed to parse AI response"}]
+            }
+        except Exception as e:
+            logger.error(f"Error in create_panels_from_forms: {str(e)}")
+            raise
         
         return await asyncio.to_thread(_call)
     

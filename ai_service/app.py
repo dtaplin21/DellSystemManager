@@ -596,6 +596,38 @@ def automate_panel_population():
             'error': str(e)
         }), 500
 
+@app.route('/api/ai/create-panels-from-forms', methods=['POST'])
+def create_panels_from_forms():
+    """Create panels from form data using AI analysis"""
+    logger.info(f"[create_panels_from_forms] Endpoint called - Method: {request.method}, Path: {request.path}")
+    try:
+        data = request.json
+
+        if not data or 'forms_data' not in data:
+            return jsonify({'error': 'forms_data is required'}), 400
+
+        forms_data = data['forms_data']
+        project_id = data.get('project_id')
+
+        logger.info(f"Creating panels from {len(forms_data)} forms for project: {project_id}")
+
+        # Call AI service to create panels from forms
+        panel_instructions = run_async(openai_service.create_panels_from_forms(
+            forms_data=forms_data,
+            project_id=project_id
+        ))
+
+        return jsonify({
+            'success': True,
+            'project_id': project_id,
+            'instructions': panel_instructions
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Error creating panels from forms: {str(e)}")
+        logger.error(traceback.format_exc())
+        return jsonify({'error': str(e)}), 500
+
 # Debug endpoint to list all registered routes
 @app.route('/debug/routes', methods=['GET'])
 def list_routes():

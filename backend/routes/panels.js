@@ -814,6 +814,66 @@ router.post('/image-analysis/:projectId', auth, imageUpload.single('image'), asy
   }
 });
 
+// POST /api/panels/sync-from-forms/:projectId
+// Sync forms to panel layout (manual trigger)
+router.post('/sync-from-forms/:projectId', auth, async (req, res, next) => {
+  console.log('🔍 [SYNC FORMS] === POST /sync-from-forms/:projectId START ===');
+  
+  try {
+    const { projectId } = req.params;
+    
+    // Validate project ID
+    if (!projectId || projectId.length === 0) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Invalid project ID' 
+      });
+    }
+    
+    // Verify project access
+    const [project] = await db
+      .select()
+      .from(projects)
+      .where(and(
+        eq(projects.id, projectId),
+        eq(projects.userId, req.user.id)
+      ));
+    
+    if (!project) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Project not found' 
+      });
+    }
+    
+    // Import formToPanelService
+    const formToPanelService = require('../services/formToPanelService');
+    
+    // Sync forms to panel layout
+    const syncResult = await formToPanelService.syncFormsToPanelLayout(projectId);
+    
+    if (!syncResult.success) {
+      return res.status(500).json({
+        success: false,
+        message: syncResult.error || 'Failed to sync forms to panel layout'
+      });
+    }
+    
+    console.log('✅ [SYNC FORMS] Sync completed:', syncResult.summary);
+    
+    res.json({
+      success: true,
+      message: 'Forms synced to panel layout successfully',
+      summary: syncResult.summary,
+      results: syncResult.results
+    });
+    
+  } catch (error) {
+    console.error('❌ [SYNC FORMS] Error syncing forms:', error);
+    next(error);
+  }
+});
+
 // POST /api/panels/populate-from-analysis/:projectId
 // Populate panel layout from AI analysis results and form data
 router.post('/populate-from-analysis/:projectId', auth, async (req, res, next) => {

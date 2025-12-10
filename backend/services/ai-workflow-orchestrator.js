@@ -73,54 +73,114 @@ class AIWorkflowOrchestrator {
 
   /**
    * Comprehensive workflow that analyzes all components with project management focus
+   * FORMS ARE PRIMARY SOURCE OF TRUTH - Use forms first, then fall back to documents
    */
   async runComprehensiveWorkflow(context, crossInsights) {
     const results = {};
     
-    // Step 1: Specification Compliance Check
+    // Step 1: Specification Compliance Check (uses forms if available)
     results.specificationCompliance = await this.checkSpecificationCompliance(context);
     
-    // Step 2: Document Analysis with Project Context
-    if (context.documents.length > 0) {
+    // Step 2: Form Analysis (PRIMARY SOURCE) - Analyze forms first
+    if (context.forms && context.forms.length > 0) {
+      results.formAnalysis = await this.analyzeFormsWithContext(context);
+    }
+    
+    // Step 3: Document Analysis with Project Context (SECONDARY - only if no forms)
+    // Only analyze documents if forms are not available or as supplementary data
+    if (context.documents.length > 0 && (!context.forms || context.forms.length === 0)) {
       results.documentAnalysis = await this.analyzeDocumentsWithContext(context);
+    } else if (context.documents.length > 0) {
+      // Forms exist, but also analyze documents for supplementary information
+      results.supplementaryDocumentAnalysis = await this.analyzeDocumentsWithContext(context);
     }
     
-    // Step 3: Handwritten Document Processing
-    const handwrittenDocs = context.documents.filter(doc => doc.type === 'handwritten');
-    if (handwrittenDocs.length > 0) {
-      results.handwrittenAnalysis = await this.processHandwrittenDocuments(context, handwrittenDocs);
+    // Step 4: Handwritten Document Processing (only if no forms)
+    if ((!context.forms || context.forms.length === 0)) {
+      const handwrittenDocs = context.documents.filter(doc => doc.type === 'handwritten');
+      if (handwrittenDocs.length > 0) {
+        results.handwrittenAnalysis = await this.processHandwrittenDocuments(context, handwrittenDocs);
+      }
     }
     
-    // Step 4: Panel Layout Optimization with Spec Compliance
+    // Step 5: Panel Layout Optimization with Spec Compliance (uses forms first)
     if (context.panelLayout) {
       results.panelOptimization = await this.optimizePanelsWithSpecCompliance(context);
     }
     
-    // Step 5: QC Data Analysis with Project Standards
-    if (context.qcData.length > 0) {
+    // Step 6: QC Data Analysis with Project Standards (uses forms first)
+    if (context.qcData.length > 0 || (context.forms && context.forms.length > 0)) {
       results.qcAnalysis = await this.analyzeQCWithProjectStandards(context);
     }
     
-    // Step 6: Cross-Component Insights
+    // Step 7: Cross-Component Insights (prioritizes forms)
     results.crossComponentInsights = await this.generateCrossComponentInsights(context, crossInsights);
     
-    // Step 7: Project Management Recommendations
+    // Step 8: Project Management Recommendations (uses forms first)
     results.projectManagement = await this.generateProjectManagementInsights(context, results);
     
-    // Step 8: Action Items and Next Steps
+    // Step 9: Action Items and Next Steps
     results.actionItems = await this.generateActionItems(context, results);
     
     return results;
   }
 
   /**
+   * Analyze forms with context (PRIMARY SOURCE OF TRUTH)
+   */
+  async analyzeFormsWithContext(context) {
+    try {
+      const formsSummary = context.forms.map(form => ({
+        domain: form.domain,
+        panelId: form.panelId,
+        mappedData: form.mappedData,
+        createdAt: form.createdAt,
+        aiConfidence: form.aiConfidence
+      }));
+      
+      const response = await this.openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: `You are an expert geosynthetic engineer analyzing form data from field operations.
+
+            FORMS ARE THE PRIMARY SOURCE OF TRUTH for this project.
+            Analyze the forms and provide insights that can inform:
+            1. Panel layout creation and optimization
+            2. QC testing requirements
+            3. Material specifications
+            4. Installation procedures
+            5. Risk factors
+            
+            Format your response as a JSON object with sections for each area of analysis.`
+          },
+          {
+            role: "user",
+            content: `Analyze these project forms (PRIMARY SOURCE):\n\n${JSON.stringify(formsSummary, null, 2)}\n\nProject: ${context.project.name}`
+          }
+        ],
+        response_format: { type: "json_object" },
+        max_tokens: 3000
+      });
+      
+      return JSON.parse(response.choices[0].message.content);
+    } catch (error) {
+      console.error('Form analysis failed:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Check specification compliance across all project components
+   * Uses forms as primary source, documents as fallback
    */
   async checkSpecificationCompliance(context) {
     try {
       const specData = {
         project: context.project,
-        documents: context.documents,
+        forms: context.forms || [], // PRIMARY SOURCE
+        documents: context.documents, // SECONDARY (only if no forms)
         panelLayout: context.panelLayout,
         qcData: context.qcData,
         materialSpecs: context.project.materialSpecs,
@@ -135,20 +195,23 @@ class AIWorkflowOrchestrator {
             content: `You are an expert geosynthetic project manager and specification compliance officer. Your primary responsibility is to ensure that ALL project activities strictly adhere to the project specifications.
 
             CRITICAL RULES:
-            1. SPECIFICATIONS ARE LAW - Any deviation from specifications must be flagged immediately
-            2. All recommendations must be based on documented specifications
-            3. If specifications are unclear or missing, flag this as a critical issue
-            4. Provide clear, actionable guidance for maintaining compliance
-            5. Use technical language appropriate for geosynthetic engineers
+            1. FORMS ARE PRIMARY SOURCE OF TRUTH - Use form data first, documents only as fallback
+            2. SPECIFICATIONS ARE LAW - Any deviation from specifications must be flagged immediately
+            3. All recommendations must be based on documented specifications
+            4. If specifications are unclear or missing, flag this as a critical issue
+            5. Provide clear, actionable guidance for maintaining compliance
+            6. Use technical language appropriate for geosynthetic engineers
 
             Analyze the project for:
-            1. Specification compliance across all components
+            1. Specification compliance across all components (prioritize forms)
             2. Missing or unclear specifications
             3. Potential deviations from project requirements
             4. Quality control requirements alignment
             5. Material specification compliance
             6. Installation procedure compliance
             7. Risk factors related to non-compliance
+
+            IMPORTANT: Forms take priority over documents. If forms exist, use them as the primary data source.
 
             Format your response as a JSON object with detailed compliance analysis.`
           },
@@ -638,12 +701,18 @@ class AIWorkflowOrchestrator {
 
   /**
    * Analyze documents with full project context
+   * NOTE: Forms are primary source - documents are secondary/fallback
    */
   async analyzeDocumentsWithContext(context) {
     try {
       const documentContent = context.documents.map(doc => 
         `Document: ${doc.name}\nType: ${doc.type}\nContent: ${doc.content}\nExtracted Data: ${JSON.stringify(doc.extractedData)}\n`
       ).join('\n');
+      
+      // Include forms data in context if available (for reference)
+      const formsContext = context.forms && context.forms.length > 0
+        ? `\n\nNOTE: Forms exist (${context.forms.length} forms) - Forms are PRIMARY SOURCE. Documents are supplementary.\n`
+        : '\n\nNOTE: No forms available - Using documents as data source.\n';
       
       const response = await this.openai.chat.completions.create({
         model: "gpt-4o",
@@ -652,6 +721,8 @@ class AIWorkflowOrchestrator {
             role: "system",
             content: `You are an expert geosynthetic engineer analyzing project documents.
             
+            IMPORTANT: FORMS ARE PRIMARY SOURCE OF TRUTH. Documents are secondary/fallback.
+            
             Project Context:
             - Project: ${context.project.name}
             - Site Dimensions: ${JSON.stringify(context.project.siteDimensions)}
@@ -659,6 +730,8 @@ class AIWorkflowOrchestrator {
             - Constraints: ${JSON.stringify(context.project.constraints)}
             - Panel Layout: ${context.panelLayout ? `${context.panelLayout.panels.length} panels` : 'None'}
             - QC Records: ${context.qcData.length} records
+            - Forms: ${context.forms ? `${context.forms.length} forms (PRIMARY)` : 'None'}
+            ${formsContext}
             
             Analyze the documents and provide insights that can inform:
             1. Panel layout optimization
@@ -667,11 +740,13 @@ class AIWorkflowOrchestrator {
             4. Installation procedures
             5. Risk factors
             
+            If forms exist, use them as primary reference. Documents provide supplementary information.
+            
             Format your response as a JSON object with sections for each area of analysis.`
           },
           {
             role: "user",
-            content: `Analyze these project documents:\n\n${documentContent}`
+            content: `Analyze these project documents (${context.forms && context.forms.length > 0 ? 'supplementary to forms' : 'primary source'}):\n\n${documentContent}`
           }
         ],
         response_format: { type: "json_object" },
@@ -687,6 +762,7 @@ class AIWorkflowOrchestrator {
 
   /**
    * Optimize panels with specification compliance
+   * Uses forms as primary source, documents as fallback
    */
   async optimizePanelsWithSpecCompliance(context) {
     try {
@@ -695,7 +771,8 @@ class AIWorkflowOrchestrator {
         siteDimensions: context.project.siteDimensions,
         constraints: context.project.constraints,
         materialSpecs: context.project.materialSpecs,
-        documents: context.documents.length,
+        forms: context.forms ? context.forms.length : 0, // PRIMARY SOURCE
+        documents: context.documents.length, // SECONDARY
         qcData: context.qcData.length
       };
       
@@ -707,21 +784,23 @@ class AIWorkflowOrchestrator {
             content: `You are an expert panel layout optimizer for geosynthetic projects. Your primary responsibility is to ensure that panel optimization strictly adheres to project specifications.
 
             CRITICAL RULES:
-            1. SPECIFICATIONS ARE LAW - All optimizations must comply with documented specifications
-            2. Any optimization that deviates from specifications must be flagged and justified
-            3. Prioritize specification compliance over efficiency gains
-            4. Document any trade-offs between efficiency and compliance
-            5. Use technical language appropriate for geosynthetic engineers
+            1. FORMS ARE PRIMARY SOURCE OF TRUTH - Use form data first for panel creation
+            2. SPECIFICATIONS ARE LAW - All optimizations must comply with documented specifications
+            3. Any optimization that deviates from specifications must be flagged and justified
+            4. Prioritize specification compliance over efficiency gains
+            5. Document any trade-offs between efficiency and compliance
+            6. Use technical language appropriate for geosynthetic engineers
 
             Optimize the panel layout considering:
-            1. Material specification compliance (thickness, type, grade)
-            2. Installation procedure compliance
-            3. Quality control requirements from specifications
-            4. Site constraints and terrain requirements
-            5. Material efficiency (within specification limits)
-            6. Installation efficiency (within specification limits)
-            7. Historical QC performance patterns
-            8. Risk mitigation based on specifications
+            1. Form data (PRIMARY) - Use forms to create/update panels
+            2. Material specification compliance (thickness, type, grade)
+            3. Installation procedure compliance
+            4. Quality control requirements from specifications
+            5. Site constraints and terrain requirements
+            6. Material efficiency (within specification limits)
+            7. Installation efficiency (within specification limits)
+            8. Historical QC performance patterns (from forms if available)
+            9. Risk mitigation based on specifications
 
             Provide specific optimization recommendations with:
             - Compliance verification for each recommendation
@@ -731,7 +810,7 @@ class AIWorkflowOrchestrator {
           },
           {
             role: "user",
-            content: `Optimize this panel layout with strict specification compliance:\n\n${JSON.stringify(panelData, null, 2)}`
+            content: `Optimize this panel layout with strict specification compliance:\n\n${JSON.stringify(panelData, null, 2)}\n\nIMPORTANT: If forms exist (${panelData.forms} forms), use them as the primary source for panel data. Documents are secondary.`
           }
         ],
         response_format: { type: "json_object" },

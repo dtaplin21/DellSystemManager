@@ -3,6 +3,7 @@ const multer = require('multer');
 const router = express.Router();
 const AsbuiltService = require('../services/asbuiltService');
 const AsbuiltImportAI = require('../services/asbuiltImportAI');
+const formExportService = require('../services/formExportService');
 const { supabase } = require('../lib/supabase-server');
 const { auth } = require('../middlewares/auth');
 
@@ -579,6 +580,114 @@ router.delete('/files/:fileId', auth, async (req, res) => {
     res.status(500).json({ 
       success: false,
       error: 'Failed to delete file',
+      message: error.message 
+    });
+  }
+});
+
+/**
+ * @route GET /api/asbuilt/records/:recordId/export/excel
+ * @desc Export a single form as Excel
+ * @access Private
+ */
+router.get('/records/:recordId/export/excel', auth, async (req, res) => {
+  try {
+    const { recordId } = req.params;
+    
+    console.log(`📊 [ASBUILT] Exporting form ${recordId} as Excel`);
+    
+    const buffer = await formExportService.exportFormAsExcel(recordId);
+    
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="form-${recordId}.xlsx"`);
+    
+    res.send(buffer);
+  } catch (error) {
+    console.error('❌ [ASBUILT] Error exporting form as Excel:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to export form as Excel',
+      message: error.message 
+    });
+  }
+});
+
+/**
+ * @route GET /api/asbuilt/records/:recordId/export/pdf
+ * @desc Export a single form as PDF (HTML for now)
+ * @access Private
+ */
+router.get('/records/:recordId/export/pdf', auth, async (req, res) => {
+  try {
+    const { recordId } = req.params;
+    
+    console.log(`📊 [ASBUILT] Exporting form ${recordId} as PDF`);
+    
+    const result = await formExportService.exportFormAsPDF(recordId);
+    
+    res.setHeader('Content-Type', result.contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${result.filename}"`);
+    
+    res.send(result.html);
+  } catch (error) {
+    console.error('❌ [ASBUILT] Error exporting form as PDF:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to export form as PDF',
+      message: error.message 
+    });
+  }
+});
+
+/**
+ * @route GET /api/asbuilt/:projectId/export/excel
+ * @desc Export all project forms as Excel
+ * @access Private
+ */
+router.get('/:projectId/export/excel', auth, async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    
+    console.log(`📊 [ASBUILT] Exporting all forms for project ${projectId} as Excel`);
+    
+    const buffer = await formExportService.exportProjectFormsAsExcel(projectId);
+    
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="project-forms-${projectId}.xlsx"`);
+    
+    res.send(buffer);
+  } catch (error) {
+    console.error('❌ [ASBUILT] Error exporting project forms as Excel:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to export project forms as Excel',
+      message: error.message 
+    });
+  }
+});
+
+/**
+ * @route GET /api/asbuilt/:projectId/export/pdf
+ * @desc Export all project forms as PDF (HTML for now)
+ * @access Private
+ */
+router.get('/:projectId/export/pdf', auth, async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    
+    console.log(`📊 [ASBUILT] Exporting all forms for project ${projectId} as PDF`);
+    
+    const result = await formExportService.exportProjectFormsAsPDF(projectId);
+    
+    res.setHeader('Content-Type', result.contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${result.filename}"`);
+    
+    res.send(result.html);
+  } catch (error) {
+    console.error('❌ [ASBUILT] Error exporting project forms as PDF:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to export project forms as PDF',
       message: error.message 
     });
   }

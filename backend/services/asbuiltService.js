@@ -171,6 +171,25 @@ class AsbuiltService {
   }
 
   /**
+   * Get all records for a project
+   */
+  async getProjectRecords(projectId) {
+    const client = await this.pool.connect();
+    try {
+      const query = `
+        SELECT * FROM asbuilt_records 
+        WHERE project_id = $1
+        ORDER BY created_at DESC
+      `;
+      
+      const result = await client.query(query, [projectId]);
+      return result.rows;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
    * Update a record
    */
   async updateRecord(recordId, updateData) {

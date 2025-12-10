@@ -20,7 +20,9 @@ import {
   Eye,
   FileText,
   Image,
-  Trash2
+  Trash2,
+  Sync,
+  FileDown
 } from 'lucide-react';
 import { AsbuiltRecord, AsbuiltSummary, ASBUILT_DOMAINS } from '@/types/asbuilt';
 import { safeAPI } from '@/lib/safe-api';
@@ -86,6 +88,8 @@ export default function AsbuiltPageContent() {
   const [selectedRecord, setSelectedRecord] = useState<AsbuiltRecord | null>(null);
   const [loadingRecord, setLoadingRecord] = useState(false);
   const [activeTab, setActiveTab] = useState<'records' | 'files'>('records');
+  const [syncing, setSyncing] = useState(false);
+  const [exporting, setExporting] = useState<string | null>(null);
   
 
   // Handle URL-based project selection
@@ -184,6 +188,102 @@ export default function AsbuiltPageContent() {
       refreshAllData(contextSelectedProject.id);
     }
     setShowImportModal(false);
+  };
+
+  const handleSyncToPanelLayout = async () => {
+    if (!projectId) {
+      alert('Please select a project first');
+      return;
+    }
+
+    setSyncing(true);
+    try {
+      const response = await makeAuthenticatedRequest(`/api/panels/sync-from-forms/${projectId}`, {
+        method: 'POST'
+      });
+
+      if (response.success) {
+        alert(`Sync completed successfully!\n\nPanels created: ${response.summary?.panelsCreated || 0}\nRepairs added: ${response.summary?.repairsAdded || 0}\nSeaming updated: ${response.summary?.seamingUpdated || 0}`);
+        // Refresh data after sync
+        refreshAllData(projectId);
+      } else {
+        throw new Error(response.error || 'Sync failed');
+      }
+    } catch (error: any) {
+      console.error('❌ [ASBUILT] Failed to sync forms to panel layout:', error);
+      alert(`Failed to sync forms to panel layout: ${error.message || 'Unknown error'}`);
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const handleExportForm = async (recordId: string, format: 'excel' | 'pdf') => {
+    if (!projectId) return;
+
+    setExporting(`${recordId}-${format}`);
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/asbuilt/records/${recordId}/export/${format}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Export failed');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `form-${recordId}.${format === 'excel' ? 'xlsx' : 'html'}`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error: any) {
+      console.error('❌ [ASBUILT] Failed to export form:', error);
+      alert(`Failed to export form: ${error.message || 'Unknown error'}`);
+    } finally {
+      setExporting(null);
+    }
+  };
+
+  const handleExportProject = async (format: 'excel' | 'pdf') => {
+    if (!projectId) {
+      alert('Please select a project first');
+      return;
+    }
+
+    setExporting(`project-${format}`);
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/asbuilt/${projectId}/export/${format}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Export failed');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `project-forms-${projectId}.${format === 'excel' ? 'xlsx' : 'html'}`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error: any) {
+      console.error('❌ [ASBUILT] Failed to export project forms:', error);
+      alert(`Failed to export project forms: ${error.message || 'Unknown error'}`);
+    } finally {
+      setExporting(null);
+    }
   };
 
 
@@ -405,6 +505,33 @@ export default function AsbuiltPageContent() {
             Refresh
           </Button>
           <Button
+            onClick={handleSyncToPanelLayout}
+            disabled={syncing || !projectId}
+            className="bg-green-600 hover:bg-green-700"
+            title="Sync forms to panel layout"
+          >
+            <Sync className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+            {syncing ? 'Syncing...' : 'Sync to Panel Layout'}
+          </Button>
+          <Button
+            onClick={() => handleExportProject('excel')}
+            disabled={exporting !== null || !projectId || projectRecords.length === 0}
+            variant="outline"
+            title="Export all forms as Excel"
+          >
+            <FileDown className="h-4 w-4 mr-2" />
+            Export Excel
+          </Button>
+          <Button
+            onClick={() => handleExportProject('pdf')}
+            disabled={exporting !== null || !projectId || projectRecords.length === 0}
+            variant="outline"
+            title="Export all forms as PDF"
+          >
+            <FileDown className="h-4 w-4 mr-2" />
+            Export PDF
+          </Button>
+          <Button
             onClick={() => setShowImportModal(true)}
             className="bg-blue-600 hover:bg-blue-700"
           >
@@ -608,10 +735,28 @@ export default function AsbuiltPageContent() {
                                 <Button
                                   variant="outline"
                                   size="sm"
+                                  onClick={() => handleExportForm(record.id, 'excel')}
+                                  disabled={exporting === `${record.id}-excel`}
+                                  title="Export as Excel"
+                                >
+                                  <FileDown className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleExportForm(record.id, 'pdf')}
+                                  disabled={exporting === `${record.id}-pdf`}
+                                  title="Export as PDF"
+                                >
+                                  <FileText className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
                                   onClick={() => handleDeleteRecord(record.id, record.mappedData.panelNumber || record.panelId)}
                                   className="text-red-600 hover:text-red-700 hover:bg-red-50"
                                 >
-                                  Delete
+                                  <Trash2 className="h-3 w-3" />
                                 </Button>
                               </div>
                             </td>

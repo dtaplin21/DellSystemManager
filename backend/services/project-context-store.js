@@ -2,10 +2,12 @@ const { db } = require('../db/index');
 const { projects, documents, panelLayouts, qcData } = require('../db/schema');
 const { eq } = require('drizzle-orm');
 const { v4: uuidv4 } = require('uuid');
+const AsbuiltService = require('./asbuiltService');
 
 class ProjectContextStore {
   constructor() {
     this.contextCache = new Map(); // In-memory cache for active projects
+    this.asbuiltService = new AsbuiltService();
   }
 
   /**
@@ -46,6 +48,25 @@ class ProjectContextStore {
         .from(qcData)
         .where(eq(qcData.projectId, projectId));
 
+      // Fetch forms (as-built records) - PRIMARY SOURCE OF TRUTH
+      let formsData = [];
+      try {
+        // Get all forms with pagination
+        let offset = 0;
+        const limit = 100;
+        let hasMore = true;
+        
+        while (hasMore) {
+          const batch = await this.asbuiltService.getProjectRecords(projectId, limit, offset);
+          formsData = formsData.concat(batch);
+          offset += limit;
+          hasMore = batch.length === limit;
+        }
+      } catch (error) {
+        console.error('Error fetching forms data:', error);
+        // Continue without forms if there's an error
+      }
+
       // Build comprehensive context
       const context = {
         project: {
@@ -84,6 +105,17 @@ class ProjectContextStore {
           date: qc.testDate,
           operator: qc.operator,
           notes: qc.notes
+        })),
+        forms: formsData.map(form => ({
+          id: form.id,
+          domain: form.domain,
+          panelId: form.panel_id,
+          rawData: typeof form.raw_data === 'string' ? JSON.parse(form.raw_data) : form.raw_data,
+          mappedData: typeof form.mapped_data === 'string' ? JSON.parse(form.mapped_data) : form.mapped_data,
+          aiConfidence: form.ai_confidence,
+          requiresReview: form.requires_review,
+          createdAt: form.created_at,
+          createdBy: form.created_by
         })),
         aiInsights: {
           documentAnalysis: [],
