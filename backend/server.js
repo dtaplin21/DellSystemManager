@@ -261,7 +261,7 @@ async function startServer() {
     let jobQueueAvailable = false;
     try {
       const jobQueue = require('./services/jobQueue');
-      jobQueue.initialize();
+      await jobQueue.initialize();
       jobQueueAvailable = true;
       logger.info('Job queue initialized successfully');
     } catch (error) {

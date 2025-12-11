@@ -20,7 +20,17 @@ class JobQueueService {
     // Support both REDIS_URL and individual Redis config
     if (process.env.REDIS_URL) {
       return {
-        url: process.env.REDIS_URL
+        url: process.env.REDIS_URL,
+        connectTimeout: 5000, // 5 second connection timeout
+        lazyConnect: true, // Don't connect immediately
+        maxRetriesPerRequest: null,
+        enableReadyCheck: false,
+        retryStrategy: (times) => {
+          if (times > 3) {
+            return null; // Stop retrying after 3 attempts
+          }
+          return Math.min(times * 200, 2000); // Exponential backoff
+        }
       };
     }
 
@@ -29,18 +39,65 @@ class JobQueueService {
       port: parseInt(process.env.REDIS_PORT || '6379', 10),
       password: process.env.REDIS_PASSWORD || undefined,
       db: parseInt(process.env.REDIS_DB || '0', 10),
+      connectTimeout: 5000, // 5 second connection timeout
+      lazyConnect: true, // Don't connect immediately - connect on first use
       maxRetriesPerRequest: null, // Required for Bull
-      enableReadyCheck: false
+      enableReadyCheck: false,
+      retryStrategy: (times) => {
+        if (times > 3) {
+          return null; // Stop retrying after 3 attempts
+        }
+        return Math.min(times * 200, 2000); // Exponential backoff
+      }
     };
   }
 
   /**
    * Initialize the job queue
    */
-  initialize() {
+  async initialize() {
     try {
-      // Create Redis connection
+      // Create Redis connection with lazy connect
       this.redisClient = new Redis(this.redisConfig);
+      
+      // Set up error handlers BEFORE connecting
+      this.redisClient.on('error', (error) => {
+        logger.error('[JobQueue] Redis connection error', {
+          error: error.message,
+          code: error.code
+        });
+      });
+      
+      this.redisClient.on('connect', () => {
+        logger.info('[JobQueue] Redis connected');
+      });
+      
+      this.redisClient.on('ready', () => {
+        logger.info('[JobQueue] Redis ready');
+      });
+      
+      this.redisClient.on('close', () => {
+        logger.warn('[JobQueue] Redis connection closed');
+      });
+      
+      // Try to connect with timeout
+      const connectPromise = this.redisClient.connect().catch((error) => {
+        logger.error('[JobQueue] Failed to connect to Redis', {
+          error: error.message,
+          host: this.redisConfig.host || this.redisConfig.url,
+          port: this.redisConfig.port
+        });
+        throw error;
+      });
+      
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => {
+          reject(new Error('Redis connection timeout after 5 seconds'));
+        }, 5000);
+      });
+      
+      // Wait for connection with timeout
+      await Promise.race([connectPromise, timeoutPromise]);
 
       // Create Bull queue
       this.automationQueue = new Queue('browser-automation', {
@@ -131,6 +188,18 @@ class JobQueueService {
   async addAutomationJob(jobData) {
     if (!this.automationQueue) {
       throw new Error('Job queue not initialized. Call initialize() first.');
+    }
+    
+    // Check if Redis is connected
+    if (this.redisClient && this.redisClient.status !== 'ready') {
+      logger.warn('[JobQueue] Redis not ready, attempting to reconnect...', {
+        status: this.redisClient.status
+      });
+      try {
+        await this.redisClient.connect();
+      } catch (error) {
+        throw new Error(`Redis connection failed: ${error.message}`);
+      }
     }
 
     try {

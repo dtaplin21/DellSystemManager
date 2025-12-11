@@ -455,7 +455,7 @@ router.post('/upload-defect/:projectId', auth, upload.single('image'), async (re
       
       // Ensure queue is initialized
       if (!jobQueue.automationQueue) {
-        jobQueue.initialize();
+        await jobQueue.initialize();
       }
       
       // Create job in queue (will be processed by worker)
