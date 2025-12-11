@@ -131,7 +131,7 @@ function PanelLayoutContent({
 
   return (
     <>
-      <div className="flex flex-col h-full w-full">
+      <div className="flex flex-col h-full w-full min-h-0">
         {/* Toolbar */}
         <PanelToolbar
           onSave={handleSave}
@@ -144,7 +144,7 @@ function PanelLayoutContent({
         />
         
         {/* Main Canvas Area */}
-        <div className="flex-1 relative canvas-container">
+        <div className="flex-1 relative canvas-container min-h-0">
           <PanelCanvas
             panels={panels}
             patches={patches}

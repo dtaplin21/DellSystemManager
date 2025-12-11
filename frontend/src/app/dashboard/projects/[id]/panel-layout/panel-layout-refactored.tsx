@@ -42,11 +42,21 @@ export default function PanelLayoutRefactored() {
   const [activeTab, setActiveTab] = useState<'panels' | 'patches' | 'destructs'>('panels');
   
   // Visibility state - controls what types are visible on the canvas
+  // Initialize based on activeTab to ensure consistency
   const [visibleTypes, setVisibleTypes] = useState({
     panels: true,
     patches: false,
     destructs: false
   });
+  
+  // Ensure visibleTypes stays in sync with activeTab
+  useEffect(() => {
+    setVisibleTypes({
+      panels: activeTab === 'panels',
+      patches: activeTab === 'patches',
+      destructs: activeTab === 'destructs'
+    });
+  }, [activeTab]);
   
   // Modal state
   const [showCreatePanelModal, setShowCreatePanelModal] = useState(false);
@@ -365,14 +375,19 @@ export default function PanelLayoutRefactored() {
     isLoading,
     dataState: dataState.state,
     panelsCount: panels.length,
-    error
+    error,
+    activeTab,
+    visibleTypes,
+    shouldShowTabs: !isLoading && !error,
+    shouldRenderPanels: activeTab === 'panels' && !isLoading && !error && panels.length > 0,
+    panelsArray: panels.slice(0, 3).map(p => ({ id: p.id, x: p.x, y: p.y, isValid: p.isValid })) // First 3 panels for debugging
   });
 
   // Error boundary wrapper
   return (
     <AsbuiltDataProvider projectId={projectId}>
       <PanelLayoutErrorBoundary>
-        <div className="h-full w-full flex flex-col">
+        <div className="h-full w-full flex flex-col min-h-0">
         
         {/* Loading state */}
         {isLoading && (
@@ -409,7 +424,7 @@ export default function PanelLayoutRefactored() {
                 destructs: tab === 'destructs'
               });
             }} 
-            className="h-full flex flex-col"
+            className="h-full flex flex-col min-h-0"
           >
             <TabsList className="w-full border-b rounded-none">
               <TabsTrigger value="panels">Panels</TabsTrigger>
@@ -418,9 +433,10 @@ export default function PanelLayoutRefactored() {
             </TabsList>
             
             {/* Unified Canvas - All tabs use the same component with visibility control */}
-            <TabsContent value={activeTab} className="flex-1 mt-0">
-              {/* Empty state for panels tab */}
-              {activeTab === 'panels' && dataState.state === 'empty' && (
+            <TabsContent value={activeTab} className="flex-1 mt-0 flex flex-col min-h-0 overflow-hidden">
+              {/* Empty state for panels tab - only show if truly no panels AND canvas is not rendering */}
+              {/* Note: We show the canvas even when empty (like fullscreen), so empty state is only for initial load */}
+              {activeTab === 'panels' && !isLoading && !error && panels.length === 0 && dataState.state === 'empty' && (
                 <EmptyStateFallback 
                   onAddPanel={handleAddTestPanel}
                   onImportLayout={() => console.log('Import layout clicked')}
@@ -458,10 +474,58 @@ export default function PanelLayoutRefactored() {
               )}
               
               {/* Unified Panel Layout Component - renders all types based on visibility */}
-              {((activeTab === 'panels' && !isLoading && !error && panels.length > 0) || 
-                (activeTab === 'patches' && !patchesLoading && !patchesError && patches.length > 0) ||
-                (activeTab === 'destructs' && !destructsLoading && !destructsError && destructiveTests.length > 0)) && (
-                <div className="flex-1 w-full relative">
+              {/* Render canvas whenever we're not loading and no error - similar to fullscreen behavior */}
+              {(() => {
+                // Render if we're on the panels tab and not loading/error (even if no panels yet)
+                const shouldRenderPanels = activeTab === 'panels' && !isLoading && !error;
+                // Render patches/destructs only if they exist (to show empty state otherwise)
+                const shouldRenderPatches = activeTab === 'patches' && !patchesLoading && !patchesError && patches.length > 0;
+                const shouldRenderDestructs = activeTab === 'destructs' && !destructsLoading && !destructsError && destructiveTests.length > 0;
+                const shouldRender = shouldRenderPanels || shouldRenderPatches || shouldRenderDestructs;
+                
+                // Always log the condition check to help diagnose
+                console.log('🔍 [PanelLayoutRefactored] Render condition check:', {
+                  activeTab,
+                  isLoading,
+                  error,
+                  panelsCount: panels.length,
+                  shouldRenderPanels,
+                  shouldRenderPatches,
+                  shouldRenderDestructs,
+                  shouldRender,
+                  visibleTypes
+                });
+                
+                if (shouldRender) {
+                  console.log('✅ [PanelLayoutRefactored] Rendering PanelLayoutComponent with:', {
+                    activeTab,
+                    panelsCount: panels.length,
+                    patchesCount: patches.length,
+                    destructsCount: destructiveTests.length,
+                    visibleTypes,
+                    firstPanel: panels[0] ? { id: panels[0].id, x: panels[0].x, y: panels[0].y } : null
+                  });
+                } else {
+                  console.log('❌ [PanelLayoutRefactored] NOT rendering PanelLayoutComponent. Reasons:', {
+                    activeTab,
+                    isLoading,
+                    error,
+                    panelsCount: panels.length,
+                    patchesCount: patches.length,
+                    destructsCount: destructiveTests.length,
+                    reason: activeTab === 'panels' ? 
+                      (isLoading ? 'Still loading' : error ? 'Has error' : 'Unknown') :
+                      activeTab === 'patches' ?
+                      (patchesLoading ? 'Patches loading' : patchesError ? 'Patches error' : patches.length === 0 ? 'No patches' : 'Unknown') :
+                      activeTab === 'destructs' ?
+                      (destructsLoading ? 'Destructs loading' : destructsError ? 'Destructs error' : destructiveTests.length === 0 ? 'No destructs' : 'Unknown') :
+                      'Unknown tab'
+                  });
+                }
+                
+                return shouldRender;
+              })() && (
+                <div className="flex-1 w-full relative min-h-0">
                   <PanelLayoutComponent
                     panels={panels}
                     patches={patches}

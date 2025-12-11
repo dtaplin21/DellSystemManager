@@ -266,7 +266,7 @@ export function PanelCanvas({
   // No need for separate render triggers
 
   return (
-    <div className="relative w-full h-full overflow-hidden canvas-container">
+    <div className="relative w-full h-full overflow-hidden canvas-container min-h-0">
       <canvas
         ref={canvasRef}
         data-testid="canvas-main"
