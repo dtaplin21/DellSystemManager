@@ -2,9 +2,9 @@ const express = require('express');
 const router = express.Router();
 const { Pool } = require('pg');
 const config = require('../config/env');
-const logger = require('../utils/logger');
+const logger = require('../lib/logger');
 const jobQueue = require('../services/jobQueue');
-const auth = require('../middleware/auth');
+const { auth } = require('../middlewares/auth');
 
 const pool = new Pool({
   connectionString: config.databaseUrl,

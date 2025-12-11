@@ -12,7 +12,7 @@ require('dotenv').config();
 const Queue = require('bull');
 const Redis = require('ioredis');
 const AutomationWorker = require('../services/automationWorker');
-const logger = require('../utils/logger');
+const logger = require('../lib/logger');
 const jobQueue = require('../services/jobQueue');
 
 // Initialize job queue

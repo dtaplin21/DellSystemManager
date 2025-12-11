@@ -125,6 +125,23 @@ export default function FormsPage() {
         { method: 'GET' }
       );
 
+      // Check if response is ok before parsing
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Authentication required. Please log in.');
+        }
+        if (response.status === 404) {
+          throw new Error('Project not found.');
+        }
+        // Try to get error message from response
+        try {
+          const errorData = await response.json();
+          throw new Error(errorData.error || errorData.message || `Failed to fetch forms: ${response.statusText}`);
+        } catch (parseError) {
+          throw new Error(`Failed to fetch forms: ${response.status} ${response.statusText}`);
+        }
+      }
+
       const data = await response.json();
 
       if (data.success) {

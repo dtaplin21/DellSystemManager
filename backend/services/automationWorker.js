@@ -1,6 +1,6 @@
 const axios = require('axios');
 const { Pool } = require('pg');
-const logger = require('../utils/logger');
+const logger = require('../lib/logger');
 const config = require('../config/env');
 
 /**

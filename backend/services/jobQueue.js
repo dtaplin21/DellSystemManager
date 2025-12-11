@@ -1,6 +1,6 @@
 const Queue = require('bull');
 const Redis = require('ioredis');
-const logger = require('../utils/logger');
+const logger = require('../lib/logger');
 
 /**
  * Job Queue Service

@@ -44,10 +44,22 @@ class FormReviewService {
       const params = [projectId];
       let paramCount = 1;
 
+      // Check if automation_jobs table exists
+      const tableCheck = await client.query(`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_name = 'automation_jobs'
+        )
+      `);
+      const hasAutomationJobsTable = tableCheck.rows[0]?.exists || false;
+
+      // Determine table alias/prefix based on whether we're joining
+      const tablePrefix = hasAutomationJobsTable ? 'ar.' : '';
+
       // Add source filter (only if column exists)
       if (source && hasSourceColumn) {
         paramCount++;
-        query += ` AND source = $${paramCount}`;
+        query += ` AND ${tablePrefix}source = $${paramCount}`;
         params.push(source);
       } else if (source && !hasSourceColumn) {
         // If source column doesn't exist, return empty array with a note
@@ -58,14 +70,14 @@ class FormReviewService {
       // Add status filter (only if column exists)
       if (status && status !== 'all' && hasStatusColumn) {
         paramCount++;
-        query += ` AND status = $${paramCount}`;
+        query += ` AND ${tablePrefix}status = $${paramCount}`;
         params.push(status);
       }
 
       // Add domain filter
       if (domain && domain !== 'all') {
         paramCount++;
-        query += ` AND domain = $${paramCount}`;
+        query += ` AND ${tablePrefix}domain = $${paramCount}`;
         params.push(domain);
       }
 
@@ -73,20 +85,11 @@ class FormReviewService {
       if (search) {
         paramCount++;
         query += ` AND (
-          mapped_data::text ILIKE $${paramCount} OR
-          raw_data::text ILIKE $${paramCount}
+          ${tablePrefix}mapped_data::text ILIKE $${paramCount} OR
+          ${tablePrefix}raw_data::text ILIKE $${paramCount}
         )`;
         params.push(`%${search}%`);
       }
-
-      // Check if automation_jobs table exists
-      const tableCheck = await client.query(`
-        SELECT EXISTS (
-          SELECT FROM information_schema.tables 
-          WHERE table_name = 'automation_jobs'
-        )
-      `);
-      const hasAutomationJobsTable = tableCheck.rows[0]?.exists || false;
 
       // Join with automation_jobs if table exists
       if (hasAutomationJobsTable) {
@@ -105,9 +108,11 @@ class FormReviewService {
           FROM asbuilt_records ar
           LEFT JOIN automation_jobs aj ON ar.id = aj.asbuilt_record_id`
         );
+        // Update WHERE clause to use alias
+        query = query.replace('WHERE project_id = $1', 'WHERE ar.project_id = $1');
       }
 
-      query += ` ORDER BY ar.created_at DESC LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`;
+      query += ` ORDER BY ${tablePrefix}created_at DESC LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`;
       params.push(limit, offset);
 
       const result = await client.query(query, params);
@@ -191,6 +196,9 @@ class FormReviewService {
       `);
       const hasAutomationJobsTable = tableCheck.rows[0]?.exists || false;
 
+      // Determine table alias/prefix based on whether we're joining
+      const tableAlias = hasAutomationJobsTable ? 'ar' : 'asbuilt_records';
+
       let query = `
         SELECT 
           COUNT(*) as total
@@ -198,9 +206,9 @@ class FormReviewService {
       
       if (hasStatusColumn) {
         query += `,
-          COUNT(*) FILTER (WHERE status = 'pending') as pending,
-          COUNT(*) FILTER (WHERE status = 'approved') as approved,
-          COUNT(*) FILTER (WHERE status = 'rejected') as rejected
+          COUNT(*) FILTER (WHERE ${tableAlias}.status = 'pending') as pending,
+          COUNT(*) FILTER (WHERE ${tableAlias}.status = 'approved') as approved,
+          COUNT(*) FILTER (WHERE ${tableAlias}.status = 'rejected') as rejected
         `;
       } else {
         query += `,
@@ -212,11 +220,6 @@ class FormReviewService {
 
       // Add automation job statistics if table exists
       if (hasAutomationJobsTable) {
-        query = query.replace(
-          'FROM asbuilt_records',
-          `FROM asbuilt_records ar
-          LEFT JOIN automation_jobs aj ON ar.id = aj.asbuilt_record_id`
-        );
         query += `,
           COUNT(DISTINCT aj.id) FILTER (WHERE aj.status = 'processing' OR aj.status = 'queued') as automation_processing,
           COUNT(DISTINCT aj.id) FILTER (WHERE aj.status = 'completed') as automation_completed,
@@ -229,8 +232,6 @@ class FormReviewService {
           0 as automation_failed
         `;
       }
-      
-      const tableAlias = hasAutomationJobsTable ? 'ar' : 'asbuilt_records';
       
       query += `,
           COUNT(*) FILTER (WHERE ${tableAlias}.domain = 'panel_placement') as panel_placement,
