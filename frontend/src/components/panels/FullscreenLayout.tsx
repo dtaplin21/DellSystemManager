@@ -1,20 +1,36 @@
 'use client';
 
 import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
-import { X, Minimize2, ZoomIn, ZoomOut, RotateCcw, Trash2 } from 'lucide-react';
+import { X, Minimize2, ZoomIn, ZoomOut, RotateCcw, Trash2, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useFullscreenState, useCanvasState } from '@/contexts/PanelContext';
 import { Panel } from '@/types/panel';
+import { Patch } from '@/types/patch';
+import { DestructiveTest } from '@/types/destructiveTest';
 import { PanelCanvas } from './PanelCanvas';
 import LazyFullSidebar from './LazyFullSidebar';
+import CreatePatchModal from '@/components/patches/CreatePatchModal';
+import CreateDestructiveTestModal from '@/components/destructive-tests/CreateDestructiveTestModal';
+import CreatePanelModal from '@/components/panels/CreatePanelModal';
 
 interface FullscreenLayoutProps {
   panels: Panel[];
+  patches?: Patch[];
+  destructiveTests?: DestructiveTest[];
   projectId: string;
   onPanelClick?: (panel: Panel) => void;
   onPanelDoubleClick?: (panel: Panel) => void;
   onPanelUpdate?: (panelId: string, updates: Partial<Panel>) => Promise<void>;
   onPanelDelete?: (panelId: string) => void;
+  onAddPanel?: () => void;
+  onCreatePanel?: (panelData: any) => Promise<void>;
+  onAddPatch?: (patch: Omit<Patch, 'id'>) => Promise<void>;
+  onAddDestructiveTest?: (test: Omit<DestructiveTest, 'id'>) => Promise<void>;
+  visibleTypes?: {
+    panels: boolean;
+    patches: boolean;
+    destructs: boolean;
+  };
   enableDebugLogging?: boolean;
 }
 
@@ -24,11 +40,18 @@ interface FullscreenLayoutProps {
  */
 export function FullscreenLayout({
   panels,
+  patches = [],
+  destructiveTests = [],
   projectId,
   onPanelClick,
   onPanelDoubleClick,
   onPanelUpdate,
   onPanelDelete,
+  onAddPanel,
+  onCreatePanel,
+  onAddPatch,
+  onAddDestructiveTest,
+  visibleTypes = { panels: true, patches: false, destructs: false },
   enableDebugLogging = false,
 }: FullscreenLayoutProps) {
   const { fullscreen, dispatchFullscreen } = useFullscreenState();
@@ -37,6 +60,9 @@ export function FullscreenLayout({
   const [zoomLevel, setZoomLevel] = useState(100);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [panelToDelete, setPanelToDelete] = useState<string | null>(null);
+  const [showCreatePanelModal, setShowCreatePanelModal] = useState(false);
+  const [showCreatePatchModal, setShowCreatePatchModal] = useState(false);
+  const [showCreateDestructiveTestModal, setShowCreateDestructiveTestModal] = useState(false);
 
   // Handle panel deletion
   const handleDeletePanel = useCallback((panelId: string) => {
@@ -215,6 +241,46 @@ export function FullscreenLayout({
               </span>
             )}
           </div>
+          
+          {/* Add buttons */}
+          <div className="flex items-center space-x-2 ml-4">
+            {onAddPanel && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowCreatePanelModal(true)}
+                className="bg-blue-700 border-blue-600 text-white hover:bg-blue-600"
+                title="Add Panel"
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Panel
+              </Button>
+            )}
+            {onAddPatch && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowCreatePatchModal(true)}
+                className="bg-red-700 border-red-600 text-white hover:bg-red-600"
+                title="Add Patch"
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Patch
+              </Button>
+            )}
+            {onAddDestructiveTest && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowCreateDestructiveTestModal(true)}
+                className="bg-orange-700 border-orange-600 text-white hover:bg-orange-600"
+                title="Add Destructive Test"
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Destructive Test
+              </Button>
+            )}
+          </div>
         </div>
         
         <div className="flex items-center space-x-2">
@@ -295,6 +361,9 @@ export function FullscreenLayout({
       <div className="flex-1 relative">
         <PanelCanvas
           panels={panels}
+          patches={patches}
+          destructiveTests={destructiveTests}
+          visibleTypes={visibleTypes}
           onPanelClick={(panel) => {
             // Set selected panel for mini-sidebar (automatically shows mini-sidebar)
             dispatchFullscreen({ type: 'SET_SELECTED_PANEL', payload: panel });
@@ -453,6 +522,64 @@ export function FullscreenLayout({
           console.error('Full sidebar error:', error);
         }}
       />
+
+      {/* Create Panel Modal */}
+      {showCreatePanelModal && onCreatePanel && (
+        <CreatePanelModal
+          onClose={() => setShowCreatePanelModal(false)}
+          onCreatePanel={async (panelData) => {
+            try {
+              await onCreatePanel(panelData);
+              setShowCreatePanelModal(false);
+            } catch (error) {
+              console.error('Error creating panel:', error);
+            }
+          }}
+        />
+      )}
+
+      {/* Create Patch Modal */}
+      {showCreatePatchModal && onAddPatch && (
+        <CreatePatchModal
+          onClose={() => setShowCreatePatchModal(false)}
+          onCreatePatch={async (patchData) => {
+            try {
+              await onAddPatch({
+                ...patchData,
+                radius: 6.67, // PATCH_CONFIG.RADIUS
+                rotation: 0,
+                isValid: true,
+                fill: '#ef4444',
+                color: '#b91c1c'
+              });
+              setShowCreatePatchModal(false);
+            } catch (error) {
+              console.error('Error creating patch:', error);
+            }
+          }}
+        />
+      )}
+
+      {/* Create Destructive Test Modal */}
+      {showCreateDestructiveTestModal && onAddDestructiveTest && (
+        <CreateDestructiveTestModal
+          onClose={() => setShowCreateDestructiveTestModal(false)}
+          onCreateTest={async (testData) => {
+            try {
+              await onAddDestructiveTest({
+                ...testData,
+                rotation: 0,
+                isValid: true,
+                fill: '#f59e0b',
+                color: '#d97706'
+              });
+              setShowCreateDestructiveTestModal(false);
+            } catch (error) {
+              console.error('Error creating destructive test:', error);
+            }
+          }}
+        />
+      )}
 
       {/* Delete Confirmation Dialog */}
       {showDeleteConfirm && (

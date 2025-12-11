@@ -471,6 +471,36 @@ export default function PanelLayoutRefactored() {
                     onPanelUpdate={handlePanelPositionUpdate}
                     onPanelDelete={handlePanelDelete}
                     onAddPanel={activeTab === 'panels' ? handleAddPanel : undefined}
+                    onCreatePanel={handleCreatePanel}
+                    onAddPatch={async (patchData) => {
+                      try {
+                        await addPatch({
+                          ...patchData,
+                          radius: 6.67, // PATCH_CONFIG.RADIUS
+                          rotation: 0,
+                          isValid: true,
+                          fill: '#ef4444',
+                          color: '#b91c1c'
+                        });
+                      } catch (error) {
+                        console.error('Error creating patch:', error);
+                        throw error;
+                      }
+                    }}
+                    onAddDestructiveTest={async (testData) => {
+                      try {
+                        await addDestructiveTest({
+                          ...testData,
+                          rotation: 0,
+                          isValid: true,
+                          fill: '#f59e0b',
+                          color: '#d97706'
+                        });
+                      } catch (error) {
+                        console.error('Error creating destructive test:', error);
+                        throw error;
+                      }
+                    }}
                     onPanelSelect={handlePanelSelect}
                     onViewFullDetails={handleViewFullDetails}
                     isFullscreen={isFullscreen}

@@ -23,6 +23,9 @@ interface PanelLayoutRefactoredProps {
   onPanelUpdate?: (panelId: string, updates: Partial<Panel>) => Promise<void>;
   onPanelDelete?: (panelId: string) => void;
   onAddPanel?: () => void;
+  onCreatePanel?: (panelData: any) => Promise<void>;
+  onAddPatch?: (patch: Omit<Patch, 'id'>) => Promise<void>;
+  onAddDestructiveTest?: (test: Omit<DestructiveTest, 'id'>) => Promise<void>;
   onPanelSelect?: (panel: Panel) => void;
   onViewFullDetails?: () => void;
   isFullscreen?: boolean;
@@ -56,6 +59,9 @@ function PanelLayoutContent({
   onPanelUpdate,
   onPanelDelete,
   onAddPanel,
+  onCreatePanel,
+  onAddPatch,
+  onAddDestructiveTest,
   onPanelSelect,
   onViewFullDetails,
   isFullscreen,
@@ -155,11 +161,18 @@ function PanelLayoutContent({
       {/* Fullscreen Layout */}
               <FullscreenLayout
                 panels={panels}
+                patches={patches}
+                destructiveTests={destructiveTests}
                 projectId={projectId}
+                visibleTypes={visibleTypes}
                 onPanelClick={handlePanelClick}
                 onPanelDoubleClick={handlePanelDoubleClick}
                 onPanelUpdate={handlePanelUpdate}
                 onPanelDelete={onPanelDelete}
+                onAddPanel={onAddPanel}
+                onCreatePanel={onCreatePanel}
+                onAddPatch={onAddPatch}
+                onAddDestructiveTest={onAddDestructiveTest}
                 enableDebugLogging={featureFlags.ENABLE_DEBUG_LOGGING}
               />
     </>
@@ -175,6 +188,9 @@ export function PanelLayoutRefactored({
   onPanelUpdate,
   onPanelDelete,
   onAddPanel,
+  onCreatePanel,
+  onAddPatch,
+  onAddDestructiveTest,
   onPanelSelect,
   onViewFullDetails,
   isFullscreen,
@@ -195,6 +211,9 @@ export function PanelLayoutRefactored({
           onPanelUpdate={onPanelUpdate}
           onPanelDelete={onPanelDelete}
           onAddPanel={onAddPanel}
+          onCreatePanel={onCreatePanel}
+          onAddPatch={onAddPatch}
+          onAddDestructiveTest={onAddDestructiveTest}
           onPanelSelect={onPanelSelect}
           onViewFullDetails={onViewFullDetails}
           isFullscreen={isFullscreen}

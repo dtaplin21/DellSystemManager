@@ -88,10 +88,12 @@ export function useUnifiedMouseInteraction({
   enableDebugLogging = false,
 }: UseUnifiedMouseInteractionOptions): UseUnifiedMouseInteractionReturn {
   
-  // Debug: Log canvasState changes
+  // Debug: Log canvasState changes (only if debug logging enabled)
   useEffect(() => {
-    console.log('🎯 [CANVAS STATE DEBUG] CanvasState updated:', canvasState);
-  }, [canvasState]);
+    if (enableDebugLogging) {
+      console.log('🎯 [CANVAS STATE DEBUG] CanvasState updated:', canvasState);
+    }
+  }, [canvasState, enableDebugLogging]);
   // SSR Guard: Return empty functions if running on server
   const isSSR = typeof window === 'undefined';
   
@@ -102,6 +104,7 @@ export function useUnifiedMouseInteraction({
   const animationFrameRef = useRef<number>();
   const lastRenderTimeRef = useRef<number>(0);
   const lastCanvasStateRef = useRef({ ...canvasState });
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
 
   // Set canvas ref
   useEffect(() => {
@@ -295,25 +298,29 @@ export function useUnifiedMouseInteraction({
     const handleWorldPos = getRotationHandleWorldPosition(panel, canvasState);
     const handleSizeWorld = 16 / (canvasState.worldScale || 1);
     
-    console.log('🎯 [ROTATION HANDLE DEBUG] Rotation handle position (world coords):', {
-      panelId: panel.id,
-      rotationHandleWorld: handleWorldPos,
-      mouseWorldPos: worldPos,
-      handleSizeWorld,
-      canvasState: {
-        worldScale: canvasState.worldScale,
-        worldOffsetX: canvasState.worldOffsetX,
-        worldOffsetY: canvasState.worldOffsetY
-      }
-    });
+    if (enableDebugLogging) {
+      console.log('🎯 [ROTATION HANDLE DEBUG] Rotation handle position (world coords):', {
+        panelId: panel.id,
+        rotationHandleWorld: handleWorldPos,
+        mouseWorldPos: worldPos,
+        handleSizeWorld,
+        canvasState: {
+          worldScale: canvasState.worldScale,
+          worldOffsetX: canvasState.worldOffsetX,
+          worldOffsetY: canvasState.worldOffsetY
+        }
+      });
+    }
     
     const isHit = Math.abs(worldPos.x - handleWorldPos.x) <= handleSizeWorld / 2 &&
                   Math.abs(worldPos.y - handleWorldPos.y) <= handleSizeWorld / 2;
     
-    console.log('🎯 [ROTATION HANDLE DEBUG] Hit result (world coords):', isHit);
+    if (enableDebugLogging) {
+      console.log('🎯 [ROTATION HANDLE DEBUG] Hit result (world coords):', isHit);
+    }
     
     return isHit;
-  }, [canvasState, getWorldCoordinates]);
+  }, [canvasState, getWorldCoordinates, enableDebugLogging]);
 
   // Grid drawing function - uses unified coordinate system
   const drawGrid = useCallback((ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, state: CanvasState) => {
@@ -632,28 +639,36 @@ export function useUnifiedMouseInteraction({
 
     // Draw selection handles for selected panel - BEFORE transformations are restored (world coordinates)
     const selectedPanel = panels.find(p => p.id === mouseStateRef.current.selectedPanelId);
-    console.log('🎯 [ROTATION HANDLE DEBUG] Render function - checking for selected panel:', {
-      selectedPanelId: mouseStateRef.current.selectedPanelId,
-      selectedPanel: selectedPanel,
-      selectedPanelValid: selectedPanel?.isValid,
-      totalPanels: panels.length
-    });
+    if (enableDebugLogging) {
+      console.log('🎯 [ROTATION HANDLE DEBUG] Render function - checking for selected panel:', {
+        selectedPanelId: mouseStateRef.current.selectedPanelId,
+        selectedPanel: selectedPanel,
+        selectedPanelValid: selectedPanel?.isValid,
+        totalPanels: panels.length
+      });
+    }
     
     if (selectedPanel && selectedPanel.isValid) {
-      console.log('🎯 [ROTATION HANDLE DEBUG] Drawing selection handles for selected panel (world coords):', {
-        id: selectedPanel.id,
-        shape: selectedPanel.shape,
-        position: { x: selectedPanel.x, y: selectedPanel.y },
-        size: { width: selectedPanel.width, height: selectedPanel.height },
-        canvasSize: { width: canvas.width, height: canvas.height }
-      });
+      if (enableDebugLogging) {
+        console.log('🎯 [ROTATION HANDLE DEBUG] Drawing selection handles for selected panel (world coords):', {
+          id: selectedPanel.id,
+          shape: selectedPanel.shape,
+          position: { x: selectedPanel.x, y: selectedPanel.y },
+          size: { width: selectedPanel.width, height: selectedPanel.height },
+          canvasSize: { width: canvas.width, height: canvas.height }
+        });
+      }
       drawSelectionHandles(ctx, selectedPanel);
-      console.log('🎯 [ROTATION HANDLE DEBUG] Selection handles drawn successfully (world coords)');
+      if (enableDebugLogging) {
+        console.log('🎯 [ROTATION HANDLE DEBUG] Selection handles drawn successfully (world coords)');
+      }
     } else {
-      console.log('🎯 [ROTATION HANDLE DEBUG] No selected panel or panel invalid:', {
-        selectedPanelId: mouseStateRef.current.selectedPanelId,
-        selectedPanel: selectedPanel
-      });
+      if (enableDebugLogging) {
+        console.log('🎯 [ROTATION HANDLE DEBUG] No selected panel or panel invalid:', {
+          selectedPanelId: mouseStateRef.current.selectedPanelId,
+          selectedPanel: selectedPanel
+        });
+      }
     }
 
     // Restore transformations
@@ -712,7 +727,7 @@ export function useUnifiedMouseInteraction({
   }, [canvasState.worldScale, canvasState.worldOffsetX, canvasState.worldOffsetY, isSSR]);
 
 
-  // Canvas resize handler - enhanced with proper container detection
+  // Canvas resize handler - enhanced with proper container detection and ResizeObserver
   const resizeCanvas = useCallback(() => {
     // SSR Guard: Don't run on server
     if (isSSR) return;
@@ -723,9 +738,36 @@ export function useUnifiedMouseInteraction({
     // Try to find the proper container - look for the canvas container div
     let container = canvas.parentElement;
     
-    // If the immediate parent is not the right container, look for a container with specific classes
-    while (container && !container.classList.contains('canvas-container') && !container.classList.contains('flex-1')) {
-      container = container.parentElement;
+    // Check if we're in fullscreen mode by looking for fixed position parent with high z-index
+    let isFullscreenMode = false;
+    let current = container;
+    while (current) {
+      const styles = window.getComputedStyle(current);
+      if (styles.position === 'fixed' && parseInt(styles.zIndex || '0') >= 50) {
+        isFullscreenMode = true;
+        break;
+      }
+      current = current.parentElement;
+    }
+    
+    // In fullscreen, look for the flex-1 container that's a direct child of the fullscreen div
+    if (isFullscreenMode) {
+      current = canvas.parentElement;
+      while (current) {
+        if (current.classList.contains('flex-1') || current.classList.contains('flex')) {
+          const parentStyles = window.getComputedStyle(current.parentElement || current);
+          if (parentStyles.position === 'fixed') {
+            container = current;
+            break;
+          }
+        }
+        current = current.parentElement;
+      }
+    } else {
+      // Normal mode: look for canvas-container or flex-1
+      while (container && !container.classList.contains('canvas-container') && !container.classList.contains('flex-1')) {
+        container = container.parentElement;
+      }
     }
     
     // Fallback to immediate parent if no specific container found
@@ -740,13 +782,110 @@ export function useUnifiedMouseInteraction({
 
     const rect = container.getBoundingClientRect();
 
-    console.log('🔍 [resizeCanvas] Container rect:', rect);
-    console.log('🔍 [resizeCanvas] Container classes:', container.className);
-
     // Ensure we have valid dimensions
     if (rect.width <= 0 || rect.height <= 0) {
-      console.warn('🔍 [resizeCanvas] Invalid container dimensions:', rect);
-      return;
+      // In fullscreen mode, use window dimensions as fallback (more reliable)
+      if (isFullscreenMode) {
+        const windowWidth = window.innerWidth;
+        // Calculate header height more accurately by finding the header element
+        let headerHeight = 64; // Default fallback
+        const headerElement = container.parentElement?.querySelector('.bg-gray-800, [class*="border-b"]');
+        if (headerElement) {
+          headerHeight = headerElement.getBoundingClientRect().height || 64;
+        }
+        const windowHeight = Math.max(window.innerHeight - headerHeight, 100); // Minimum 100px
+        
+        if (windowWidth > 0 && windowHeight > 0) {
+          canvas.width = windowWidth;
+          canvas.height = windowHeight;
+          canvas.style.width = `${windowWidth}px`;
+          canvas.style.height = `${windowHeight}px`;
+          
+          logRef.current('Canvas resized (fullscreen fallback)', { width: windowWidth, height: windowHeight });
+          
+          // Trigger a render after resize
+          if (animationFrameRef.current) {
+            cancelAnimationFrame(animationFrameRef.current);
+          }
+          animationFrameRef.current = requestAnimationFrame(() => {
+            render();
+          });
+          return;
+        }
+      }
+      
+      // Use ResizeObserver to wait for valid dimensions (only log if debug enabled)
+      // Check if we already have a ResizeObserver set up in the main useEffect
+      // If so, it will handle the resize when dimensions become valid
+      // Otherwise, create a temporary one
+      if (typeof ResizeObserver !== 'undefined') {
+        // Check if container already has an observer attached (from main useEffect)
+        // If the main ResizeObserver is already watching, just return and let it handle it
+        if (resizeObserverRef.current) {
+          // Main observer is already set up, it will trigger resizeCanvas when dimensions become valid
+          if (enableDebugLogging) {
+            console.log('🔍 [resizeCanvas] Invalid dimensions detected, main ResizeObserver will handle resize when valid', {
+              container: container.className,
+              currentRect: rect
+            });
+          }
+          return;
+        }
+        
+        // Fallback: Create a temporary observer if main one isn't set up yet
+        // This should rarely happen, but handle it just in case
+        const tempObserver = new ResizeObserver((entries) => {
+          for (const entry of entries) {
+            const newRect = entry.contentRect;
+            if (newRect.width > 0 && newRect.height > 0) {
+              tempObserver.disconnect();
+              
+              // Now resize with valid dimensions
+              canvas.width = newRect.width;
+              canvas.height = newRect.height;
+              canvas.style.width = `${newRect.width}px`;
+              canvas.style.height = `${newRect.height}px`;
+              
+              logRef.current('Canvas resized (after temp ResizeObserver)', { width: newRect.width, height: newRect.height });
+              
+              // Trigger a render after resize
+              if (animationFrameRef.current) {
+                cancelAnimationFrame(animationFrameRef.current);
+              }
+              animationFrameRef.current = requestAnimationFrame(() => {
+                render();
+              });
+              return;
+            }
+          }
+        });
+        
+        tempObserver.observe(container);
+        
+        // Cleanup observer after 5 seconds to prevent memory leaks
+        setTimeout(() => {
+          tempObserver.disconnect();
+        }, 5000);
+        
+        // Only log if debug logging is enabled
+        if (enableDebugLogging) {
+          console.log('🔍 [resizeCanvas] Created temporary ResizeObserver for invalid dimensions', {
+            container: container.className,
+            currentRect: rect
+          });
+        }
+        return;
+      } else {
+        // Fallback: retry after a short delay if ResizeObserver is not available
+        // Only warn if debug logging is enabled
+        if (enableDebugLogging) {
+          console.warn('🔍 [resizeCanvas] Invalid container dimensions, ResizeObserver not available, will retry:', rect);
+        }
+        setTimeout(() => {
+          resizeCanvas();
+        }, 100);
+        return;
+      }
     }
 
     // Direct sizing (no DPR complications) - like the working test grid
@@ -755,16 +894,19 @@ export function useUnifiedMouseInteraction({
     canvas.style.width = `${rect.width}px`;
     canvas.style.height = `${rect.height}px`;
 
-    console.log('🔍 [resizeCanvas] Canvas dimensions after resize:', {
-      styleWidth: canvas.style.width,
-      styleHeight: canvas.style.height,
-      actualWidth: canvas.width,
-      actualHeight: canvas.height,
-      displayWidth: canvas.offsetWidth,
-      displayHeight: canvas.offsetHeight,
-      containerWidth: rect.width,
-      containerHeight: rect.height
-    });
+    if (enableDebugLogging) {
+      console.log('🔍 [resizeCanvas] Canvas dimensions after resize:', {
+        styleWidth: canvas.style.width,
+        styleHeight: canvas.style.height,
+        actualWidth: canvas.width,
+        actualHeight: canvas.height,
+        displayWidth: canvas.offsetWidth,
+        displayHeight: canvas.offsetHeight,
+        containerWidth: rect.width,
+        containerHeight: rect.height,
+        isFullscreenMode
+      });
+    }
 
     // Trigger a render after resize - use ref to avoid circular dependency
     if (animationFrameRef.current) {
@@ -775,7 +917,7 @@ export function useUnifiedMouseInteraction({
     });
 
     logRef.current('Canvas resized', { width: rect.width, height: rect.height });
-  }, [render]); // Include render dependency
+  }, [render, isSSR, enableDebugLogging]); // Include dependencies
 
   // Mouse down handler - convert coordinates properly for world coordinate system
   const handleMouseDown = useCallback((event: MouseEvent) => {
@@ -801,16 +943,20 @@ export function useUnifiedMouseInteraction({
     console.log('🎯 [DRAG DEBUG] Event details:', { clientX: event.clientX, clientY: event.clientY });
     
     // FIRST: Check if clicking on any rotation handle (before panel detection)
-    console.log('🎯 [ROTATION DEBUG] Checking rotation handles for all panels...');
+    if (enableDebugLogging) {
+      console.log('🎯 [ROTATION DEBUG] Checking rotation handles for all panels...');
+    }
     let rotationHandleClicked = false;
     
     for (const panel of panels) {
       if (panel.isValid && isOverRotationHandle(screenX, screenY, panel)) {
-        console.log('🎯 [ROTATION DEBUG] ✅ ROTATION HANDLE CLICKED!', {
-          panelId: panel.id,
-          currentRotation: panel.rotation || 0,
-          mousePos: { x: screenX, y: screenY }
-        });
+        if (enableDebugLogging) {
+          console.log('🎯 [ROTATION DEBUG] ✅ ROTATION HANDLE CLICKED!', {
+            panelId: panel.id,
+            currentRotation: panel.rotation || 0,
+            mousePos: { x: screenX, y: screenY }
+          });
+        }
 
         // Convert screen coordinates to world coordinates for rotation calculation
         const worldPos = getWorldCoordinates(screenX, screenY, canvasState);
@@ -822,12 +968,14 @@ export function useUnifiedMouseInteraction({
         // Calculate the angle from panel center to current mouse position
         const initialAngle = Math.atan2(worldPos.y - panelCenterY, worldPos.x - panelCenterX);
         
-        console.log('🎯 [ROTATION DEBUG] Setup rotation:', {
-          panelCenter: { x: panelCenterX, y: panelCenterY },
-          mouseWorldPos: worldPos,
-          initialAngle: initialAngle * (180 / Math.PI),
-          panelCurrentRotation: panel.rotation || 0
-        });
+        if (enableDebugLogging) {
+          console.log('🎯 [ROTATION DEBUG] Setup rotation:', {
+            panelCenter: { x: panelCenterX, y: panelCenterY },
+            mouseWorldPos: worldPos,
+            initialAngle: initialAngle * (180 / Math.PI),
+            panelCurrentRotation: panel.rotation || 0
+          });
+        }
         
         // Start rotating panel
         mouseStateRef.current = {
@@ -846,12 +994,14 @@ export function useUnifiedMouseInteraction({
         // Also select the panel for visual feedback
         onPanelSelect(panel.id);
         
-        console.log('🎯 [ROTATION DEBUG] Started rotating panel:', {
-          panelId: panel.id,
-          initialAngle: initialAngle * (180 / Math.PI),
-          currentRotation: panel.rotation || 0,
-          mouseState: mouseStateRef.current
-        });
+        if (enableDebugLogging) {
+          console.log('🎯 [ROTATION DEBUG] Started rotating panel:', {
+            panelId: panel.id,
+            initialAngle: initialAngle * (180 / Math.PI),
+            currentRotation: panel.rotation || 0,
+            mouseState: mouseStateRef.current
+          });
+        }
         
         rotationHandleClicked = true;
         return; // Exit early, don't start dragging
@@ -1070,16 +1220,22 @@ export function useUnifiedMouseInteraction({
         dragStart: { x: currentState.dragStartX, y: currentState.dragStartY }
       });
     } else if (currentState.isRotating && currentState.selectedPanelId) {
-      console.log('🎯 [ROTATION DEBUG] 🔄 ROTATING PANEL');
+      if (enableDebugLogging) {
+        console.log('🎯 [ROTATION DEBUG] 🔄 ROTATING PANEL');
+      }
       
       // Convert screen coordinates to world coordinates for rotation calculation
       const worldPos = getWorldCoordinates(screenX, screenY, canvasState);
-      console.log('🎯 [ROTATION DEBUG] World coordinates:', worldPos);
+      if (enableDebugLogging) {
+        console.log('🎯 [ROTATION DEBUG] World coordinates:', worldPos);
+      }
       
       // Find the panel being rotated
       const panel = panels.find(p => p.id === currentState.selectedPanelId);
       if (!panel) {
-        console.log('🎯 [ROTATION DEBUG] ❌ Panel not found for rotation');
+        if (enableDebugLogging) {
+          console.log('🎯 [ROTATION DEBUG] ❌ Panel not found for rotation');
+        }
         return;
       }
       
@@ -1087,8 +1243,10 @@ export function useUnifiedMouseInteraction({
       const panelCenterX = panel.x + panel.width / 2;
       const panelCenterY = panel.y + panel.height / 2;
       
-      console.log('🎯 [ROTATION DEBUG] Panel center:', { panelCenterX, panelCenterY });
-      console.log('🎯 [ROTATION DEBUG] Current panel rotation:', panel.rotation);
+      if (enableDebugLogging) {
+        console.log('🎯 [ROTATION DEBUG] Panel center:', { panelCenterX, panelCenterY });
+        console.log('🎯 [ROTATION DEBUG] Current panel rotation:', panel.rotation);
+      }
       
       // Calculate current angle from panel center to mouse position
       const currentAngle = Math.atan2(worldPos.y - panelCenterY, worldPos.x - panelCenterX);
@@ -1096,7 +1254,9 @@ export function useUnifiedMouseInteraction({
       // Get the initial angle when rotation started
       const initialAngle = currentState.rotationStartAngle;
       if (initialAngle === undefined) {
-        console.log('🎯 [ROTATION DEBUG] ❌ No initial angle stored');
+        if (enableDebugLogging) {
+          console.log('🎯 [ROTATION DEBUG] ❌ No initial angle stored');
+        }
         return;
       }
       
@@ -1118,14 +1278,16 @@ export function useUnifiedMouseInteraction({
       while (newRotation < 0) newRotation += 360;
       while (newRotation >= 360) newRotation -= 360;
       
-      console.log('🎯 [ROTATION DEBUG] Rotation calculation:', {
-        panelId: panel.id,
-        currentAngle: currentAngle * (180 / Math.PI),
-        initialAngle: initialAngle * (180 / Math.PI),
-        angleDelta: rotationDeltaDegrees,
-        originalRotation,
-        newRotation
-      });
+      if (enableDebugLogging) {
+        console.log('🎯 [ROTATION DEBUG] Rotation calculation:', {
+          panelId: panel.id,
+          currentAngle: currentAngle * (180 / Math.PI),
+          initialAngle: initialAngle * (180 / Math.PI),
+          angleDelta: rotationDeltaDegrees,
+          originalRotation,
+          newRotation
+        });
+      }
       
       // Throttle rotation updates to prevent excessive API calls
       const now = performance.now();
@@ -1224,7 +1386,9 @@ export function useUnifiedMouseInteraction({
         duration: clickDuration 
       });
     } else if (currentState.isRotating && currentState.selectedPanelId) {
-      console.log('🎯 [ROTATION DEBUG] ✅ FINISHING PANEL ROTATION');
+      if (enableDebugLogging) {
+        console.log('🎯 [ROTATION DEBUG] ✅ FINISHING PANEL ROTATION');
+      }
       
       // Find the panel being rotated
       const panel = panels.find(p => p.id === currentState.selectedPanelId);
@@ -1237,11 +1401,13 @@ export function useUnifiedMouseInteraction({
         while (finalRotation < 0) finalRotation += 360;
         while (finalRotation >= 360) finalRotation -= 360;
         
-        console.log('🎯 [ROTATION DEBUG] Final rotation with snapping:', {
-          panelId: panel.id,
-          originalRotation: panel.rotation || 0,
-          snappedRotation: finalRotation
-        });
+        if (enableDebugLogging) {
+          console.log('🎯 [ROTATION DEBUG] Final rotation with snapping:', {
+            panelId: panel.id,
+            originalRotation: panel.rotation || 0,
+            snappedRotation: finalRotation
+          });
+        }
         
         // Commit the snapped rotation with complete position data
         await onPanelUpdate(panel.id, {
@@ -1360,26 +1526,34 @@ export function useUnifiedMouseInteraction({
     const screenX = event.clientX - rect.left;
     const screenY = event.clientY - rect.top;
     
-    console.log('🎯 [ROTATION HANDLE DEBUG] Canvas click at:', { screenX, screenY });
+    if (enableDebugLogging) {
+      console.log('🎯 [ROTATION HANDLE DEBUG] Canvas click at:', { screenX, screenY });
+    }
     
     // Check for panel hits (rotation handles are handled in mousedown)
     const clickedPanel = getPanelAtPosition(screenX, screenY);
     if (clickedPanel && onPanelClick) {
-      console.log('🎯 [ROTATION HANDLE DEBUG] Panel clicked, calling onPanelClick:', {
-        id: clickedPanel.id,
-        shape: clickedPanel.shape
-      });
+      if (enableDebugLogging) {
+        console.log('🎯 [ROTATION HANDLE DEBUG] Panel clicked, calling onPanelClick:', {
+          id: clickedPanel.id,
+          shape: clickedPanel.shape
+        });
+      }
       
       // Set the selected panel ID for selection handles
       mouseStateRef.current.selectedPanelId = clickedPanel.id;
-      console.log('🎯 [ROTATION HANDLE DEBUG] Set selectedPanelId:', clickedPanel.id);
+      if (enableDebugLogging) {
+        console.log('🎯 [ROTATION HANDLE DEBUG] Set selectedPanelId:', clickedPanel.id);
+      }
       
       // Trigger a re-render to show selection handles
       render();
       
       onPanelClick(clickedPanel);
     } else {
-      console.log('🎯 [ROTATION HANDLE DEBUG] No panel clicked or onPanelClick not available');
+      if (enableDebugLogging) {
+        console.log('🎯 [ROTATION HANDLE DEBUG] No panel clicked or onPanelClick not available');
+      }
       // Clear selection if no panel clicked
       mouseStateRef.current.selectedPanelId = null;
       // Trigger a re-render to hide selection handles
@@ -1464,35 +1638,61 @@ export function useUnifiedMouseInteraction({
     resizeCanvas();
 
     // ResizeObserver for container size changes
+    // Clean up any existing observer first
+    if (resizeObserverRef.current) {
+      resizeObserverRef.current.disconnect();
+    }
+    
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
-        console.log('🔍 [ResizeObserver] Container size changed:', {
-          width: entry.contentRect.width,
-          height: entry.contentRect.height
-        });
-        resizeCanvas();
+        // Only log if debug logging is enabled
+        if (enableDebugLogging) {
+          console.log('🔍 [ResizeObserver] Container size changed:', {
+            width: entry.contentRect.width,
+            height: entry.contentRect.height
+          });
+        }
+        // Only resize if dimensions are valid
+        if (entry.contentRect.width > 0 && entry.contentRect.height > 0) {
+          resizeCanvas();
+        }
       }
     });
+    
+    resizeObserverRef.current = resizeObserver;
 
-    // Observe the canvas container
-    const container = canvas.parentElement;
+    // Observe the canvas container - find the proper container first
+    let container = canvas.parentElement;
+    // Look for canvas-container or flex-1 parent
+    while (container && !container.classList.contains('canvas-container') && !container.classList.contains('flex-1')) {
+      container = container.parentElement;
+    }
+    if (!container) {
+      container = canvas.parentElement;
+    }
+    
     if (container) {
       resizeObserver.observe(container);
     }
 
     // Window resize handler as fallback
     const handleWindowResize = () => {
-      console.log('🔍 [WindowResize] Window resized');
+      if (enableDebugLogging) {
+        console.log('🔍 [WindowResize] Window resized');
+      }
       resizeCanvas();
     };
 
     window.addEventListener('resize', handleWindowResize);
 
     return () => {
-      resizeObserver.disconnect();
+      if (resizeObserverRef.current) {
+        resizeObserverRef.current.disconnect();
+        resizeObserverRef.current = null;
+      }
       window.removeEventListener('resize', handleWindowResize);
     };
-  }, [canvas, isSSR]); // Remove resizeCanvas dependency - it's stable
+  }, [canvas, isSSR, enableDebugLogging]); // Include enableDebugLogging
 
   // Global mouse up handler (in case mouse leaves canvas)
   useEffect(() => {
