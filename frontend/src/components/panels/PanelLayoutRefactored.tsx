@@ -7,10 +7,19 @@ import { PanelToolbar } from './PanelToolbar';
 import { PanelLayoutErrorBoundary } from './PanelLayoutErrorBoundary';
 import FullscreenLayout from './FullscreenLayout';
 import { Panel } from '@/types/panel';
+import { Patch } from '@/types/patch';
+import { DestructiveTest } from '@/types/destructiveTest';
 
 interface PanelLayoutRefactoredProps {
   panels: Panel[];
   projectId: string;
+  patches?: Patch[];
+  destructiveTests?: DestructiveTest[];
+  visibleTypes?: {
+    panels: boolean;
+    patches: boolean;
+    destructs: boolean;
+  };
   onPanelUpdate?: (panelId: string, updates: Partial<Panel>) => Promise<void>;
   onPanelDelete?: (panelId: string) => void;
   onAddPanel?: () => void;
@@ -41,6 +50,9 @@ interface PanelLayoutRefactoredProps {
 function PanelLayoutContent({
   panels,
   projectId,
+  patches = [],
+  destructiveTests = [],
+  visibleTypes = { panels: true, patches: false, destructs: false },
   onPanelUpdate,
   onPanelDelete,
   onAddPanel,
@@ -129,6 +141,9 @@ function PanelLayoutContent({
         <div className="flex-1 relative canvas-container">
           <PanelCanvas
             panels={panels}
+            patches={patches}
+            destructiveTests={destructiveTests}
+            visibleTypes={visibleTypes}
             onPanelClick={handlePanelClick}
             onPanelDoubleClick={handlePanelDoubleClick}
             onPanelUpdate={handlePanelUpdate}
@@ -154,6 +169,9 @@ function PanelLayoutContent({
 export function PanelLayoutRefactored({
   panels,
   projectId,
+  patches = [],
+  destructiveTests = [],
+  visibleTypes = { panels: true, patches: false, destructs: false },
   onPanelUpdate,
   onPanelDelete,
   onAddPanel,
@@ -171,6 +189,9 @@ export function PanelLayoutRefactored({
         <PanelLayoutContent
           panels={panels}
           projectId={projectId}
+          patches={patches}
+          destructiveTests={destructiveTests}
+          visibleTypes={visibleTypes}
           onPanelUpdate={onPanelUpdate}
           onPanelDelete={onPanelDelete}
           onAddPanel={onAddPanel}

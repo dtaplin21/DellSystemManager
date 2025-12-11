@@ -17,10 +17,8 @@ import { AsbuiltDataProvider } from '@/contexts/AsbuiltDataContext';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { usePatchData } from '@/hooks/usePatchData';
 import CreatePatchModal from '@/components/patches/CreatePatchModal';
-import PatchCanvas from '@/components/patches/PatchCanvas';
 import { useDestructiveTestData } from '@/hooks/useDestructiveTestData';
 import CreateDestructiveTestModal from '@/components/destructive-tests/CreateDestructiveTestModal';
-import DestructiveTestCanvas from '@/components/destructive-tests/DestructiveTestCanvas';
 // FullscreenLayout is now handled inside PanelLayoutComponent
 // Removed useFullscreenState import - will be handled inside PanelLayoutComponent
 import { Panel } from '@/types/panel';
@@ -42,6 +40,13 @@ export default function PanelLayoutRefactored() {
   
   // Tab state
   const [activeTab, setActiveTab] = useState<'panels' | 'patches' | 'destructs'>('panels');
+  
+  // Visibility state - controls what types are visible on the canvas
+  const [visibleTypes, setVisibleTypes] = useState({
+    panels: true,
+    patches: false,
+    destructs: false
+  });
   
   // Modal state
   const [showCreatePanelModal, setShowCreatePanelModal] = useState(false);
@@ -392,33 +397,80 @@ export default function PanelLayoutRefactored() {
         
         {/* Tabs Navigation */}
         {!isLoading && !error && (
-          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'panels' | 'patches' | 'destructs')} className="h-full flex flex-col">
+          <Tabs 
+            value={activeTab} 
+            onValueChange={(value) => {
+              const tab = value as 'panels' | 'patches' | 'destructs';
+              setActiveTab(tab);
+              // Update visibility based on active tab
+              setVisibleTypes({
+                panels: tab === 'panels',
+                patches: tab === 'patches',
+                destructs: tab === 'destructs'
+              });
+            }} 
+            className="h-full flex flex-col"
+          >
             <TabsList className="w-full border-b rounded-none">
               <TabsTrigger value="panels">Panels</TabsTrigger>
               <TabsTrigger value="patches">Patches</TabsTrigger>
               <TabsTrigger value="destructs">Destructive Tests</TabsTrigger>
             </TabsList>
             
-            {/* Panels Tab */}
-            <TabsContent value="panels" className="flex-1 mt-0">
-              {/* Empty state */}
-              {dataState.state === 'empty' && (
+            {/* Unified Canvas - All tabs use the same component with visibility control */}
+            <TabsContent value={activeTab} className="flex-1 mt-0">
+              {/* Empty state for panels tab */}
+              {activeTab === 'panels' && dataState.state === 'empty' && (
                 <EmptyStateFallback 
                   onAddPanel={handleAddTestPanel}
                   onImportLayout={() => console.log('Import layout clicked')}
                 />
               )}
               
-              {/* Loaded state with panels */}
-              {dataState.state === 'loaded' && panels.length > 0 && (
+              {/* Empty state for patches tab */}
+              {activeTab === 'patches' && !patchesLoading && !patchesError && patches.length === 0 && (
+                <div className="flex-1 flex items-center justify-center">
+                  <div className="text-center">
+                    <p className="text-muted-foreground mb-4">No patches yet</p>
+                    <button
+                      onClick={() => setShowCreatePatchModal(true)}
+                      className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                    >
+                      Create First Patch
+                    </button>
+                  </div>
+                </div>
+              )}
+              
+              {/* Empty state for destructive tests tab */}
+              {activeTab === 'destructs' && !destructsLoading && !destructsError && destructiveTests.length === 0 && (
+                <div className="flex-1 flex items-center justify-center">
+                  <div className="text-center">
+                    <p className="text-muted-foreground mb-4">No destructive tests yet</p>
+                    <button
+                      onClick={() => setShowCreateDestructiveTestModal(true)}
+                      className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                    >
+                      Create First Destructive Test
+                    </button>
+                  </div>
+                </div>
+              )}
+              
+              {/* Unified Panel Layout Component - renders all types based on visibility */}
+              {((activeTab === 'panels' && dataState.state === 'loaded') || 
+                (activeTab === 'patches' && !patchesLoading && !patchesError && patches.length > 0) ||
+                (activeTab === 'destructs' && !destructsLoading && !destructsError && destructiveTests.length > 0)) && (
                 <div className="flex-1 w-full relative">
-                  {/* Main panel layout component */}
                   <PanelLayoutComponent
                     panels={panels}
+                    patches={patches}
+                    destructiveTests={destructiveTests}
+                    visibleTypes={visibleTypes}
                     projectId={Array.isArray(params.id) ? params.id[0] || 'unknown' : params.id || 'unknown'}
                     onPanelUpdate={handlePanelPositionUpdate}
                     onPanelDelete={handlePanelDelete}
-                    onAddPanel={handleAddPanel}
+                    onAddPanel={activeTab === 'panels' ? handleAddPanel : undefined}
                     onPanelSelect={handlePanelSelect}
                     onViewFullDetails={handleViewFullDetails}
                     isFullscreen={isFullscreen}
@@ -426,106 +478,31 @@ export default function PanelLayoutRefactored() {
                   />
                 </div>
               )}
-              
-              {/* Loaded state but no panels */}
-              {dataState.state === 'loaded' && panels.length === 0 && (
-                <EmptyStateFallback 
-                  onAddPanel={handleAddTestPanel}
-                  onImportLayout={() => console.log('Import layout clicked')}
-                />
-              )}
-            </TabsContent>
-            
-            {/* Patches Tab */}
-            <TabsContent value="patches" className="flex-1 mt-0">
-              <div className="h-full w-full flex flex-col">
-                <div className="p-4 border-b flex justify-between items-center">
-                  <h3 className="text-lg font-semibold">Patches</h3>
-                  <button
-                    onClick={() => setShowCreatePatchModal(true)}
-                    className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                  >
-                    Add Patch
-                  </button>
-                </div>
-                {patchesLoading ? (
-                  <div className="flex-1 flex items-center justify-center">
-                    <p>Loading patches...</p>
-                  </div>
-                ) : patchesError ? (
-                  <div className="flex-1 flex items-center justify-center">
-                    <p className="text-red-500">Error: {patchesError}</p>
-                  </div>
-                ) : patches.length === 0 ? (
-                  <div className="flex-1 flex items-center justify-center">
-                    <div className="text-center">
-                      <p className="text-muted-foreground mb-4">No patches yet</p>
-                      <button
-                        onClick={() => setShowCreatePatchModal(true)}
-                        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                      >
-                        Create First Patch
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex-1">
-                    <PatchCanvas
-                      patches={patches}
-                      onPatchClick={(patch) => {
-                        console.log('Patch clicked:', patch);
-                      }}
-                    />
-                  </div>
-                )}
-              </div>
-            </TabsContent>
-            
-            {/* Destructive Tests Tab */}
-            <TabsContent value="destructs" className="flex-1 mt-0">
-              <div className="h-full w-full flex flex-col">
-                <div className="p-4 border-b flex justify-between items-center">
-                  <h3 className="text-lg font-semibold">Destructive Tests</h3>
-                  <button
-                    onClick={() => setShowCreateDestructiveTestModal(true)}
-                    className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                  >
-                    Add Destructive Test
-                  </button>
-                </div>
-                {destructsLoading ? (
-                  <div className="flex-1 flex items-center justify-center">
-                    <p>Loading destructive tests...</p>
-                  </div>
-                ) : destructsError ? (
-                  <div className="flex-1 flex items-center justify-center">
-                    <p className="text-red-500">Error: {destructsError}</p>
-                  </div>
-                ) : destructiveTests.length === 0 ? (
-                  <div className="flex-1 flex items-center justify-center">
-                    <div className="text-center">
-                      <p className="text-muted-foreground mb-4">No destructive tests yet</p>
-                      <button
-                        onClick={() => setShowCreateDestructiveTestModal(true)}
-                        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                      >
-                        Create First Destructive Test
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex-1">
-                    <DestructiveTestCanvas
-                      destructiveTests={destructiveTests}
-                      onTestClick={(test) => {
-                        console.log('Destructive test clicked:', test);
-                      }}
-                    />
-                  </div>
-                )}
-              </div>
             </TabsContent>
           </Tabs>
+        )}
+        
+        {/* Action buttons for patches and destructive tests - shown when respective tab is active */}
+        {!isLoading && !error && activeTab === 'patches' && (
+          <div className="absolute top-20 right-4 z-10">
+            <button
+              onClick={() => setShowCreatePatchModal(true)}
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 shadow-lg"
+            >
+              Add Patch
+            </button>
+          </div>
+        )}
+        
+        {!isLoading && !error && activeTab === 'destructs' && (
+          <div className="absolute top-20 right-4 z-10">
+            <button
+              onClick={() => setShowCreateDestructiveTestModal(true)}
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 shadow-lg"
+            >
+              Add Destructive Test
+            </button>
+          </div>
         )}
         
         {/* Create Panel Modal */}

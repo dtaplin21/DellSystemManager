@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useMemo } from 'react';
 import { Panel } from '@/types/panel';
+import { Patch } from '@/types/patch';
+import { DestructiveTest } from '@/types/destructiveTest';
 
 interface MouseState {
   isDragging: boolean;
@@ -25,6 +27,13 @@ interface CanvasState {
 interface UseUnifiedMouseInteractionOptions {
   canvas: HTMLCanvasElement | null;
   panels: Panel[];
+  patches?: Patch[];
+  destructiveTests?: DestructiveTest[];
+  visibleTypes?: {
+    panels: boolean;
+    patches: boolean;
+    destructs: boolean;
+  };
   canvasState: CanvasState;
   onPanelClick?: (panel: Panel) => void;
   onPanelDoubleClick?: (panel: Panel) => void;
@@ -64,6 +73,9 @@ const initialMouseState: MouseState = {
 export function useUnifiedMouseInteraction({
   canvas,
   panels,
+  patches = [],
+  destructiveTests = [],
+  visibleTypes = { panels: true, patches: false, destructs: false },
   canvasState,
   onPanelClick,
   onPanelDoubleClick,
@@ -211,6 +223,68 @@ export function useUnifiedMouseInteraction({
     return null;
   }, [panels, canvasState, getWorldCoordinates]);
 
+  // Patch hit detection - circle collision
+  const getPatchAtPosition = useCallback((screenX: number, screenY: number): Patch | null => {
+    if (!visibleTypes.patches) return null;
+    
+    const worldPos = getWorldCoordinates(screenX, screenY, canvasState);
+    
+    for (let i = patches.length - 1; i >= 0; i--) {
+      const patch = patches[i];
+      
+      if (!patch.isValid) {
+        continue;
+      }
+
+      // Circle collision detection
+      const dx = worldPos.x - patch.x;
+      const dy = worldPos.y - patch.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      
+      if (distance <= patch.radius) {
+        return patch;
+      }
+    }
+    
+    return null;
+  }, [patches, visibleTypes.patches, canvasState, getWorldCoordinates]);
+
+  // Destructive test hit detection - rectangle collision
+  const getDestructiveTestAtPosition = useCallback((screenX: number, screenY: number): DestructiveTest | null => {
+    if (!visibleTypes.destructs) return null;
+    
+    const worldPos = getWorldCoordinates(screenX, screenY, canvasState);
+    
+    for (let i = destructiveTests.length - 1; i >= 0; i--) {
+      const test = destructiveTests[i];
+      
+      if (!test.isValid) {
+        continue;
+      }
+
+      // Rectangle collision detection (accounting for rotation)
+      const rotation = ((test.rotation ?? 0) * Math.PI) / 180;
+      const cos = Math.cos(-rotation);
+      const sin = Math.sin(-rotation);
+      
+      // Translate point to test's local coordinate system
+      const dx = worldPos.x - (test.x + test.width / 2);
+      const dy = worldPos.y - (test.y + test.height / 2);
+      
+      // Rotate point
+      const localX = dx * cos - dy * sin;
+      const localY = dx * sin + dy * cos;
+      
+      // Check if point is within rectangle bounds
+      if (localX >= -test.width / 2 && localX <= test.width / 2 &&
+          localY >= -test.height / 2 && localY <= test.height / 2) {
+        return test;
+      }
+    }
+    
+    return null;
+  }, [destructiveTests, visibleTypes.destructs, canvasState, getWorldCoordinates]);
+
   // Check if mouse is over rotation handle - WORLD COORDINATES APPROACH
   const isOverRotationHandle = useCallback((screenX: number, screenY: number, panel: Panel): boolean => {
     if (!panel.isValid) {
@@ -354,6 +428,106 @@ export function useUnifiedMouseInteraction({
     ctx.restore();
   }, []);
 
+  // Patch drawing function - circles
+  const drawPatch = useCallback((ctx: CanvasRenderingContext2D, patch: Patch) => {
+    const currentState = mouseStateRef.current;
+
+    // Use the in-flight drag position if this patch is being dragged
+    let drawX = patch.x;
+    let drawY = patch.y;
+    if (
+      currentState.isDragging &&
+      currentState.selectedPanelId === patch.id &&
+      currentState.dragCurrentX !== undefined &&
+      currentState.dragCurrentY !== undefined
+    ) {
+      drawX = currentState.dragCurrentX;
+      drawY = currentState.dragCurrentY;
+    }
+
+    const radius = patch.radius;
+    const rotation = ((patch.rotation ?? 0) * Math.PI) / 180;
+
+    // Patch colors - red to distinguish from panels
+    ctx.fillStyle = patch.fill || '#ef4444';
+    ctx.strokeStyle = patch.color || '#b91c1c';
+    ctx.lineWidth = 2;
+
+    ctx.save();
+    ctx.translate(drawX, drawY);
+    ctx.rotate(rotation);
+
+    // Draw circle
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, 0, 2 * Math.PI);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.restore();
+
+    // Draw patch number
+    ctx.save();
+    ctx.translate(drawX, drawY);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '12px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(patch.patchNumber || patch.id, 0, 0);
+    ctx.restore();
+  }, []);
+
+  // Destructive test drawing function - rectangles
+  const drawDestructiveTest = useCallback((ctx: CanvasRenderingContext2D, test: DestructiveTest) => {
+    const currentState = mouseStateRef.current;
+
+    // Use the in-flight drag position if this test is being dragged
+    let drawX = test.x;
+    let drawY = test.y;
+    if (
+      currentState.isDragging &&
+      currentState.selectedPanelId === test.id &&
+      currentState.dragCurrentX !== undefined &&
+      currentState.dragCurrentY !== undefined
+    ) {
+      drawX = currentState.dragCurrentX;
+      drawY = currentState.dragCurrentY;
+    }
+
+    const worldWidth = test.width;
+    const worldHeight = test.height;
+
+    // Destructive test colors - orange/amber to distinguish
+    ctx.fillStyle = test.fill || '#f59e0b';
+    ctx.strokeStyle = test.color || '#d97706';
+    ctx.lineWidth = 2;
+
+    const rotation = ((test.rotation ?? 0) * Math.PI) / 180;
+    const centerX = drawX + worldWidth / 2;
+    const centerY = drawY + worldHeight / 2;
+
+    ctx.save();
+    ctx.translate(centerX, centerY);
+    ctx.rotate(rotation);
+    ctx.translate(-worldWidth / 2, -worldHeight / 2);
+
+    // Draw rectangle
+    ctx.fillRect(0, 0, worldWidth, worldHeight);
+    ctx.strokeRect(0, 0, worldWidth, worldHeight);
+
+    ctx.restore();
+
+    // Draw sample ID
+    ctx.save();
+    ctx.translate(centerX, centerY);
+    ctx.rotate(rotation);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '12px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(test.sampleId || test.id, 0, 0);
+    ctx.restore();
+  }, []);
+
   // Draw selection handles for a panel - WORLD COORDINATES APPROACH
   const drawSelectionHandles = useCallback((ctx: CanvasRenderingContext2D, panel: Panel) => {
     const currentState = mouseStateRef.current;
@@ -429,12 +603,32 @@ export function useUnifiedMouseInteraction({
     // Draw grid first (in unified coordinates)
     drawGrid(ctx, canvas, canvasState);
 
-    // Draw panels directly in unified coordinates (no transformations needed)
-    panels.forEach(panel => {
-      if (panel.isValid) {
-        drawPanel(ctx, panel);
-      }
-    });
+    // Draw panels directly in unified coordinates (if visible)
+    if (visibleTypes.panels) {
+      panels.forEach(panel => {
+        if (panel.isValid) {
+          drawPanel(ctx, panel);
+        }
+      });
+    }
+
+    // Draw patches (circles) if visible
+    if (visibleTypes.patches) {
+      patches.forEach(patch => {
+        if (patch.isValid) {
+          drawPatch(ctx, patch);
+        }
+      });
+    }
+
+    // Draw destructive tests (rectangles) if visible
+    if (visibleTypes.destructs) {
+      destructiveTests.forEach(test => {
+        if (test.isValid) {
+          drawDestructiveTest(ctx, test);
+        }
+      });
+    }
 
     // Draw selection handles for selected panel - BEFORE transformations are restored (world coordinates)
     const selectedPanel = panels.find(p => p.id === mouseStateRef.current.selectedPanelId);
@@ -466,17 +660,19 @@ export function useUnifiedMouseInteraction({
     ctx.restore();
 
     logRef.current('Canvas rendered', { 
-      panelCount: panels.length, 
+      panelCount: panels.length,
+      patchCount: patches.length,
+      destructCount: destructiveTests.length,
       canvasWidth: canvas.width,
       canvasHeight: canvas.height,
       worldOffset: { x: canvasState.worldOffsetX, y: canvasState.worldOffsetY },
       worldScale: canvasState.worldScale
     });
-  }, [canvasState, panels, isSSR, drawSelectionHandles]); // Include actual dependencies
+  }, [canvasState, panels, patches, destructiveTests, visibleTypes, isSSR, drawSelectionHandles, drawPatch, drawDestructiveTest]); // Include actual dependencies
 
   // Render function is now self-contained without circular dependencies
 
-  // Trigger render when panels change (not on every canvasState change)
+  // Trigger render when panels, patches, destructive tests, or visibility changes
   useEffect(() => {
     // SSR Guard: Don't run on server
     if (isSSR) return;
@@ -489,7 +685,7 @@ export function useUnifiedMouseInteraction({
         render();
       });
     }
-  }, [panels, isSSR]); // Removed canvasState from dependencies
+  }, [panels, patches, destructiveTests, visibleTypes, isSSR, render]); // Include all relevant dependencies
 
   // Separate effect for canvas state changes - only re-render if significant change
   useEffect(() => {
@@ -673,6 +869,14 @@ export function useUnifiedMouseInteraction({
     const clickedPanel = getPanelAtPosition(screenX, screenY);
     console.log('🎯 [DRAG DEBUG] Panel hit detection result:', clickedPanel);
 
+    // Check for patch clicks (only if patches tab is active and no panel was clicked)
+    const clickedPatch = !clickedPanel && visibleTypes.patches ? getPatchAtPosition(screenX, screenY) : null;
+    console.log('🎯 [DRAG DEBUG] Patch hit detection result:', clickedPatch);
+
+    // Check for destructive test clicks (only if destructs tab is active and no panel/patch was clicked)
+    const clickedDestruct = !clickedPanel && !clickedPatch && visibleTypes.destructs ? getDestructiveTestAtPosition(screenX, screenY) : null;
+    console.log('🎯 [DRAG DEBUG] Destructive test hit detection result:', clickedDestruct);
+
     if (clickedPanel) {
       console.log('🎯 [DRAG DEBUG] ✅ PANEL CLICKED!', {
         id: clickedPanel.id,
@@ -713,6 +917,68 @@ export function useUnifiedMouseInteraction({
         worldPos: { x: worldPos.x, y: worldPos.y },
         panelPos: { x: clickedPanel.x, y: clickedPanel.y }
       });
+    } else if (clickedPatch) {
+      console.log('🎯 [DRAG DEBUG] ✅ PATCH CLICKED!', {
+        id: clickedPatch.id,
+        position: { x: clickedPatch.x, y: clickedPatch.y },
+        radius: clickedPatch.radius,
+        isValid: clickedPatch.isValid
+      });
+
+      // Convert screen coordinates to world coordinates
+      const worldPos = getWorldCoordinates(screenX, screenY, canvasState);
+      
+      // Start dragging patch
+      mouseStateRef.current = {
+        isDragging: true,
+        isPanning: false,
+        isRotating: false,
+        selectedPanelId: clickedPatch.id,
+        dragStartX: worldPos.x - clickedPatch.x,
+        dragStartY: worldPos.y - clickedPatch.y,
+        lastMouseX: screenX,
+        lastMouseY: screenY,
+      };
+      
+      onPanelSelect(clickedPatch.id);
+      onDragStart?.(clickedPatch.id, worldPos);
+      logRef.current('Started dragging patch', { 
+        patchId: clickedPatch.id, 
+        screenPos: { x: screenX, y: screenY },
+        worldPos: { x: worldPos.x, y: worldPos.y },
+        patchPos: { x: clickedPatch.x, y: clickedPatch.y }
+      });
+    } else if (clickedDestruct) {
+      console.log('🎯 [DRAG DEBUG] ✅ DESTRUCTIVE TEST CLICKED!', {
+        id: clickedDestruct.id,
+        position: { x: clickedDestruct.x, y: clickedDestruct.y },
+        size: { width: clickedDestruct.width, height: clickedDestruct.height },
+        isValid: clickedDestruct.isValid
+      });
+
+      // Convert screen coordinates to world coordinates
+      const worldPos = getWorldCoordinates(screenX, screenY, canvasState);
+      
+      // Start dragging destructive test
+      mouseStateRef.current = {
+        isDragging: true,
+        isPanning: false,
+        isRotating: false,
+        selectedPanelId: clickedDestruct.id,
+        dragStartX: worldPos.x - clickedDestruct.x,
+        dragStartY: worldPos.y - clickedDestruct.y,
+        lastMouseX: screenX,
+        lastMouseY: screenY,
+      };
+      
+      onPanelSelect(clickedDestruct.id);
+      onDragStart?.(clickedDestruct.id, worldPos);
+      logRef.current('Started dragging destructive test', { 
+        testId: clickedDestruct.id, 
+        screenPos: { x: screenX, y: screenY },
+        worldPos: { x: worldPos.x, y: worldPos.y },
+        testPos: { x: clickedDestruct.x, y: clickedDestruct.y }
+      });
     } else {
       console.log('🎯 [DRAG DEBUG] ❌ No panel clicked, starting canvas pan');
       
@@ -736,7 +1002,7 @@ export function useUnifiedMouseInteraction({
       onPanelSelect(null);
       logRef.current('Started panning canvas', { screenX, screenY });
     }
-  }, [canvas, getPanelAtPosition, onPanelSelect, onDragStart, getWorldCoordinates, panels, isOverRotationHandle]);
+  }, [canvas, getPanelAtPosition, getPatchAtPosition, getDestructiveTestAtPosition, visibleTypes, onPanelSelect, onDragStart, getWorldCoordinates, panels, isOverRotationHandle]);
 
   // Mouse move handler - convert coordinates properly for world coordinate system
   const handleMouseMove = useCallback((event: MouseEvent) => {

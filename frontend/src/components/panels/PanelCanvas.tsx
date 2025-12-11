@@ -4,9 +4,18 @@ import React from 'react';
 import { useCanvasState, usePanelState } from '@/contexts/PanelContext';
 import { useUnifiedMouseInteraction } from '@/hooks/useUnifiedMouseInteraction';
 import { Panel } from '@/types/panel';
+import { Patch } from '@/types/patch';
+import { DestructiveTest } from '@/types/destructiveTest';
 
 interface PanelCanvasProps {
   panels: Panel[];
+  patches?: Patch[];
+  destructiveTests?: DestructiveTest[];
+  visibleTypes?: {
+    panels: boolean;
+    patches: boolean;
+    destructs: boolean;
+  };
   onPanelClick?: (panel: Panel) => void;
   onPanelDoubleClick?: (panel: Panel) => void;
   onPanelUpdate?: (panelId: string, updates: Partial<Panel>) => Promise<void>;
@@ -14,7 +23,10 @@ interface PanelCanvasProps {
 }
 
 export function PanelCanvas({ 
-  panels, 
+  panels,
+  patches = [],
+  destructiveTests = [],
+  visibleTypes = { panels: true, patches: false, destructs: false },
   onPanelClick, 
   onPanelDoubleClick,
   onPanelUpdate,
@@ -127,6 +139,9 @@ export function PanelCanvas({
   } = useUnifiedMouseInteraction({
     canvas: canvasRef.current,
     panels: panelsToRender,
+    patches,
+    destructiveTests,
+    visibleTypes,
     canvasState: {
       worldScale: canvasContext.worldScale,
       worldOffsetX: canvasContext.worldOffsetX,
