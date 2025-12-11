@@ -458,7 +458,7 @@ export default function PanelLayoutRefactored() {
               )}
               
               {/* Unified Panel Layout Component - renders all types based on visibility */}
-              {((activeTab === 'panels' && dataState.state === 'loaded') || 
+              {((activeTab === 'panels' && !isLoading && !error && panels.length > 0) || 
                 (activeTab === 'patches' && !patchesLoading && !patchesError && patches.length > 0) ||
                 (activeTab === 'destructs' && !destructsLoading && !destructsError && destructiveTests.length > 0)) && (
                 <div className="flex-1 w-full relative">
