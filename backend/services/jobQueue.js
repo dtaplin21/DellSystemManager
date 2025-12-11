@@ -80,8 +80,14 @@ class JobQueueService {
         logger.warn('[JobQueue] Redis connection closed');
       });
       
-      // Try to connect with timeout
-      const connectPromise = this.redisClient.connect().catch((error) => {
+      // Test connection with PING (lazyConnect will connect automatically)
+      const connectPromise = this.redisClient.ping().then((result) => {
+        if (result !== 'PONG') {
+          throw new Error('Redis PING failed - unexpected response');
+        }
+        logger.info('[JobQueue] Redis connection verified with PING');
+        return result;
+      }).catch((error) => {
         logger.error('[JobQueue] Failed to connect to Redis', {
           error: error.message,
           host: this.redisConfig.host || this.redisConfig.url,
