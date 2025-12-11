@@ -14,9 +14,18 @@ import { PanelLayoutRefactored as PanelLayoutComponent } from '@/components/pane
 import CreatePanelModal from '@/components/panels/CreatePanelModal';
 import PanelSidebar from '@/components/panel-layout/panel-sidebar';
 import { AsbuiltDataProvider } from '@/contexts/AsbuiltDataContext';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { usePatchData } from '@/hooks/usePatchData';
+import CreatePatchModal from '@/components/patches/CreatePatchModal';
+import PatchCanvas from '@/components/patches/PatchCanvas';
+import { useDestructiveTestData } from '@/hooks/useDestructiveTestData';
+import CreateDestructiveTestModal from '@/components/destructive-tests/CreateDestructiveTestModal';
+import DestructiveTestCanvas from '@/components/destructive-tests/DestructiveTestCanvas';
 // FullscreenLayout is now handled inside PanelLayoutComponent
 // Removed useFullscreenState import - will be handled inside PanelLayoutComponent
 import { Panel } from '@/types/panel';
+import { Patch } from '@/types/patch';
+import { DestructiveTest } from '@/types/destructiveTest';
 
 // Progressive enhancement: Start simple, enhance on client
 export default function PanelLayoutRefactored() {
@@ -31,8 +40,35 @@ export default function PanelLayoutRefactored() {
   // Client-side hydration state
   const [isHydrated, setIsHydrated] = useState(false);
   
+  // Tab state
+  const [activeTab, setActiveTab] = useState<'panels' | 'patches' | 'destructs'>('panels');
+  
   // Modal state
   const [showCreatePanelModal, setShowCreatePanelModal] = useState(false);
+  const [showCreatePatchModal, setShowCreatePatchModal] = useState(false);
+  const [showCreateDestructiveTestModal, setShowCreateDestructiveTestModal] = useState(false);
+  
+  // Patch data
+  const {
+    patches,
+    isLoading: patchesLoading,
+    error: patchesError,
+    addPatch,
+    updatePatch,
+    removePatch,
+    refreshData: refreshPatches
+  } = usePatchData({ projectId });
+  
+  // Destructive test data
+  const {
+    destructiveTests,
+    isLoading: destructsLoading,
+    error: destructsError,
+    addDestructiveTest,
+    updateDestructiveTest,
+    removeDestructiveTest,
+    refreshData: refreshDestructs
+  } = useDestructiveTestData({ projectId });
   
   // Sidebar state
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -234,16 +270,9 @@ export default function PanelLayoutRefactored() {
     console.log('🔍 [PanelLayoutRefactored] Creating panel with data:', panelData);
     
     // Set dimensions based on shape
-    let panelWidth, panelHeight;
-    if (panelData.shape === 'patch') {
-      // Patch panels: 13.33ft diameter (30 patches on 400ft panel)
-      panelWidth = 400 / 30; // 13.33 feet
-      panelHeight = 400 / 30; // 13.33 feet
-    } else {
-      // Rectangle and right-triangle panels: use user dimensions
-      panelWidth = panelData.width || 100;
-      panelHeight = panelData.length || 50;
-    }
+    // Rectangle and right-triangle panels: use user dimensions
+    const panelWidth = panelData.width || 100;
+    const panelHeight = panelData.length || 50;
     
     const newPanel: Omit<Panel, 'id'> = {
       shape: panelData.shape || 'rectangle',
@@ -361,38 +390,142 @@ export default function PanelLayoutRefactored() {
           />
         )}
         
-        {/* Empty state */}
-        {dataState.state === 'empty' && (
-          <EmptyStateFallback 
-            onAddPanel={handleAddTestPanel}
-            onImportLayout={() => console.log('Import layout clicked')}
-          />
-        )}
-        
-        {/* Loaded state with panels */}
-        {dataState.state === 'loaded' && panels.length > 0 && (
-          <div className="flex-1 w-full relative">
-            {/* Main panel layout component */}
-            <PanelLayoutComponent
-              panels={panels}
-              projectId={Array.isArray(params.id) ? params.id[0] || 'unknown' : params.id || 'unknown'}
-              onPanelUpdate={handlePanelPositionUpdate}
-              onPanelDelete={handlePanelDelete}
-              onAddPanel={handleAddPanel}
-              onPanelSelect={handlePanelSelect}
-              onViewFullDetails={handleViewFullDetails}
-              isFullscreen={isFullscreen}
-              featureFlags={featureFlags}
-            />
-          </div>
-        )}
-        
-        {/* Loaded state but no panels */}
-        {dataState.state === 'loaded' && panels.length === 0 && (
-          <EmptyStateFallback 
-            onAddPanel={handleAddTestPanel}
-            onImportLayout={() => console.log('Import layout clicked')}
-          />
+        {/* Tabs Navigation */}
+        {!isLoading && !error && (
+          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'panels' | 'patches' | 'destructs')} className="h-full flex flex-col">
+            <TabsList className="w-full border-b rounded-none">
+              <TabsTrigger value="panels">Panels</TabsTrigger>
+              <TabsTrigger value="patches">Patches</TabsTrigger>
+              <TabsTrigger value="destructs">Destructive Tests</TabsTrigger>
+            </TabsList>
+            
+            {/* Panels Tab */}
+            <TabsContent value="panels" className="flex-1 mt-0">
+              {/* Empty state */}
+              {dataState.state === 'empty' && (
+                <EmptyStateFallback 
+                  onAddPanel={handleAddTestPanel}
+                  onImportLayout={() => console.log('Import layout clicked')}
+                />
+              )}
+              
+              {/* Loaded state with panels */}
+              {dataState.state === 'loaded' && panels.length > 0 && (
+                <div className="flex-1 w-full relative">
+                  {/* Main panel layout component */}
+                  <PanelLayoutComponent
+                    panels={panels}
+                    projectId={Array.isArray(params.id) ? params.id[0] || 'unknown' : params.id || 'unknown'}
+                    onPanelUpdate={handlePanelPositionUpdate}
+                    onPanelDelete={handlePanelDelete}
+                    onAddPanel={handleAddPanel}
+                    onPanelSelect={handlePanelSelect}
+                    onViewFullDetails={handleViewFullDetails}
+                    isFullscreen={isFullscreen}
+                    featureFlags={featureFlags}
+                  />
+                </div>
+              )}
+              
+              {/* Loaded state but no panels */}
+              {dataState.state === 'loaded' && panels.length === 0 && (
+                <EmptyStateFallback 
+                  onAddPanel={handleAddTestPanel}
+                  onImportLayout={() => console.log('Import layout clicked')}
+                />
+              )}
+            </TabsContent>
+            
+            {/* Patches Tab */}
+            <TabsContent value="patches" className="flex-1 mt-0">
+              <div className="h-full w-full flex flex-col">
+                <div className="p-4 border-b flex justify-between items-center">
+                  <h3 className="text-lg font-semibold">Patches</h3>
+                  <button
+                    onClick={() => setShowCreatePatchModal(true)}
+                    className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                  >
+                    Add Patch
+                  </button>
+                </div>
+                {patchesLoading ? (
+                  <div className="flex-1 flex items-center justify-center">
+                    <p>Loading patches...</p>
+                  </div>
+                ) : patchesError ? (
+                  <div className="flex-1 flex items-center justify-center">
+                    <p className="text-red-500">Error: {patchesError}</p>
+                  </div>
+                ) : patches.length === 0 ? (
+                  <div className="flex-1 flex items-center justify-center">
+                    <div className="text-center">
+                      <p className="text-muted-foreground mb-4">No patches yet</p>
+                      <button
+                        onClick={() => setShowCreatePatchModal(true)}
+                        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                      >
+                        Create First Patch
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex-1">
+                    <PatchCanvas
+                      patches={patches}
+                      onPatchClick={(patch) => {
+                        console.log('Patch clicked:', patch);
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+            
+            {/* Destructive Tests Tab */}
+            <TabsContent value="destructs" className="flex-1 mt-0">
+              <div className="h-full w-full flex flex-col">
+                <div className="p-4 border-b flex justify-between items-center">
+                  <h3 className="text-lg font-semibold">Destructive Tests</h3>
+                  <button
+                    onClick={() => setShowCreateDestructiveTestModal(true)}
+                    className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                  >
+                    Add Destructive Test
+                  </button>
+                </div>
+                {destructsLoading ? (
+                  <div className="flex-1 flex items-center justify-center">
+                    <p>Loading destructive tests...</p>
+                  </div>
+                ) : destructsError ? (
+                  <div className="flex-1 flex items-center justify-center">
+                    <p className="text-red-500">Error: {destructsError}</p>
+                  </div>
+                ) : destructiveTests.length === 0 ? (
+                  <div className="flex-1 flex items-center justify-center">
+                    <div className="text-center">
+                      <p className="text-muted-foreground mb-4">No destructive tests yet</p>
+                      <button
+                        onClick={() => setShowCreateDestructiveTestModal(true)}
+                        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                      >
+                        Create First Destructive Test
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex-1">
+                    <DestructiveTestCanvas
+                      destructiveTests={destructiveTests}
+                      onTestClick={(test) => {
+                        console.log('Destructive test clicked:', test);
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+          </Tabs>
         )}
         
         {/* Create Panel Modal */}
@@ -400,6 +533,49 @@ export default function PanelLayoutRefactored() {
           <CreatePanelModal
             onClose={() => setShowCreatePanelModal(false)}
             onCreatePanel={handleCreatePanel}
+          />
+        )}
+
+        {/* Create Patch Modal */}
+        {showCreatePatchModal && (
+          <CreatePatchModal
+            onClose={() => setShowCreatePatchModal(false)}
+            onCreatePatch={async (patchData) => {
+              try {
+                await addPatch({
+                  ...patchData,
+                  radius: 6.67, // PATCH_CONFIG.RADIUS
+                  rotation: 0,
+                  isValid: true,
+                  fill: '#ef4444',
+                  color: '#b91c1c'
+                });
+                setShowCreatePatchModal(false);
+              } catch (error) {
+                console.error('Error creating patch:', error);
+              }
+            }}
+          />
+        )}
+
+        {/* Create Destructive Test Modal */}
+        {showCreateDestructiveTestModal && (
+          <CreateDestructiveTestModal
+            onClose={() => setShowCreateDestructiveTestModal(false)}
+            onCreateTest={async (testData) => {
+              try {
+                await addDestructiveTest({
+                  ...testData,
+                  rotation: 0,
+                  isValid: true,
+                  fill: '#f59e0b',
+                  color: '#d97706'
+                });
+                setShowCreateDestructiveTestModal(false);
+              } catch (error) {
+                console.error('Error creating destructive test:', error);
+              }
+            }}
           />
         )}
 

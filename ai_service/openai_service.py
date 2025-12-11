@@ -605,6 +605,17 @@ IMPORTANT ID FORMAT RULES:
 
     async def create_panels_from_forms(self, forms_data: List[Dict[str, Any]], project_id: str = None) -> Dict[str, Any]:
         """
+        Create panels, patches, and destructive tests from form data.
+        
+        Note: Forms can contain:
+        - panel_placement forms -> create Panels
+        - repairs forms -> may create Patches (if repair type indicates patch)
+        - destructive forms -> create Destructive Tests
+        
+        The system now has separate tabs for Panels, Patches, and Destructive Tests.
+        Browser automation should use the appropriate tab and form.
+        """
+        """
         Analyze form data and generate intelligent panel creation instructions.
         
         Args:
@@ -645,17 +656,26 @@ IMPORTANT ID FORMAT RULES:
                 messages=[
                     {
                         "role": "system",
-                        "content": """You are an expert geosynthetic panel layout designer. Your role is to analyze form data and generate intelligent panel creation instructions.
+                        "content": """You are an expert geosynthetic panel layout designer. Your role is to analyze form data and generate intelligent creation instructions for panels, patches, and destructive tests.
+
+The system has three separate types:
+1. **Panels** - Standard panels (rectangles or right-triangles) created in the Panels tab
+2. **Patches** - Circular patches created in the Patches tab (always labeled "Patch", never "Panel")
+3. **Destructive Tests** - Rectangular test samples created in the Destructive Tests tab (format: D-{number})
 
 Analyze the provided forms and:
-1. Identify unique panels that need to be created
-2. Determine optimal panel placement based on form data
-3. Identify repairs that need to be associated with panels
-4. Detect conflicts or duplicates
-5. Provide recommendations for panel layout optimization
+1. Identify unique panels that need to be created (from panel_placement forms)
+2. Identify patches that need to be created (from repairs forms if repair type indicates patch)
+3. Identify destructive tests that need to be created (from destructive forms)
+4. Determine optimal placement based on form data
+5. Identify repairs that need to be associated with panels
+6. Detect conflicts or duplicates
+7. Provide recommendations for layout optimization
 
 Return a JSON object with:
-- panels: Array of panel creation instructions with optimal positioning
+- panels: Array of panel creation instructions with optimal positioning (for Panels tab)
+- patches: Array of patch creation instructions (for Patches tab, always use "Patch" terminology)
+- destructiveTests: Array of destructive test creation instructions (for Destructive Tests tab, format: D-{number})
 - repairs: Array of repair records to associate with panels
 - recommendations: Array of optimization recommendations
 - conflicts: Array of detected conflicts or issues"""
@@ -669,12 +689,14 @@ Forms Data:
 
 Project ID: {project_id or 'N/A'}
 
-Generate intelligent panel creation instructions that:
-1. Create panels from panel_placement forms
-2. Associate repairs with correct panels based on panelNumbers
-3. Optimize panel positioning to avoid overlaps
-4. Handle duplicate panel numbers appropriately
-5. Provide recommendations for layout improvements
+Generate intelligent creation instructions that:
+1. Create panels from panel_placement forms (use Panels tab)
+2. Create patches from repairs forms if repair type indicates patch (use Patches tab, always label as "Patch")
+3. Create destructive tests from destructive forms (use Destructive Tests tab, format: D-{number})
+4. Associate repairs with correct panels based on panelNumbers
+5. Optimize positioning to avoid overlaps
+6. Handle duplicate panel/patch/test numbers appropriately
+7. Provide recommendations for layout improvements
 
 Return valid JSON only."""
                     }

@@ -362,6 +362,10 @@ class AIServiceIntegration:
                     form_notes = f"{defect_description} | severity: {defect.get('severity', 'n/a')}"
                     date_value = datetime.utcnow().strftime("%Y-%m-%d")
                     
+                    # Ensure we're on the Panels tab (not Patches or Destructs)
+                    # The panel layout now has tabs: Panels, Patches, Destructive Tests
+                    # We should be on Panels tab by default, but verify if needed
+                    
                     await click_with_fallback([
                         "button:has-text(\"Add Panel\")",
                         "text=Add Panel"
@@ -380,6 +384,9 @@ class AIServiceIntegration:
                         "button:has-text(\"Create Panel\")",
                         "text=Create Panel"
                     ])
+                    
+                    # Note: For patches, use the Patches tab and "Add Patch" button
+                    # For destructive tests, use the Destructs tab and "Add Destructive Test" button
                     
                     await asyncio.sleep(1)
                     panels_created += 1

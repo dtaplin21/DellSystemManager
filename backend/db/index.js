@@ -696,6 +696,19 @@ async function applyMigrations() {
       });
     }
 
+    // Apply patches and destructive tests columns migration
+    try {
+      const patchesMigrationPath = path.join(__dirname, 'migrations', '008_add_patches_and_destructs.sql');
+      const patchesSql = await fs.readFile(patchesMigrationPath, 'utf8');
+      await client.query(patchesSql);
+      logger.debug('Patches and destructive tests columns migration applied');
+    } catch (patchesErr) {
+      logger.warn('Patches and destructive tests columns migration not applied', {
+        error: { message: patchesErr.message },
+        hint: 'If permissions restrict file reads, run the SQL manually in the DB. The migration file is at backend/db/migrations/008_add_patches_and_destructs.sql'
+      });
+    }
+
     client.release();
     logger.info('Database migrations completed successfully');
   } catch (error) {

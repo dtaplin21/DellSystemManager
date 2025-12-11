@@ -9,7 +9,7 @@ export interface Panel {
   y: number; // World units (feet) - real measurements
   rotation: number; // Remove the ? to make it required, default to 0
   isValid: boolean;
-  shape?: 'rectangle' | 'right-triangle' | 'patch';
+  shape?: 'rectangle' | 'right-triangle';
   // Additional panel properties
   type?: string;
   model?: string;
@@ -65,7 +65,7 @@ export interface PanelPosition {
   x: number;
   y: number;
   rotation: number; // Make rotation required
-  shape?: 'rectangle' | 'right-triangle' | 'patch';
+  shape?: 'rectangle' | 'right-triangle';
 }
 
 export interface PanelPositionMap {
@@ -146,27 +146,7 @@ export function createEmptyPanel(id: string): Panel {
   };
 }
 
-// Patch panel dimensions for 30 patches on 400ft panel
-export const CIRCLE_PANEL_CONFIG = {
-  DIAMETER: 400 / 30, // 13.33 feet diameter
-  RADIUS: (400 / 30) / 2, // 6.67 feet radius
-  WIDTH: 400 / 30, // Same as diameter for bounding box
-  HEIGHT: 400 / 30 // Same as diameter for bounding box
-} as const;
-
-// Utility function to create a patch panel with correct dimensions
-export function createCirclePanel(id: string, x: number, y: number): Panel {
-  return {
-    id,
-    width: CIRCLE_PANEL_CONFIG.WIDTH,
-    height: CIRCLE_PANEL_CONFIG.HEIGHT,
-    x,
-    y,
-    rotation: 0,
-    isValid: true,
-    shape: 'patch'
-  };
-}
+// Note: Patch-related utilities have been moved to frontend/src/types/patch.ts
 
 // Utility function to create a right triangle panel
 export function createRightTrianglePanel(id: string, x: number, y: number, width: number, height: number): Panel {

@@ -12,7 +12,7 @@ interface CreatePanelModalProps {
     width: number
     rollNumber: string
     location: string
-    shape: 'rectangle' | 'right-triangle' | 'patch'
+    shape: 'rectangle' | 'right-triangle'
     rotation?: number
     points?: number[]
     radius?: number
@@ -30,7 +30,7 @@ export default function CreatePanelModal({
     width: 40,
     rollNumber: '',
     location: '',
-    shape: 'rectangle' as 'rectangle' | 'right-triangle' | 'patch',
+    shape: 'rectangle' as 'rectangle' | 'right-triangle',
     rotation: 0
   })
 
@@ -40,7 +40,7 @@ export default function CreatePanelModal({
     const newErrors: Record<string, string> = {}
     
     if (!panelData.panelNumber) {
-      newErrors.panelNumber = panelData.shape === 'patch' ? 'Patch number is required' : 'Panel number is required'
+      newErrors.panelNumber = 'Panel number is required'
     }
     
     if (panelData.length <= 0) {
@@ -51,8 +51,7 @@ export default function CreatePanelModal({
       newErrors.width = 'Width must be greater than 0'
     }
     
-    // Only require roll number for non-patch shapes
-    if (panelData.shape !== 'patch' && !panelData.rollNumber) {
+    if (!panelData.rollNumber) {
       newErrors.rollNumber = 'Roll number is required'
     }
 
@@ -108,7 +107,7 @@ export default function CreatePanelModal({
             
             <div>
               <label className="block mb-1">
-                {panelData.shape === 'patch' ? 'Patch Number' : 'Panel Number'} *
+                Panel Number *
                 {errors.panelNumber && (
                   <span className="text-red-500 ml-1 text-sm">{errors.panelNumber}</span>
                 )}
@@ -119,80 +118,62 @@ export default function CreatePanelModal({
                 value={panelData.panelNumber}
                 onChange={handleChange}
                 className={`w-full p-2 border rounded ${errors.panelNumber ? 'border-red-500' : ''}`}
-                placeholder={panelData.shape === 'patch' ? "e.g. PATCH-01" : "e.g. PA-01"}
+                placeholder="e.g. PA-01"
               />
             </div>
             
-            {/* Dimensions - conditional based on shape */}
-            {panelData.shape === 'patch' ? (
-              <div>
-                <label className="block mb-1">Patch Dimensions</label>
-                <div className="bg-gray-50 p-3 rounded border">
-                  <div className="text-sm text-gray-600">
-                    <div>Diameter: 13.33 ft</div>
-                    <div>Radius: 6.67 ft</div>
-                    <div className="text-xs mt-1">Fixed size for 30 patches on 400ft panel</div>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <>
-                <div>
-                  <label className="block mb-1">
-                    Length (ft) *
-                    {errors.length && (
-                      <span className="text-red-500 ml-1 text-sm">{errors.length}</span>
-                    )}
-                  </label>
-                  <input
-                    type="number"
-                    name="length"
-                    value={panelData.length}
-                    onChange={handleChange}
-                    className={`w-full p-2 border rounded ${errors.length ? 'border-red-500' : ''}`}
-                    min="1"
-                    step="0.5"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block mb-1">
-                    Width (ft) *
-                    {errors.width && (
-                      <span className="text-red-500 ml-1 text-sm">{errors.width}</span>
-                    )}
-                  </label>
-                  <input
-                    type="number"
-                    name="width"
-                    value={panelData.width}
-                    onChange={handleChange}
-                    className={`w-full p-2 border rounded ${errors.width ? 'border-red-500' : ''}`}
-                    min="1"
-                    step="0.5"
-                  />
-                </div>
-              </>
-            )}
+            <div>
+              <label className="block mb-1">
+                Length (ft) *
+                {errors.length && (
+                  <span className="text-red-500 ml-1 text-sm">{errors.length}</span>
+                )}
+              </label>
+              <input
+                type="number"
+                name="length"
+                value={panelData.length}
+                onChange={handleChange}
+                className={`w-full p-2 border rounded ${errors.length ? 'border-red-500' : ''}`}
+                min="1"
+                step="0.5"
+              />
+            </div>
             
-            {panelData.shape !== 'patch' && (
-              <div>
-                <label className="block mb-1">
-                  Roll Number *
-                  {errors.rollNumber && (
-                    <span className="text-red-500 ml-1 text-sm">{errors.rollNumber}</span>
-                  )}
-                </label>
-                <input
-                  type="text"
-                  name="rollNumber"
-                  value={panelData.rollNumber}
-                  onChange={handleChange}
-                  className={`w-full p-2 border rounded ${errors.rollNumber ? 'border-red-500' : ''}`}
-                  placeholder="e.g. R-101"
-                />
-              </div>
-            )}
+            <div>
+              <label className="block mb-1">
+                Width (ft) *
+                {errors.width && (
+                  <span className="text-red-500 ml-1 text-sm">{errors.width}</span>
+                )}
+              </label>
+              <input
+                type="number"
+                name="width"
+                value={panelData.width}
+                onChange={handleChange}
+                className={`w-full p-2 border rounded ${errors.width ? 'border-red-500' : ''}`}
+                min="1"
+                step="0.5"
+              />
+            </div>
+            
+            <div>
+              <label className="block mb-1">
+                Roll Number *
+                {errors.rollNumber && (
+                  <span className="text-red-500 ml-1 text-sm">{errors.rollNumber}</span>
+                )}
+              </label>
+              <input
+                type="text"
+                name="rollNumber"
+                value={panelData.rollNumber}
+                onChange={handleChange}
+                className={`w-full p-2 border rounded ${errors.rollNumber ? 'border-red-500' : ''}`}
+                placeholder="e.g. R-101"
+              />
+            </div>
             
             <div>
               <label className="block mb-1">Shape</label>
@@ -204,7 +185,6 @@ export default function CreatePanelModal({
               >
                 <option value="rectangle">Rectangle</option>
                 <option value="right-triangle">Right Triangle</option>
-                <option value="patch">Patch</option>
               </select>
             </div>
             

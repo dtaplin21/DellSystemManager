@@ -182,13 +182,8 @@ export function useCanvas({
     ctx.translate(-width / 2, -height / 2);
 
     // Panel colors
-    if (panel.shape === 'patch') {
-      ctx.fillStyle = '#ef4444'; // Red for patches
-      ctx.strokeStyle = '#b91c1c'; // Darker red for stroke
-    } else {
-      ctx.fillStyle = '#87CEEB';
-      ctx.strokeStyle = '#1e40af';
-    }
+    ctx.fillStyle = '#87CEEB';
+    ctx.strokeStyle = '#1e40af';
     ctx.lineWidth = 0.1;
 
     // Draw different shapes based on panel.shape
@@ -209,17 +204,6 @@ export function useCanvas({
         ctx.lineTo(points[2].x, points[2].y)
         ctx.closePath()
         ctx.fill()
-        ctx.stroke();
-        break;
-        
-      case 'patch':
-        // Draw circle - use width as diameter for consistent sizing
-        const radius = width / 2;
-        const centerX = width / 2;
-        const centerY = height / 2;
-        ctx.beginPath();
-        ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
-        ctx.fill();
         ctx.stroke();
         break;
         

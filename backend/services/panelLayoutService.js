@@ -83,24 +83,16 @@ class PanelLayoutService {
       }
 
       // Validate panel shape
-      const validShapes = ['rectangle', 'right-triangle', 'patch'];
+      const validShapes = ['rectangle', 'right-triangle'];
       const panelShape = panelData.shape || panelData.properties?.shape || 'rectangle';
       
       if (!validShapes.includes(panelShape)) {
         throw new Error(`Invalid panel shape: ${panelShape}. Must be one of: ${validShapes.join(', ')}`);
       }
 
-      // Set default dimensions based on shape
-      let defaultWidth, defaultHeight;
-      if (panelShape === 'patch') {
-        // Patch panels: 13.33ft diameter (30 patches on 400ft panel)
-        defaultWidth = 400 / 30; // 13.33 feet
-        defaultHeight = 400 / 30; // 13.33 feet
-      } else {
-        // Rectangle and right-triangle panels: standard dimensions
-        defaultWidth = 40;
-        defaultHeight = 100;
-      }
+      // Set default dimensions for rectangle and right-triangle panels
+      const defaultWidth = 40;
+      const defaultHeight = 100;
 
       // Create new panel with unique UUID
       const newPanel = {
@@ -109,9 +101,7 @@ class PanelLayoutService {
         panelNumber: panelData.panel_number || panelData.panelNumber || `${currentPanels.length + 1}`,
         height: panelData.dimensions?.height || panelData.height_feet || panelData.height || defaultHeight,
         width: panelData.dimensions?.width || panelData.width_feet || panelData.width || defaultWidth,
-        rollNumber: panelShape === 'patch' 
-          ? (panelData.roll_number || panelData.rollNumber || 'N/A') 
-          : (panelData.roll_number || panelData.rollNumber || `R-${100 + currentPanels.length + 1}`),
+        rollNumber: panelData.roll_number || panelData.rollNumber || `R-${100 + currentPanels.length + 1}`,
         location: panelData.properties?.location || 'AI Generated',
         x: panelData.position?.x || panelData.x || (currentPanels.length * 400 + 200),
         y: panelData.position?.y || panelData.y || (Math.floor(currentPanels.length / 5) * 300 + 200),
@@ -737,6 +727,435 @@ class PanelLayoutService {
     // Combine material and labor efficiency, preserving all properties
     const materialOptimized = this.optimizeMaterialEfficiency(panels);
     return this.optimizeGridLayout(materialOptimized, spacing);
+  }
+
+  // ==================== PATCH METHODS ====================
+
+  /**
+   * Get all patches for a project
+   */
+  async getPatches(projectId) {
+    try {
+      const [existingLayout] = await db
+        .select()
+        .from(panelLayouts)
+        .where(eq(panelLayouts.projectId, projectId));
+
+      if (!existingLayout) {
+        return [];
+      }
+
+      let currentPatches = [];
+      try {
+        if (Array.isArray(existingLayout.patches)) {
+          currentPatches = existingLayout.patches;
+        } else if (typeof existingLayout.patches === 'string') {
+          currentPatches = JSON.parse(existingLayout.patches || '[]');
+        }
+      } catch (error) {
+        console.error('Error parsing patches in getPatches:', error);
+        return [];
+      }
+
+      return currentPatches;
+    } catch (error) {
+      console.error('Error getting patches:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Create a patch
+   */
+  async createPatch(projectId, patchData) {
+    try {
+      const [project] = await db
+        .select()
+        .from(projects)
+        .where(eq(projects.id, projectId));
+
+      if (!project) {
+        throw new Error('Project not found');
+      }
+
+      let [existingLayout] = await db
+        .select()
+        .from(panelLayouts)
+        .where(eq(panelLayouts.projectId, projectId));
+
+      let currentPatches = [];
+      if (existingLayout) {
+        try {
+          if (Array.isArray(existingLayout.patches)) {
+            currentPatches = existingLayout.patches;
+          } else if (typeof existingLayout.patches === 'string') {
+            currentPatches = JSON.parse(existingLayout.patches || '[]');
+          }
+        } catch (error) {
+          console.error('Error parsing existing patches:', error);
+          currentPatches = [];
+        }
+      }
+
+      const PATCH_RADIUS = (400 / 30) / 2; // 6.67 feet radius
+      const newPatch = {
+        id: uuidv4(),
+        x: patchData.x || (currentPatches.length * 50 + 100),
+        y: patchData.y || (Math.floor(currentPatches.length / 5) * 50 + 100),
+        radius: PATCH_RADIUS,
+        rotation: patchData.rotation || 0,
+        isValid: true,
+        patchNumber: patchData.patchNumber || `PATCH-${currentPatches.length + 1}`,
+        date: patchData.date || new Date().toISOString().slice(0, 10),
+        location: patchData.location || '',
+        notes: patchData.notes || '',
+        fill: '#ef4444', // Red color
+        color: '#b91c1c',
+        material: patchData.material || 'HDPE',
+        thickness: patchData.thickness || 60,
+      };
+
+      currentPatches.push(newPatch);
+
+      if (existingLayout) {
+        await db
+          .update(panelLayouts)
+          .set({
+            patches: currentPatches,
+            lastUpdated: new Date()
+          })
+          .where(eq(panelLayouts.projectId, projectId));
+      } else {
+        await db.insert(panelLayouts).values({
+          id: uuidv4(),
+          projectId,
+          panels: [],
+          patches: currentPatches,
+          destructiveTests: [],
+          width: project.layoutWidth || 4000,
+          height: project.layoutHeight || 4000,
+          scale: project.scale || 1,
+          lastUpdated: new Date()
+        });
+      }
+
+      return newPatch;
+    } catch (error) {
+      console.error('Error creating patch:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update a patch
+   */
+  async updatePatch(projectId, patchId, updates) {
+    try {
+      const [existingLayout] = await db
+        .select()
+        .from(panelLayouts)
+        .where(eq(panelLayouts.projectId, projectId));
+
+      if (!existingLayout) {
+        throw new Error('Panel layout not found');
+      }
+
+      let currentPatches = [];
+      try {
+        if (Array.isArray(existingLayout.patches)) {
+          currentPatches = existingLayout.patches;
+        } else if (typeof existingLayout.patches === 'string') {
+          currentPatches = JSON.parse(existingLayout.patches || '[]');
+        }
+      } catch (error) {
+        console.error('Error parsing patches in updatePatch:', error);
+        throw error;
+      }
+
+      const patchIndex = currentPatches.findIndex(p => p.id === patchId);
+      if (patchIndex === -1) {
+        throw new Error('Patch not found');
+      }
+
+      currentPatches[patchIndex] = {
+        ...currentPatches[patchIndex],
+        ...updates
+      };
+
+      await db
+        .update(panelLayouts)
+        .set({
+          patches: currentPatches,
+          lastUpdated: new Date()
+        })
+        .where(eq(panelLayouts.projectId, projectId));
+
+      return currentPatches[patchIndex];
+    } catch (error) {
+      console.error('Error updating patch:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete a patch
+   */
+  async deletePatch(projectId, patchId) {
+    try {
+      const [existingLayout] = await db
+        .select()
+        .from(panelLayouts)
+        .where(eq(panelLayouts.projectId, projectId));
+
+      if (!existingLayout) {
+        throw new Error('Panel layout not found');
+      }
+
+      let currentPatches = [];
+      try {
+        if (Array.isArray(existingLayout.patches)) {
+          currentPatches = existingLayout.patches;
+        } else if (typeof existingLayout.patches === 'string') {
+          currentPatches = JSON.parse(existingLayout.patches || '[]');
+        }
+      } catch (error) {
+        console.error('Error parsing patches in deletePatch:', error);
+        throw error;
+      }
+
+      const filteredPatches = currentPatches.filter(p => p.id !== patchId);
+      if (filteredPatches.length === currentPatches.length) {
+        throw new Error('Patch not found');
+      }
+
+      await db
+        .update(panelLayouts)
+        .set({
+          patches: filteredPatches,
+          lastUpdated: new Date()
+        })
+        .where(eq(panelLayouts.projectId, projectId));
+
+      return true;
+    } catch (error) {
+      console.error('Error deleting patch:', error);
+      throw error;
+    }
+  }
+
+  // ==================== DESTRUCTIVE TEST METHODS ====================
+
+  /**
+   * Get all destructive tests for a project
+   */
+  async getDestructiveTests(projectId) {
+    try {
+      const [existingLayout] = await db
+        .select()
+        .from(panelLayouts)
+        .where(eq(panelLayouts.projectId, projectId));
+
+      if (!existingLayout) {
+        return [];
+      }
+
+      let currentTests = [];
+      try {
+        if (Array.isArray(existingLayout.destructiveTests)) {
+          currentTests = existingLayout.destructiveTests;
+        } else if (typeof existingLayout.destructiveTests === 'string') {
+          currentTests = JSON.parse(existingLayout.destructiveTests || '[]');
+        }
+      } catch (error) {
+        console.error('Error parsing destructive tests in getDestructiveTests:', error);
+        return [];
+      }
+
+      return currentTests;
+    } catch (error) {
+      console.error('Error getting destructive tests:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Create a destructive test
+   */
+  async createDestructiveTest(projectId, testData) {
+    try {
+      const [project] = await db
+        .select()
+        .from(projects)
+        .where(eq(projects.id, projectId));
+
+      if (!project) {
+        throw new Error('Project not found');
+      }
+
+      let [existingLayout] = await db
+        .select()
+        .from(panelLayouts)
+        .where(eq(panelLayouts.projectId, projectId));
+
+      let currentTests = [];
+      if (existingLayout) {
+        try {
+          if (Array.isArray(existingLayout.destructiveTests)) {
+            currentTests = existingLayout.destructiveTests;
+          } else if (typeof existingLayout.destructiveTests === 'string') {
+            currentTests = JSON.parse(existingLayout.destructiveTests || '[]');
+          }
+        } catch (error) {
+          console.error('Error parsing existing destructive tests:', error);
+          currentTests = [];
+        }
+      }
+
+      const newTest = {
+        id: uuidv4(),
+        x: testData.x || (currentTests.length * 100 + 200),
+        y: testData.y || (Math.floor(currentTests.length / 5) * 100 + 200),
+        width: testData.width || 20,
+        height: testData.height || 20,
+        rotation: testData.rotation || 0,
+        isValid: true,
+        sampleId: testData.sampleId || `D-${currentTests.length + 1}`,
+        date: testData.date || new Date().toISOString().slice(0, 10),
+        testResult: testData.testResult || 'pending',
+        notes: testData.notes || '',
+        location: testData.location || '',
+        fill: '#f59e0b', // Orange/amber color
+        color: '#d97706',
+        material: testData.material || 'HDPE',
+        thickness: testData.thickness || 60,
+      };
+
+      currentTests.push(newTest);
+
+      if (existingLayout) {
+        await db
+          .update(panelLayouts)
+          .set({
+            destructiveTests: currentTests,
+            lastUpdated: new Date()
+          })
+          .where(eq(panelLayouts.projectId, projectId));
+      } else {
+        await db.insert(panelLayouts).values({
+          id: uuidv4(),
+          projectId,
+          panels: [],
+          patches: [],
+          destructiveTests: currentTests,
+          width: project.layoutWidth || 4000,
+          height: project.layoutHeight || 4000,
+          scale: project.scale || 1,
+          lastUpdated: new Date()
+        });
+      }
+
+      return newTest;
+    } catch (error) {
+      console.error('Error creating destructive test:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update a destructive test
+   */
+  async updateDestructiveTest(projectId, testId, updates) {
+    try {
+      const [existingLayout] = await db
+        .select()
+        .from(panelLayouts)
+        .where(eq(panelLayouts.projectId, projectId));
+
+      if (!existingLayout) {
+        throw new Error('Panel layout not found');
+      }
+
+      let currentTests = [];
+      try {
+        if (Array.isArray(existingLayout.destructiveTests)) {
+          currentTests = existingLayout.destructiveTests;
+        } else if (typeof existingLayout.destructiveTests === 'string') {
+          currentTests = JSON.parse(existingLayout.destructiveTests || '[]');
+        }
+      } catch (error) {
+        console.error('Error parsing destructive tests in updateDestructiveTest:', error);
+        throw error;
+      }
+
+      const testIndex = currentTests.findIndex(t => t.id === testId);
+      if (testIndex === -1) {
+        throw new Error('Destructive test not found');
+      }
+
+      currentTests[testIndex] = {
+        ...currentTests[testIndex],
+        ...updates
+      };
+
+      await db
+        .update(panelLayouts)
+        .set({
+          destructiveTests: currentTests,
+          lastUpdated: new Date()
+        })
+        .where(eq(panelLayouts.projectId, projectId));
+
+      return currentTests[testIndex];
+    } catch (error) {
+      console.error('Error updating destructive test:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete a destructive test
+   */
+  async deleteDestructiveTest(projectId, testId) {
+    try {
+      const [existingLayout] = await db
+        .select()
+        .from(panelLayouts)
+        .where(eq(panelLayouts.projectId, projectId));
+
+      if (!existingLayout) {
+        throw new Error('Panel layout not found');
+      }
+
+      let currentTests = [];
+      try {
+        if (Array.isArray(existingLayout.destructiveTests)) {
+          currentTests = existingLayout.destructiveTests;
+        } else if (typeof existingLayout.destructiveTests === 'string') {
+          currentTests = JSON.parse(existingLayout.destructiveTests || '[]');
+        }
+      } catch (error) {
+        console.error('Error parsing destructive tests in deleteDestructiveTest:', error);
+        throw error;
+      }
+
+      const filteredTests = currentTests.filter(t => t.id !== testId);
+      if (filteredTests.length === currentTests.length) {
+        throw new Error('Destructive test not found');
+      }
+
+      await db
+        .update(panelLayouts)
+        .set({
+          destructiveTests: filteredTests,
+          lastUpdated: new Date()
+        })
+        .where(eq(panelLayouts.projectId, projectId));
+
+      return true;
+    } catch (error) {
+      console.error('Error deleting destructive test:', error);
+      throw error;
+    }
   }
 }
 

@@ -180,13 +180,8 @@ export function useOptimizedRendering({
     const isSelected = selectedPanelId === panel.id;
     
     // Panel colors
-    if (panel.shape === 'patch') {
-      ctx.fillStyle = '#ef4444'; // Red for patches
-      ctx.strokeStyle = isSelected ? '#dc2626' : '#b91c1c'; // Darker red for stroke
-    } else {
-      ctx.fillStyle = isSelected ? '#ef4444' : panel.color || '#87CEEB';
-      ctx.strokeStyle = isSelected ? '#dc2626' : '#1e40af';
-    }
+    ctx.fillStyle = isSelected ? '#ef4444' : panel.color || '#87CEEB';
+    ctx.strokeStyle = isSelected ? '#dc2626' : '#1e40af';
     ctx.lineWidth = Math.max(0.5, 2 / scale);
     
     // Apply rotation for all shapes
@@ -221,17 +216,6 @@ export function useOptimizedRendering({
         ctx.closePath()
         ctx.fill()
         ctx.stroke()
-        break;
-        
-      case 'patch':
-        // Draw circle - use width as diameter for consistent sizing
-        const radius = panel.width / 2;
-        const circleCenterX = panel.width / 2;
-        const circleCenterY = panel.height / 2;
-        ctx.beginPath();
-        ctx.arc(circleCenterX, circleCenterY, radius, 0, 2 * Math.PI);
-        ctx.fill();
-        ctx.stroke();
         break;
         
       case 'rectangle':

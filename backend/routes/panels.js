@@ -11,6 +11,7 @@ const { projects, panelLayouts } = require('../db/schema');
 const { eq, and } = require('drizzle-orm');
 const { wsSendToRoom } = require('../services/websocket');
 const config = require('../config/env');
+const panelLayoutService = require('../services/panelLayoutService');
 
 // Constants for default layout
 const DEFAULT_LAYOUT_WIDTH = 4000;
@@ -61,7 +62,7 @@ const validatePanel = (panel) => {
   
   // Validate panel shape if present
   if (panel.shape !== undefined) {
-    const validShapes = ['rectangle', 'right-triangle', 'patch'];
+    const validShapes = ['rectangle', 'right-triangle'];
     if (!validShapes.includes(panel.shape)) {
       console.warn('❌ Panel validation failed - invalid shape:', {
         panel: panel.project_id || 'unknown',
@@ -1008,6 +1009,106 @@ router.post('/populate-from-analysis/:projectId', auth, async (req, res, next) =
     });
   } catch (error) {
     console.error('❌ [POPULATE PANELS] Error:', error);
+    next(error);
+  }
+});
+
+// ==================== PATCH ENDPOINTS ====================
+
+// Get all patches for a project
+router.get('/:projectId/patches', auth, async (req, res, next) => {
+  try {
+    const { projectId } = req.params;
+    const patches = await panelLayoutService.getPatches(projectId);
+    res.json({ success: true, patches });
+  } catch (error) {
+    console.error('Error getting patches:', error);
+    next(error);
+  }
+});
+
+// Create a patch
+router.post('/:projectId/patches', auth, async (req, res, next) => {
+  try {
+    const { projectId } = req.params;
+    const patch = await panelLayoutService.createPatch(projectId, req.body);
+    res.status(201).json({ success: true, patch });
+  } catch (error) {
+    console.error('Error creating patch:', error);
+    next(error);
+  }
+});
+
+// Update a patch
+router.put('/:projectId/patches/:patchId', auth, async (req, res, next) => {
+  try {
+    const { projectId, patchId } = req.params;
+    const patch = await panelLayoutService.updatePatch(projectId, patchId, req.body);
+    res.json({ success: true, patch });
+  } catch (error) {
+    console.error('Error updating patch:', error);
+    next(error);
+  }
+});
+
+// Delete a patch
+router.delete('/:projectId/patches/:patchId', auth, async (req, res, next) => {
+  try {
+    const { projectId, patchId } = req.params;
+    await panelLayoutService.deletePatch(projectId, patchId);
+    res.json({ success: true, message: 'Patch deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting patch:', error);
+    next(error);
+  }
+});
+
+// ==================== DESTRUCTIVE TEST ENDPOINTS ====================
+
+// Get all destructive tests for a project
+router.get('/:projectId/destructive-tests', auth, async (req, res, next) => {
+  try {
+    const { projectId } = req.params;
+    const destructiveTests = await panelLayoutService.getDestructiveTests(projectId);
+    res.json({ success: true, destructiveTests });
+  } catch (error) {
+    console.error('Error getting destructive tests:', error);
+    next(error);
+  }
+});
+
+// Create a destructive test
+router.post('/:projectId/destructive-tests', auth, async (req, res, next) => {
+  try {
+    const { projectId } = req.params;
+    const destructiveTest = await panelLayoutService.createDestructiveTest(projectId, req.body);
+    res.status(201).json({ success: true, destructiveTest });
+  } catch (error) {
+    console.error('Error creating destructive test:', error);
+    next(error);
+  }
+});
+
+// Update a destructive test
+router.put('/:projectId/destructive-tests/:testId', auth, async (req, res, next) => {
+  try {
+    const { projectId, testId } = req.params;
+    const destructiveTest = await panelLayoutService.updateDestructiveTest(projectId, testId, req.body);
+    res.json({ success: true, destructiveTest });
+  } catch (error) {
+    console.error('Error updating destructive test:', error);
+    next(error);
+  }
+});
+
+// Delete a destructive test
+router.delete('/:projectId/destructive-tests/:testId', auth, async (req, res, next) => {
+  try {
+    const { projectId, testId } = req.params;
+    await panelLayoutService.deleteDestructiveTest(projectId, testId);
+    res.json({ success: true, message: 'Destructive test deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting destructive test:', error);
     next(error);
   }
 });

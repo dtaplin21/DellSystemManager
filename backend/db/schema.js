@@ -43,6 +43,8 @@ const panelLayouts = pgTable('panel_layouts', {
   id: uuid('id').primaryKey(),
   projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
   panels: jsonb('panels').notNull().default('[]'), // JSON data for better performance and validation
+  patches: jsonb('patches').notNull().default('[]'), // Patches (circles) - separate from panels
+  destructiveTests: jsonb('destructive_tests').notNull().default('[]'), // Destructive tests (rectangles)
   width: decimal('width').notNull().default('4000'),
   height: decimal('height').notNull().default('4000'),
   scale: decimal('scale').notNull().default('1.0'),

@@ -178,13 +178,6 @@ export function useUnifiedMouseInteraction({
 
       let isHit = false;
       switch (panel.shape) {
-        case 'patch': {
-          const radius = panel.width / 2;
-          const dx = localPos.x - radius;
-          const dy = localPos.y - radius;
-          isHit = dx * dx + dy * dy <= radius * radius;
-          break;
-        }
         case 'right-triangle': {
           const withinBounds = localPos.x >= 0 && localPos.x <= panel.width &&
             localPos.y >= 0 && localPos.y <= panel.height;
@@ -313,13 +306,8 @@ export function useUnifiedMouseInteraction({
     const worldHeight = panel.height;
 
     // Panel colors
-    if (panel.shape === 'patch') {
-      ctx.fillStyle = '#ef4444'; // Red for patches
-      ctx.strokeStyle = '#b91c1c'; // Darker red for stroke
-    } else {
-      ctx.fillStyle = panel.fill || '#87CEEB';
-      ctx.strokeStyle = '#1e40af';
-    }
+    ctx.fillStyle = panel.fill || '#87CEEB';
+    ctx.strokeStyle = '#1e40af';
     ctx.lineWidth = 2;
     
     const rotation = ((panel.rotation ?? 0) * Math.PI) / 180;
@@ -343,16 +331,6 @@ export function useUnifiedMouseInteraction({
         ctx.lineTo(points[1].x, points[1].y);
         ctx.lineTo(points[2].x, points[2].y);
         ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
-        break;
-      }
-      case 'patch': {
-        const radius = worldWidth / 2;
-        const circleCenterX = worldWidth / 2;
-        const circleCenterY = worldHeight / 2;
-        ctx.beginPath();
-        ctx.arc(circleCenterX, circleCenterY, radius, 0, 2 * Math.PI);
         ctx.fill();
         ctx.stroke();
         break;
