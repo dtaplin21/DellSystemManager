@@ -42,21 +42,12 @@ export default function PanelLayoutRefactored() {
   const [activeTab, setActiveTab] = useState<'panels' | 'patches' | 'destructs'>('panels');
   
   // Visibility state - controls what types are visible on the canvas
-  // Initialize based on activeTab to ensure consistency
-  const [visibleTypes, setVisibleTypes] = useState({
+  // All types are always visible on the unified canvas
+  const [visibleTypes] = useState({
     panels: true,
-    patches: false,
-    destructs: false
+    patches: true,
+    destructs: true
   });
-  
-  // Ensure visibleTypes stays in sync with activeTab
-  useEffect(() => {
-    setVisibleTypes({
-      panels: activeTab === 'panels',
-      patches: activeTab === 'patches',
-      destructs: activeTab === 'destructs'
-    });
-  }, [activeTab]);
   
   // Modal state
   const [showCreatePanelModal, setShowCreatePanelModal] = useState(false);
@@ -285,7 +276,7 @@ export default function PanelLayoutRefactored() {
     console.log('🔍 [PanelLayoutRefactored] Creating panel with data:', panelData);
     
     // Set dimensions based on shape
-    // Rectangle and right-triangle panels: use user dimensions
+      // Rectangle and right-triangle panels: use user dimensions
     const panelWidth = panelData.width || 100;
     const panelHeight = panelData.length || 50;
     
@@ -417,12 +408,8 @@ export default function PanelLayoutRefactored() {
             onValueChange={(value) => {
               const tab = value as 'panels' | 'patches' | 'destructs';
               setActiveTab(tab);
-              // Update visibility based on active tab
-              setVisibleTypes({
-                panels: tab === 'panels',
-                patches: tab === 'patches',
-                destructs: tab === 'destructs'
-              });
+              // Tabs control which creation modal opens, not visibility
+              // All types remain visible on the unified canvas
             }} 
             className="h-full flex flex-col min-h-0"
           >
@@ -437,12 +424,12 @@ export default function PanelLayoutRefactored() {
               {/* Empty state for panels tab - only show if truly no panels AND canvas is not rendering */}
               {/* Note: We show the canvas even when empty (like fullscreen), so empty state is only for initial load */}
               {activeTab === 'panels' && !isLoading && !error && panels.length === 0 && dataState.state === 'empty' && (
-                <EmptyStateFallback 
-                  onAddPanel={handleAddTestPanel}
-                  onImportLayout={() => console.log('Import layout clicked')}
-                />
-              )}
-              
+          <EmptyStateFallback 
+            onAddPanel={handleAddTestPanel}
+            onImportLayout={() => console.log('Import layout clicked')}
+          />
+        )}
+        
               {/* Empty state for patches tab */}
               {activeTab === 'patches' && !patchesLoading && !patchesError && patches.length === 0 && (
                 <div className="flex-1 flex items-center justify-center">
@@ -526,14 +513,14 @@ export default function PanelLayoutRefactored() {
                 return shouldRender;
               })() && (
                 <div className="flex-1 w-full relative min-h-0">
-                  <PanelLayoutComponent
-                    panels={panels}
+            <PanelLayoutComponent
+              panels={panels}
                     patches={patches}
                     destructiveTests={destructiveTests}
                     visibleTypes={visibleTypes}
-                    projectId={Array.isArray(params.id) ? params.id[0] || 'unknown' : params.id || 'unknown'}
-                    onPanelUpdate={handlePanelPositionUpdate}
-                    onPanelDelete={handlePanelDelete}
+              projectId={Array.isArray(params.id) ? params.id[0] || 'unknown' : params.id || 'unknown'}
+              onPanelUpdate={handlePanelPositionUpdate}
+              onPanelDelete={handlePanelDelete}
                     onAddPanel={activeTab === 'panels' ? handleAddPanel : undefined}
                     onCreatePanel={handleCreatePanel}
                     onAddPatch={async (patchData) => {
@@ -565,11 +552,11 @@ export default function PanelLayoutRefactored() {
                         throw error;
                       }
                     }}
-                    onPanelSelect={handlePanelSelect}
-                    onViewFullDetails={handleViewFullDetails}
-                    isFullscreen={isFullscreen}
-                    featureFlags={featureFlags}
-                  />
+              onPanelSelect={handlePanelSelect}
+              onViewFullDetails={handleViewFullDetails}
+              isFullscreen={isFullscreen}
+              featureFlags={featureFlags}
+            />
                 </div>
               )}
             </TabsContent>
