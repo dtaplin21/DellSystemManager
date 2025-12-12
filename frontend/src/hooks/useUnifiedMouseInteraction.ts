@@ -1176,6 +1176,19 @@ export function useUnifiedMouseInteraction({
     console.log('🎯 [DRAG DEBUG] Current mouse state:', currentState);
 
     if (currentState.isDragging && currentState.selectedPanelId) {
+      // Validate panel still exists before continuing drag
+      const panel = panels.find(p => p.id === currentState.selectedPanelId);
+      if (!panel) {
+        console.warn('⚠️ [handleMouseMove] Panel no longer exists, canceling drag:', currentState.selectedPanelId);
+        // Clear drag state
+        mouseStateRef.current = {
+          ...initialMouseState,
+          lastMouseX: screenX,
+          lastMouseY: screenY
+        };
+        return;
+      }
+      
       console.log('🎯 [DRAG DEBUG] 🔄 DRAGGING PANEL');
       
       // Convert screen coordinates to world coordinates for panel position
@@ -1355,6 +1368,21 @@ export function useUnifiedMouseInteraction({
     if (currentState.isDragging && currentState.selectedPanelId) {
       console.log('🎯 [DRAG DEBUG] ✅ FINISHING PANEL DRAG');
       
+      // Validate panel still exists before trying to update
+      const panel = panels.find(p => p.id === currentState.selectedPanelId);
+      if (!panel) {
+        console.warn('⚠️ [handleMouseUp] Panel no longer exists, canceling drag:', currentState.selectedPanelId);
+        console.warn('⚠️ [handleMouseUp] Available panel IDs:', panels.map(p => p.id));
+        // Clear drag state
+        mouseStateRef.current = {
+          ...initialMouseState,
+          lastMouseX: 0,
+          lastMouseY: 0
+        };
+        onDragEnd?.();
+        return;
+      }
+      
       // Now commit the final panel position change
       if (currentState.dragCurrentX !== undefined && currentState.dragCurrentY !== undefined) {
         console.log('🎯 [DRAG DEBUG] Committing panel position:', {
@@ -1362,9 +1390,8 @@ export function useUnifiedMouseInteraction({
           finalPos: { x: currentState.dragCurrentX, y: currentState.dragCurrentY }
         });
         
-        // Find the panel to get its current rotation
-        const panel = panels.find(p => p.id === currentState.selectedPanelId);
-        const currentRotation = panel?.rotation || 0;
+        // Use the panel's current rotation
+        const currentRotation = panel.rotation || 0;
         
         await onPanelUpdate(currentState.selectedPanelId, {
           x: currentState.dragCurrentX,
@@ -1390,38 +1417,48 @@ export function useUnifiedMouseInteraction({
         console.log('🎯 [ROTATION DEBUG] ✅ FINISHING PANEL ROTATION');
       }
       
-      // Find the panel being rotated
+      // Validate panel still exists before trying to update
       const panel = panels.find(p => p.id === currentState.selectedPanelId);
-      if (panel) {
-        // Apply 15-degree snapping to final rotation
-        let finalRotation = panel.rotation || 0;
-        finalRotation = Math.round(finalRotation / 15) * 15;
-        
-        // Normalize to 0-360 range
-        while (finalRotation < 0) finalRotation += 360;
-        while (finalRotation >= 360) finalRotation -= 360;
-        
-        if (enableDebugLogging) {
-          console.log('🎯 [ROTATION DEBUG] Final rotation with snapping:', {
-            panelId: panel.id,
-            originalRotation: panel.rotation || 0,
-            snappedRotation: finalRotation
-          });
-        }
-        
-        // Commit the snapped rotation with complete position data
-        await onPanelUpdate(panel.id, {
-          x: panel.x,
-          y: panel.y,
-          rotation: finalRotation
-        });
-        
-        logRef.current('Finished rotating panel', { 
-          panelId: currentState.selectedPanelId,
-          finalRotation: finalRotation,
-          duration: clickDuration 
+      if (!panel) {
+        console.warn('⚠️ [handleMouseUp] Panel no longer exists, canceling rotation:', currentState.selectedPanelId);
+        // Clear rotation state
+        mouseStateRef.current = {
+          ...initialMouseState,
+          lastMouseX: 0,
+          lastMouseY: 0
+        };
+        onDragEnd?.();
+        return;
+      }
+      
+      // Apply 15-degree snapping to final rotation
+      let finalRotation = panel.rotation || 0;
+      finalRotation = Math.round(finalRotation / 15) * 15;
+      
+      // Normalize to 0-360 range
+      while (finalRotation < 0) finalRotation += 360;
+      while (finalRotation >= 360) finalRotation -= 360;
+      
+      if (enableDebugLogging) {
+        console.log('🎯 [ROTATION DEBUG] Final rotation with snapping:', {
+          panelId: panel.id,
+          originalRotation: panel.rotation || 0,
+          snappedRotation: finalRotation
         });
       }
+      
+      // Commit the snapped rotation with complete position data
+      await onPanelUpdate(panel.id, {
+        x: panel.x,
+        y: panel.y,
+        rotation: finalRotation
+      });
+      
+      logRef.current('Finished rotating panel', { 
+        panelId: currentState.selectedPanelId,
+        finalRotation: finalRotation,
+        duration: clickDuration 
+      });
     } else if (currentState.isPanning) {
       console.log('🎯 [DRAG DEBUG] ✅ FINISHING CANVAS PAN');
       logRef.current('Finished panning canvas', { duration: clickDuration });
@@ -1432,7 +1469,7 @@ export function useUnifiedMouseInteraction({
     // Reset mouse state
     console.log('🎯 [DRAG DEBUG] Resetting mouse state to initial state');
     mouseStateRef.current = initialMouseState;
-  }, [canvas, onDragEnd, onPanelUpdate]);
+  }, [canvas, onDragEnd, onPanelUpdate, panels, enableDebugLogging]);
 
   // Throttle zoom updates to prevent excessive state changes
   const zoomThrottleRef = useRef<number>();

@@ -21,7 +21,7 @@ import {
   FileText,
   Image,
   Trash2,
-  Sync,
+  Repeat,
   FileDown
 } from 'lucide-react';
 import { AsbuiltRecord, AsbuiltSummary, ASBUILT_DOMAINS } from '@/types/asbuilt';
@@ -202,12 +202,39 @@ export default function AsbuiltPageContent() {
         method: 'POST'
       });
 
-      if (response.success) {
-        alert(`Sync completed successfully!\n\nPanels created: ${response.summary?.panelsCreated || 0}\nRepairs added: ${response.summary?.repairsAdded || 0}\nSeaming updated: ${response.summary?.seamingUpdated || 0}`);
+      type SyncResponse = {
+        success?: boolean;
+        summary?: {
+          panelsCreated?: number;
+          repairsAdded?: number;
+          seamingUpdated?: number;
+        };
+        error?: string;
+      };
+
+      let data: SyncResponse | null = null;
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        console.warn('⚠️ [ASBUILT] Sync response was not JSON:', parseError);
+      }
+
+      if (!response.ok) {
+        throw new Error(data?.error || `Sync failed (${response.status})`);
+      }
+
+      if (data?.success) {
+        const summary = data.summary || {};
+        alert(
+          `Sync completed successfully!\n\n` +
+          `Panels created: ${summary.panelsCreated || 0}\n` +
+          `Repairs added: ${summary.repairsAdded || 0}\n` +
+          `Seaming updated: ${summary.seamingUpdated || 0}`
+        );
         // Refresh data after sync
         refreshAllData(projectId);
       } else {
-        throw new Error(response.error || 'Sync failed');
+        throw new Error(data?.error || 'Sync failed');
       }
     } catch (error: any) {
       console.error('❌ [ASBUILT] Failed to sync forms to panel layout:', error);
@@ -510,7 +537,7 @@ export default function AsbuiltPageContent() {
             className="bg-green-600 hover:bg-green-700"
             title="Sync forms to panel layout"
           >
-            <Sync className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+            <Repeat className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
             {syncing ? 'Syncing...' : 'Sync to Panel Layout'}
           </Button>
           <Button

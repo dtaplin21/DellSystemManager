@@ -12,7 +12,7 @@ interface CreatePanelModalProps {
     width: number
     rollNumber: string
     location: string
-    shape: 'rectangle' | 'right-triangle'
+    shape: 'rectangle' | 'right-triangle' | 'patch'
     rotation?: number
     points?: number[]
     radius?: number
@@ -30,7 +30,7 @@ export default function CreatePanelModal({
     width: 40,
     rollNumber: '',
     location: '',
-    shape: 'rectangle' as 'rectangle' | 'right-triangle',
+    shape: 'rectangle' as 'rectangle' | 'right-triangle' | 'patch',
     rotation: 0
   })
 

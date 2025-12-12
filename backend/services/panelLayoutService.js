@@ -162,11 +162,9 @@ class PanelLayoutService {
         throw new Error('Invalid panelId: must be a non-empty string');
       }
 
-      // Check if panel exists before attempting to move
-      const panelExists = await this.checkPanelExists(projectId, panelId);
-      if (!panelExists) {
-        throw new Error(`Panel with ID '${panelId}' does not exist in this project`);
-      }
+      // Note: We skip the early checkPanelExists check here to allow the detailed
+      // panel search logic (below) to run, which provides better logging and
+      // more comprehensive matching (exact ID, rollNumber, panelNumber, generated pattern)
 
       // Validate newPosition data
       if (!newPosition || typeof newPosition !== 'object') {

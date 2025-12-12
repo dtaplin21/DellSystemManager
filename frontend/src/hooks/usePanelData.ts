@@ -394,14 +394,58 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
 
   // Atomic panel position update with robust authentication
   const updatePanelPosition = useCallback(async (panelId: string, position: { x: number; y: number; rotation: number }) => {
-    // Update local state immediately for responsive UI
+    // Validate panel exists in local state
     setDataState(prev => {
       if (prev.state !== 'loaded') return prev;
+      
+      const panel = prev.panels.find(p => p.id === panelId);
+      if (!panel) {
+        console.error('⚠️ [updatePanelPosition] Panel not found in local state:', panelId);
+        console.error('⚠️ [updatePanelPosition] Available panel IDs:', prev.panels.map(p => p.id));
+        return prev; // Don't update if panel doesn't exist locally
+      }
+      
+      // Check if it's a local-only panel (never saved to backend)
+      // Local panels have IDs like: 'local-panel-...' or 'panel-{timestamp}-{random}'
+      const isLocalOnly = panelId.startsWith('local-panel-') || 
+                         (panelId.startsWith('panel-') && !panelId.includes(projectId));
+      
+      if (isLocalOnly) {
+        console.warn('⚠️ [updatePanelPosition] Panel is local-only, skipping backend update:', panelId);
+        // Still update local state for UI responsiveness, but don't send to backend
+        const updatedPanels = prev.panels.map(p =>
+          p.id === panelId 
+            ? { ...p, ...position, isValid: true }
+            : p
+        );
+        
+        // Update localStorage
+        if (flags.ENABLE_PERSISTENCE) {
+          const positionMap: PanelPositionMap = {};
+          updatedPanels.forEach(p => {
+            positionMap[p.id] = {
+              x: p.x,
+              y: p.y,
+              rotation: p.rotation,
+              shape: p.shape
+            };
+          });
+          saveToLocalStorage(positionMap);
+        }
+        
+        debugLog(`Updated local-only panel ${panelId} position locally`, position);
+        return {
+          ...prev,
+          panels: updatedPanels,
+          lastUpdated: Date.now()
+        };
+      }
 
-      const updatedPanels = prev.panels.map(panel =>
-        panel.id === panelId 
-          ? { ...panel, ...position, isValid: true }
-          : panel
+      // Update local state immediately for responsive UI
+      const updatedPanels = prev.panels.map(p =>
+        p.id === panelId 
+          ? { ...p, ...position, isValid: true }
+          : p
       );
 
       // Update localStorage atomically
@@ -426,6 +470,27 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
         lastUpdated: Date.now()
       };
     });
+
+    // Get current panel state to check if it's local-only
+    // Note: We need to check the current state, not the updated state
+    const currentPanel = dataState.state === 'loaded' 
+      ? dataState.panels.find(p => p.id === panelId)
+      : null;
+    
+    if (!currentPanel) {
+      console.error('⚠️ [updatePanelPosition] Panel not found in current state:', panelId);
+      return;
+    }
+    
+    // Check if it's a local-only panel (never saved to backend)
+    // Local panels have IDs like: 'local-panel-...' or 'panel-{timestamp}-{random}' (without projectId)
+    const isLocalOnly = panelId.startsWith('local-panel-') || 
+                       (panelId.startsWith('panel-') && !panelId.includes(projectId));
+    
+    if (isLocalOnly) {
+      debugLog('Panel is local-only, skipping backend update', { panelId, position });
+      return; // Local panels can't be moved in backend
+    }
 
     // Only attempt backend save if authenticated
     console.log('[usePanelData] Auth state check:', { 
@@ -463,6 +528,47 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
       const apiError = error as any;
       let userMessage = 'Failed to save panel position';
       
+      // Check if the error is because the panel doesn't exist in the backend
+      const errorMessage = apiError.message || '';
+      const isPanelNotFound = errorMessage.includes('does not exist') || 
+                             errorMessage.includes('not found') ||
+                             (apiError.status === 500 && errorMessage.includes('Panel'));
+      
+      if (isPanelNotFound) {
+        console.warn('⚠️ [updatePanelPosition] Panel does not exist in backend, removing from local state:', panelId);
+        userMessage = 'Panel was deleted from server. Removing from view.';
+        
+        // Remove the panel from local state since it doesn't exist in backend
+        setDataState(prev => {
+          if (prev.state !== 'loaded') return prev;
+          
+          const filteredPanels = prev.panels.filter(p => p.id !== panelId);
+          
+          // Update localStorage to remove the deleted panel
+          if (flags.ENABLE_PERSISTENCE) {
+            const positionMap: PanelPositionMap = {};
+            filteredPanels.forEach(panel => {
+              positionMap[panel.id] = {
+                x: panel.x,
+                y: panel.y,
+                rotation: panel.rotation,
+                shape: panel.shape
+              };
+            });
+            saveToLocalStorage(positionMap);
+          }
+          
+          return {
+            ...prev,
+            panels: filteredPanels,
+            lastUpdated: Date.now()
+          };
+        });
+        
+        debugLog(`Removed non-existent panel from state: ${panelId}`);
+        return; // Don't show error message, panel has been removed
+      }
+      
       if (apiError.isAuthError) {
         userMessage = 'Authentication expired. Panel saved locally only.';
         // Optionally trigger re-authentication flow
@@ -474,7 +580,7 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
       console.warn(userMessage);
       debugLog(`Backend update failed: ${userMessage}`, { panelId, position, error: apiError.message });
     }
-  }, [projectId, flags.ENABLE_PERSISTENCE, saveToLocalStorage, debugLog, authState.isAuthenticated]);
+  }, [projectId, flags.ENABLE_PERSISTENCE, saveToLocalStorage, debugLog, authState.isAuthenticated, dataState.panels, dataState.state]);
 
   // Add new panel
   const addPanel = useCallback(async (panelData: Omit<Panel, 'id'>) => {

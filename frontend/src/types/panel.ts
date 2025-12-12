@@ -9,7 +9,7 @@ export interface Panel {
   y: number; // World units (feet) - real measurements
   rotation: number; // Remove the ? to make it required, default to 0
   isValid: boolean;
-  shape?: 'rectangle' | 'right-triangle';
+  shape?: 'rectangle' | 'right-triangle' | 'patch';
   // Additional panel properties
   type?: string;
   model?: string;
@@ -65,7 +65,7 @@ export interface PanelPosition {
   x: number;
   y: number;
   rotation: number; // Make rotation required
-  shape?: 'rectangle' | 'right-triangle';
+  shape?: 'rectangle' | 'right-triangle' | 'patch';
 }
 
 export interface PanelPositionMap {
