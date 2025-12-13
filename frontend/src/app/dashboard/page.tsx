@@ -43,7 +43,16 @@ export default function Dashboard() {
           setProjects([]);
         }
       } catch (error) {
-        console.error('Error fetching projects:', error);
+        // Log the full error details for debugging
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        console.error('Error fetching projects:', errorMessage, error);
+        
+        // The error should already have a user-friendly message from makeAuthenticatedRequest
+        // but we can add additional context here if needed
+        if (errorMessage.includes('Cannot connect to backend')) {
+          console.warn('⚠️ Backend server appears to be offline. Please start the backend server.');
+        }
+        
         setProjects([]);
       } finally {
         setIsLoading(false);

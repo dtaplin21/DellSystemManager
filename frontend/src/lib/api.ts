@@ -57,6 +57,12 @@ export const checkBackendHealth = async (): Promise<boolean> => {
 
 
 export async function makeAuthenticatedRequest(url: string, options: RequestInit = {}): Promise<Response> {
+  // Normalize URL early so it's available in error handling
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  const requestUrl = /^https?:\/\//i.test(url)
+    ? url
+    : `${BACKEND_URL.replace(/\/+$/, '')}/${url.replace(/^\/+/, '')}`;
+  
   try {
     console.log('🔍 [AUTH] === makeAuthenticatedRequest START ===');
     console.log('🔍 [AUTH] Request URL:', url);
@@ -66,12 +72,6 @@ export async function makeAuthenticatedRequest(url: string, options: RequestInit
       body: options.body ? 'Present' : 'None',
       cache: options.cache
     });
-    
-    // Check if we're in development mode
-    const isDevelopment = process.env.NODE_ENV === 'development';
-    const requestUrl = /^https?:\/\//i.test(url)
-      ? url
-      : `${BACKEND_URL.replace(/\/+$/, '')}/${url.replace(/^\/+/, '')}`;
     
     console.log('🔍 [AUTH] Normalized Request URL:', requestUrl);
     
@@ -86,19 +86,31 @@ export async function makeAuthenticatedRequest(url: string, options: RequestInit
           headers.set('Authorization', `Bearer ${session.access_token}`);
           headers.set('Content-Type', 'application/json');
           
-          const response = await fetch(requestUrl, {
-            method: options.method || 'GET',
-            ...options,
-            headers
-          });
+          // Add timeout to prevent hanging requests
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), config.backend.timeout || 10000);
           
-          console.log('🔍 [AUTH] Real auth response received:', {
-            status: response.status,
-            statusText: response.statusText,
-            ok: response.ok
-          });
-          
-          return response;
+          try {
+            const response = await fetch(requestUrl, {
+              method: options.method || 'GET',
+              ...options,
+              headers,
+              signal: controller.signal
+            });
+            
+            clearTimeout(timeoutId);
+            
+            console.log('🔍 [AUTH] Real auth response received:', {
+              status: response.status,
+              statusText: response.statusText,
+              ok: response.ok
+            });
+            
+            return response;
+          } catch (fetchError) {
+            clearTimeout(timeoutId);
+            throw fetchError;
+          }
         }
       } catch (error) {
         console.warn('🔧 [DEV] Real auth failed, falling back to bypass:', error);
@@ -114,20 +126,33 @@ export async function makeAuthenticatedRequest(url: string, options: RequestInit
       
       console.log('🔍 [AUTH] Development bypass headers:', headers);
       
-      const response = await fetch(requestUrl, {
-        method: options.method || 'GET',
-        ...options,
-        headers
-      });
+      // Add timeout to prevent hanging requests
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), config.backend.timeout || 10000);
       
-      console.log('🔍 [AUTH] Development bypass response received:', {
-        status: response.status,
-        statusText: response.statusText,
-        ok: response.ok,
-        headers: Object.fromEntries(response.headers.entries())
-      });
-      
-      return response;
+      try {
+        const response = await fetch(requestUrl, {
+          method: options.method || 'GET',
+          ...options,
+          headers,
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        console.log('🔍 [AUTH] Development bypass response received:', {
+          status: response.status,
+          statusText: response.statusText,
+          ok: response.ok,
+          headers: Object.fromEntries(response.headers.entries())
+        });
+        
+        return response;
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        // Re-throw to let outer catch handle with better error messages
+        throw fetchError;
+      }
     }
     
     // Get the current session
@@ -156,24 +181,67 @@ export async function makeAuthenticatedRequest(url: string, options: RequestInit
     
     // Make the request
     console.log('🔍 [AUTH] Sending authenticated request...');
-    const response = await fetch(requestUrl, {
-      method: options.method || 'GET',
-      ...options,
-      headers
-    });
     
-    console.log('🔍 [AUTH] Response received:', {
-      status: response.status,
-      statusText: response.statusText,
-      ok: response.ok,
-      headers: Object.fromEntries(response.headers.entries())
-    });
+    // Add timeout to prevent hanging requests
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), config.backend.timeout || 10000);
     
-    console.log('🔍 [AUTH] === makeAuthenticatedRequest END ===');
-    return response;
+    try {
+      const response = await fetch(requestUrl, {
+        method: options.method || 'GET',
+        ...options,
+        headers,
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      console.log('🔍 [AUTH] Response received:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        headers: Object.fromEntries(response.headers.entries())
+      });
+      
+      console.log('🔍 [AUTH] === makeAuthenticatedRequest END ===');
+      return response;
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      throw fetchError;
+    }
     
   } catch (error) {
     console.error('❌ [AUTH] makeAuthenticatedRequest error:', error);
+    
+    // Provide better error messages for common network issues
+    // Check for network errors (Failed to fetch can be TypeError or DOMException)
+    const isNetworkError = (error instanceof TypeError && error.message === 'Failed to fetch') ||
+                          (error instanceof Error && error.message === 'Failed to fetch') ||
+                          (error instanceof DOMException && error.message.includes('fetch'));
+    
+    if (isNetworkError) {
+      const backendUrl = requestUrl.split('/api')[0] || BACKEND_URL;
+      const errorMessage = `Cannot connect to backend server at ${backendUrl}. Please ensure the backend is running on port ${backendUrl.includes('8003') ? '8003' : 'the configured port'}.`;
+      console.error('❌ [AUTH] Network error details:', {
+        backendUrl,
+        requestUrl,
+        errorType: error?.constructor?.name,
+        errorMessage: error instanceof Error ? error.message : String(error)
+      });
+      const networkError = new Error(errorMessage);
+      (networkError as any).originalError = error;
+      throw networkError;
+    }
+    
+    // Handle timeout/abort errors
+    if (error instanceof Error && (error.name === 'AbortError' || error.name === 'TimeoutError')) {
+      const errorMessage = `Request to ${requestUrl} timed out after ${config.backend.timeout || 10000}ms. The backend may be slow or unresponsive.`;
+      console.error('❌ [AUTH] Request timeout:', errorMessage);
+      const timeoutError = new Error(errorMessage);
+      (timeoutError as any).originalError = error;
+      throw timeoutError;
+    }
+    
     throw error;
   }
 }
