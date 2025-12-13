@@ -520,6 +520,20 @@ export default function PanelLayoutRefactored() {
                     visibleTypes={visibleTypes}
               projectId={Array.isArray(params.id) ? params.id[0] || 'unknown' : params.id || 'unknown'}
               onPanelUpdate={handlePanelPositionUpdate}
+              onPatchUpdate={async (patchId, updates) => {
+                try {
+                  await updatePatch(patchId, updates);
+                } catch (error) {
+                  console.error('Error updating patch:', error);
+                }
+              }}
+              onDestructiveTestUpdate={async (testId, updates) => {
+                try {
+                  await updateDestructiveTest(testId, updates);
+                } catch (error) {
+                  console.error('Error updating destructive test:', error);
+                }
+              }}
               onPanelDelete={handlePanelDelete}
                     onAddPanel={activeTab === 'panels' ? handleAddPanel : undefined}
                     onCreatePanel={handleCreatePanel}

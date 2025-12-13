@@ -21,6 +21,8 @@ interface PanelLayoutRefactoredProps {
     destructs: boolean;
   };
   onPanelUpdate?: (panelId: string, updates: Partial<Panel>) => Promise<void>;
+  onPatchUpdate?: (patchId: string, updates: Partial<Patch>) => Promise<void>;
+  onDestructiveTestUpdate?: (testId: string, updates: Partial<DestructiveTest>) => Promise<void>;
   onPanelDelete?: (panelId: string) => void;
   onAddPanel?: () => void;
   onCreatePanel?: (panelData: any) => Promise<void>;
@@ -82,6 +84,16 @@ function PanelLayoutContent({
   const handlePanelUpdate = async (panelId: string, updates: Partial<Panel>) => {
     console.log('Panel updated:', panelId, updates);
     await onPanelUpdate?.(panelId, updates);
+  };
+
+  const handlePatchUpdate = async (patchId: string, updates: Partial<Patch>) => {
+    console.log('Patch updated:', patchId, updates);
+    await onPatchUpdate?.(patchId, updates);
+  };
+
+  const handleDestructiveTestUpdate = async (testId: string, updates: Partial<DestructiveTest>) => {
+    console.log('Destructive test updated:', testId, updates);
+    await onDestructiveTestUpdate?.(testId, updates);
   };
 
   const handleAddPanel = () => {
@@ -153,6 +165,8 @@ function PanelLayoutContent({
             onPanelClick={handlePanelClick}
             onPanelDoubleClick={handlePanelDoubleClick}
             onPanelUpdate={handlePanelUpdate}
+            onPatchUpdate={handlePatchUpdate}
+            onDestructiveTestUpdate={handleDestructiveTestUpdate}
             enableDebugLogging={featureFlags.ENABLE_DEBUG_LOGGING}
           />
         </div>
@@ -186,6 +200,8 @@ export function PanelLayoutRefactored({
   destructiveTests = [],
   visibleTypes = { panels: true, patches: false, destructs: false },
   onPanelUpdate,
+  onPatchUpdate,
+  onDestructiveTestUpdate,
   onPanelDelete,
   onAddPanel,
   onCreatePanel,
@@ -209,6 +225,8 @@ export function PanelLayoutRefactored({
           destructiveTests={destructiveTests}
           visibleTypes={visibleTypes}
           onPanelUpdate={onPanelUpdate}
+          onPatchUpdate={onPatchUpdate}
+          onDestructiveTestUpdate={onDestructiveTestUpdate}
           onPanelDelete={onPanelDelete}
           onAddPanel={onAddPanel}
           onCreatePanel={onCreatePanel}

@@ -38,6 +38,8 @@ interface UseUnifiedMouseInteractionOptions {
   onPanelClick?: (panel: Panel) => void;
   onPanelDoubleClick?: (panel: Panel) => void;
   onPanelUpdate: (panelId: string, updates: Partial<Panel>) => Promise<void>;
+  onPatchUpdate?: (patchId: string, updates: Partial<Patch>) => Promise<void>;
+  onDestructiveTestUpdate?: (testId: string, updates: Partial<DestructiveTest>) => Promise<void>;
   onCanvasPan: (deltaX: number, deltaY: number) => void;
   onCanvasZoom?: (newScale: number) => void;
   onPanelSelect: (panelId: string | null) => void;
@@ -80,6 +82,8 @@ export function useUnifiedMouseInteraction({
   onPanelClick,
   onPanelDoubleClick,
   onPanelUpdate,
+  onPatchUpdate,
+  onDestructiveTestUpdate,
   onCanvasPan,
   onCanvasZoom,
   onPanelSelect,
@@ -1152,7 +1156,7 @@ export function useUnifiedMouseInteraction({
       onPanelSelect(null);
       logRef.current('Started panning canvas', { screenX, screenY });
     }
-  }, [canvas, getPanelAtPosition, getPatchAtPosition, getDestructiveTestAtPosition, visibleTypes, onPanelSelect, onDragStart, getWorldCoordinates, panels, isOverRotationHandle]);
+  }, [canvas, getPanelAtPosition, getPatchAtPosition, getDestructiveTestAtPosition, visibleTypes, onPanelSelect, onDragStart, getWorldCoordinates, panels, patches, destructiveTests, isOverRotationHandle]);
 
   // Mouse move handler - convert coordinates properly for world coordinate system
   const handleMouseMove = useCallback((event: MouseEvent) => {
@@ -1176,10 +1180,16 @@ export function useUnifiedMouseInteraction({
     console.log('🎯 [DRAG DEBUG] Current mouse state:', currentState);
 
     if (currentState.isDragging && currentState.selectedPanelId) {
-      // Validate panel still exists before continuing drag
-      const panel = panels.find(p => p.id === currentState.selectedPanelId);
-      if (!panel) {
-        console.warn('⚠️ [handleMouseMove] Panel no longer exists, canceling drag:', currentState.selectedPanelId);
+      const selectedId = currentState.selectedPanelId;
+      
+      // Check if it's a panel, patch, or destructive test
+      const panel = panels.find(p => p.id === selectedId);
+      const patch = patches.find(p => p.id === selectedId);
+      const destructiveTest = destructiveTests.find(t => t.id === selectedId);
+      
+      // Validate item still exists before continuing drag
+      if (!panel && !patch && !destructiveTest) {
+        console.warn('⚠️ [handleMouseMove] Item no longer exists, canceling drag:', selectedId);
         // Clear drag state
         mouseStateRef.current = {
           ...initialMouseState,
@@ -1189,9 +1199,20 @@ export function useUnifiedMouseInteraction({
         return;
       }
       
-      console.log('🎯 [DRAG DEBUG] 🔄 DRAGGING PANEL');
+      // Determine what type we're dragging
+      const isPanel = !!panel;
+      const isPatch = !!patch;
+      const isDestructiveTest = !!destructiveTest;
       
-      // Convert screen coordinates to world coordinates for panel position
+      if (isPanel) {
+        console.log('🎯 [DRAG DEBUG] 🔄 DRAGGING PANEL');
+      } else if (isPatch) {
+        console.log('🎯 [DRAG DEBUG] 🔄 DRAGGING PATCH');
+      } else if (isDestructiveTest) {
+        console.log('🎯 [DRAG DEBUG] 🔄 DRAGGING DESTRUCTIVE TEST');
+      }
+      
+      // Convert screen coordinates to world coordinates for position
       const worldPos = getWorldCoordinates(screenX, screenY, canvasState);
       console.log('🎯 [DRAG DEBUG] World coordinates:', worldPos);
       
@@ -1215,7 +1236,7 @@ export function useUnifiedMouseInteraction({
         dragCurrentY: currentState.dragCurrentY
       });
       
-      // Only update the actual panel state on mouse up to prevent render loops
+      // Only update the actual item state on mouse up to prevent render loops
       // For now, just trigger a render to show the visual feedback
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
@@ -1225,8 +1246,9 @@ export function useUnifiedMouseInteraction({
         render();
       });
 
-      logRef.current('Dragging panel (visual only)', { 
-        panelId: currentState.selectedPanelId, 
+      const itemType = isPanel ? 'panel' : isPatch ? 'patch' : 'destructive test';
+      logRef.current(`Dragging ${itemType} (visual only)`, { 
+        itemId: selectedId, 
         screenPos: { x: screenX, y: screenY },
         worldPos: { x: worldPos.x, y: worldPos.y },
         newPos: { x: newX, y: newY },
@@ -1345,7 +1367,7 @@ export function useUnifiedMouseInteraction({
 
       logRef.current('Panning canvas', { deltaX, deltaY });
     }
-  }, [canvas, onCanvasPan, getWorldCoordinates, onPanelUpdate, panels]);
+  }, [canvas, onCanvasPan, getWorldCoordinates, onPanelUpdate, panels, patches, destructiveTests, render]);
 
   // Mouse up handler
   const handleMouseUp = useCallback(async (event: MouseEvent) => {
@@ -1366,13 +1388,16 @@ export function useUnifiedMouseInteraction({
     console.log('🎯 [DRAG DEBUG] Click duration:', clickDuration);
 
     if (currentState.isDragging && currentState.selectedPanelId) {
-      console.log('🎯 [DRAG DEBUG] ✅ FINISHING PANEL DRAG');
+      const selectedId = currentState.selectedPanelId;
       
-      // Validate panel still exists before trying to update
-      const panel = panels.find(p => p.id === currentState.selectedPanelId);
-      if (!panel) {
-        console.warn('⚠️ [handleMouseUp] Panel no longer exists, canceling drag:', currentState.selectedPanelId);
-        console.warn('⚠️ [handleMouseUp] Available panel IDs:', panels.map(p => p.id));
+      // Check if it's a panel, patch, or destructive test
+      const panel = panels.find(p => p.id === selectedId);
+      const patch = patches.find(p => p.id === selectedId);
+      const destructiveTest = destructiveTests.find(t => t.id === selectedId);
+      
+      // Validate item still exists before trying to update
+      if (!panel && !patch && !destructiveTest) {
+        console.warn('⚠️ [handleMouseUp] Item no longer exists, canceling drag:', selectedId);
         // Clear drag state
         mouseStateRef.current = {
           ...initialMouseState,
@@ -1383,33 +1408,72 @@ export function useUnifiedMouseInteraction({
         return;
       }
       
-      // Now commit the final panel position change
+      const isPanel = !!panel;
+      const isPatch = !!patch;
+      const isDestructiveTest = !!destructiveTest;
+      const itemType = isPanel ? 'panel' : isPatch ? 'patch' : 'destructive test';
+      
+      console.log(`🎯 [DRAG DEBUG] ✅ FINISHING ${itemType.toUpperCase()} DRAG`);
+      
+      // Now commit the final position change
       if (currentState.dragCurrentX !== undefined && currentState.dragCurrentY !== undefined) {
-        console.log('🎯 [DRAG DEBUG] Committing panel position:', {
-          panelId: currentState.selectedPanelId,
+        console.log(`🎯 [DRAG DEBUG] Committing ${itemType} position:`, {
+          itemId: selectedId,
           finalPos: { x: currentState.dragCurrentX, y: currentState.dragCurrentY }
         });
         
-        // Use the panel's current rotation
-        const currentRotation = panel.rotation || 0;
-        
-        await onPanelUpdate(currentState.selectedPanelId, {
-          x: currentState.dragCurrentX,
-          y: currentState.dragCurrentY,
-          rotation: currentRotation
-        });
-        
-        logRef.current('Committed panel position', { 
-          panelId: currentState.selectedPanelId,
-          finalPos: { x: currentState.dragCurrentX, y: currentState.dragCurrentY }
-        });
+        if (isPanel) {
+          // Use the panel's current rotation
+          const currentRotation = panel.rotation || 0;
+          
+          await onPanelUpdate(selectedId, {
+            x: currentState.dragCurrentX,
+            y: currentState.dragCurrentY,
+            rotation: currentRotation
+          });
+          
+          logRef.current('Committed panel position', { 
+            panelId: selectedId,
+            finalPos: { x: currentState.dragCurrentX, y: currentState.dragCurrentY }
+          });
+        } else if (isPatch && onPatchUpdate) {
+          // Use the patch's current rotation
+          const currentRotation = patch.rotation || 0;
+          
+          await onPatchUpdate(selectedId, {
+            x: currentState.dragCurrentX,
+            y: currentState.dragCurrentY,
+            rotation: currentRotation
+          });
+          
+          logRef.current('Committed patch position', { 
+            patchId: selectedId,
+            finalPos: { x: currentState.dragCurrentX, y: currentState.dragCurrentY }
+          });
+        } else if (isDestructiveTest && onDestructiveTestUpdate) {
+          // Use the destructive test's current rotation
+          const currentRotation = destructiveTest.rotation || 0;
+          
+          await onDestructiveTestUpdate(selectedId, {
+            x: currentState.dragCurrentX,
+            y: currentState.dragCurrentY,
+            rotation: currentRotation
+          });
+          
+          logRef.current('Committed destructive test position', { 
+            testId: selectedId,
+            finalPos: { x: currentState.dragCurrentX, y: currentState.dragCurrentY }
+          });
+        } else {
+          console.warn(`⚠️ [handleMouseUp] No update callback available for ${itemType}:`, selectedId);
+        }
       } else {
-        console.log('🎯 [DRAG DEBUG] ❌ No drag current position to commit');
+        console.log(`🎯 [DRAG DEBUG] ❌ No drag current position to commit for ${itemType}`);
       }
       
       onDragEnd?.();
-      logRef.current('Finished dragging panel', { 
-        panelId: currentState.selectedPanelId,
+      logRef.current(`Finished dragging ${itemType}`, { 
+        itemId: selectedId,
         duration: clickDuration 
       });
     } else if (currentState.isRotating && currentState.selectedPanelId) {

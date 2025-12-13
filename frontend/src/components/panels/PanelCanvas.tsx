@@ -19,6 +19,8 @@ interface PanelCanvasProps {
   onPanelClick?: (panel: Panel) => void;
   onPanelDoubleClick?: (panel: Panel) => void;
   onPanelUpdate?: (panelId: string, updates: Partial<Panel>) => Promise<void>;
+  onPatchUpdate?: (patchId: string, updates: Partial<Patch>) => Promise<void>;
+  onDestructiveTestUpdate?: (testId: string, updates: Partial<DestructiveTest>) => Promise<void>;
   enableDebugLogging?: boolean;
 }
 
@@ -30,6 +32,8 @@ export function PanelCanvas({
   onPanelClick, 
   onPanelDoubleClick,
   onPanelUpdate,
+  onPatchUpdate,
+  onDestructiveTestUpdate,
   enableDebugLogging = false 
 }: PanelCanvasProps) {
   const { canvas: canvasContext, dispatchCanvas } = useCanvasState();
@@ -150,6 +154,8 @@ export function PanelCanvas({
     onPanelClick,
     onPanelDoubleClick,
     onPanelUpdate: async (panelId, updates) => onPanelUpdateRef.current?.(panelId, updates),
+    onPatchUpdate: onPatchUpdate ? async (patchId, updates) => onPatchUpdate(patchId, updates) : undefined,
+    onDestructiveTestUpdate: onDestructiveTestUpdate ? async (testId, updates) => onDestructiveTestUpdate(testId, updates) : undefined,
     onCanvasPan: (deltaX, deltaY) => onCanvasPanRef.current?.(deltaX, deltaY),
     onCanvasZoom: (newScale) => onCanvasZoomRef.current?.(newScale),
     onPanelSelect: (panelId) => onPanelSelectRef.current?.(panelId),
