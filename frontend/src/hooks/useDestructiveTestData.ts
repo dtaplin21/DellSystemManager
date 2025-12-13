@@ -71,6 +71,21 @@ export function useDestructiveTestData({ projectId }: UseDestructiveTestDataOpti
   }, [projectId, fetchDestructiveTests]);
 
   const updateDestructiveTest = useCallback(async (testId: string, updates: Partial<DestructiveTest>) => {
+    // Optimistic update - update local state immediately for responsive UI
+    setDestructiveTests(prev => {
+      const test = prev.find(t => t.id === testId);
+      if (!test) {
+        console.warn('⚠️ [updateDestructiveTest] Destructive test not found in local state:', testId);
+        return prev;
+      }
+      
+      return prev.map(t => 
+        t.id === testId 
+          ? { ...t, ...updates, isValid: true }
+          : t
+      );
+    });
+    
     try {
       const response = await apiClient.request<{ success: boolean; destructiveTest: DestructiveTest }>(
         `/api/panels/${projectId}/destructive-tests/${testId}`,
@@ -81,10 +96,13 @@ export function useDestructiveTestData({ projectId }: UseDestructiveTestDataOpti
       );
       
       if (response.success && response.destructiveTest) {
+        // Refresh from backend to sync (backup/verification)
         await fetchDestructiveTests();
       }
     } catch (err: any) {
       console.error('Error updating destructive test:', err);
+      // On error, refresh from backend to restore correct state
+      await fetchDestructiveTests();
       throw err;
     }
   }, [projectId, fetchDestructiveTests]);

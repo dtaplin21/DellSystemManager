@@ -71,6 +71,21 @@ export function usePatchData({ projectId }: UsePatchDataOptions): UsePatchDataRe
   }, [projectId, fetchPatches]);
 
   const updatePatch = useCallback(async (patchId: string, updates: Partial<Patch>) => {
+    // Optimistic update - update local state immediately for responsive UI
+    setPatches(prev => {
+      const patch = prev.find(p => p.id === patchId);
+      if (!patch) {
+        console.warn('⚠️ [updatePatch] Patch not found in local state:', patchId);
+        return prev;
+      }
+      
+      return prev.map(p => 
+        p.id === patchId 
+          ? { ...p, ...updates, isValid: true }
+          : p
+      );
+    });
+    
     try {
       const response = await apiClient.request<{ success: boolean; patch: Patch }>(
         `/api/panels/${projectId}/patches/${patchId}`,
@@ -81,10 +96,13 @@ export function usePatchData({ projectId }: UsePatchDataOptions): UsePatchDataRe
       );
       
       if (response.success && response.patch) {
+        // Refresh from backend to sync (backup/verification)
         await fetchPatches();
       }
     } catch (err: any) {
       console.error('Error updating patch:', err);
+      // On error, refresh from backend to restore correct state
+      await fetchPatches();
       throw err;
     }
   }, [projectId, fetchPatches]);

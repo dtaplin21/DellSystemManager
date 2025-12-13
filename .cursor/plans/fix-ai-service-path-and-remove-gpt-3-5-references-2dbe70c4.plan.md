@@ -1,4 +1,33 @@
-<!-- 2dbe70c4-a812-498f-bf70-64f73ad1a1a5 ec05a677-958d-4601-883c-1e020afc7707 -->
+---
+name: "Agent Utilization Plan: Mapping WorkflowOrchestrator Agents to Use Cases"
+overview: ""
+todos:
+  - id: 5b5abf74-793a-44c6-ac11-70015515c9aa
+    content: "**CRITICAL**: Fix process type in `_create_agent_for_task()` - always use sequential for single agent (Line 528)"
+    status: pending
+  - id: 0249a07d-dddc-4ed0-9186-e25a5af16463
+    content: "**CRITICAL**: Route browser tool tasks to `web_automation` workflow in `handle_chat_message()` (Line 725-813)"
+    status: pending
+  - id: 2f2433b7-93f0-4f62-835e-f4c473b811fb
+    content: Implement handle_new_project(), handle_layout_optimization(), and handle_document_analysis() methods in DellSystemAIService
+    status: pending
+  - id: 22047fb8-afc5-4294-af1d-81bebe5af1ee
+    content: Fix integration_layer.py methods to call correct DellSystemAIService methods
+    status: pending
+  - id: 02b9f9ff-9fd4-4839-a218-314a854deb54
+    content: Integrate new_project_setup workflow into POST /api/projects endpoint
+    status: pending
+  - id: a89da13e-f08f-49dc-8dd6-7b5171c6744b
+    content: Integrate panel_optimization workflow into panel layout endpoints
+    status: pending
+  - id: 8c99056e-e709-4864-bd21-6c2aca865aa0
+    content: Add workflow routing logic to handle_chat_message() for complex browser automation
+    status: pending
+  - id: d629e3a3-715e-44b5-8fea-9762de227d19
+    content: Add compliance validation to panel population endpoint
+    status: pending
+---
+
 # Agent Utilization Plan: Mapping WorkflowOrchestrator Agents to Use Cases
 
 ## Agent Inventory
@@ -237,14 +266,3 @@
 - Complex browser automation uses sequential workflow
 - Simple chat continues using single agent (no regression)
 - All integration layer methods properly route to workflows
-
-### To-dos
-
-- [ ] **CRITICAL**: Fix process type in `_create_agent_for_task()` - always use sequential for single agent (Line 528)
-- [ ] **CRITICAL**: Route browser tool tasks to `web_automation` workflow in `handle_chat_message()` (Line 725-813)
-- [ ] Implement handle_new_project(), handle_layout_optimization(), and handle_document_analysis() methods in DellSystemAIService
-- [ ] Fix integration_layer.py methods to call correct DellSystemAIService methods
-- [ ] Integrate new_project_setup workflow into POST /api/projects endpoint
-- [ ] Integrate panel_optimization workflow into panel layout endpoints
-- [ ] Add workflow routing logic to handle_chat_message() for complex browser automation
-- [ ] Add compliance validation to panel population endpoint
