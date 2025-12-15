@@ -303,6 +303,13 @@ class PanelLayoutService {
         newPosition
       });
 
+      // Capture old position BEFORE updating
+      const oldPosition = {
+        x: currentPanels[panelIndex].x,
+        y: currentPanels[panelIndex].y,
+        rotation: currentPanels[panelIndex].rotation
+      };
+
       // Update panel position
       currentPanels[panelIndex] = {
         ...currentPanels[panelIndex],
@@ -313,11 +320,7 @@ class PanelLayoutService {
 
       console.log('🔍 [movePanel] Updated panel:', {
         panelId,
-        oldPosition: {
-          x: currentPanels[panelIndex].x,
-          y: currentPanels[panelIndex].y,
-          rotation: currentPanels[panelIndex].rotation
-        },
+        oldPosition,
         newPosition
       });
 
