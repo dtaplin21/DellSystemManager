@@ -258,9 +258,18 @@ export function useUnifiedMouseInteraction({
 
   // Destructive test hit detection - rectangle collision
   const getDestructiveTestAtPosition = useCallback((screenX: number, screenY: number): DestructiveTest | null => {
-    if (!visibleTypes.destructs) return null;
+    if (!visibleTypes.destructs) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useUnifiedMouseInteraction.ts:261',message:'Hit detection skipped - destructs not visible',data:{visibleTypes},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'E'})}).catch(()=>{});
+      // #endregion
+      return null;
+    }
     
     const worldPos = getWorldCoordinates(screenX, screenY, canvasState);
+    
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useUnifiedMouseInteraction.ts:267',message:'Checking hit detection',data:{screenPos:{x:screenX,y:screenY},worldPos,testsCount:destructiveTests.length,tests:destructiveTests.map(t=>({id:t.id,x:t.x,y:t.y,width:t.width,height:t.height,isValid:t.isValid}))},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'E'})}).catch(()=>{});
+    // #endregion
     
     for (let i = destructiveTests.length - 1; i >= 0; i--) {
       const test = destructiveTests[i];
@@ -283,11 +292,26 @@ export function useUnifiedMouseInteraction({
       const localY = dx * sin + dy * cos;
       
       // Check if point is within rectangle bounds
-      if (localX >= -test.width / 2 && localX <= test.width / 2 &&
-          localY >= -test.height / 2 && localY <= test.height / 2) {
+      const isHit = localX >= -test.width / 2 && localX <= test.width / 2 &&
+          localY >= -test.height / 2 && localY <= test.height / 2;
+      
+      // #region agent log
+      if (i === destructiveTests.length - 1) { // Log first test check
+        fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useUnifiedMouseInteraction.ts:290',message:'Hit test result',data:{testId:test.id,isHit,localPos:{x:localX,y:localY},bounds:{width:test.width,height:test.height}},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'E'})}).catch(()=>{});
+      }
+      // #endregion
+      
+      if (isHit) {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useUnifiedMouseInteraction.ts:295',message:'HIT DETECTED',data:{testId:test.id,testPos:{x:test.x,y:test.y}},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'E'})}).catch(()=>{});
+        // #endregion
         return test;
       }
     }
+    
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useUnifiedMouseInteraction.ts:300',message:'No hit detected',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'E'})}).catch(()=>{});
+    // #endregion
     
     return null;
   }, [destructiveTests, visibleTypes.destructs, canvasState, getWorldCoordinates]);
@@ -696,6 +720,10 @@ export function useUnifiedMouseInteraction({
     // SSR Guard: Don't run on server
     if (isSSR) return;
     
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useUnifiedMouseInteraction.ts:707',message:'Render triggered by state change',data:{destructiveTestsCount:destructiveTests.length,destructiveTests:destructiveTests.map(t=>({id:t.id,x:t.x,y:t.y}))},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
+    
     if (animationFrameRef.current && typeof cancelAnimationFrame !== 'undefined') {
       cancelAnimationFrame(animationFrameRef.current);
     }
@@ -934,6 +962,10 @@ export function useUnifiedMouseInteraction({
     console.log('🎯 [DRAG DEBUG] Event target:', event.target);
     console.log('🎯 [DRAG DEBUG] Canvas element:', canvas);
 
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useUnifiedMouseInteraction.ts:927',message:'Mouse down event',data:{destructiveTestsCount:destructiveTests.length,visibleTypes},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'E'})}).catch(()=>{});
+    // #endregion
+
     event.preventDefault();
     isMouseDownRef.current = true;
     mouseDownTimeRef.current = Date.now();
@@ -1030,6 +1062,10 @@ export function useUnifiedMouseInteraction({
     // Check for destructive test clicks (only if destructs tab is active and no panel/patch was clicked)
     const clickedDestruct = !clickedPanel && !clickedPatch && visibleTypes.destructs ? getDestructiveTestAtPosition(screenX, screenY) : null;
     console.log('🎯 [DRAG DEBUG] Destructive test hit detection result:', clickedDestruct);
+    
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useUnifiedMouseInteraction.ts:1031',message:'Hit detection results',data:{clickedPanel:!!clickedPanel,clickedPatch:!!clickedPatch,clickedDestruct:!!clickedDestruct,visibleTypes,availableDestructs:destructiveTests.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'E'})}).catch(()=>{});
+    // #endregion
 
     if (clickedPanel) {
       console.log('🎯 [DRAG DEBUG] ✅ PANEL CLICKED!', {
@@ -1110,6 +1146,10 @@ export function useUnifiedMouseInteraction({
         isValid: clickedDestruct.isValid
       });
 
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useUnifiedMouseInteraction.ts:1109',message:'Destructive test clicked - starting drag',data:{testId:clickedDestruct.id,testPos:{x:clickedDestruct.x,y:clickedDestruct.y},screenPos:{x:screenX,y:screenY}},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'E'})}).catch(()=>{});
+      // #endregion
+
       // Convert screen coordinates to world coordinates
       const worldPos = getWorldCoordinates(screenX, screenY, canvasState);
       
@@ -1124,6 +1164,10 @@ export function useUnifiedMouseInteraction({
         lastMouseX: screenX,
         lastMouseY: screenY,
       };
+      
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useUnifiedMouseInteraction.ts:1127',message:'Mouse state set for drag',data:{selectedId:mouseStateRef.current.selectedPanelId,isDragging:mouseStateRef.current.isDragging,dragStart:{x:mouseStateRef.current.dragStartX,y:mouseStateRef.current.dragStartY}},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'E'})}).catch(()=>{});
+      // #endregion
       
       onPanelSelect(clickedDestruct.id);
       onDragStart?.(clickedDestruct.id, worldPos);
@@ -1178,6 +1222,10 @@ export function useUnifiedMouseInteraction({
     
     const currentState = mouseStateRef.current;
     console.log('🎯 [DRAG DEBUG] Current mouse state:', currentState);
+    
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useUnifiedMouseInteraction.ts:1175',message:'Mouse move event',data:{isMouseDown:isMouseDownRef.current,isDragging:currentState.isDragging,selectedId:currentState.selectedPanelId},timestamp:Date.now(),sessionId:'debug-session',runId:'run3',hypothesisId:'F'})}).catch(()=>{});
+    // #endregion
 
     if (currentState.isDragging && currentState.selectedPanelId) {
       const selectedId = currentState.selectedPanelId;
@@ -1377,6 +1425,10 @@ export function useUnifiedMouseInteraction({
 
     console.log('🎯 [DRAG DEBUG] ===== MOUSE UP EVENT =====');
     console.log('🎯 [DRAG DEBUG] Event type:', event.type);
+    
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useUnifiedMouseInteraction.ts:1373',message:'Mouse up event fired',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run3',hypothesisId:'F'})}).catch(()=>{});
+    // #endregion
 
     event.preventDefault();
     isMouseDownRef.current = false;
@@ -1386,6 +1438,10 @@ export function useUnifiedMouseInteraction({
 
     console.log('🎯 [DRAG DEBUG] Current mouse state:', currentState);
     console.log('🎯 [DRAG DEBUG] Click duration:', clickDuration);
+    
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useUnifiedMouseInteraction.ts:1388',message:'Mouse up state check',data:{isDragging:currentState.isDragging,selectedId:currentState.selectedPanelId,hasDragCurrent:currentState.dragCurrentX!==undefined},timestamp:Date.now(),sessionId:'debug-session',runId:'run3',hypothesisId:'F'})}).catch(()=>{});
+    // #endregion
 
     if (currentState.isDragging && currentState.selectedPanelId) {
       const selectedId = currentState.selectedPanelId;
@@ -1415,12 +1471,20 @@ export function useUnifiedMouseInteraction({
       
       console.log(`🎯 [DRAG DEBUG] ✅ FINISHING ${itemType.toUpperCase()} DRAG`);
       
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useUnifiedMouseInteraction.ts:1414',message:'Finishing drag',data:{itemType,isPanel,isPatch,isDestructiveTest,selectedId,hasCallback:isDestructiveTest?!!onDestructiveTestUpdate:isPatch?!!onPatchUpdate:true},timestamp:Date.now(),sessionId:'debug-session',runId:'run3',hypothesisId:'F'})}).catch(()=>{});
+      // #endregion
+      
       // Now commit the final position change
       if (currentState.dragCurrentX !== undefined && currentState.dragCurrentY !== undefined) {
         console.log(`🎯 [DRAG DEBUG] Committing ${itemType} position:`, {
           itemId: selectedId,
           finalPos: { x: currentState.dragCurrentX, y: currentState.dragCurrentY }
         });
+        
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useUnifiedMouseInteraction.ts:1423',message:'Has drag current position',data:{itemType,selectedId,finalPos:{x:currentState.dragCurrentX,y:currentState.dragCurrentY}},timestamp:Date.now(),sessionId:'debug-session',runId:'run3',hypothesisId:'F'})}).catch(()=>{});
+        // #endregion
         
         if (isPanel) {
           // Use the panel's current rotation
@@ -1450,20 +1514,39 @@ export function useUnifiedMouseInteraction({
             patchId: selectedId,
             finalPos: { x: currentState.dragCurrentX, y: currentState.dragCurrentY }
           });
-        } else if (isDestructiveTest && onDestructiveTestUpdate) {
-          // Use the destructive test's current rotation
-          const currentRotation = destructiveTest.rotation || 0;
+        } else if (isDestructiveTest) {
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useUnifiedMouseInteraction.ts:1453',message:'Destructive test update branch',data:{testId:selectedId,hasCallback:!!onDestructiveTestUpdate,oldPos:{x:destructiveTest.x,y:destructiveTest.y},newPos:{x:currentState.dragCurrentX,y:currentState.dragCurrentY}},timestamp:Date.now(),sessionId:'debug-session',runId:'run3',hypothesisId:'F'})}).catch(()=>{});
+          // #endregion
           
-          await onDestructiveTestUpdate(selectedId, {
-            x: currentState.dragCurrentX,
-            y: currentState.dragCurrentY,
-            rotation: currentRotation
-          });
-          
-          logRef.current('Committed destructive test position', { 
-            testId: selectedId,
-            finalPos: { x: currentState.dragCurrentX, y: currentState.dragCurrentY }
-          });
+          if (onDestructiveTestUpdate) {
+            // Use the destructive test's current rotation
+            const currentRotation = destructiveTest.rotation || 0;
+            
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useUnifiedMouseInteraction.ts:1460',message:'Calling onDestructiveTestUpdate',data:{testId:selectedId,updates:{x:currentState.dragCurrentX,y:currentState.dragCurrentY,rotation:currentRotation}},timestamp:Date.now(),sessionId:'debug-session',runId:'run3',hypothesisId:'B'})}).catch(()=>{});
+            // #endregion
+            
+            await onDestructiveTestUpdate(selectedId, {
+              x: currentState.dragCurrentX,
+              y: currentState.dragCurrentY,
+              rotation: currentRotation
+            });
+            
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useUnifiedMouseInteraction.ts:1468',message:'onDestructiveTestUpdate completed',data:{testId:selectedId},timestamp:Date.now(),sessionId:'debug-session',runId:'run3',hypothesisId:'B'})}).catch(()=>{});
+            // #endregion
+            
+            logRef.current('Committed destructive test position', { 
+              testId: selectedId,
+              finalPos: { x: currentState.dragCurrentX, y: currentState.dragCurrentY }
+            });
+          } else {
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useUnifiedMouseInteraction.ts:1475',message:'ERROR: onDestructiveTestUpdate callback is undefined',data:{testId:selectedId},timestamp:Date.now(),sessionId:'debug-session',runId:'run3',hypothesisId:'F'})}).catch(()=>{});
+            // #endregion
+            console.warn(`⚠️ [handleMouseUp] No update callback available for ${itemType}:`, selectedId);
+          }
         } else {
           console.warn(`⚠️ [handleMouseUp] No update callback available for ${itemType}:`, selectedId);
         }
@@ -1532,8 +1615,13 @@ export function useUnifiedMouseInteraction({
 
     // Reset mouse state
     console.log('🎯 [DRAG DEBUG] Resetting mouse state to initial state');
+    
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useUnifiedMouseInteraction.ts:1535',message:'Resetting mouse state',data:{wasDragging:currentState.isDragging,selectedId:currentState.selectedPanelId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
+    
     mouseStateRef.current = initialMouseState;
-  }, [canvas, onDragEnd, onPanelUpdate, panels, enableDebugLogging]);
+  }, [canvas, onDragEnd, onPanelUpdate, onPatchUpdate, onDestructiveTestUpdate, panels, patches, destructiveTests, enableDebugLogging]);
 
   // Throttle zoom updates to prevent excessive state changes
   const zoomThrottleRef = useRef<number>();
