@@ -95,11 +95,17 @@ export function useUnifiedMouseInteraction({
   // Debug: Log canvasState changes (only if debug logging enabled)
   useEffect(() => {
     if (enableDebugLogging) {
-      console.log('🎯 [CANVAS STATE DEBUG] CanvasState updated:', canvasState);
+      debugLog('🎯 [CANVAS STATE DEBUG] CanvasState updated:', canvasState);
     }
   }, [canvasState, enableDebugLogging]);
   // SSR Guard: Return empty functions if running on server
   const isSSR = typeof window === 'undefined';
+
+  const debugLog = (...args: any[]) => {
+    if (enableDebugLogging) {
+      console.log(...args);
+    }
+  };
   
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const mouseStateRef = useRef<MouseState>(initialMouseState);
@@ -117,7 +123,7 @@ export function useUnifiedMouseInteraction({
 
   const logRef = useRef((message: string, data?: any) => {
     if (enableDebugLogging) {
-      console.log(`[useUnifiedMouseInteraction] ${message}`, data);
+      debugLog(`[useUnifiedMouseInteraction] ${message}`, data);
     }
   });
   
@@ -125,7 +131,7 @@ export function useUnifiedMouseInteraction({
   useEffect(() => {
     logRef.current = (message: string, data?: any) => {
       if (enableDebugLogging) {
-        console.log(`[useUnifiedMouseInteraction] ${message}`, data);
+        debugLog(`[useUnifiedMouseInteraction] ${message}`, data);
       }
     };
   }, [enableDebugLogging]);
@@ -181,10 +187,10 @@ export function useUnifiedMouseInteraction({
 
   // Panel hit detection - SIMPLIFIED APPROACH: Convert panel coordinates to screen coordinates
   const getPanelAtPosition = useCallback((screenX: number, screenY: number): Panel | null => {
-    console.log('🎯 [HIT DETECTION] Screen coords:', { screenX, screenY });
+    debugLog('🎯 [HIT DETECTION] Screen coords:', { screenX, screenY });
     
     const worldPos = getWorldCoordinates(screenX, screenY, canvasState);
-    console.log('🎯 [HIT DETECTION] World coords:', worldPos);
+    debugLog('🎯 [HIT DETECTION] World coords:', worldPos);
     
     for (let i = panels.length - 1; i >= 0; i--) {
       const panel = panels[i];
@@ -213,7 +219,7 @@ export function useUnifiedMouseInteraction({
           break;
       }
 
-      console.log('🎯 [HIT DETECTION] Panel local hit test:', {
+      debugLog('🎯 [HIT DETECTION] Panel local hit test:', {
         panelId: panel.id,
         localPos,
         shape: panel.shape,
@@ -221,12 +227,12 @@ export function useUnifiedMouseInteraction({
       });
 
       if (isHit) {
-        console.log('🎯 [HIT DETECTION] ✅ HIT! Panel:', panel.id, panel.panelNumber);
+        debugLog('🎯 [HIT DETECTION] ✅ HIT! Panel:', panel.id, panel.panelNumber);
         return panel;
       }
     }
     
-    console.log('🎯 [HIT DETECTION] ❌ No panel hit');
+    debugLog('🎯 [HIT DETECTION] ❌ No panel hit');
     return null;
   }, [panels, canvasState, getWorldCoordinates]);
 
@@ -327,7 +333,7 @@ export function useUnifiedMouseInteraction({
     const handleSizeWorld = 16 / (canvasState.worldScale || 1);
     
     if (enableDebugLogging) {
-      console.log('🎯 [ROTATION HANDLE DEBUG] Rotation handle position (world coords):', {
+      debugLog('🎯 [ROTATION HANDLE DEBUG] Rotation handle position (world coords):', {
         panelId: panel.id,
         rotationHandleWorld: handleWorldPos,
         mouseWorldPos: worldPos,
@@ -344,7 +350,7 @@ export function useUnifiedMouseInteraction({
                   Math.abs(worldPos.y - handleWorldPos.y) <= handleSizeWorld / 2;
     
     if (enableDebugLogging) {
-      console.log('🎯 [ROTATION HANDLE DEBUG] Hit result (world coords):', isHit);
+      debugLog('🎯 [ROTATION HANDLE DEBUG] Hit result (world coords):', isHit);
     }
     
     return isHit;
@@ -668,7 +674,7 @@ export function useUnifiedMouseInteraction({
     // Draw selection handles for selected panel - BEFORE transformations are restored (world coordinates)
     const selectedPanel = panels.find(p => p.id === mouseStateRef.current.selectedPanelId);
     if (enableDebugLogging) {
-      console.log('🎯 [ROTATION HANDLE DEBUG] Render function - checking for selected panel:', {
+      debugLog('🎯 [ROTATION HANDLE DEBUG] Render function - checking for selected panel:', {
         selectedPanelId: mouseStateRef.current.selectedPanelId,
         selectedPanel: selectedPanel,
         selectedPanelValid: selectedPanel?.isValid,
@@ -678,7 +684,7 @@ export function useUnifiedMouseInteraction({
     
     if (selectedPanel && selectedPanel.isValid) {
       if (enableDebugLogging) {
-        console.log('🎯 [ROTATION HANDLE DEBUG] Drawing selection handles for selected panel (world coords):', {
+        debugLog('🎯 [ROTATION HANDLE DEBUG] Drawing selection handles for selected panel (world coords):', {
           id: selectedPanel.id,
           shape: selectedPanel.shape,
           position: { x: selectedPanel.x, y: selectedPanel.y },
@@ -688,11 +694,11 @@ export function useUnifiedMouseInteraction({
       }
       drawSelectionHandles(ctx, selectedPanel);
       if (enableDebugLogging) {
-        console.log('🎯 [ROTATION HANDLE DEBUG] Selection handles drawn successfully (world coords)');
+        debugLog('🎯 [ROTATION HANDLE DEBUG] Selection handles drawn successfully (world coords)');
       }
     } else {
       if (enableDebugLogging) {
-        console.log('🎯 [ROTATION HANDLE DEBUG] No selected panel or panel invalid:', {
+        debugLog('🎯 [ROTATION HANDLE DEBUG] No selected panel or panel invalid:', {
           selectedPanelId: mouseStateRef.current.selectedPanelId,
           selectedPanel: selectedPanel
         });
@@ -856,7 +862,7 @@ export function useUnifiedMouseInteraction({
         if (resizeObserverRef.current) {
           // Main observer is already set up, it will trigger resizeCanvas when dimensions become valid
           if (enableDebugLogging) {
-            console.log('🔍 [resizeCanvas] Invalid dimensions detected, main ResizeObserver will handle resize when valid', {
+            debugLog('🔍 [resizeCanvas] Invalid dimensions detected, main ResizeObserver will handle resize when valid', {
               container: container.className,
               currentRect: rect
             });
@@ -901,7 +907,7 @@ export function useUnifiedMouseInteraction({
         
         // Only log if debug logging is enabled
         if (enableDebugLogging) {
-          console.log('🔍 [resizeCanvas] Created temporary ResizeObserver for invalid dimensions', {
+          debugLog('🔍 [resizeCanvas] Created temporary ResizeObserver for invalid dimensions', {
             container: container.className,
             currentRect: rect
           });
@@ -927,7 +933,7 @@ export function useUnifiedMouseInteraction({
     canvas.style.height = `${rect.height}px`;
 
     if (enableDebugLogging) {
-      console.log('🔍 [resizeCanvas] Canvas dimensions after resize:', {
+      debugLog('🔍 [resizeCanvas] Canvas dimensions after resize:', {
         styleWidth: canvas.style.width,
         styleHeight: canvas.style.height,
         actualWidth: canvas.width,
@@ -957,10 +963,10 @@ export function useUnifiedMouseInteraction({
     if (isSSR) return;
     if (!canvas) return;
 
-    console.log('🎯 [DRAG DEBUG] ===== MOUSE DOWN EVENT =====');
-    console.log('🎯 [DRAG DEBUG] Event type:', event.type);
-    console.log('🎯 [DRAG DEBUG] Event target:', event.target);
-    console.log('🎯 [DRAG DEBUG] Canvas element:', canvas);
+    debugLog('🎯 [DRAG DEBUG] ===== MOUSE DOWN EVENT =====');
+    debugLog('🎯 [DRAG DEBUG] Event type:', event.type);
+    debugLog('🎯 [DRAG DEBUG] Event target:', event.target);
+    debugLog('🎯 [DRAG DEBUG] Canvas element:', canvas);
 
     // #region agent log
     fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useUnifiedMouseInteraction.ts:927',message:'Mouse down event',data:{destructiveTestsCount:destructiveTests.length,visibleTypes},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'E'})}).catch(()=>{});
@@ -974,20 +980,20 @@ export function useUnifiedMouseInteraction({
     const screenX = event.clientX - rect.left;
     const screenY = event.clientY - rect.top;
     
-    console.log('🎯 [DRAG DEBUG] Screen coordinates:', { screenX, screenY });
-    console.log('🎯 [DRAG DEBUG] Canvas rect:', rect);
-    console.log('🎯 [DRAG DEBUG] Event details:', { clientX: event.clientX, clientY: event.clientY });
+    debugLog('🎯 [DRAG DEBUG] Screen coordinates:', { screenX, screenY });
+    debugLog('🎯 [DRAG DEBUG] Canvas rect:', rect);
+    debugLog('🎯 [DRAG DEBUG] Event details:', { clientX: event.clientX, clientY: event.clientY });
     
     // FIRST: Check if clicking on any rotation handle (before panel detection)
     if (enableDebugLogging) {
-      console.log('🎯 [ROTATION DEBUG] Checking rotation handles for all panels...');
+      debugLog('🎯 [ROTATION DEBUG] Checking rotation handles for all panels...');
     }
     let rotationHandleClicked = false;
     
     for (const panel of panels) {
       if (panel.isValid && isOverRotationHandle(screenX, screenY, panel)) {
         if (enableDebugLogging) {
-          console.log('🎯 [ROTATION DEBUG] ✅ ROTATION HANDLE CLICKED!', {
+          debugLog('🎯 [ROTATION DEBUG] ✅ ROTATION HANDLE CLICKED!', {
             panelId: panel.id,
             currentRotation: panel.rotation || 0,
             mousePos: { x: screenX, y: screenY }
@@ -1005,7 +1011,7 @@ export function useUnifiedMouseInteraction({
         const initialAngle = Math.atan2(worldPos.y - panelCenterY, worldPos.x - panelCenterX);
         
         if (enableDebugLogging) {
-          console.log('🎯 [ROTATION DEBUG] Setup rotation:', {
+          debugLog('🎯 [ROTATION DEBUG] Setup rotation:', {
             panelCenter: { x: panelCenterX, y: panelCenterY },
             mouseWorldPos: worldPos,
             initialAngle: initialAngle * (180 / Math.PI),
@@ -1031,7 +1037,7 @@ export function useUnifiedMouseInteraction({
         onPanelSelect(panel.id);
         
         if (enableDebugLogging) {
-          console.log('🎯 [ROTATION DEBUG] Started rotating panel:', {
+          debugLog('🎯 [ROTATION DEBUG] Started rotating panel:', {
             panelId: panel.id,
             initialAngle: initialAngle * (180 / Math.PI),
             currentRotation: panel.rotation || 0,
@@ -1049,26 +1055,26 @@ export function useUnifiedMouseInteraction({
     }
 
     // SECOND: Check for panel clicks (only if no rotation handle was clicked)
-    console.log('🎯 [DRAG DEBUG] Starting panel hit detection...');
-    console.log('🎯 [DRAG DEBUG] Available panels:', panels.map(p => ({ id: p.id, x: p.x, y: p.y, width: p.width, height: p.height, isValid: p.isValid })));
+    debugLog('🎯 [DRAG DEBUG] Starting panel hit detection...');
+    debugLog('🎯 [DRAG DEBUG] Available panels:', panels.map(p => ({ id: p.id, x: p.x, y: p.y, width: p.width, height: p.height, isValid: p.isValid })));
     
     const clickedPanel = getPanelAtPosition(screenX, screenY);
-    console.log('🎯 [DRAG DEBUG] Panel hit detection result:', clickedPanel);
+    debugLog('🎯 [DRAG DEBUG] Panel hit detection result:', clickedPanel);
 
     // Check for patch clicks (only if patches tab is active and no panel was clicked)
     const clickedPatch = !clickedPanel && visibleTypes.patches ? getPatchAtPosition(screenX, screenY) : null;
-    console.log('🎯 [DRAG DEBUG] Patch hit detection result:', clickedPatch);
+    debugLog('🎯 [DRAG DEBUG] Patch hit detection result:', clickedPatch);
 
     // Check for destructive test clicks (only if destructs tab is active and no panel/patch was clicked)
     const clickedDestruct = !clickedPanel && !clickedPatch && visibleTypes.destructs ? getDestructiveTestAtPosition(screenX, screenY) : null;
-    console.log('🎯 [DRAG DEBUG] Destructive test hit detection result:', clickedDestruct);
+    debugLog('🎯 [DRAG DEBUG] Destructive test hit detection result:', clickedDestruct);
     
     // #region agent log
     fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useUnifiedMouseInteraction.ts:1031',message:'Hit detection results',data:{clickedPanel:!!clickedPanel,clickedPatch:!!clickedPatch,clickedDestruct:!!clickedDestruct,visibleTypes,availableDestructs:destructiveTests.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'E'})}).catch(()=>{});
     // #endregion
 
     if (clickedPanel) {
-      console.log('🎯 [DRAG DEBUG] ✅ PANEL CLICKED!', {
+      debugLog('🎯 [DRAG DEBUG] ✅ PANEL CLICKED!', {
         id: clickedPanel.id,
         position: { x: clickedPanel.x, y: clickedPanel.y },
         size: { width: clickedPanel.width, height: clickedPanel.height },
@@ -1077,7 +1083,7 @@ export function useUnifiedMouseInteraction({
 
       // Convert screen coordinates to world coordinates for drag calculation
       const worldPos = getWorldCoordinates(screenX, screenY, canvasState);
-      console.log('🎯 [DRAG DEBUG] World coordinates:', worldPos);
+      debugLog('🎯 [DRAG DEBUG] World coordinates:', worldPos);
       
       // Start dragging panel - store offset from panel's top-left corner in world coordinates
       mouseStateRef.current = {
@@ -1091,7 +1097,7 @@ export function useUnifiedMouseInteraction({
         lastMouseY: screenY,
       };
       
-      console.log('🎯 [DRAG DEBUG] Started dragging panel:', {
+      debugLog('🎯 [DRAG DEBUG] Started dragging panel:', {
         panelId: clickedPanel.id,
         dragStartOffset: { x: worldPos.x - clickedPanel.x, y: worldPos.y - clickedPanel.y },
         worldPos: worldPos,
@@ -1108,7 +1114,7 @@ export function useUnifiedMouseInteraction({
         panelPos: { x: clickedPanel.x, y: clickedPanel.y }
       });
     } else if (clickedPatch) {
-      console.log('🎯 [DRAG DEBUG] ✅ PATCH CLICKED!', {
+      debugLog('🎯 [DRAG DEBUG] ✅ PATCH CLICKED!', {
         id: clickedPatch.id,
         position: { x: clickedPatch.x, y: clickedPatch.y },
         radius: clickedPatch.radius,
@@ -1139,7 +1145,7 @@ export function useUnifiedMouseInteraction({
         patchPos: { x: clickedPatch.x, y: clickedPatch.y }
       });
     } else if (clickedDestruct) {
-      console.log('🎯 [DRAG DEBUG] ✅ DESTRUCTIVE TEST CLICKED!', {
+      debugLog('🎯 [DRAG DEBUG] ✅ DESTRUCTIVE TEST CLICKED!', {
         id: clickedDestruct.id,
         position: { x: clickedDestruct.x, y: clickedDestruct.y },
         size: { width: clickedDestruct.width, height: clickedDestruct.height },
@@ -1178,7 +1184,7 @@ export function useUnifiedMouseInteraction({
         testPos: { x: clickedDestruct.x, y: clickedDestruct.y }
       });
     } else {
-      console.log('🎯 [DRAG DEBUG] ❌ No panel clicked, starting canvas pan');
+      debugLog('🎯 [DRAG DEBUG] ❌ No panel clicked, starting canvas pan');
       
       // Start panning canvas
       mouseStateRef.current = {
@@ -1192,7 +1198,7 @@ export function useUnifiedMouseInteraction({
         lastMouseY: screenY,
       };
       
-      console.log('🎯 [DRAG DEBUG] Started canvas panning:', {
+      debugLog('🎯 [DRAG DEBUG] Started canvas panning:', {
         lastMousePos: { x: screenX, y: screenY },
         mouseState: mouseStateRef.current
       });
@@ -1208,20 +1214,20 @@ export function useUnifiedMouseInteraction({
     if (isSSR) return;
     if (!canvas || !isMouseDownRef.current) return;
 
-    console.log('🎯 [DRAG DEBUG] ===== MOUSE MOVE EVENT =====');
-    console.log('🎯 [DRAG DEBUG] Event type:', event.type);
-    console.log('🎯 [DRAG DEBUG] isMouseDown:', isMouseDownRef.current);
+    debugLog('🎯 [DRAG DEBUG] ===== MOUSE MOVE EVENT =====');
+    debugLog('🎯 [DRAG DEBUG] Event type:', event.type);
+    debugLog('🎯 [DRAG DEBUG] isMouseDown:', isMouseDownRef.current);
 
     event.preventDefault();
     const rect = canvas.getBoundingClientRect();
     const screenX = event.clientX - rect.left;
     const screenY = event.clientY - rect.top;
     
-    console.log('🎯 [DRAG DEBUG] Screen coordinates:', { screenX, screenY });
-    console.log('🎯 [DRAG DEBUG] Canvas rect:', rect);
+    debugLog('🎯 [DRAG DEBUG] Screen coordinates:', { screenX, screenY });
+    debugLog('🎯 [DRAG DEBUG] Canvas rect:', rect);
     
     const currentState = mouseStateRef.current;
-    console.log('🎯 [DRAG DEBUG] Current mouse state:', currentState);
+    debugLog('🎯 [DRAG DEBUG] Current mouse state:', currentState);
     
     // #region agent log
     fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useUnifiedMouseInteraction.ts:1175',message:'Mouse move event',data:{isMouseDown:isMouseDownRef.current,isDragging:currentState.isDragging,selectedId:currentState.selectedPanelId},timestamp:Date.now(),sessionId:'debug-session',runId:'run3',hypothesisId:'F'})}).catch(()=>{});
@@ -1253,22 +1259,22 @@ export function useUnifiedMouseInteraction({
       const isDestructiveTest = !!destructiveTest;
       
       if (isPanel) {
-        console.log('🎯 [DRAG DEBUG] 🔄 DRAGGING PANEL');
+        debugLog('🎯 [DRAG DEBUG] 🔄 DRAGGING PANEL');
       } else if (isPatch) {
-        console.log('🎯 [DRAG DEBUG] 🔄 DRAGGING PATCH');
+        debugLog('🎯 [DRAG DEBUG] 🔄 DRAGGING PATCH');
       } else if (isDestructiveTest) {
-        console.log('🎯 [DRAG DEBUG] 🔄 DRAGGING DESTRUCTIVE TEST');
+        debugLog('🎯 [DRAG DEBUG] 🔄 DRAGGING DESTRUCTIVE TEST');
       }
       
       // Convert screen coordinates to world coordinates for position
       const worldPos = getWorldCoordinates(screenX, screenY, canvasState);
-      console.log('🎯 [DRAG DEBUG] World coordinates:', worldPos);
+      debugLog('🎯 [DRAG DEBUG] World coordinates:', worldPos);
       
       // Calculate new position but don't update state yet - just update the visual position
       const newX = worldPos.x - currentState.dragStartX;
       const newY = worldPos.y - currentState.dragStartY;
       
-      console.log('🎯 [DRAG DEBUG] Calculated new position:', {
+      debugLog('🎯 [DRAG DEBUG] Calculated new position:', {
         newX, newY,
         worldPos,
         dragStartOffset: { x: currentState.dragStartX, y: currentState.dragStartY }
@@ -1279,7 +1285,7 @@ export function useUnifiedMouseInteraction({
       currentState.dragCurrentX = newX;
       currentState.dragCurrentY = newY;
       
-      console.log('🎯 [DRAG DEBUG] Updated drag current position:', {
+      debugLog('🎯 [DRAG DEBUG] Updated drag current position:', {
         dragCurrentX: currentState.dragCurrentX,
         dragCurrentY: currentState.dragCurrentY
       });
@@ -1290,7 +1296,7 @@ export function useUnifiedMouseInteraction({
         cancelAnimationFrame(animationFrameRef.current);
       }
       animationFrameRef.current = requestAnimationFrame(() => {
-        console.log('🎯 [DRAG DEBUG] Triggering render for visual feedback');
+        debugLog('🎯 [DRAG DEBUG] Triggering render for visual feedback');
         render();
       });
 
@@ -1304,20 +1310,20 @@ export function useUnifiedMouseInteraction({
       });
     } else if (currentState.isRotating && currentState.selectedPanelId) {
       if (enableDebugLogging) {
-        console.log('🎯 [ROTATION DEBUG] 🔄 ROTATING PANEL');
+        debugLog('🎯 [ROTATION DEBUG] 🔄 ROTATING PANEL');
       }
       
       // Convert screen coordinates to world coordinates for rotation calculation
       const worldPos = getWorldCoordinates(screenX, screenY, canvasState);
       if (enableDebugLogging) {
-        console.log('🎯 [ROTATION DEBUG] World coordinates:', worldPos);
+        debugLog('🎯 [ROTATION DEBUG] World coordinates:', worldPos);
       }
       
       // Find the panel being rotated
       const panel = panels.find(p => p.id === currentState.selectedPanelId);
       if (!panel) {
         if (enableDebugLogging) {
-          console.log('🎯 [ROTATION DEBUG] ❌ Panel not found for rotation');
+          debugLog('🎯 [ROTATION DEBUG] ❌ Panel not found for rotation');
         }
         return;
       }
@@ -1327,8 +1333,8 @@ export function useUnifiedMouseInteraction({
       const panelCenterY = panel.y + panel.height / 2;
       
       if (enableDebugLogging) {
-        console.log('🎯 [ROTATION DEBUG] Panel center:', { panelCenterX, panelCenterY });
-        console.log('🎯 [ROTATION DEBUG] Current panel rotation:', panel.rotation);
+        debugLog('🎯 [ROTATION DEBUG] Panel center:', { panelCenterX, panelCenterY });
+        debugLog('🎯 [ROTATION DEBUG] Current panel rotation:', panel.rotation);
       }
       
       // Calculate current angle from panel center to mouse position
@@ -1338,7 +1344,7 @@ export function useUnifiedMouseInteraction({
       const initialAngle = currentState.rotationStartAngle;
       if (initialAngle === undefined) {
         if (enableDebugLogging) {
-          console.log('🎯 [ROTATION DEBUG] ❌ No initial angle stored');
+          debugLog('🎯 [ROTATION DEBUG] ❌ No initial angle stored');
         }
         return;
       }
@@ -1362,7 +1368,7 @@ export function useUnifiedMouseInteraction({
       while (newRotation >= 360) newRotation -= 360;
       
       if (enableDebugLogging) {
-        console.log('🎯 [ROTATION DEBUG] Rotation calculation:', {
+        debugLog('🎯 [ROTATION DEBUG] Rotation calculation:', {
           panelId: panel.id,
           currentAngle: currentAngle * (180 / Math.PI),
           initialAngle: initialAngle * (180 / Math.PI),
@@ -1395,15 +1401,15 @@ export function useUnifiedMouseInteraction({
         newRotation
       });
     } else if (currentState.isPanning) {
-      console.log('🎯 [DRAG DEBUG] 🔄 PANNING CANVAS');
+      debugLog('🎯 [DRAG DEBUG] 🔄 PANNING CANVAS');
       
       // Update canvas pan
       const deltaX = screenX - currentState.lastMouseX;
       const deltaY = screenY - currentState.lastMouseY;
 
-      console.log('🎯 [DRAG DEBUG] Pan delta:', { deltaX, deltaY });
-      console.log('🎯 [DRAG DEBUG] Last mouse pos:', { x: currentState.lastMouseX, y: currentState.lastMouseY });
-      console.log('🎯 [DRAG DEBUG] Current mouse pos:', { x: screenX, y: screenY });
+      debugLog('🎯 [DRAG DEBUG] Pan delta:', { deltaX, deltaY });
+      debugLog('🎯 [DRAG DEBUG] Last mouse pos:', { x: currentState.lastMouseX, y: currentState.lastMouseY });
+      debugLog('🎯 [DRAG DEBUG] Current mouse pos:', { x: screenX, y: screenY });
 
       onCanvasPan(deltaX, deltaY);
 
@@ -1423,8 +1429,8 @@ export function useUnifiedMouseInteraction({
     if (isSSR) return;
     if (!canvas) return;
 
-    console.log('🎯 [DRAG DEBUG] ===== MOUSE UP EVENT =====');
-    console.log('🎯 [DRAG DEBUG] Event type:', event.type);
+    debugLog('🎯 [DRAG DEBUG] ===== MOUSE UP EVENT =====');
+    debugLog('🎯 [DRAG DEBUG] Event type:', event.type);
     
     // #region agent log
     fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useUnifiedMouseInteraction.ts:1373',message:'Mouse up event fired',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run3',hypothesisId:'F'})}).catch(()=>{});
@@ -1436,8 +1442,8 @@ export function useUnifiedMouseInteraction({
     const currentState = mouseStateRef.current;
     const clickDuration = Date.now() - mouseDownTimeRef.current;
 
-    console.log('🎯 [DRAG DEBUG] Current mouse state:', currentState);
-    console.log('🎯 [DRAG DEBUG] Click duration:', clickDuration);
+    debugLog('🎯 [DRAG DEBUG] Current mouse state:', currentState);
+    debugLog('🎯 [DRAG DEBUG] Click duration:', clickDuration);
     
     // #region agent log
     fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useUnifiedMouseInteraction.ts:1388',message:'Mouse up state check',data:{isDragging:currentState.isDragging,selectedId:currentState.selectedPanelId,hasDragCurrent:currentState.dragCurrentX!==undefined},timestamp:Date.now(),sessionId:'debug-session',runId:'run3',hypothesisId:'F'})}).catch(()=>{});
@@ -1469,7 +1475,7 @@ export function useUnifiedMouseInteraction({
       const isDestructiveTest = !!destructiveTest;
       const itemType = isPanel ? 'panel' : isPatch ? 'patch' : 'destructive test';
       
-      console.log(`🎯 [DRAG DEBUG] ✅ FINISHING ${itemType.toUpperCase()} DRAG`);
+      debugLog(`🎯 [DRAG DEBUG] ✅ FINISHING ${itemType.toUpperCase()} DRAG`);
       
       // #region agent log
       fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useUnifiedMouseInteraction.ts:1414',message:'Finishing drag',data:{itemType,isPanel,isPatch,isDestructiveTest,selectedId,hasCallback:isDestructiveTest?!!onDestructiveTestUpdate:isPatch?!!onPatchUpdate:true},timestamp:Date.now(),sessionId:'debug-session',runId:'run3',hypothesisId:'F'})}).catch(()=>{});
@@ -1477,7 +1483,7 @@ export function useUnifiedMouseInteraction({
       
       // Now commit the final position change
       if (currentState.dragCurrentX !== undefined && currentState.dragCurrentY !== undefined) {
-        console.log(`🎯 [DRAG DEBUG] Committing ${itemType} position:`, {
+        debugLog(`🎯 [DRAG DEBUG] Committing ${itemType} position:`, {
           itemId: selectedId,
           finalPos: { x: currentState.dragCurrentX, y: currentState.dragCurrentY }
         });
@@ -1551,7 +1557,7 @@ export function useUnifiedMouseInteraction({
           console.warn(`⚠️ [handleMouseUp] No update callback available for ${itemType}:`, selectedId);
         }
       } else {
-        console.log(`🎯 [DRAG DEBUG] ❌ No drag current position to commit for ${itemType}`);
+        debugLog(`🎯 [DRAG DEBUG] ❌ No drag current position to commit for ${itemType}`);
       }
       
       onDragEnd?.();
@@ -1561,7 +1567,7 @@ export function useUnifiedMouseInteraction({
       });
     } else if (currentState.isRotating && currentState.selectedPanelId) {
       if (enableDebugLogging) {
-        console.log('🎯 [ROTATION DEBUG] ✅ FINISHING PANEL ROTATION');
+        debugLog('🎯 [ROTATION DEBUG] ✅ FINISHING PANEL ROTATION');
       }
       
       // Validate panel still exists before trying to update
@@ -1587,7 +1593,7 @@ export function useUnifiedMouseInteraction({
       while (finalRotation >= 360) finalRotation -= 360;
       
       if (enableDebugLogging) {
-        console.log('🎯 [ROTATION DEBUG] Final rotation with snapping:', {
+        debugLog('🎯 [ROTATION DEBUG] Final rotation with snapping:', {
           panelId: panel.id,
           originalRotation: panel.rotation || 0,
           snappedRotation: finalRotation
@@ -1607,14 +1613,14 @@ export function useUnifiedMouseInteraction({
         duration: clickDuration 
       });
     } else if (currentState.isPanning) {
-      console.log('🎯 [DRAG DEBUG] ✅ FINISHING CANVAS PAN');
+      debugLog('🎯 [DRAG DEBUG] ✅ FINISHING CANVAS PAN');
       logRef.current('Finished panning canvas', { duration: clickDuration });
     } else {
-      console.log('🎯 [DRAG DEBUG] ❌ No active drag or pan operation');
+      debugLog('🎯 [DRAG DEBUG] ❌ No active drag or pan operation');
     }
 
     // Reset mouse state
-    console.log('🎯 [DRAG DEBUG] Resetting mouse state to initial state');
+    debugLog('🎯 [DRAG DEBUG] Resetting mouse state to initial state');
     
     // #region agent log
     fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useUnifiedMouseInteraction.ts:1535',message:'Resetting mouse state',data:{wasDragging:currentState.isDragging,selectedId:currentState.selectedPanelId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
@@ -1716,14 +1722,14 @@ export function useUnifiedMouseInteraction({
     const screenY = event.clientY - rect.top;
     
     if (enableDebugLogging) {
-      console.log('🎯 [ROTATION HANDLE DEBUG] Canvas click at:', { screenX, screenY });
+      debugLog('🎯 [ROTATION HANDLE DEBUG] Canvas click at:', { screenX, screenY });
     }
     
     // Check for panel hits (rotation handles are handled in mousedown)
     const clickedPanel = getPanelAtPosition(screenX, screenY);
     if (clickedPanel && onPanelClick) {
       if (enableDebugLogging) {
-        console.log('🎯 [ROTATION HANDLE DEBUG] Panel clicked, calling onPanelClick:', {
+        debugLog('🎯 [ROTATION HANDLE DEBUG] Panel clicked, calling onPanelClick:', {
           id: clickedPanel.id,
           shape: clickedPanel.shape
         });
@@ -1732,7 +1738,7 @@ export function useUnifiedMouseInteraction({
       // Set the selected panel ID for selection handles
       mouseStateRef.current.selectedPanelId = clickedPanel.id;
       if (enableDebugLogging) {
-        console.log('🎯 [ROTATION HANDLE DEBUG] Set selectedPanelId:', clickedPanel.id);
+        debugLog('🎯 [ROTATION HANDLE DEBUG] Set selectedPanelId:', clickedPanel.id);
       }
       
       // Trigger a re-render to show selection handles
@@ -1741,7 +1747,7 @@ export function useUnifiedMouseInteraction({
       onPanelClick(clickedPanel);
     } else {
       if (enableDebugLogging) {
-        console.log('🎯 [ROTATION HANDLE DEBUG] No panel clicked or onPanelClick not available');
+        debugLog('🎯 [ROTATION HANDLE DEBUG] No panel clicked or onPanelClick not available');
       }
       // Clear selection if no panel clicked
       mouseStateRef.current.selectedPanelId = null;
@@ -1836,7 +1842,7 @@ export function useUnifiedMouseInteraction({
       for (const entry of entries) {
         // Only log if debug logging is enabled
         if (enableDebugLogging) {
-          console.log('🔍 [ResizeObserver] Container size changed:', {
+          debugLog('🔍 [ResizeObserver] Container size changed:', {
             width: entry.contentRect.width,
             height: entry.contentRect.height
           });
@@ -1867,7 +1873,7 @@ export function useUnifiedMouseInteraction({
     // Window resize handler as fallback
     const handleWindowResize = () => {
       if (enableDebugLogging) {
-        console.log('🔍 [WindowResize] Window resized');
+        debugLog('🔍 [WindowResize] Window resized');
       }
       resizeCanvas();
     };

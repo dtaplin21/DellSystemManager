@@ -35,10 +35,6 @@ interface UsePanelDataReturn {
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003';
 
 export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptions): UsePanelDataReturn {
-  // console.log('🔍 [usePanelData] ===== HOOK INITIALIZED =====');
-  // console.log('🔍 [usePanelData] Project ID:', projectId);
-  // console.log('🔍 [usePanelData] Feature flags:', featureFlags);
-  
   const flags = useMemo(() => ({ ...DEFAULT_FEATURE_FLAGS, ...featureFlags }), [featureFlags]);
   
   const [dataState, setDataState] = useState<PanelDataState>({
@@ -53,25 +49,11 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
     error: string | null;
   }>({ isAuthenticated: false, error: null });
 
-  // Debug logging helper - use ref to avoid dependency issues
-  const debugLogRef = useRef((message: string, data?: any) => {
+  const debugLog = useCallback((...args: any[]) => {
     if (flags.ENABLE_DEBUG_LOGGING) {
-      console.log(`[usePanelData] ${message}`, data);
+      console.log('[usePanelData]', ...args);
     }
-  });
-  
-  // Update debug log function when flags change
-  useEffect(() => {
-    debugLogRef.current = (message: string, data?: any) => {
-      if (flags.ENABLE_DEBUG_LOGGING) {
-        console.log(`[usePanelData] ${message}`, data);
-      }
-    };
   }, [flags.ENABLE_DEBUG_LOGGING]);
-  
-  const debugLog = useCallback((message: string, data?: any) => {
-    debugLogRef.current(message, data);
-  }, []);
 
   // Load data from localStorage
   const loadLocalStorageData = useCallback((): PanelPositionMap => {
@@ -116,28 +98,28 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
   // Fetch data from backend
   const fetchBackendData = useCallback(async (): Promise<PanelLayout | null> => {
     try {
-      console.log('🔍 [usePanelData] Fetching backend data for project', projectId);
-      console.log('🔍 [usePanelData] Backend URL:', `${BACKEND_URL}/api/panel-layout/ssr-layout/${projectId}`);
+      debugLog('🔍 [usePanelData] Fetching backend data for project', projectId);
+      debugLog('🔍 [usePanelData] Backend URL:', `${BACKEND_URL}/api/panel-layout/ssr-layout/${projectId}`);
       
       const response = await fetch(`${BACKEND_URL}/api/panel-layout/ssr-layout/${projectId}`);
-      console.log('🔍 [usePanelData] Response status:', response.status, response.ok);
+      debugLog('🔍 [usePanelData] Response status:', response.status, response.ok);
       
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
       const data = await response.json();
-      console.log('🔍 [usePanelData] ===== BACKEND RESPONSE RECEIVED =====');
-      console.log('🔍 [usePanelData] Full response:', JSON.stringify(data, null, 2));
-      console.log('🔍 [usePanelData] Success:', data.success);
-      console.log('🔍 [usePanelData] Layout exists:', !!data.layout);
-      console.log('🔍 [usePanelData] Panels count:', data.layout?.panels?.length || 0);
-      console.log('🔍 [usePanelData] First panel:', data.layout?.panels?.[0]);
+      debugLog('🔍 [usePanelData] ===== BACKEND RESPONSE RECEIVED =====');
+      debugLog('🔍 [usePanelData] Full response:', JSON.stringify(data, null, 2));
+      debugLog('🔍 [usePanelData] Success:', data.success);
+      debugLog('🔍 [usePanelData] Layout exists:', !!data.layout);
+      debugLog('🔍 [usePanelData] Panels count:', data.layout?.panels?.length || 0);
+      debugLog('🔍 [usePanelData] First panel:', data.layout?.panels?.[0]);
 
       // Map backend data structure to frontend interface
-      console.log('🔍 [usePanelData] Mapping backend data...');
-      console.log('🔍 [usePanelData] data.layout:', data.layout);
-      console.log('🔍 [usePanelData] data.layout.panels:', data.layout?.panels);
+      debugLog('🔍 [usePanelData] Mapping backend data...');
+      debugLog('🔍 [usePanelData] data.layout:', data.layout);
+      debugLog('🔍 [usePanelData] data.layout.panels:', data.layout?.panels);
       
       // CRITICAL FIX: The API returns { success: true, layout: { panels: [...] } }
       // But we were trying to access data.panels instead of data.layout.panels
@@ -145,8 +127,8 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
         id: data.layout?.id || `layout-${projectId}`,
         projectId: projectId,
         panels: data.layout?.panels?.map((backendPanel: any, index: number) => {
-          console.log('🔍 [usePanelData] Mapping panel:', backendPanel);
-          console.log('🔍 [SHAPE DEBUG] Backend panel shape fields:', {
+          debugLog('🔍 [usePanelData] Mapping panel:', backendPanel);
+          debugLog('🔍 [SHAPE DEBUG] Backend panel shape fields:', {
             id: backendPanel.id,
             shape: backendPanel.shape,
             type: backendPanel.type,
@@ -166,7 +148,7 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
           
           const panelId = backendPanel.id || rollNumber || panelNumber || generatedId;
           
-          console.log('🔍 [usePanelData] Panel ID generation:', {
+          debugLog('🔍 [usePanelData] Panel ID generation:', {
             originalId: backendPanel.id,
             rollNumber,
             panelNumber,
@@ -198,11 +180,11 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
         }) || []
       };
       
-      console.log('🔍 [usePanelData] Mapped layout:', mappedLayout);
-      console.log('🔍 [usePanelData] Mapped panels count:', mappedLayout.panels.length);
+      debugLog('🔍 [usePanelData] Mapped layout:', mappedLayout);
+      debugLog('🔍 [usePanelData] Mapped panels count:', mappedLayout.panels.length);
       
       // Debug validation
-      console.log('🔍 [usePanelData] Layout validation:', {
+      debugLog('🔍 [usePanelData] Layout validation:', {
         hasId: !!mappedLayout.id,
         hasProjectId: !!mappedLayout.projectId,
         panelsIsArray: Array.isArray(mappedLayout.panels),
@@ -210,7 +192,7 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
       });
       
       if (mappedLayout.panels.length > 0) {
-        console.log('🔍 [usePanelData] First panel validation:', {
+        debugLog('🔍 [usePanelData] First panel validation:', {
           hasId: !!mappedLayout.panels[0].id,
           width: mappedLayout.panels[0].width,
           height: mappedLayout.panels[0].height,
@@ -224,7 +206,7 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
         
         // Test individual panel validation
         const firstPanel = mappedLayout.panels[0];
-        console.log('🔍 [usePanelData] Individual panel validation test:', {
+        debugLog('🔍 [usePanelData] Individual panel validation test:', {
           hasPanel: !!firstPanel,
           hasId: !!firstPanel.id,
           idType: typeof firstPanel.id,
@@ -240,20 +222,20 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
       }
 
       // Test validation step by step
-      console.log('🔍 [usePanelData] Testing validation step by step:');
-      console.log('🔍 [usePanelData] Layout exists:', !!mappedLayout);
-      console.log('🔍 [usePanelData] Layout ID type:', typeof mappedLayout.id);
-      console.log('🔍 [usePanelData] Project ID type:', typeof mappedLayout.projectId);
-      console.log('🔍 [usePanelData] Panels is array:', Array.isArray(mappedLayout.panels));
+      debugLog('🔍 [usePanelData] Testing validation step by step:');
+      debugLog('🔍 [usePanelData] Layout exists:', !!mappedLayout);
+      debugLog('🔍 [usePanelData] Layout ID type:', typeof mappedLayout.id);
+      debugLog('🔍 [usePanelData] Project ID type:', typeof mappedLayout.projectId);
+      debugLog('🔍 [usePanelData] Panels is array:', Array.isArray(mappedLayout.panels));
       
       if (mappedLayout.panels.length > 0) {
-        console.log('🔍 [usePanelData] Testing first panel validation:');
+        debugLog('🔍 [usePanelData] Testing first panel validation:');
         const firstPanelValid = validatePanel(mappedLayout.panels[0]);
-        console.log('🔍 [usePanelData] First panel valid:', firstPanelValid);
+        debugLog('🔍 [usePanelData] First panel valid:', firstPanelValid);
       }
       
       const layoutValid = validatePanelLayout(mappedLayout);
-      console.log('🔍 [usePanelData] Layout validation result:', layoutValid);
+      debugLog('🔍 [usePanelData] Layout validation result:', layoutValid);
 
       if (layoutValid) {
         return mappedLayout;
@@ -280,7 +262,7 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
       const localPosition = localPositions[panel.id];
       if (localPosition) {
         debugLog(`Applying localStorage position for panel ${panel.id}`, localPosition);
-        console.log('🔍 [SHAPE DEBUG] Merge logic - panel shape fields:', {
+        debugLog('🔍 [SHAPE DEBUG] Merge logic - panel shape fields:', {
           panelId: panel.id,
           backendShape: panel.shape,
           localShape: localPosition.shape,
@@ -302,27 +284,27 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
 
   // Main data loading function
   const loadData = useCallback(async () => {
-    console.log('🔍 [usePanelData] ===== STARTING LOAD DATA =====');
-    console.log('🔍 [usePanelData] Project ID:', projectId);
+    debugLog('🔍 [usePanelData] ===== STARTING LOAD DATA =====');
+    debugLog('🔍 [usePanelData] Project ID:', projectId);
     setDataState(prev => ({ ...prev, state: 'loading' }));
 
     try {
       // Load localStorage positions first
       const localPositions = loadLocalStorageData();
-      console.log('🔍 [usePanelData] Local positions:', localPositions);
+      debugLog('🔍 [usePanelData] Local positions:', localPositions);
 
       // Fetch backend data
-      console.log('🔍 [usePanelData] About to call fetchBackendData...');
+      debugLog('🔍 [usePanelData] About to call fetchBackendData...');
       const backendLayout = await fetchBackendData();
-      console.log('🔍 [usePanelData] Backend layout received:', backendLayout);
-      console.log('🔍 [usePanelData] Backend layout panels:', backendLayout?.panels);
-      console.log('🔍 [usePanelData] Backend layout panels length:', backendLayout?.panels?.length);
+      debugLog('🔍 [usePanelData] Backend layout received:', backendLayout);
+      debugLog('🔍 [usePanelData] Backend layout panels:', backendLayout?.panels);
+      debugLog('🔍 [usePanelData] Backend layout panels length:', backendLayout?.panels?.length);
       
       if (!backendLayout || !backendLayout.panels || backendLayout.panels.length === 0) {
-        console.log('🔍 [usePanelData] ❌ No backend data available - setting empty state');
-        console.log('🔍 [usePanelData] backendLayout exists:', !!backendLayout);
-        console.log('🔍 [usePanelData] backendLayout.panels exists:', !!backendLayout?.panels);
-        console.log('🔍 [usePanelData] backendLayout.panels.length:', backendLayout?.panels?.length);
+        debugLog('🔍 [usePanelData] ❌ No backend data available - setting empty state');
+        debugLog('🔍 [usePanelData] backendLayout exists:', !!backendLayout);
+        debugLog('🔍 [usePanelData] backendLayout.panels exists:', !!backendLayout?.panels);
+        debugLog('🔍 [usePanelData] backendLayout.panels.length:', backendLayout?.panels?.length);
         setDataState({
           state: 'empty',
           panels: [],
@@ -332,10 +314,10 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
       }
 
       // Merge data
-      console.log('🔍 [usePanelData] About to merge data...');
+      debugLog('🔍 [usePanelData] About to merge data...');
       const mergedPanels = mergeDataWithLocalStorage(backendLayout.panels, localPositions);
-      console.log('🔍 [usePanelData] Merged panels:', mergedPanels);
-      console.log('🔍 [usePanelData] Merged panels length:', mergedPanels.length);
+      debugLog('🔍 [usePanelData] Merged panels:', mergedPanels);
+      debugLog('🔍 [usePanelData] Merged panels length:', mergedPanels.length);
 
       setDataState({
         state: 'loaded',
@@ -343,7 +325,7 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
         lastUpdated: Date.now()
       });
       
-      console.log('🔍 [usePanelData] ✅ Data state set to loaded with', mergedPanels.length, 'panels');
+      debugLog('🔍 [usePanelData] ✅ Data state set to loaded with', mergedPanels.length, 'panels');
 
       debugLog('Data loaded successfully', { 
         panelCount: mergedPanels.length,
@@ -370,10 +352,10 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
 
   // Auth state monitoring
   useEffect(() => {
-    console.log('[usePanelData] Setting up auth state monitoring...');
+    debugLog('[usePanelData] Setting up auth state monitoring...');
     
     const unsubscribe = authManager.onAuthStateChange((state: AuthState) => {
-      console.log('[usePanelData] Auth state changed:', state);
+      debugLog('[usePanelData] Auth state changed:', state);
       setAuthState({
         isAuthenticated: state.isAuthenticated,
         error: state.error
@@ -382,7 +364,7 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
 
     // Initial check
     authManager.getAuthState().then(state => {
-      console.log('[usePanelData] Initial auth state:', state);
+      debugLog('[usePanelData] Initial auth state:', state);
       setAuthState({
         isAuthenticated: state.isAuthenticated,
         error: state.error
@@ -493,7 +475,7 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
     }
 
     // Only attempt backend save if authenticated
-    console.log('[usePanelData] Auth state check:', { 
+    debugLog('[usePanelData] Auth state check:', { 
       isAuthenticated: authState.isAuthenticated, 
       error: authState.error 
     });
@@ -649,13 +631,13 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
 
       const apiResult = result as { success: boolean; panel: any; error?: string };
       
-      console.log('🔍 [addPanel] API result:', apiResult);
+      debugLog('🔍 [addPanel] API result:', apiResult);
       
       if (apiResult.success && apiResult.panel) {
         // Convert backend panel to frontend Panel format
         const backendPanel = apiResult.panel;
-        console.log('🔍 [addPanel] Backend panel:', backendPanel);
-        console.log('🔍 [addPanel] Backend panel ID:', backendPanel.id);
+        debugLog('🔍 [addPanel] Backend panel:', backendPanel);
+        debugLog('🔍 [addPanel] Backend panel ID:', backendPanel.id);
         
         const newPanel: Panel = {
           id: backendPanel.id, // Always use the backend-generated ID
@@ -765,7 +747,7 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
             };
           });
           saveToLocalStorage(positionMap);
-          console.log('🔍 [SHAPE DEBUG] Saved to localStorage with shapes:', positionMap);
+          debugLog('🔍 [SHAPE DEBUG] Saved to localStorage with shapes:', positionMap);
         }
 
         debugLog(`Removed panel ${panelId} from local state`);
@@ -781,8 +763,8 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
       if (authState.isAuthenticated && projectId && !panelId.startsWith('local-panel-')) {
         try {
           debugLog(`🗑️ [removePanel] Calling API to delete panel ${panelId} from backend`);
-          console.log('🔍 [removePanel] Deleting panel with ID:', panelId);
-          console.log('🔍 [removePanel] Project ID:', projectId);
+          debugLog('🔍 [removePanel] Deleting panel with ID:', panelId);
+          debugLog('🔍 [removePanel] Project ID:', projectId);
           const { deletePanel } = await import('../lib/api');
           await deletePanel(projectId, panelId);
           debugLog(`✅ [removePanel] Successfully deleted panel ${panelId} from backend`);
@@ -839,9 +821,9 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
 
   // Load data on mount - only on client side
   useEffect(() => {
-    console.log('🔍 [usePanelData] useEffect triggered - calling loadData');
-    console.log('🔍 [usePanelData] typeof window:', typeof window);
-    console.log('🔍 [usePanelData] isClient:', typeof window !== 'undefined');
+    debugLog('🔍 [usePanelData] useEffect triggered - calling loadData');
+    debugLog('🔍 [usePanelData] typeof window:', typeof window);
+    debugLog('🔍 [usePanelData] isClient:', typeof window !== 'undefined');
     
     if (typeof window !== 'undefined') {
       loadData().catch(error => {
@@ -854,7 +836,7 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
         });
       });
     } else {
-      console.log('🔍 [usePanelData] Skipping loadData - not on client side');
+      debugLog('🔍 [usePanelData] Skipping loadData - not on client side');
     }
   }, [projectId]); // Only depend on projectId - loadData is stable
 

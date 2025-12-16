@@ -27,13 +27,10 @@ import { DestructiveTest } from '@/types/destructiveTest';
 
 // Progressive enhancement: Start simple, enhance on client
 export default function PanelLayoutRefactored() {
-  console.log('🔍 [PanelLayoutRefactored] ===== COMPONENT RENDERED =====');
   
   const params = useParams();
   const projectId = params.id as string;
   
-  console.log('🔍 [PanelLayoutRefactored] Project ID from params:', projectId);
-
   
   // Client-side hydration state
   const [isHydrated, setIsHydrated] = useState(false);
@@ -88,12 +85,11 @@ export default function PanelLayoutRefactored() {
     ENABLE_PERSISTENCE: true,
     ENABLE_DRAGGING: true,
     ENABLE_LOCAL_STORAGE: true,
-    ENABLE_DEBUG_LOGGING: process.env.NODE_ENV === 'development',
+    ENABLE_DEBUG_LOGGING: false,
     ENABLE_WEBSOCKET_UPDATES: false // Disabled for now to simplify
   };
 
   // Use our custom hook for data management
-  console.log('🔍 [PanelLayoutRefactored] About to call usePanelData with:', { projectId, featureFlags });
   const {
     dataState,
     isLoading,
@@ -156,32 +152,11 @@ export default function PanelLayoutRefactored() {
     return <HydrationFallback />;
   }
   
-  console.log('🔍 [PanelLayoutRefactored] Hook returned:', {
-    dataState: dataState.state,
-    isLoading,
-    error,
-    panelsCount: panels.length
-  });
   
-  // Add more detailed logging
-  console.log('🔍 [PanelLayoutRefactored] Full dataState:', dataState);
-  console.log('🔍 [PanelLayoutRefactored] Panels array:', panels);
-  console.log('🔍 [PanelLayoutRefactored] Error details:', error);
 
 
   // Handle panel position updates
   const handlePanelPositionUpdate = async (panelId: string, updates: Partial<Panel>) => {
-    console.log('🔍 [handlePanelPositionUpdate] Received updates:', {
-      panelId,
-      updates,
-      x: updates.x,
-      y: updates.y,
-      rotation: updates.rotation,
-      xType: typeof updates.x,
-      yType: typeof updates.y,
-      rotationType: typeof updates.rotation
-    });
-
     // Validate position data before sending
     // Allow rotation-only updates, but require x,y for position updates
     const hasPositionData = updates.x !== undefined && updates.y !== undefined;
@@ -232,17 +207,13 @@ export default function PanelLayoutRefactored() {
       return;
     }
 
-    console.log('🔍 [handlePanelPositionUpdate] Sending position to backend:', position);
     await updatePanelPosition(panelId, position);
   };
 
   // Handle panel deletion
   const handlePanelDelete = async (panelId: string) => {
-    console.log('🗑️ [PanelLayoutRefactored] handlePanelDelete called with panelId:', panelId);
-    console.log('🗑️ [PanelLayoutRefactored] removePanel function:', removePanel);
     try {
       await removePanel(panelId);
-      console.log('🗑️ [PanelLayoutRefactored] Panel deleted successfully');
     } catch (error) {
       console.error('🗑️ [PanelLayoutRefactored] Error deleting panel:', error);
     }
@@ -273,8 +244,6 @@ export default function PanelLayoutRefactored() {
   };
 
   const handleCreatePanel = async (panelData: any) => {
-    console.log('🔍 [PanelLayoutRefactored] Creating panel with data:', panelData);
-    
     // Set dimensions based on shape
       // Rectangle and right-triangle panels: use user dimensions
     const panelWidth = panelData.width || 100;
@@ -303,7 +272,6 @@ export default function PanelLayoutRefactored() {
     try {
       await addPanel(newPanel);
       setShowCreatePanelModal(false);
-      console.log('✅ Panel created successfully');
     } catch (error) {
       console.error('❌ Failed to create panel:', error);
       // Keep modal open on error so user can retry
@@ -336,22 +304,18 @@ export default function PanelLayoutRefactored() {
 
   // Fullscreen handlers - will be handled by PanelLayoutComponent
   const handleToggleFullscreen = () => {
-    console.log('🔍 [PanelLayoutRefactored] Toggle fullscreen requested');
     // This will be handled by the PanelLayoutComponent
   };
 
   const handleFullscreenPanelClick = (panel: Panel) => {
-    console.log('🔍 [PanelLayoutRefactored] Panel clicked in fullscreen:', panel.id);
     // The fullscreen layout will handle panel selection
   };
 
   const handleFullscreenPanelDoubleClick = (panel: Panel) => {
-    console.log('🔍 [PanelLayoutRefactored] Panel double-clicked in fullscreen:', panel.id);
     // The fullscreen layout will handle panel interactions
   };
 
   const handleFullscreenPanelUpdate = (panelId: string, updates: Partial<Panel>) => {
-    console.log('🔍 [PanelLayoutRefactored] Panel updated in fullscreen:', panelId, updates);
     handlePanelPositionUpdate(panelId, updates);
   };
 
@@ -359,20 +323,6 @@ export default function PanelLayoutRefactored() {
   if (!isHydrated) {
     return <HydrationFallback />;
   }
-
-  // Debug information
-  console.log('🔍 [PanelLayoutRefactored] RENDER DEBUG:', {
-    isHydrated,
-    isLoading,
-    dataState: dataState.state,
-    panelsCount: panels.length,
-    error,
-    activeTab,
-    visibleTypes,
-    shouldShowTabs: !isLoading && !error,
-    shouldRenderPanels: activeTab === 'panels' && !isLoading && !error && panels.length > 0,
-    panelsArray: panels.slice(0, 3).map(p => ({ id: p.id, x: p.x, y: p.y, isValid: p.isValid })) // First 3 panels for debugging
-  });
 
   // Error boundary wrapper
   return (
@@ -426,7 +376,7 @@ export default function PanelLayoutRefactored() {
               {activeTab === 'panels' && !isLoading && !error && panels.length === 0 && dataState.state === 'empty' && (
           <EmptyStateFallback 
             onAddPanel={handleAddTestPanel}
-            onImportLayout={() => console.log('Import layout clicked')}
+            onImportLayout={() => {}}
           />
         )}
         
@@ -469,46 +419,6 @@ export default function PanelLayoutRefactored() {
                 const shouldRenderPatches = activeTab === 'patches' && !patchesLoading && !patchesError && patches.length > 0;
                 const shouldRenderDestructs = activeTab === 'destructs' && !destructsLoading && !destructsError && destructiveTests.length > 0;
                 const shouldRender = shouldRenderPanels || shouldRenderPatches || shouldRenderDestructs;
-                
-                // Always log the condition check to help diagnose
-                console.log('🔍 [PanelLayoutRefactored] Render condition check:', {
-                  activeTab,
-                  isLoading,
-                  error,
-                  panelsCount: panels.length,
-                  shouldRenderPanels,
-                  shouldRenderPatches,
-                  shouldRenderDestructs,
-                  shouldRender,
-                  visibleTypes
-                });
-                
-                if (shouldRender) {
-                  console.log('✅ [PanelLayoutRefactored] Rendering PanelLayoutComponent with:', {
-                    activeTab,
-                    panelsCount: panels.length,
-                    patchesCount: patches.length,
-                    destructsCount: destructiveTests.length,
-                    visibleTypes,
-                    firstPanel: panels[0] ? { id: panels[0].id, x: panels[0].x, y: panels[0].y } : null
-                  });
-                } else {
-                  console.log('❌ [PanelLayoutRefactored] NOT rendering PanelLayoutComponent. Reasons:', {
-                    activeTab,
-                    isLoading,
-                    error,
-                    panelsCount: panels.length,
-                    patchesCount: patches.length,
-                    destructsCount: destructiveTests.length,
-                    reason: activeTab === 'panels' ? 
-                      (isLoading ? 'Still loading' : error ? 'Has error' : 'Unknown') :
-                      activeTab === 'patches' ?
-                      (patchesLoading ? 'Patches loading' : patchesError ? 'Patches error' : patches.length === 0 ? 'No patches' : 'Unknown') :
-                      activeTab === 'destructs' ?
-                      (destructsLoading ? 'Destructs loading' : destructsError ? 'Destructs error' : destructiveTests.length === 0 ? 'No destructs' : 'Unknown') :
-                      'Unknown tab'
-                  });
-                }
                 
                 return shouldRender;
               })() && (

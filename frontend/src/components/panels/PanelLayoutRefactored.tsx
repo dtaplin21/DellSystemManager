@@ -59,6 +59,8 @@ function PanelLayoutContent({
   destructiveTests = [],
   visibleTypes = { panels: true, patches: false, destructs: false },
   onPanelUpdate,
+  onPatchUpdate,
+  onDestructiveTestUpdate,
   onPanelDelete,
   onAddPanel,
   onCreatePanel,
@@ -71,46 +73,37 @@ function PanelLayoutContent({
 }: PanelLayoutRefactoredProps) {
   // Internal event handlers
   const handlePanelClick = (panel: Panel) => {
-    console.log('Panel clicked:', panel.id);
     if (onPanelSelect) {
       onPanelSelect(panel);
     }
   };
 
   const handlePanelDoubleClick = (panel: Panel) => {
-    console.log('Panel double-clicked:', panel.id);
   };
 
   const handlePanelUpdate = async (panelId: string, updates: Partial<Panel>) => {
-    console.log('Panel updated:', panelId, updates);
     await onPanelUpdate?.(panelId, updates);
   };
 
   const handlePatchUpdate = async (patchId: string, updates: Partial<Patch>) => {
-    console.log('Patch updated:', patchId, updates);
     await onPatchUpdate?.(patchId, updates);
   };
 
   const handleDestructiveTestUpdate = async (testId: string, updates: Partial<DestructiveTest>) => {
-    console.log('Destructive test updated:', testId, updates);
     await onDestructiveTestUpdate?.(testId, updates);
   };
 
   const handleAddPanel = () => {
-    console.log('Add panel requested');
     onAddPanel?.();
   };
 
   const handleSave = () => {
-    console.log('Save clicked');
   };
 
   const handleExport = () => {
-    console.log('Export clicked');
   };
 
   const handleImport = () => {
-    console.log('Import clicked');
   };
   const { fullscreen } = useFullscreenState();
 
