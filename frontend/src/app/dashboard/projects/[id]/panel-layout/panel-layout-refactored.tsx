@@ -23,7 +23,7 @@ import CreateDestructiveTestModal from '@/components/destructive-tests/CreateDes
 // FullscreenLayout is now handled inside PanelLayoutComponent
 // Removed useFullscreenState import - will be handled inside PanelLayoutComponent
 import { Panel } from '@/types/panel';
-import { Patch } from '@/types/patch';
+import { Patch, PATCH_CONFIG } from '@/types/patch';
 import { DestructiveTest } from '@/types/destructiveTest';
 
 // Progressive enhancement: Start simple, enhance on client
@@ -479,7 +479,7 @@ export default function PanelLayoutRefactored() {
                       try {
                         await addPatch({
                           ...patchData,
-                          radius: 6.67, // PATCH_CONFIG.RADIUS
+                          radius: PATCH_CONFIG.RADIUS,
                           rotation: 0,
                           isValid: true,
                           fill: '#ef4444',
@@ -554,7 +554,7 @@ export default function PanelLayoutRefactored() {
               try {
                 await addPatch({
                   ...patchData,
-                  radius: 6.67, // PATCH_CONFIG.RADIUS
+                  radius: PATCH_CONFIG.RADIUS,
                   rotation: 0,
                   isValid: true,
                   fill: '#ef4444',

@@ -5,7 +5,7 @@ import { X, Minimize2, ZoomIn, ZoomOut, RotateCcw, Trash2, Plus } from 'lucide-r
 import { Button } from '@/components/ui/button';
 import { useFullscreenState, useCanvasState } from '@/contexts/PanelContext';
 import { Panel } from '@/types/panel';
-import { Patch } from '@/types/patch';
+import { Patch, PATCH_CONFIG } from '@/types/patch';
 import { DestructiveTest } from '@/types/destructiveTest';
 import { PanelCanvas } from './PanelCanvas';
 import LazyFullSidebar from './LazyFullSidebar';
@@ -552,7 +552,7 @@ export function FullscreenLayout({
             try {
               await onAddPatch({
                 ...patchData,
-                radius: 6.67, // PATCH_CONFIG.RADIUS
+                radius: PATCH_CONFIG.RADIUS,
                 rotation: 0,
                 isValid: true,
                 fill: '#ef4444',

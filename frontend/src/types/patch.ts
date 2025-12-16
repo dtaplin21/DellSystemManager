@@ -22,10 +22,10 @@ export interface Patch {
   };
 }
 
-// Patch dimensions for 30 patches on 400ft panel
+// Patch dimensions - 3ft x 3ft patches
 export const PATCH_CONFIG = {
-  DIAMETER: 400 / 30, // 13.33 feet diameter
-  RADIUS: (400 / 30) / 2, // 6.67 feet radius
+  DIAMETER: 3, // 3 feet diameter
+  RADIUS: 1.5, // 1.5 feet radius
 } as const;
 
 // Utility function to create a patch with correct dimensions
