@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { apiClient } from '@/lib/apiClient';
 import { DestructiveTest, validateDestructiveTest } from '@/types/destructiveTest';
+import { logTelemetry } from '@/lib/telemetry';
 
 interface UseDestructiveTestDataOptions {
   projectId: string;
@@ -22,11 +23,19 @@ export function useDestructiveTestData({ projectId }: UseDestructiveTestDataOpti
   const [destructiveTests, setDestructiveTests] = useState<DestructiveTest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Track latest request ID for each test to prevent out-of-order response race conditions
+  const latestRequestIds = useRef<Map<string, number>>(new Map());
 
   const fetchDestructiveTests = useCallback(async () => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useDestructiveTestData.ts:26',message:'fetchDestructiveTests called',data:{projectId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
+    logTelemetry({
+      location: 'useDestructiveTestData.ts:26',
+      message: 'fetchDestructiveTests called',
+      data: { projectId },
+      sessionId: 'debug-session',
+      runId: 'run1',
+      hypothesisId: 'A'
+    });
     try {
       setIsLoading(true);
       setError(null);
@@ -38,9 +47,17 @@ export function useDestructiveTestData({ projectId }: UseDestructiveTestDataOpti
       if (response.success && Array.isArray(response.destructiveTests)) {
         const validTests = response.destructiveTests.filter(validateDestructiveTest);
         
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useDestructiveTestData.ts:38',message:'Setting destructiveTests from fetch',data:{count:validTests.length,tests:validTests.map(t=>({id:t.id,x:t.x,y:t.y}))},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-        // #endregion
+        logTelemetry({
+          location: 'useDestructiveTestData.ts:38',
+          message: 'Setting destructiveTests from fetch',
+          data: {
+            count: validTests.length,
+            tests: validTests.map(t => ({ id: t.id, x: t.x, y: t.y }))
+          },
+          sessionId: 'debug-session',
+          runId: 'run1',
+          hypothesisId: 'A'
+        });
         
         setDestructiveTests(validTests);
       } else {
@@ -79,9 +96,18 @@ export function useDestructiveTestData({ projectId }: UseDestructiveTestDataOpti
   }, [projectId, fetchDestructiveTests]);
 
   const updateDestructiveTest = useCallback(async (testId: string, updates: Partial<DestructiveTest>) => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useDestructiveTestData.ts:73',message:'updateDestructiveTest called',data:{testId,updates,x:updates.x,y:updates.y},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
+    // Generate unique request ID for this update
+    const requestId = Date.now() + Math.random();
+    latestRequestIds.current.set(testId, requestId);
+    
+    logTelemetry({
+      location: 'useDestructiveTestData.ts:73',
+      message: 'updateDestructiveTest called',
+      data: { testId, updates, x: updates.x, y: updates.y, requestId },
+      sessionId: 'debug-session',
+      runId: 'run1',
+      hypothesisId: 'A'
+    });
     
     // Optimistic update - update local state immediately for responsive UI
     setDestructiveTests(prev => {
@@ -97,18 +123,33 @@ export function useDestructiveTestData({ projectId }: UseDestructiveTestDataOpti
           : t
       );
       
-      // #region agent log
       const updatedTest = updated.find(t => t.id === testId);
-      fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useDestructiveTestData.ts:87',message:'Optimistic update applied',data:{testId,oldPos:{x:test.x,y:test.y},newPos:{x:updatedTest?.x,y:updatedTest?.y}},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
+      logTelemetry({
+        location: 'useDestructiveTestData.ts:87',
+        message: 'Optimistic update applied',
+        data: {
+          testId,
+          oldPos: { x: test.x, y: test.y },
+          newPos: { x: updatedTest?.x, y: updatedTest?.y },
+          requestId
+        },
+        sessionId: 'debug-session',
+        runId: 'run1',
+        hypothesisId: 'A'
+      });
       
       return updated;
     });
     
     try {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useDestructiveTestData.ts:95',message:'API call starting',data:{testId,updates},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
+      logTelemetry({
+        location: 'useDestructiveTestData.ts:95',
+        message: 'API call starting',
+        data: { testId, updates, requestId },
+        sessionId: 'debug-session',
+        runId: 'run1',
+        hypothesisId: 'A'
+      });
       
       const response = await apiClient.request<{ success: boolean; destructiveTest: DestructiveTest }>(
         `/api/panels/${projectId}/destructive-tests/${testId}`,
@@ -118,43 +159,89 @@ export function useDestructiveTestData({ projectId }: UseDestructiveTestDataOpti
         }
       );
       
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useDestructiveTestData.ts:104',message:'API call completed',data:{testId,success:response.success,returnedPos:{x:response.destructiveTest?.x,y:response.destructiveTest?.y},requestedPos:{x:updates.x,y:updates.y}},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
+      // Check if this response is from a superseded request
+      const latestRequestId = latestRequestIds.current.get(testId);
+      if (latestRequestId !== undefined && requestId < latestRequestId) {
+        console.log(`⚠️ [updateDestructiveTest] Ignoring stale response for ${testId}. Request ID: ${requestId}, Latest: ${latestRequestId}`);
+        logTelemetry({
+          location: 'useDestructiveTestData.ts:104',
+          message: 'Ignoring stale response',
+          data: { testId, requestId, latestRequestId },
+          sessionId: 'debug-session',
+          runId: 'post-fix',
+          hypothesisId: 'A'
+        });
+        return; // Ignore this stale response
+      }
+      
+      logTelemetry({
+        location: 'useDestructiveTestData.ts:104',
+        message: 'API call completed',
+        data: {
+          testId,
+          success: response.success,
+          returnedPos: { x: response.destructiveTest?.x, y: response.destructiveTest?.y },
+          requestedPos: { x: updates.x, y: updates.y },
+          requestId
+        },
+        sessionId: 'debug-session',
+        runId: 'post-fix',
+        hypothesisId: 'A'
+      });
       
       if (response.success && response.destructiveTest) {
         // CRITICAL FIX: Don't refetch immediately - this causes a race condition where
         // stale backend data overwrites the optimistic update. 
-        // Instead, merge ONLY the fields we sent in updates with the response,
-        // prioritizing our updates to avoid overwriting with stale backend data.
+        // Instead, merge the response with our updates, prioritizing our updates
+        // to avoid overwriting with stale backend data.
         setDestructiveTests(prev => {
           return prev.map(t => {
             if (t.id !== testId) return t;
             
-            // Merge: start with current state, apply our updates, then apply response
-            // but prioritize our updates for position fields to avoid stale data
+            // Use response data (which should have our updates applied by backend)
+            // Don't re-apply updates from closure as they may be stale
             const merged = {
               ...t,
               ...response.destructiveTest,
-              ...updates, // Our updates take priority (especially x, y)
               isValid: true
             };
             
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useDestructiveTestData.ts:140',message:'Merging response with updates (updates prioritized)',data:{testId,updates,responsePos:{x:response.destructiveTest.x,y:response.destructiveTest.y},finalPos:{x:merged.x,y:merged.y}},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'A'})}).catch(()=>{});
-            // #endregion
+            logTelemetry({
+              location: 'useDestructiveTestData.ts:140',
+              message: 'Merging response (no stale updates)',
+              data: {
+                testId,
+                responsePos: { x: response.destructiveTest.x, y: response.destructiveTest.y },
+                finalPos: { x: merged.x, y: merged.y },
+                requestId
+              },
+              sessionId: 'debug-session',
+              runId: 'post-fix',
+              hypothesisId: 'A'
+            });
             
             return merged;
           });
         });
       }
     } catch (err: any) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useDestructiveTestData.ts:115',message:'Error in updateDestructiveTest',data:{testId,error:err.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-      // #endregion
-      console.error('Error updating destructive test:', err);
-      // On error, refresh from backend to restore correct state
-      await fetchDestructiveTests();
+      // Only revert if this is still the latest request
+      const latestRequestId = latestRequestIds.current.get(testId);
+      if (latestRequestId === requestId) {
+        logTelemetry({
+          location: 'useDestructiveTestData.ts:115',
+          message: 'Error in updateDestructiveTest',
+          data: { testId, error: err.message, requestId },
+          sessionId: 'debug-session',
+          runId: 'run1',
+          hypothesisId: 'D'
+        });
+        console.error('Error updating destructive test:', err);
+        // On error, refresh from backend to restore correct state
+        await fetchDestructiveTests();
+      } else {
+        console.log(`⚠️ [updateDestructiveTest] Ignoring error from stale request for ${testId}`);
+      }
       throw err;
     }
   }, [projectId, fetchDestructiveTests]);

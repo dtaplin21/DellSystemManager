@@ -1,53 +1,43 @@
 /**
- * Frontend Telemetry Integration
- * Initializes and provides telemetry services for the frontend
+ * Telemetry logging helper for debug/development purposes
+ * Only sends telemetry if explicitly enabled via environment variable
  */
 
-import { 
-  initializeTelemetry, 
-  getTelemetry,
-  captureError,
-  trackPerformance,
-  trackCost,
-  trackEvent,
-  type TelemetryConfig,
-  type ErrorContext,
-  type PerformanceMetric,
-  type CostMetric,
-} from '../../../shared/telemetry';
+const TELEMETRY_ENABLED = process.env.NEXT_PUBLIC_ENABLE_TELEMETRY === 'true';
+const TELEMETRY_URL = 'http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893';
 
-// Initialize telemetry on module load
-const telemetryConfig: TelemetryConfig = {
-  enabled: process.env.NEXT_PUBLIC_TELEMETRY_ENABLED !== 'false',
-  environment: (process.env.NODE_ENV as 'development' | 'staging' | 'production') || 'development',
-  errorTracking: {
-    enabled: true,
-    dsn: process.env.NEXT_PUBLIC_SENTRY_DSN || process.env.NEXT_PUBLIC_ERROR_TRACKING_ENDPOINT,
-    sampleRate: process.env.NODE_ENV === 'production' ? 1.0 : 0.1, // 100% in prod, 10% in dev
-  },
-  performanceMonitoring: {
-    enabled: true,
-    sampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1.0, // 10% in prod, 100% in dev
-  },
-  analytics: {
-    enabled: true,
-    endpoint: process.env.NEXT_PUBLIC_ANALYTICS_ENDPOINT || '/api/telemetry/analytics',
-  },
-};
-
-// Initialize if enabled
-if (typeof window !== 'undefined' && telemetryConfig.enabled) {
-  initializeTelemetry(telemetryConfig);
+interface TelemetryData {
+  location: string;
+  message: string;
+  data?: any;
+  timestamp?: number;
+  sessionId?: string;
+  runId?: string;
+  hypothesisId?: string;
 }
 
-// Export convenience functions
-export {
-  captureError,
-  trackPerformance,
-  trackCost,
-  trackEvent,
-  getTelemetry,
-};
+/**
+ * Log telemetry data (only if telemetry is enabled)
+ * Silently fails if telemetry service is unavailable
+ */
+export function logTelemetry(data: TelemetryData): void {
+  // Only send telemetry if explicitly enabled
+  if (!TELEMETRY_ENABLED) {
+    return;
+  }
 
-export type { ErrorContext, PerformanceMetric, CostMetric };
+  // Ensure timestamp is set
+  const telemetryData = {
+    ...data,
+    timestamp: data.timestamp || Date.now(),
+  };
 
+  // Send telemetry asynchronously - don't block execution
+  fetch(TELEMETRY_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(telemetryData),
+  }).catch(() => {
+    // Silently fail - telemetry is optional and shouldn't break the app
+  });
+}

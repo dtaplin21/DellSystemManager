@@ -96,16 +96,35 @@ export function usePatchData({ projectId }: UsePatchDataOptions): UsePatchDataRe
       );
       
       if (response.success && response.patch) {
-        // Refresh from backend to sync (backup/verification)
-        await fetchPatches();
+        // CRITICAL FIX: Don't refetch immediately - this causes snap-back where
+        // stale backend data overwrites the optimistic update.
+        // Instead, merge the response with our updates, prioritizing our updates
+        // to avoid overwriting with stale backend data.
+        setPatches(prev => {
+          return prev.map(p => {
+            if (p.id !== patchId) return p;
+            
+            // Merge: start with current state, apply response, then prioritize our updates
+            // This ensures our position updates (x, y) take priority over stale backend data
+            const merged = {
+              ...p,
+              ...response.patch,
+              ...updates, // Our updates take priority (especially x, y)
+              isValid: true
+            };
+            
+            return merged;
+          });
+        });
       }
     } catch (err: any) {
       console.error('Error updating patch:', err);
-      // On error, refresh from backend to restore correct state
-      await fetchPatches();
+      // Don't refetch on error during drag - it causes snap-back
+      // Just log and continue with optimistic update
+      // Only throw error so caller can handle if needed
       throw err;
     }
-  }, [projectId, fetchPatches]);
+  }, [projectId]);
 
   const removePatch = useCallback(async (patchId: string) => {
     try {

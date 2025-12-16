@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from 'react';
 import { AsbuiltRecord, AsbuiltSummary, PanelAsbuiltSummary, AsbuiltDomain } from '@/types/asbuilt';
 import { safeAPI } from '@/lib/safe-api';
 
@@ -110,6 +110,9 @@ export const AsbuiltDataProvider: React.FC<AsbuiltDataProviderProps> = ({
     return panelData.get(panelId) || null;
   }, [panelData]);
 
+  // Track if a refresh is in progress to prevent multiple simultaneous calls
+  const isRefreshingRef = useRef(false);
+  
   // Refresh project data
   const refreshProjectData = useCallback(async (projectId: string) => {
     if (!projectId) {
@@ -117,6 +120,13 @@ export const AsbuiltDataProvider: React.FC<AsbuiltDataProviderProps> = ({
       return;
     }
     
+    // Prevent multiple simultaneous refresh calls
+    if (isRefreshingRef.current) {
+      console.log('⚠️ [AsbuiltContext] Refresh already in progress, skipping duplicate call');
+      return;
+    }
+    
+    isRefreshingRef.current = true;
     setIsLoading(true);
     setError(null);
     
@@ -204,9 +214,17 @@ export const AsbuiltDataProvider: React.FC<AsbuiltDataProviderProps> = ({
       
       // Extract unique panels from records and update panel data
       const uniquePanels = new Set(transformedRecords.map(record => record.panelId));
-      const panelDataPromises = Array.from(uniquePanels).map(panelId => 
-        safeAPI.getAsbuiltSafe(projectId, panelId as string)
-      );
+      
+      // Wrap each panel data fetch in try/catch to prevent one failure from breaking all
+      const panelDataPromises = Array.from(uniquePanels).map(async (panelId) => {
+        try {
+          return await safeAPI.getAsbuiltSafe(projectId, panelId as string);
+        } catch (error) {
+          console.error(`❌ [AsbuiltContext] Failed to fetch panel data for ${panelId}:`, error);
+          // Return null instead of throwing to prevent Promise.all from failing completely
+          return null;
+        }
+      });
       
       const panelDataResults = await Promise.all(panelDataPromises);
       const newPanelData = new Map<string, PanelAsbuiltSummary>();
@@ -227,6 +245,7 @@ export const AsbuiltDataProvider: React.FC<AsbuiltDataProviderProps> = ({
       setError(err instanceof Error ? err.message : 'Failed to refresh project data');
     } finally {
       setIsLoading(false);
+      isRefreshingRef.current = false;
     }
   }, []);
 
@@ -293,14 +312,25 @@ export const AsbuiltDataProvider: React.FC<AsbuiltDataProviderProps> = ({
   }, []);
 
   // Auto-refresh when projectId changes
+  // Use a ref to track the last refreshed projectId to prevent infinite loops
+  const hasRefreshedRef = useRef<string | null>(null);
+  
   useEffect(() => {
     console.log('🔄 [AsbuiltContext] Auto-refresh useEffect triggered:');
     console.log('  - projectId:', projectId);
-    if (projectId) {
+    console.log('  - hasRefreshedRef.current:', hasRefreshedRef.current);
+    
+    // Only refresh if projectId changed and we haven't already refreshed for this projectId
+    if (projectId && projectId !== hasRefreshedRef.current) {
       console.log('🔄 [AsbuiltContext] Auto-refreshing data for project:', projectId);
-      refreshAllData(projectId);
+      hasRefreshedRef.current = projectId;
+      refreshAllData(projectId).catch(error => {
+        console.error('❌ [AsbuiltContext] Auto-refresh failed:', error);
+        // Reset the ref so it can retry if needed
+        hasRefreshedRef.current = null;
+      });
     }
-  }, [projectId, refreshAllData]);
+  }, [projectId]); // Remove refreshAllData from dependencies to prevent infinite loops
 
   // Context value
   const contextValue: AsbuiltDataContextType = {

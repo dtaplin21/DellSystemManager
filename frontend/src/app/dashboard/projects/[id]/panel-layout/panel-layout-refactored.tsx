@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { usePanelData } from '@/hooks/usePanelData';
 import { PanelLayoutErrorBoundary } from '@/components/panels/PanelLayoutErrorBoundary';
+import { logTelemetry } from '@/lib/telemetry';
 import { 
   LoadingFallback, 
   ErrorFallback, 
@@ -438,18 +439,36 @@ export default function PanelLayoutRefactored() {
                 }
               }}
               onDestructiveTestUpdate={async (testId, updates) => {
-                // #region agent log
-                fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'panel-layout-refactored.tsx:530',message:'onDestructiveTestUpdate callback called',data:{testId,updates,x:updates.x,y:updates.y},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-                // #endregion
+                logTelemetry({
+                  location: 'panel-layout-refactored.tsx:530',
+                  message: 'onDestructiveTestUpdate callback called',
+                  data: { testId, updates, x: updates.x, y: updates.y },
+                  sessionId: 'debug-session',
+                  runId: 'run1',
+                  hypothesisId: 'D'
+                });
                 try {
                   await updateDestructiveTest(testId, updates);
-                  // #region agent log
-                  fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'panel-layout-refactored.tsx:535',message:'updateDestructiveTest succeeded',data:{testId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-                  // #endregion
+                  logTelemetry({
+                    location: 'panel-layout-refactored.tsx:535',
+                    message: 'updateDestructiveTest succeeded',
+                    data: { testId },
+                    sessionId: 'debug-session',
+                    runId: 'run1',
+                    hypothesisId: 'D'
+                  });
                 } catch (error) {
-                  // #region agent log
-                  fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'panel-layout-refactored.tsx:538',message:'Error in onDestructiveTestUpdate callback',data:{testId,error:error instanceof Error?error.message:String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-                  // #endregion
+                  logTelemetry({
+                    location: 'panel-layout-refactored.tsx:538',
+                    message: 'Error in onDestructiveTestUpdate callback',
+                    data: {
+                      testId,
+                      error: error instanceof Error ? error.message : String(error)
+                    },
+                    sessionId: 'debug-session',
+                    runId: 'run1',
+                    hypothesisId: 'D'
+                  });
                   console.error('Error updating destructive test:', error);
                 }
               }}
