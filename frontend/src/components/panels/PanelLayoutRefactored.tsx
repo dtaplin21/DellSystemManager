@@ -175,6 +175,8 @@ function PanelLayoutContent({
                 onPanelClick={handlePanelClick}
                 onPanelDoubleClick={handlePanelDoubleClick}
                 onPanelUpdate={handlePanelUpdate}
+                onPatchUpdate={handlePatchUpdate}
+                onDestructiveTestUpdate={handleDestructiveTestUpdate}
                 onPanelDelete={onPanelDelete}
                 onAddPanel={onAddPanel}
                 onCreatePanel={onCreatePanel}
