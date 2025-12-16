@@ -1058,22 +1058,96 @@ export function useUnifiedMouseInteraction({
     debugLog('🎯 [DRAG DEBUG] Starting panel hit detection...');
     debugLog('🎯 [DRAG DEBUG] Available panels:', panels.map(p => ({ id: p.id, x: p.x, y: p.y, width: p.width, height: p.height, isValid: p.isValid })));
     
+    // Check all item types - prioritize based on what's visible and what was actually clicked
     const clickedPanel = getPanelAtPosition(screenX, screenY);
     debugLog('🎯 [DRAG DEBUG] Panel hit detection result:', clickedPanel);
 
-    // Check for patch clicks (only if patches tab is active and no panel was clicked)
-    const clickedPatch = !clickedPanel && visibleTypes.patches ? getPatchAtPosition(screenX, screenY) : null;
+    // Check for patch clicks (only if patches are visible)
+    const clickedPatch = visibleTypes.patches ? getPatchAtPosition(screenX, screenY) : null;
     debugLog('🎯 [DRAG DEBUG] Patch hit detection result:', clickedPatch);
 
-    // Check for destructive test clicks (only if destructs tab is active and no panel/patch was clicked)
-    const clickedDestruct = !clickedPanel && !clickedPatch && visibleTypes.destructs ? getDestructiveTestAtPosition(screenX, screenY) : null;
+    // Check for destructive test clicks (only if destructs are visible)
+    // Check destructs independently - don't skip if panels exist, as they might overlap
+    const clickedDestruct = visibleTypes.destructs ? getDestructiveTestAtPosition(screenX, screenY) : null;
     debugLog('🎯 [DRAG DEBUG] Destructive test hit detection result:', clickedDestruct);
     
     // #region agent log
     fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useUnifiedMouseInteraction.ts:1031',message:'Hit detection results',data:{clickedPanel:!!clickedPanel,clickedPatch:!!clickedPatch,clickedDestruct:!!clickedDestruct,visibleTypes,availableDestructs:destructiveTests.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'E'})}).catch(()=>{});
     // #endregion
 
-    if (clickedPanel) {
+    // Priority order: destructs > patches > panels
+    // This ensures that when destructs are clicked, they take priority even if panels exist at the same location
+    if (clickedDestruct) {
+      debugLog('🎯 [DRAG DEBUG] ✅ DESTRUCTIVE TEST CLICKED!', {
+        id: clickedDestruct.id,
+        position: { x: clickedDestruct.x, y: clickedDestruct.y },
+        size: { width: clickedDestruct.width, height: clickedDestruct.height },
+        isValid: clickedDestruct.isValid
+      });
+
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useUnifiedMouseInteraction.ts:1109',message:'Destructive test clicked - starting drag',data:{testId:clickedDestruct.id,testPos:{x:clickedDestruct.x,y:clickedDestruct.y},screenPos:{x:screenX,y:screenY}},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'E'})}).catch(()=>{});
+      // #endregion
+
+      // Convert screen coordinates to world coordinates
+      const worldPos = getWorldCoordinates(screenX, screenY, canvasState);
+      
+      // Start dragging destructive test
+      mouseStateRef.current = {
+        isDragging: true,
+        isPanning: false,
+        isRotating: false,
+        selectedPanelId: clickedDestruct.id,
+        dragStartX: worldPos.x - clickedDestruct.x,
+        dragStartY: worldPos.y - clickedDestruct.y,
+        lastMouseX: screenX,
+        lastMouseY: screenY,
+      };
+      
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useUnifiedMouseInteraction.ts:1127',message:'Mouse state set for drag',data:{selectedId:mouseStateRef.current.selectedPanelId,isDragging:mouseStateRef.current.isDragging,dragStart:{x:mouseStateRef.current.dragStartX,y:mouseStateRef.current.dragStartY}},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'E'})}).catch(()=>{});
+      // #endregion
+      
+      onPanelSelect(clickedDestruct.id);
+      onDragStart?.(clickedDestruct.id, worldPos);
+      logRef.current('Started dragging destructive test', { 
+        testId: clickedDestruct.id, 
+        screenPos: { x: screenX, y: screenY },
+        worldPos: { x: worldPos.x, y: worldPos.y },
+        testPos: { x: clickedDestruct.x, y: clickedDestruct.y }
+      });
+    } else if (clickedPatch) {
+      debugLog('🎯 [DRAG DEBUG] ✅ PATCH CLICKED!', {
+        id: clickedPatch.id,
+        position: { x: clickedPatch.x, y: clickedPatch.y },
+        radius: clickedPatch.radius,
+        isValid: clickedPatch.isValid
+      });
+
+      // Convert screen coordinates to world coordinates
+      const worldPos = getWorldCoordinates(screenX, screenY, canvasState);
+      
+      // Start dragging patch
+      mouseStateRef.current = {
+        isDragging: true,
+        isPanning: false,
+        isRotating: false,
+        selectedPanelId: clickedPatch.id,
+        dragStartX: worldPos.x - clickedPatch.x,
+        dragStartY: worldPos.y - clickedPatch.y,
+        lastMouseX: screenX,
+        lastMouseY: screenY,
+      };
+      
+      onPanelSelect(clickedPatch.id);
+      onDragStart?.(clickedPatch.id, worldPos);
+      logRef.current('Started dragging patch', { 
+        patchId: clickedPatch.id, 
+        screenPos: { x: screenX, y: screenY },
+        worldPos: { x: worldPos.x, y: worldPos.y },
+        patchPos: { x: clickedPatch.x, y: clickedPatch.y }
+      });
+    } else if (clickedPanel) {
       debugLog('🎯 [DRAG DEBUG] ✅ PANEL CLICKED!', {
         id: clickedPanel.id,
         position: { x: clickedPanel.x, y: clickedPanel.y },
@@ -1112,76 +1186,6 @@ export function useUnifiedMouseInteraction({
         screenPos: { x: screenX, y: screenY },
         worldPos: { x: worldPos.x, y: worldPos.y },
         panelPos: { x: clickedPanel.x, y: clickedPanel.y }
-      });
-    } else if (clickedPatch) {
-      debugLog('🎯 [DRAG DEBUG] ✅ PATCH CLICKED!', {
-        id: clickedPatch.id,
-        position: { x: clickedPatch.x, y: clickedPatch.y },
-        radius: clickedPatch.radius,
-        isValid: clickedPatch.isValid
-      });
-
-      // Convert screen coordinates to world coordinates
-      const worldPos = getWorldCoordinates(screenX, screenY, canvasState);
-      
-      // Start dragging patch
-      mouseStateRef.current = {
-        isDragging: true,
-        isPanning: false,
-        isRotating: false,
-        selectedPanelId: clickedPatch.id,
-        dragStartX: worldPos.x - clickedPatch.x,
-        dragStartY: worldPos.y - clickedPatch.y,
-        lastMouseX: screenX,
-        lastMouseY: screenY,
-      };
-      
-      onPanelSelect(clickedPatch.id);
-      onDragStart?.(clickedPatch.id, worldPos);
-      logRef.current('Started dragging patch', { 
-        patchId: clickedPatch.id, 
-        screenPos: { x: screenX, y: screenY },
-        worldPos: { x: worldPos.x, y: worldPos.y },
-        patchPos: { x: clickedPatch.x, y: clickedPatch.y }
-      });
-    } else if (clickedDestruct) {
-      debugLog('🎯 [DRAG DEBUG] ✅ DESTRUCTIVE TEST CLICKED!', {
-        id: clickedDestruct.id,
-        position: { x: clickedDestruct.x, y: clickedDestruct.y },
-        size: { width: clickedDestruct.width, height: clickedDestruct.height },
-        isValid: clickedDestruct.isValid
-      });
-
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useUnifiedMouseInteraction.ts:1109',message:'Destructive test clicked - starting drag',data:{testId:clickedDestruct.id,testPos:{x:clickedDestruct.x,y:clickedDestruct.y},screenPos:{x:screenX,y:screenY}},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'E'})}).catch(()=>{});
-      // #endregion
-
-      // Convert screen coordinates to world coordinates
-      const worldPos = getWorldCoordinates(screenX, screenY, canvasState);
-      
-      // Start dragging destructive test
-      mouseStateRef.current = {
-        isDragging: true,
-        isPanning: false,
-        isRotating: false,
-        selectedPanelId: clickedDestruct.id,
-        dragStartX: worldPos.x - clickedDestruct.x,
-        dragStartY: worldPos.y - clickedDestruct.y,
-        lastMouseX: screenX,
-        lastMouseY: screenY,
-      };
-      
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useUnifiedMouseInteraction.ts:1127',message:'Mouse state set for drag',data:{selectedId:mouseStateRef.current.selectedPanelId,isDragging:mouseStateRef.current.isDragging,dragStart:{x:mouseStateRef.current.dragStartX,y:mouseStateRef.current.dragStartY}},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'E'})}).catch(()=>{});
-      // #endregion
-      
-      onPanelSelect(clickedDestruct.id);
-      onDragStart?.(clickedDestruct.id, worldPos);
-      logRef.current('Started dragging destructive test', { 
-        testId: clickedDestruct.id, 
-        screenPos: { x: screenX, y: screenY },
-        worldPos: { x: worldPos.x, y: worldPos.y },
-        testPos: { x: clickedDestruct.x, y: clickedDestruct.y }
       });
     } else {
       debugLog('🎯 [DRAG DEBUG] ❌ No panel clicked, starting canvas pan');
@@ -1510,16 +1514,30 @@ export function useUnifiedMouseInteraction({
           // Use the patch's current rotation
           const currentRotation = patch.rotation || 0;
           
-          await onPatchUpdate(selectedId, {
-            x: currentState.dragCurrentX,
-            y: currentState.dragCurrentY,
-            rotation: currentRotation
-          });
+          // Use drag current position if available, otherwise fall back to current position
+          // This ensures patches can always be dropped even if drag tracking had issues
+          const finalX = currentState.dragCurrentX !== undefined ? currentState.dragCurrentX : patch.x;
+          const finalY = currentState.dragCurrentY !== undefined ? currentState.dragCurrentY : patch.y;
           
-          logRef.current('Committed patch position', { 
-            patchId: selectedId,
-            finalPos: { x: currentState.dragCurrentX, y: currentState.dragCurrentY }
-          });
+          try {
+            await onPatchUpdate(selectedId, {
+              x: finalX,
+              y: finalY,
+              rotation: currentRotation
+            });
+            
+            logRef.current('Committed patch position', { 
+              patchId: selectedId,
+              finalPos: { x: finalX, y: finalY },
+              usedFallback: currentState.dragCurrentX === undefined || currentState.dragCurrentY === undefined
+            });
+          } catch (error) {
+            console.error('⚠️ [handleMouseUp] Error updating patch position:', error);
+            logRef.current('Failed to commit patch position', { 
+              patchId: selectedId,
+              error: error instanceof Error ? error.message : String(error)
+            });
+          }
         } else if (isDestructiveTest) {
           // #region agent log
           fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useUnifiedMouseInteraction.ts:1453',message:'Destructive test update branch',data:{testId:selectedId,hasCallback:!!onDestructiveTestUpdate,oldPos:{x:destructiveTest.x,y:destructiveTest.y},newPos:{x:currentState.dragCurrentX,y:currentState.dragCurrentY}},timestamp:Date.now(),sessionId:'debug-session',runId:'run3',hypothesisId:'F'})}).catch(()=>{});
@@ -1529,24 +1547,40 @@ export function useUnifiedMouseInteraction({
             // Use the destructive test's current rotation
             const currentRotation = destructiveTest.rotation || 0;
             
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useUnifiedMouseInteraction.ts:1460',message:'Calling onDestructiveTestUpdate',data:{testId:selectedId,updates:{x:currentState.dragCurrentX,y:currentState.dragCurrentY,rotation:currentRotation}},timestamp:Date.now(),sessionId:'debug-session',runId:'run3',hypothesisId:'B'})}).catch(()=>{});
-            // #endregion
-            
-            await onDestructiveTestUpdate(selectedId, {
-              x: currentState.dragCurrentX,
-              y: currentState.dragCurrentY,
-              rotation: currentRotation
-            });
+            // Use drag current position if available, otherwise fall back to current position
+            const finalX = currentState.dragCurrentX !== undefined ? currentState.dragCurrentX : destructiveTest.x;
+            const finalY = currentState.dragCurrentY !== undefined ? currentState.dragCurrentY : destructiveTest.y;
             
             // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useUnifiedMouseInteraction.ts:1468',message:'onDestructiveTestUpdate completed',data:{testId:selectedId},timestamp:Date.now(),sessionId:'debug-session',runId:'run3',hypothesisId:'B'})}).catch(()=>{});
+            fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useUnifiedMouseInteraction.ts:1460',message:'Calling onDestructiveTestUpdate',data:{testId:selectedId,updates:{x:finalX,y:finalY,rotation:currentRotation}},timestamp:Date.now(),sessionId:'debug-session',runId:'run3',hypothesisId:'B'})}).catch(()=>{});
             // #endregion
             
-            logRef.current('Committed destructive test position', { 
-              testId: selectedId,
-              finalPos: { x: currentState.dragCurrentX, y: currentState.dragCurrentY }
-            });
+            try {
+              await onDestructiveTestUpdate(selectedId, {
+                x: finalX,
+                y: finalY,
+                rotation: currentRotation
+              });
+              
+              // #region agent log
+              fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useUnifiedMouseInteraction.ts:1468',message:'onDestructiveTestUpdate completed',data:{testId:selectedId},timestamp:Date.now(),sessionId:'debug-session',runId:'run3',hypothesisId:'B'})}).catch(()=>{});
+              // #endregion
+              
+              logRef.current('Committed destructive test position', { 
+                testId: selectedId,
+                finalPos: { x: finalX, y: finalY },
+                usedFallback: currentState.dragCurrentX === undefined || currentState.dragCurrentY === undefined
+              });
+            } catch (error) {
+              console.error('⚠️ [handleMouseUp] Error updating destructive test position:', error);
+              // #region agent log
+              fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useUnifiedMouseInteraction.ts:1475',message:'ERROR: onDestructiveTestUpdate failed',data:{testId:selectedId,error:error instanceof Error?error.message:String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run3',hypothesisId:'F'})}).catch(()=>{});
+              // #endregion
+              logRef.current('Failed to commit destructive test position', { 
+                testId: selectedId,
+                error: error instanceof Error ? error.message : String(error)
+              });
+            }
           } else {
             // #region agent log
             fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useUnifiedMouseInteraction.ts:1475',message:'ERROR: onDestructiveTestUpdate callback is undefined',data:{testId:selectedId},timestamp:Date.now(),sessionId:'debug-session',runId:'run3',hypothesisId:'F'})}).catch(()=>{});
