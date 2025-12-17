@@ -57,7 +57,8 @@ async function migratePatchesFromPanels() {
       
       // Convert patch panels to Patch format
       const migratedPatches = patchPanels.map(patchPanel => {
-        const PATCH_RADIUS = (400 / 30) / 2; // 6.67 feet radius
+        // Use existing radius if available, otherwise default to 1.5 feet (3ft diameter)
+        const PATCH_RADIUS = patchPanel.radius !== undefined ? patchPanel.radius : 1.5;
         return {
           id: patchPanel.id,
           x: patchPanel.x || 0,

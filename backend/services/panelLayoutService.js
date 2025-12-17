@@ -798,7 +798,8 @@ class PanelLayoutService {
         }
       }
 
-      const PATCH_RADIUS = (400 / 30) / 2; // 6.67 feet radius
+      // Use radius from patchData if provided, otherwise default to 1.5 feet (3ft diameter)
+      const PATCH_RADIUS = patchData.radius !== undefined ? patchData.radius : 1.5;
       const newPatch = {
         id: uuidv4(),
         x: patchData.x || (currentPatches.length * 50 + 100),
