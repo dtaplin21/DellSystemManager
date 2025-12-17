@@ -39,6 +39,8 @@ interface UseUnifiedMouseInteractionOptions {
   onPanelClick?: (panel: Panel) => void;
   onPanelDoubleClick?: (panel: Panel) => void;
   onPanelUpdate: (panelId: string, updates: Partial<Panel>) => Promise<void>;
+  onPatchClick?: (patch: Patch) => void;
+  onDestructiveTestClick?: (destructiveTest: DestructiveTest) => void;
   onPatchUpdate?: (patchId: string, updates: Partial<Patch>) => Promise<void>;
   onDestructiveTestUpdate?: (testId: string, updates: Partial<DestructiveTest>) => Promise<void>;
   onCanvasPan: (deltaX: number, deltaY: number) => void;
@@ -83,6 +85,8 @@ export function useUnifiedMouseInteraction({
   onPanelClick,
   onPanelDoubleClick,
   onPanelUpdate,
+  onPatchClick,
+  onDestructiveTestClick,
   onPatchUpdate,
   onDestructiveTestUpdate,
   onCanvasPan,
@@ -1752,6 +1756,21 @@ export function useUnifiedMouseInteraction({
         itemId: selectedId,
         duration: clickDuration 
       });
+      
+      // Check if this was just a click (no significant drag movement)
+      const dragDistance = Math.sqrt(
+        Math.pow((currentState.dragCurrentX || 0) - (currentState.dragStartX || 0), 2) +
+        Math.pow((currentState.dragCurrentY || 0) - (currentState.dragStartY || 0), 2)
+      );
+      
+      // If drag distance is very small (< 5 pixels in world coordinates), treat as click
+      if (dragDistance < 5 && clickDuration < 300) {
+        if (isPatch && onPatchClick && patch) {
+          onPatchClick(patch);
+        } else if (isDestructiveTest && onDestructiveTestClick && destructiveTest) {
+          onDestructiveTestClick(destructiveTest);
+        }
+      }
     } else if (currentState.isRotating && currentState.selectedPanelId) {
       if (enableDebugLogging) {
         debugLog('🎯 [ROTATION DEBUG] ✅ FINISHING PANEL ROTATION');

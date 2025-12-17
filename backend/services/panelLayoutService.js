@@ -113,6 +113,8 @@ class PanelLayoutService {
         thickness: panelData.thickness || panelData.properties?.thickness || 60,
         seamsType: panelData.seamRequirements || panelData.properties?.seamsType || 'fusion',
         notes: panelData.properties?.notes || `AI-generated panel ${currentPanels.length + 1}`,
+        // Form linking field
+        asbuiltRecordId: panelData.asbuiltRecordId || null,
         ...panelData.properties
       };
 
@@ -815,6 +817,9 @@ class PanelLayoutService {
         color: '#b91c1c',
         material: patchData.material || 'HDPE',
         thickness: patchData.thickness || 60,
+        // Form linking fields
+        asbuiltRecordId: patchData.asbuiltRecordId || null,
+        panelId: patchData.panelId || null,
       };
 
       currentPatches.push(newPatch);
@@ -1030,6 +1035,9 @@ class PanelLayoutService {
         color: '#d97706',
         material: testData.material || 'HDPE',
         thickness: testData.thickness || 60,
+        // Form linking fields
+        asbuiltRecordId: testData.asbuiltRecordId || null,
+        panelId: testData.panelId || null,
       };
 
       currentTests.push(newTest);

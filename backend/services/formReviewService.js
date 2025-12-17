@@ -1,4 +1,5 @@
 const AsbuiltService = require('./asbuiltService');
+const formAutomationService = require('./formAutomationService');
 const { Pool } = require('pg');
 require('dotenv').config();
 
@@ -291,11 +292,37 @@ class FormReviewService {
       }
 
       const row = result.rows[0];
-      return {
+      const approvedForm = {
         ...row,
         raw_data: typeof row.raw_data === 'string' ? JSON.parse(row.raw_data) : row.raw_data,
         mapped_data: typeof row.mapped_data === 'string' ? JSON.parse(row.mapped_data) : row.mapped_data
       };
+
+      // After approval, check if automation should be triggered
+      // Run asynchronously - don't block approval response
+      setImmediate(async () => {
+        try {
+          const projectId = approvedForm.project_id;
+          const isEnabled = await formAutomationService.isAutoCreateEnabled(userId, projectId);
+          
+          if (isEnabled) {
+            console.log(`[FORM_REVIEW] Auto-creation enabled, triggering automation for form ${recordId}`);
+            const automationResult = await formAutomationService.automateFromForm(
+              approvedForm,
+              projectId,
+              userId
+            );
+            console.log(`[FORM_REVIEW] Automation result:`, automationResult);
+          } else {
+            console.log(`[FORM_REVIEW] Auto-creation disabled, skipping automation for form ${recordId}`);
+          }
+        } catch (error) {
+          // Log error but don't fail approval
+          console.error(`[FORM_REVIEW] Error triggering automation after approval:`, error);
+        }
+      });
+
+      return approvedForm;
     } finally {
       client.release();
     }
@@ -355,9 +382,56 @@ class FormReviewService {
       `;
 
       const result = await client.query(query, [userId, notes, recordIds]);
+      const approvedRecordIds = result.rows.map(r => r.id);
+      
+      // After bulk approval, trigger automation for each approved form
+      // Run asynchronously - don't block approval response
+      setImmediate(async () => {
+        try {
+          // Fetch full form records for automation
+          const fetchQuery = `
+            SELECT * FROM asbuilt_records
+            WHERE id = ANY($1::uuid[])
+          `;
+          const fetchResult = await client.query(fetchQuery, [approvedRecordIds]);
+          
+          const automationJobs = [];
+          for (const row of fetchResult.rows) {
+            try {
+              const formRecord = {
+                ...row,
+                raw_data: typeof row.raw_data === 'string' ? JSON.parse(row.raw_data) : row.raw_data,
+                mapped_data: typeof row.mapped_data === 'string' ? JSON.parse(row.mapped_data) : row.mapped_data
+              };
+              
+              const projectId = formRecord.project_id;
+              const isEnabled = await formAutomationService.isAutoCreateEnabled(userId, projectId);
+              
+              if (isEnabled) {
+                const automationResult = await formAutomationService.automateFromForm(
+                  formRecord,
+                  projectId,
+                  userId
+                );
+                automationJobs.push({
+                  formId: formRecord.id,
+                  ...automationResult
+                });
+              }
+            } catch (error) {
+              console.error(`[FORM_REVIEW] Error automating form ${row.id}:`, error);
+            }
+          }
+          
+          console.log(`[FORM_REVIEW] Bulk automation completed: ${automationJobs.length} jobs created`);
+        } catch (error) {
+          console.error(`[FORM_REVIEW] Error triggering bulk automation:`, error);
+        }
+      });
+      
       return {
         approved: result.rows.length,
-        recordIds: result.rows.map(r => r.id)
+        recordIds: approvedRecordIds
       };
     } finally {
       client.release();

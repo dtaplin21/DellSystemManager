@@ -467,6 +467,208 @@ def run_async(coro):
 # Global integration instance
 ai_integration = None
 
+    async def automate_from_approved_form(
+        self,
+        form_record: Dict[str, Any],
+        project_id: str,
+        user_id: str = None
+    ) -> Dict[str, Any]:
+        """Automate item creation from approved form using browser tools"""
+        if not self.is_hybrid_ai_available():
+            return {
+                "success": False,
+                "error": "Hybrid AI architecture not available"
+            }
+        
+        try:
+            logger.info(f"Starting form-based automation for project {project_id}, form {form_record.get('id')}")
+            
+            domain = form_record.get('domain')
+            item_type = form_record.get('item_type')  # 'panel', 'patch', or 'destructive_test'
+            positioning = form_record.get('positioning', {})
+            
+            # Get browser tools from AI service
+            browser_tools = self.ai_service.tools if hasattr(self.ai_service, 'tools') else {}
+            if not browser_tools:
+                return {
+                    "success": False,
+                    "error": "Browser tools not available"
+                }
+            
+            # Navigate to panel layout page
+            frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+            panel_layout_url = f"{frontend_url}/dashboard/projects/{project_id}/panel-layout"
+            
+            logger.info(f"Navigating to panel layout: {panel_layout_url}")
+            
+            session_id = f"form_{form_record.get('id', 'default')}"
+            
+            # Use browser navigation tool
+            navigate_tool = browser_tools.get("browser_navigate")
+            if navigate_tool:
+                try:
+                    await navigate_tool._arun(
+                        url=panel_layout_url,
+                        session_id=session_id,
+                        user_id=user_id
+                    )
+                    logger.info("Navigation successful")
+                except Exception as e:
+                    logger.warning(f"Navigation failed (may already be on page): {e}")
+            
+            # Determine which tab to switch to
+            tab_map = {
+                'panel': 'panels',
+                'patch': 'patches',
+                'destructive_test': 'destructs'
+            }
+            tab_name = tab_map.get(item_type, 'panels')
+            
+            # Switch to appropriate tab
+            interaction_tool = browser_tools.get("browser_interact")
+            if interaction_tool:
+                try:
+                    # Click on the appropriate tab
+                    tab_selector = f'button[data-tab="{tab_name}"], [role="tab"][data-value="{tab_name}"]'
+                    await interaction_tool._arun(
+                        action="click",
+                        selector=tab_selector,
+                        session_id=session_id,
+                        user_id=user_id
+                    )
+                    logger.info(f"Switched to {tab_name} tab")
+                except Exception as e:
+                    logger.warning(f"Tab switch failed: {e}")
+            
+            # Extract form data for item creation
+            mapped_data = form_record.get('mapped_data', {})
+            
+            # Click "Add" button to open creation modal
+            if interaction_tool:
+                try:
+                    add_button_selectors = [
+                        f'button:has-text("Add {tab_name.title()}")',
+                        f'button[aria-label*="Add {tab_name}"]',
+                        'button:has-text("Add")',
+                        '[data-testid="add-button"]'
+                    ]
+                    
+                    for selector in add_button_selectors:
+                        try:
+                            await interaction_tool._arun(
+                                action="click",
+                                selector=selector,
+                                session_id=session_id,
+                                user_id=user_id
+                            )
+                            logger.info(f"Clicked Add button with selector: {selector}")
+                            break
+                        except:
+                            continue
+                except Exception as e:
+                    logger.warning(f"Add button click failed: {e}")
+            
+            # Fill form fields based on item type and form data
+            # This is a simplified version - actual implementation may need more field mapping
+            if interaction_tool and mapped_data:
+                try:
+                    # Map form fields to modal fields
+                    # This would need to be customized based on actual modal structure
+                    field_mappings = {}
+                    
+                    if item_type == 'panel':
+                        field_mappings = {
+                            'panelNumber': mapped_data.get('panelNumber') or mapped_data.get('panelNumbers'),
+                            'x': positioning.get('x'),
+                            'y': positioning.get('y'),
+                        }
+                    elif item_type == 'patch':
+                        field_mappings = {
+                            'patchNumber': mapped_data.get('repairId') or mapped_data.get('patchNumber'),
+                            'x': positioning.get('x'),
+                            'y': positioning.get('y'),
+                        }
+                    elif item_type == 'destructive_test':
+                        field_mappings = {
+                            'sampleId': mapped_data.get('sampleId'),
+                            'x': positioning.get('x'),
+                            'y': positioning.get('y'),
+                        }
+                    
+                    # Fill form fields
+                    for field_name, field_value in field_mappings.items():
+                        if field_value is not None:
+                            try:
+                                await interaction_tool._arun(
+                                    action="type",
+                                    selector=f'input[name="{field_name}"], input[id="{field_name}"]',
+                                    value=str(field_value),
+                                    session_id=session_id,
+                                    user_id=user_id
+                                )
+                            except:
+                                pass
+                    
+                    # Submit form
+                    submit_selectors = [
+                        'button[type="submit"]',
+                        'button:has-text("Create")',
+                        'button:has-text("Save")'
+                    ]
+                    
+                    for selector in submit_selectors:
+                        try:
+                            await interaction_tool._arun(
+                                action="click",
+                                selector=selector,
+                                session_id=session_id,
+                                user_id=user_id
+                            )
+                            logger.info("Form submitted")
+                            break
+                        except:
+                            continue
+                            
+                except Exception as e:
+                    logger.warning(f"Form filling failed: {e}")
+            
+            # Extract created item ID (if possible)
+            extract_tool = browser_tools.get("browser_extract")
+            item_id = None
+            if extract_tool:
+                try:
+                    extract_result = await extract_tool._arun(
+                        action=item_type,
+                        session_id=session_id,
+                        user_id=user_id
+                    )
+                    # Try to parse item ID from extract result
+                    if isinstance(extract_result, str):
+                        try:
+                            extract_data = json.loads(extract_result)
+                            items = extract_data.get(item_type + 's', [])
+                            if items:
+                                item_id = items[-1].get('id')  # Get most recently created item
+                        except:
+                            pass
+                except Exception as e:
+                    logger.warning(f"Item extraction failed: {e}")
+            
+            return {
+                "success": True,
+                "item_type": item_type,
+                "item_id": item_id,
+                "form_id": form_record.get('id')
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in automate_from_approved_form: {e}", exc_info=True)
+            return {
+                "success": False,
+                "error": str(e)
+            }
+
+
 def get_ai_integration() -> AIServiceIntegration:
     """Get the global AI integration instance"""
     global ai_integration

@@ -32,6 +32,7 @@ export interface Panel {
   };
   points?: any[];
   radius?: number;
+  asbuiltRecordId?: string; // Link to the form that created this panel
 }
 
 export interface PanelLayout {

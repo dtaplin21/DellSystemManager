@@ -1,7 +1,7 @@
 'use client';
 export const dynamic = "force-dynamic";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import './settings.css';
 
 export default function SettingsPage() {
@@ -24,6 +24,28 @@ export default function SettingsPage() {
   const [dataRetention, setDataRetention] = useState(90);
   const [autoBackup, setAutoBackup] = useState(true);
   const [exportFormat, setExportFormat] = useState('csv');
+  
+  // Automation Settings State
+  const [autoCreateFromForms, setAutoCreateFromForms] = useState(false);
+  const [isLoadingSettings, setIsLoadingSettings] = useState(false);
+
+  // Load automation settings on mount
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const response = await fetch('/api/settings');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.settings) {
+            setAutoCreateFromForms(data.settings.autoCreateFromForms || false);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading automation settings:', error);
+      }
+    };
+    loadSettings();
+  }, []);
 
   const handleSave = async (section: string) => {
     setIsLoading(true);
@@ -98,6 +120,12 @@ export default function SettingsPage() {
             onClick={() => setActiveTab('data')}
           >
             Data Management
+          </button>
+          <button 
+            className={`tab-button ${activeTab === 'automation' ? 'active' : ''}`}
+            onClick={() => setActiveTab('automation')}
+          >
+            Automation
           </button>
           <button 
             className={`tab-button ${activeTab === 'account' ? 'active' : ''}`}
@@ -364,6 +392,82 @@ export default function SettingsPage() {
                   disabled={isLoading}
                 >
                   {isLoading ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Automation Settings */}
+        <div className={`tab-content ${activeTab === 'automation' ? 'active' : ''}`}>
+          <div className="settings-section">
+            <div className="section-header">
+              <h2 className="section-title">Automation</h2>
+              <p className="section-description">Configure automated workflows and form processing</p>
+            </div>
+            <div className="section-content">
+              <div className="setting-item">
+                <div className="setting-info">
+                  <h3 className="setting-label">Auto-create Items from Approved Forms</h3>
+                  <p className="setting-description">
+                    When enabled, approved forms from the{' '}
+                    <a href="/dashboard/forms" className="text-blue-600 hover:underline">
+                      Mobile Forms Review page
+                    </a>{' '}
+                    will automatically create panels, patches, or destructive tests in the panel layout.
+                    Only forms that create visual items (panel_placement, repairs, destructive) will trigger automation.
+                  </p>
+                </div>
+                <div className="setting-control">
+                  <ToggleSwitch 
+                    active={autoCreateFromForms} 
+                    onChange={async () => {
+                      const newValue = !autoCreateFromForms;
+                      setAutoCreateFromForms(newValue);
+                      setIsLoadingSettings(true);
+                      try {
+                        const response = await fetch('/api/settings', {
+                          method: 'PUT',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ autoCreateFromForms: newValue })
+                        });
+                        if (!response.ok) throw new Error('Failed to update settings');
+                        alert('Automation settings saved successfully!');
+                      } catch (error) {
+                        console.error('Error updating automation settings:', error);
+                        setAutoCreateFromForms(!newValue); // Revert on error
+                        alert('Failed to save automation settings. Please try again.');
+                      } finally {
+                        setIsLoadingSettings(false);
+                      }
+                    }} 
+                  />
+                </div>
+              </div>
+
+              <div className="section-actions">
+                <button 
+                  className="btn-primary"
+                  onClick={async () => {
+                    setIsLoadingSettings(true);
+                    try {
+                      const response = await fetch('/api/settings', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ autoCreateFromForms })
+                      });
+                      if (!response.ok) throw new Error('Failed to update settings');
+                      alert('Automation settings saved successfully!');
+                    } catch (error) {
+                      console.error('Error saving automation settings:', error);
+                      alert('Failed to save automation settings. Please try again.');
+                    } finally {
+                      setIsLoadingSettings(false);
+                    }
+                  }}
+                  disabled={isLoadingSettings}
+                >
+                  {isLoadingSettings ? 'Saving...' : 'Save Changes'}
                 </button>
               </div>
             </div>

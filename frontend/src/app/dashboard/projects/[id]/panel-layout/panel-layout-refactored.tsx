@@ -14,6 +14,8 @@ import {
 import { PanelLayoutRefactored as PanelLayoutComponent } from '@/components/panels/PanelLayoutRefactored';
 import CreatePanelModal from '@/components/panels/CreatePanelModal';
 import PanelSidebar from '@/components/panel-layout/panel-sidebar';
+import PatchSidebar from '@/components/panel-layout/patch-sidebar';
+import DestructSidebar from '@/components/panel-layout/destruct-sidebar';
 import { AsbuiltDataProvider } from '@/contexts/AsbuiltDataContext';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { usePatchData } from '@/hooks/usePatchData';
@@ -77,6 +79,8 @@ export default function PanelLayoutRefactored() {
   // Sidebar state
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedPanel, setSelectedPanel] = useState<Panel | null>(null);
+  const [selectedPatch, setSelectedPatch] = useState<Patch | null>(null);
+  const [selectedDestructiveTest, setSelectedDestructiveTest] = useState<DestructiveTest | null>(null);
   
   // Fullscreen state detection
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -230,6 +234,32 @@ export default function PanelLayoutRefactored() {
   const handleSidebarClose = () => {
     setSidebarOpen(false);
     setSelectedPanel(null);
+    setSelectedPatch(null);
+    setSelectedDestructiveTest(null);
+  };
+
+  // Handle patch click
+  const handlePatchClick = (patch: Patch) => {
+    setSelectedPatch(patch);
+    setSelectedPanel(null);
+    setSelectedDestructiveTest(null);
+    setSidebarOpen(true);
+  };
+
+  // Handle destructive test click
+  const handleDestructiveTestClick = (destructiveTest: DestructiveTest) => {
+    setSelectedDestructiveTest(destructiveTest);
+    setSelectedPanel(null);
+    setSelectedPatch(null);
+    setSidebarOpen(true);
+  };
+
+  // Handle panel click (existing)
+  const handlePanelClick = (panel: Panel) => {
+    setSelectedPanel(panel);
+    setSelectedPatch(null);
+    setSelectedDestructiveTest(null);
+    setSidebarOpen(true);
   };
 
   // Handle "View Full Details" button click
@@ -430,6 +460,9 @@ export default function PanelLayoutRefactored() {
                     destructiveTests={destructiveTests}
                     visibleTypes={visibleTypes}
               projectId={Array.isArray(params.id) ? params.id[0] || 'unknown' : params.id || 'unknown'}
+              onPanelSelect={handlePanelClick}
+              onPatchClick={handlePatchClick}
+              onDestructiveTestClick={handleDestructiveTestClick}
               onPanelUpdate={handlePanelPositionUpdate}
               onPatchUpdate={async (patchId, updates) => {
                 try {
@@ -597,6 +630,28 @@ export default function PanelLayoutRefactored() {
             projectId={Array.isArray(params.id) ? params.id[0] || 'unknown' : params.id || 'unknown'}
             panelId={selectedPanel.id}
             panelNumber={selectedPanel.panelNumber || selectedPanel.id}
+            onClose={handleSidebarClose}
+          />
+        )}
+
+        {/* Patch Sidebar */}
+        {selectedPatch && isFullscreen && (
+          <PatchSidebar
+            isOpen={sidebarOpen}
+            onToggle={handleSidebarClose}
+            projectId={Array.isArray(params.id) ? params.id[0] || 'unknown' : params.id || 'unknown'}
+            patch={selectedPatch}
+            onClose={handleSidebarClose}
+          />
+        )}
+
+        {/* Destructive Test Sidebar */}
+        {selectedDestructiveTest && isFullscreen && (
+          <DestructSidebar
+            isOpen={sidebarOpen}
+            onToggle={handleSidebarClose}
+            projectId={Array.isArray(params.id) ? params.id[0] || 'unknown' : params.id || 'unknown'}
+            destructiveTest={selectedDestructiveTest}
             onClose={handleSidebarClose}
           />
         )}

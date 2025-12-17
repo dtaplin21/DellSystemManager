@@ -21,6 +21,8 @@ interface FullscreenLayoutProps {
   onPanelClick?: (panel: Panel) => void;
   onPanelDoubleClick?: (panel: Panel) => void;
   onPanelUpdate?: (panelId: string, updates: Partial<Panel>) => Promise<void>;
+  onPatchClick?: (patch: Patch) => void;
+  onDestructiveTestClick?: (destructiveTest: DestructiveTest) => void;
   onPatchUpdate?: (patchId: string, updates: Partial<Patch>) => Promise<void>;
   onDestructiveTestUpdate?: (testId: string, updates: Partial<DestructiveTest>) => Promise<void>;
   onPanelDelete?: (panelId: string) => void;
@@ -48,6 +50,8 @@ export function FullscreenLayout({
   onPanelClick,
   onPanelDoubleClick,
   onPanelUpdate,
+  onPatchClick,
+  onDestructiveTestClick,
   onPatchUpdate,
   onDestructiveTestUpdate,
   onPanelDelete,
@@ -375,6 +379,8 @@ export function FullscreenLayout({
           }}
           onPanelDoubleClick={onPanelDoubleClick}
           onPanelUpdate={onPanelUpdate}
+          onPatchClick={onPatchClick}
+          onDestructiveTestClick={onDestructiveTestClick}
           onPatchUpdate={onPatchUpdate}
           onDestructiveTestUpdate={onDestructiveTestUpdate}
           enableDebugLogging={enableDebugLogging}

@@ -20,6 +20,8 @@ export interface Patch {
     repairs?: any[];
     airTest?: { result: string };
   };
+  asbuiltRecordId?: string; // Link to the form that created this patch
+  panelId?: string; // Link to panel if patch is associated with a panel
 }
 
 // Patch dimensions - 3ft x 3ft patches

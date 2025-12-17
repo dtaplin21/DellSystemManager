@@ -29,6 +29,8 @@ interface PanelLayoutRefactoredProps {
   onAddPatch?: (patch: Omit<Patch, 'id'>) => Promise<void>;
   onAddDestructiveTest?: (test: Omit<DestructiveTest, 'id'>) => Promise<void>;
   onPanelSelect?: (panel: Panel) => void;
+  onPatchClick?: (patch: Patch) => void;
+  onDestructiveTestClick?: (destructiveTest: DestructiveTest) => void;
   onViewFullDetails?: () => void;
   isFullscreen?: boolean;
   featureFlags?: {
@@ -67,6 +69,8 @@ function PanelLayoutContent({
   onAddPatch,
   onAddDestructiveTest,
   onPanelSelect,
+  onPatchClick,
+  onDestructiveTestClick,
   onViewFullDetails,
   isFullscreen,
   featureFlags = {},
@@ -75,6 +79,18 @@ function PanelLayoutContent({
   const handlePanelClick = (panel: Panel) => {
     if (onPanelSelect) {
       onPanelSelect(panel);
+    }
+  };
+
+  const handlePatchClick = (patch: Patch) => {
+    if (onPatchClick) {
+      onPatchClick(patch);
+    }
+  };
+
+  const handleDestructiveTestClick = (destructiveTest: DestructiveTest) => {
+    if (onDestructiveTestClick) {
+      onDestructiveTestClick(destructiveTest);
     }
   };
 
@@ -158,6 +174,8 @@ function PanelLayoutContent({
             onPanelClick={handlePanelClick}
             onPanelDoubleClick={handlePanelDoubleClick}
             onPanelUpdate={handlePanelUpdate}
+            onPatchClick={handlePatchClick}
+            onDestructiveTestClick={handleDestructiveTestClick}
             onPatchUpdate={handlePatchUpdate}
             onDestructiveTestUpdate={handleDestructiveTestUpdate}
             enableDebugLogging={featureFlags.ENABLE_DEBUG_LOGGING}
@@ -175,6 +193,8 @@ function PanelLayoutContent({
                 onPanelClick={handlePanelClick}
                 onPanelDoubleClick={handlePanelDoubleClick}
                 onPanelUpdate={handlePanelUpdate}
+                onPatchClick={handlePatchClick}
+                onDestructiveTestClick={handleDestructiveTestClick}
                 onPatchUpdate={handlePatchUpdate}
                 onDestructiveTestUpdate={handleDestructiveTestUpdate}
                 onPanelDelete={onPanelDelete}

@@ -106,6 +106,16 @@ const panelLayoutRequirements = pgTable('panel_layout_requirements', {
   createdAt: timestamp('created_at').defaultNow(),
 });
 
+// User settings table
+const userSettings = pgTable('user_settings', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().unique().references(() => users.id, { onDelete: 'cascade' }),
+  autoCreateFromForms: boolean('auto_create_from_forms').default(false),
+  autoCreateProjectIds: jsonb('auto_create_project_ids').default('[]'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
 
 module.exports = {
   users,
@@ -114,5 +124,6 @@ module.exports = {
   documents,
   qcData,
   notifications,
-  panelLayoutRequirements, // Add to exports
+  panelLayoutRequirements,
+  userSettings,
 };

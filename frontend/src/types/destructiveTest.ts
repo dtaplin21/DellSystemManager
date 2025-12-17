@@ -21,6 +21,8 @@ export interface DestructiveTest {
   meta?: {
     testData?: any;
   };
+  asbuiltRecordId?: string; // Link to the form that created this destructive test
+  panelId?: string; // Link to panel if destructive test is associated with a panel
 }
 
 // Utility function to create a destructive test

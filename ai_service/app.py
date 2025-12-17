@@ -543,6 +543,45 @@ def extract_asbuilt_fields():
         logger.error(traceback.format_exc())
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/automate-from-form', methods=['POST'])
+def automate_from_form():
+    """Automate item creation from approved form"""
+    try:
+        data = request.json
+        form_record = data.get('form_record')
+        project_id = data.get('project_id')
+        user_id = data.get('user_id')
+        item_type = data.get('item_type')
+        positioning = data.get('positioning', {})
+        
+        if not form_record or not project_id:
+            return jsonify({
+                'success': False,
+                'error': 'form_record and project_id are required'
+            }), 400
+        
+        logger.info(f"Automating from form {form_record.get('id')} for project {project_id}")
+        
+        # Add item_type and positioning to form_record for the automation method
+        form_record['item_type'] = item_type
+        form_record['positioning'] = positioning
+        
+        # Call automation method
+        result = run_async(ai_integration.automate_from_approved_form(
+            form_record=form_record,
+            project_id=project_id,
+            user_id=user_id
+        ))
+        
+        return jsonify(result), 200 if result.get('success') else 500
+        
+    except Exception as e:
+        logger.error(f"Error in automate_from_form: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @app.route('/api/ai/automate-panel-population', methods=['POST'])
 def automate_panel_population():
     """Automate panel layout population using browser tools based on defect data"""
