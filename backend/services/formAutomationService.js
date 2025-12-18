@@ -1,5 +1,6 @@
 const axios = require('axios');
 const logger = require('../lib/logger');
+const jobQueue = require('./jobQueue');
 
 class FormAutomationService {
   constructor() {
@@ -106,45 +107,41 @@ class FormAutomationService {
       // Extract positioning data
       const positioning = this.extractPositioningData(formRecord);
 
-      // Call AI service to trigger browser tools automation
+      // Queue browser automation job instead of direct HTTP call
       try {
-        const aiServiceResponse = await axios.post(
-          `${this.aiServiceUrl}/api/automate-from-form`,
-          {
-            form_record: formRecord,
-            project_id: projectId,
-            user_id: userId,
-            item_type: itemType,
-            positioning: positioning
-          },
-          {
-            timeout: 30000 // 30 second timeout
-          }
-        );
+        const jobResult = await jobQueue.addAutomationJob({
+          type: 'form_automation',
+          form_record: formRecord,
+          project_id: projectId,
+          user_id: userId,
+          item_type: itemType,
+          positioning: positioning,
+          asbuilt_record_id: formRecord.id
+        });
 
-        logger.info(`[FORM_AUTOMATION] AI service automation completed`, {
+        logger.info(`[FORM_AUTOMATION] Automation job queued`, {
           formId: formRecord.id,
-          jobId: aiServiceResponse.data?.job_id,
-          itemId: aiServiceResponse.data?.item_id
+          jobId: jobResult.jobId,
+          itemType
         });
 
         return {
           success: true,
-          jobId: aiServiceResponse.data?.job_id,
-          itemId: aiServiceResponse.data?.item_id,
+          jobId: jobResult.jobId,
+          status: 'queued',
           itemType
         };
-      } catch (aiError) {
-        logger.error(`[FORM_AUTOMATION] AI service automation failed`, {
+      } catch (queueError) {
+        logger.error(`[FORM_AUTOMATION] Failed to queue automation job`, {
           formId: formRecord.id,
-          error: aiError.message,
-          stack: aiError.stack
+          error: queueError.message,
+          stack: queueError.stack
         });
 
         // Don't fail approval - log error and continue
         return {
           success: false,
-          error: aiError.message,
+          error: queueError.message,
           itemType
         };
       }

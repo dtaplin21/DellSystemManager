@@ -184,10 +184,14 @@ class JobQueueService {
   /**
    * Add a browser automation job to the queue
    * @param {Object} jobData - Job data
+   * @param {string} jobData.type - Job type: 'form_automation' or 'defect_automation' (defaults to 'browser-automation')
    * @param {string} jobData.project_id - Project ID
-   * @param {Object} jobData.defect_data - Defect data from AI analysis
+   * @param {Object} jobData.defect_data - Defect data from AI analysis (for defect automation)
+   * @param {Object} jobData.form_record - Form record (for form automation)
+   * @param {string} jobData.item_type - Item type: 'panel', 'patch', or 'destructive_test' (for form automation)
+   * @param {Object} jobData.positioning - Positioning data (for form automation)
    * @param {string} jobData.user_id - User ID
-   * @param {string} jobData.upload_id - Upload ID
+   * @param {string} jobData.upload_id - Upload ID (for defect automation)
    * @param {string} jobData.asbuilt_record_id - As-built record ID (optional, will be set after record creation)
    * @returns {Promise<Object>} - Job object with id
    */
@@ -209,14 +213,35 @@ class JobQueueService {
     }
 
     try {
-      const job = await this.automationQueue.add('browser-automation', {
+      // Determine job type and queue name
+      const jobType = jobData.type || 'defect_automation';
+      const queueName = jobType === 'form_automation' ? 'form-automation' : 'browser-automation';
+      
+      // Build job data payload
+      const payload = {
+        type: jobType,
         project_id: jobData.project_id,
-        defect_data: jobData.defect_data,
         user_id: jobData.user_id,
-        upload_id: jobData.upload_id,
         asbuilt_record_id: jobData.asbuilt_record_id
-      }, {
-        jobId: `automation-${jobData.upload_id || Date.now()}-${Math.random().toString(36).substring(7)}`,
+      };
+
+      // Add type-specific fields
+      if (jobType === 'form_automation') {
+        payload.form_record = jobData.form_record;
+        payload.item_type = jobData.item_type;
+        payload.positioning = jobData.positioning;
+      } else {
+        payload.defect_data = jobData.defect_data;
+        payload.upload_id = jobData.upload_id;
+      }
+
+      // Generate job ID
+      const jobIdPrefix = jobType === 'form_automation' 
+        ? `form-automation-${jobData.form_record?.id || Date.now()}`
+        : `automation-${jobData.upload_id || Date.now()}`;
+      
+      const job = await this.automationQueue.add(queueName, payload, {
+        jobId: `${jobIdPrefix}-${Math.random().toString(36).substring(7)}`,
         timeout: 300000, // 5 minutes timeout
         attempts: 3,
         removeOnComplete: true,
@@ -225,8 +250,10 @@ class JobQueueService {
 
       logger.info('[JobQueue] Automation job added', {
         jobId: job.id,
+        jobType,
         projectId: jobData.project_id,
-        uploadId: jobData.upload_id
+        uploadId: jobData.upload_id,
+        formId: jobData.form_record?.id
       });
 
       return {

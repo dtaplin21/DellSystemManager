@@ -22,8 +22,13 @@ const jobQueue = require('../services/jobQueue');
     const automationQueue = jobQueue.automationQueue;
     const automationWorker = new AutomationWorker();
 
-    // Process jobs
+    // Process defect-based automation jobs
     automationQueue.process('browser-automation', async (job) => {
+      return await automationWorker.processJob(job);
+    });
+
+    // Process form automation jobs
+    automationQueue.process('form-automation', async (job) => {
       return await automationWorker.processJob(job);
     });
 

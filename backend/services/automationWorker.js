@@ -22,14 +22,115 @@ class AutomationWorker {
    * @returns {Promise<Object>} - Job result
    */
   async processJob(job) {
-    const { project_id, defect_data, user_id, upload_id, asbuilt_record_id } = job.data;
+    const { type, project_id, form_record, user_id, item_type, positioning,
+            defect_data, upload_id, asbuilt_record_id } = job.data;
     const jobId = job.id;
 
     logger.info('[AutomationWorker] Processing job', {
       jobId,
+      jobType: type,
       projectId: project_id,
-      uploadId: upload_id
+      uploadId: upload_id,
+      formId: form_record?.id
     });
+
+    // Route to appropriate handler based on job type
+    if (type === 'form_automation') {
+      return await this.processFormAutomation(job);
+    } else {
+      return await this.processDefectAutomation(job);
+    }
+  }
+
+  /**
+   * Process form automation job
+   * @param {Object} job - Bull job object
+   * @returns {Promise<Object>} - Job result
+   */
+  async processFormAutomation(job) {
+    const { form_record, project_id, user_id, item_type, positioning, asbuilt_record_id } = job.data;
+    const jobId = job.id;
+
+    try {
+      // Update job status in database to 'processing'
+      await this.updateJobStatus(jobId, 'processing', 0, null, asbuilt_record_id);
+
+      // Update progress: 10% - Starting
+      await job.progress(10);
+      await this.updateJobStatus(jobId, 'processing', 10, null, asbuilt_record_id);
+
+      // Call AI service for form-based browser automation
+      logger.info('[AutomationWorker] Calling AI service for form automation', {
+        jobId,
+        formId: form_record.id,
+        itemType: item_type,
+        aiServiceUrl: this.AI_SERVICE_URL
+      });
+
+      const automationResponse = await axios.post(
+        `${this.AI_SERVICE_URL}/api/automate-from-form`,
+        {
+          form_record: form_record,
+          project_id: project_id,
+          user_id: user_id,
+          item_type: item_type,
+          positioning: positioning
+        },
+        {
+          timeout: 300000, // 5 minutes timeout
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      // Update progress: 90% - Processing response
+      await job.progress(90);
+      await this.updateJobStatus(jobId, 'processing', 90, null, asbuilt_record_id);
+
+      const result = {
+        success: automationResponse.data.success !== false,
+        jobId: automationResponse.data.job_id,
+        itemId: automationResponse.data.item_id,
+        itemType: item_type,
+        message: automationResponse.data.success ? 'Item created successfully' : automationResponse.data.error
+      };
+
+      // Update progress: 100% - Completed
+      await job.progress(100);
+      await this.updateJobStatus(jobId, 'completed', 100, result, asbuilt_record_id);
+
+      logger.info('[AutomationWorker] Form automation job completed successfully', {
+        jobId,
+        result
+      });
+
+      return result;
+    } catch (error) {
+      logger.error('[AutomationWorker] Form automation job failed', {
+        jobId,
+        error: error.message,
+        stack: error.stack,
+        response: error.response?.data
+      });
+
+      const errorMessage = error.response?.data?.error || error.message || 'Unknown error';
+      
+      // Update job status to 'failed'
+      await this.updateJobStatus(jobId, 'failed', job.progress() || 0, null, asbuilt_record_id, errorMessage);
+
+      throw error;
+    }
+  }
+
+  /**
+   * Process defect-based automation job (existing functionality)
+   * @param {Object} job - Bull job object
+   * @returns {Promise<Object>} - Job result
+   */
+  async processDefectAutomation(job) {
+    const { project_id, defect_data, user_id, upload_id, asbuilt_record_id } = job.data;
+    const jobId = job.id;
 
     try {
       // Update job status in database to 'processing'
