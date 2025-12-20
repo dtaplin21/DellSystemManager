@@ -453,20 +453,6 @@ class AIServiceIntegration:
                 "error": str(e)
             }
 
-# Async wrapper for Flask compatibility
-def run_async(coro):
-    """Run async coroutine in Flask context"""
-    try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-    
-    return loop.run_until_complete(coro)
-
-# Global integration instance
-ai_integration = None
-
     async def automate_from_approved_form(
         self,
         form_record: Dict[str, Any],
