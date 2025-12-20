@@ -112,7 +112,7 @@ export const AsbuiltDataProvider: React.FC<AsbuiltDataProviderProps> = ({
 
   // Track if a refresh is in progress to prevent multiple simultaneous calls
   const isRefreshingRef = useRef(false);
-  
+
   // Refresh project data
   const refreshProjectData = useCallback(async (projectId: string) => {
     if (!projectId) {

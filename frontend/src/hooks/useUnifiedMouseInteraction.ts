@@ -1641,14 +1641,14 @@ export function useUnifiedMouseInteraction({
           const finalY = currentState.dragCurrentY !== undefined ? currentState.dragCurrentY : patch.y;
           
           try {
-            await onPatchUpdate(selectedId, {
+          await onPatchUpdate(selectedId, {
               x: finalX,
               y: finalY,
-              rotation: currentRotation
-            });
-            
-            logRef.current('Committed patch position', { 
-              patchId: selectedId,
+            rotation: currentRotation
+          });
+          
+          logRef.current('Committed patch position', { 
+            patchId: selectedId,
               finalPos: { x: finalX, y: finalY },
               usedFallback: currentState.dragCurrentX === undefined || currentState.dragCurrentY === undefined
             });
@@ -1657,7 +1657,7 @@ export function useUnifiedMouseInteraction({
             logRef.current('Failed to commit patch position', { 
               patchId: selectedId,
               error: error instanceof Error ? error.message : String(error)
-            });
+          });
           }
         } else if (isDestructiveTest) {
           logTelemetry({
@@ -1695,12 +1695,12 @@ export function useUnifiedMouseInteraction({
             });
             
             try {
-              await onDestructiveTestUpdate(selectedId, {
+            await onDestructiveTestUpdate(selectedId, {
                 x: finalX,
                 y: finalY,
-                rotation: currentRotation
-              });
-              
+              rotation: currentRotation
+            });
+            
               logTelemetry({
                 location: 'useUnifiedMouseInteraction.ts:1468',
                 message: 'onDestructiveTestUpdate completed',
@@ -1709,9 +1709,9 @@ export function useUnifiedMouseInteraction({
                 runId: 'run3',
                 hypothesisId: 'B'
               });
-              
-              logRef.current('Committed destructive test position', { 
-                testId: selectedId,
+            
+            logRef.current('Committed destructive test position', { 
+              testId: selectedId,
                 finalPos: { x: finalX, y: finalY },
                 usedFallback: currentState.dragCurrentX === undefined || currentState.dragCurrentY === undefined
               });

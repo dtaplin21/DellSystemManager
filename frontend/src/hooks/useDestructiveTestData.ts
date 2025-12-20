@@ -236,9 +236,9 @@ export function useDestructiveTestData({ projectId }: UseDestructiveTestDataOpti
           runId: 'run1',
           hypothesisId: 'D'
         });
-        console.error('Error updating destructive test:', err);
-        // On error, refresh from backend to restore correct state
-        await fetchDestructiveTests();
+      console.error('Error updating destructive test:', err);
+      // On error, refresh from backend to restore correct state
+      await fetchDestructiveTests();
       } else {
         console.log(`⚠️ [updateDestructiveTest] Ignoring error from stale request for ${testId}`);
       }
