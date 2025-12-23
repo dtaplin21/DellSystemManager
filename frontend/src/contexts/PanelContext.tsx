@@ -2,6 +2,8 @@
 
 import React, { createContext, useContext, useReducer, ReactNode, useEffect, useRef, useCallback } from 'react';
 import { Panel, PanelPositionMap, FeatureFlags } from '@/types/panel';
+import { Patch } from '@/types/patch';
+import { DestructiveTest } from '@/types/destructiveTest';
 
 // State interfaces
 interface CanvasState {
@@ -29,6 +31,8 @@ interface FullscreenState {
   miniSidebarVisible: boolean;
   miniSidebarExpanded: boolean;
   selectedPanel: Panel | null;
+  selectedPatch: Patch | null;
+  selectedDestructiveTest: DestructiveTest | null;
   fullSidebarVisible: boolean;
   sidebarPanel: Panel | null;
   sidebarLoading: boolean;
@@ -68,6 +72,8 @@ type FullscreenAction =
   | { type: 'TOGGLE_MINI_SIDEBAR' }
   | { type: 'SET_MINI_SIDEBAR_EXPANDED'; payload: boolean }
   | { type: 'SET_SELECTED_PANEL'; payload: Panel | null }
+  | { type: 'SET_SELECTED_PATCH'; payload: Patch | null }
+  | { type: 'SET_SELECTED_DESTRUCTIVE_TEST'; payload: DestructiveTest | null }
   | { type: 'TOGGLE_FULL_SIDEBAR'; payload: { panelId?: string; force?: boolean } }
   | { type: 'SET_FULL_SIDEBAR'; payload: boolean }
   | { type: 'SET_SIDEBAR_PANEL'; payload: Panel | null }
@@ -105,6 +111,8 @@ const initialFullscreenState: FullscreenState = {
   miniSidebarVisible: false,
   miniSidebarExpanded: false,
   selectedPanel: null,
+  selectedPatch: null,
+  selectedDestructiveTest: null,
   fullSidebarVisible: false,
   sidebarPanel: null,
   sidebarLoading: false,
@@ -255,8 +263,36 @@ function fullscreenReducer(state: FullscreenState, action: FullscreenAction): Fu
       return { 
         ...state, 
         selectedPanel: action.payload,
+        selectedPatch: null,  // Clear patch selection
+        selectedDestructiveTest: null,  // Clear destructive test selection
         miniSidebarVisible: !!action.payload,
         // Close full sidebar when panel changes
+        fullSidebarVisible: false,
+        sidebarPanel: null,
+        sidebarError: null,
+      };
+    
+    case 'SET_SELECTED_PATCH':
+      return { 
+        ...state, 
+        selectedPatch: action.payload,
+        selectedPanel: null,  // Clear panel selection
+        selectedDestructiveTest: null,  // Clear destructive test selection
+        miniSidebarVisible: !!action.payload,
+        miniSidebarExpanded: false,
+        fullSidebarVisible: false,
+        sidebarPanel: null,
+        sidebarError: null,
+      };
+    
+    case 'SET_SELECTED_DESTRUCTIVE_TEST':
+      return { 
+        ...state, 
+        selectedDestructiveTest: action.payload,
+        selectedPanel: null,  // Clear panel selection
+        selectedPatch: null,  // Clear patch selection
+        miniSidebarVisible: !!action.payload,
+        miniSidebarExpanded: false,
         fullSidebarVisible: false,
         sidebarPanel: null,
         sidebarError: null,

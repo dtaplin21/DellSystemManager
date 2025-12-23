@@ -12,6 +12,8 @@ import LazyFullSidebar from './LazyFullSidebar';
 import CreatePatchModal from '@/components/patches/CreatePatchModal';
 import CreateDestructiveTestModal from '@/components/destructive-tests/CreateDestructiveTestModal';
 import CreatePanelModal from '@/components/panels/CreatePanelModal';
+import { PatchMiniSidebarContent } from './PatchMiniSidebarContent';
+import { DestructiveTestMiniSidebarContent } from './DestructiveTestMiniSidebarContent';
 
 interface FullscreenLayoutProps {
   panels: Panel[];
@@ -379,16 +381,24 @@ export function FullscreenLayout({
           }}
           onPanelDoubleClick={onPanelDoubleClick}
           onPanelUpdate={onPanelUpdate}
-          onPatchClick={onPatchClick}
-          onDestructiveTestClick={onDestructiveTestClick}
+          onPatchClick={(patch) => {
+            // Set selected patch for mini-sidebar (automatically shows mini-sidebar)
+            dispatchFullscreen({ type: 'SET_SELECTED_PATCH', payload: patch });
+            onPatchClick?.(patch);
+          }}
+          onDestructiveTestClick={(test) => {
+            // Set selected destructive test for mini-sidebar (automatically shows mini-sidebar)
+            dispatchFullscreen({ type: 'SET_SELECTED_DESTRUCTIVE_TEST', payload: test });
+            onDestructiveTestClick?.(test);
+          }}
           onPatchUpdate={onPatchUpdate}
           onDestructiveTestUpdate={onDestructiveTestUpdate}
           enableDebugLogging={enableDebugLogging}
         />
         
-        {/* Enhanced Mini Sidebar */}
+        {/* Enhanced Mini Sidebar for Panels */}
         {fullscreen.miniSidebarVisible && fullscreen.selectedPanel && (
-          <div className="absolute top-4 right-4 bg-white rounded-lg shadow-xl p-4 max-w-sm border border-gray-200 transition-all duration-300 ease-in-out transform animate-in slide-in-from-right-5 fade-in-0">
+          <div className="absolute top-4 right-4 bg-white rounded-lg shadow-xl p-4 max-w-sm border border-gray-200 transition-all duration-300 ease-in-out transform animate-in slide-in-from-right-5 fade-in-0 z-[10000]">
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-semibold text-gray-900 text-lg">
                 Panel {fullscreen.selectedPanel.panelNumber || fullscreen.selectedPanel.id}
@@ -495,6 +505,36 @@ export function FullscreenLayout({
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Mini Sidebar for Patches */}
+        {fullscreen.miniSidebarVisible && fullscreen.selectedPatch && (
+          <div className="absolute top-4 right-4 bg-white rounded-lg shadow-xl p-4 max-w-sm border border-gray-200 transition-all duration-300 ease-in-out transform animate-in slide-in-from-right-5 fade-in-0 z-[10000]">
+            <PatchMiniSidebarContent 
+              patch={fullscreen.selectedPatch}
+              projectId={projectId}
+              onClose={() => dispatchFullscreen({ type: 'SET_SELECTED_PATCH', payload: null })}
+              onViewFullDetails={() => {
+                // Open full sidebar - trigger the parent handler
+                onPatchClick?.(fullscreen.selectedPatch!);
+              }}
+            />
+          </div>
+        )}
+
+        {/* Mini Sidebar for Destructive Tests */}
+        {fullscreen.miniSidebarVisible && fullscreen.selectedDestructiveTest && (
+          <div className="absolute top-4 right-4 bg-white rounded-lg shadow-xl p-4 max-w-sm border border-gray-200 transition-all duration-300 ease-in-out transform animate-in slide-in-from-right-5 fade-in-0 z-[10000]">
+            <DestructiveTestMiniSidebarContent 
+              destructiveTest={fullscreen.selectedDestructiveTest}
+              projectId={projectId}
+              onClose={() => dispatchFullscreen({ type: 'SET_SELECTED_DESTRUCTIVE_TEST', payload: null })}
+              onViewFullDetails={() => {
+                // Open full sidebar - trigger the parent handler
+                onDestructiveTestClick?.(fullscreen.selectedDestructiveTest!);
+              }}
+            />
           </div>
         )}
       </div>
