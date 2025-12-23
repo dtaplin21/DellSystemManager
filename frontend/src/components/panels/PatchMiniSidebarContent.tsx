@@ -1,9 +1,17 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Patch } from '@/types/patch';
 import { useFormData } from '@/hooks/useFormData';
 import { useCanvasState } from '@/contexts/PanelContext';
@@ -21,6 +29,9 @@ export function PatchMiniSidebarContent({
   onClose,
   onDelete
 }: PatchMiniSidebarContentProps) {
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const { forms, isLoading } = useFormData({
     projectId,
     asbuiltRecordId: patch.asbuiltRecordId,
@@ -29,34 +40,66 @@ export function PatchMiniSidebarContent({
 
   const { canvas, dispatchCanvas } = useCanvasState();
 
-  // Extract primary form fields from the form that created this patch or first form
-  const primaryForm = forms.find(f => f.id === patch.asbuiltRecordId) || forms[0];
-  // Handle both camelCase and snake_case from API
-  const formData = primaryForm?.mappedData || (primaryForm as any)?.mapped_data || {};
+  // Helper function to safely extract field values (checks both camelCase and snake_case)
+  const getFieldValue = (data: any, ...fieldNames: string[]): any => {
+    for (const fieldName of fieldNames) {
+      const value = data?.[fieldName];
+      if (value !== null && value !== undefined && value !== '') {
+        return value;
+      }
+    }
+    return null;
+  };
 
-  // Extract panel numbers from mobile forms only
+  // Extract primary form fields from the form that created this patch
+  const primaryForm = forms.find(f => f.id === patch.asbuiltRecordId) || forms[0];
+  // Handle both camelCase and snake_case from API, and check raw_data as fallback
+  const mappedData = primaryForm?.mappedData || (primaryForm as any)?.mapped_data || {};
+  const rawData = (primaryForm as any)?.raw_data || {};
+  const formData = { ...rawData, ...mappedData }; // Merge with raw_data as fallback
+
+  // Extract panel numbers from ONLY the directly linked form (asbuiltRecordId)
   const panelNumbers = new Set<string>();
   
-  // From linked forms
-  forms.forEach(form => {
-    const formData = form.mappedData || (form as any)?.mapped_data || {};
-    if (formData.panelNumber) {
-      panelNumbers.add(String(formData.panelNumber));
+  // Only get panel numbers from the form that created this patch
+  if (primaryForm && primaryForm.id === patch.asbuiltRecordId) {
+    const primaryFormData = primaryForm.mappedData || (primaryForm as any)?.mapped_data || {};
+    const primaryRawData = (primaryForm as any)?.raw_data || {};
+    const combinedFormData = { ...primaryRawData, ...primaryFormData };
+    
+    // Check both panelNumber (singular) and panelNumbers (plural/comma-separated)
+    const panelNumber = getFieldValue(combinedFormData, 'panelNumber', 'panel_number');
+    const panelNumbersStr = getFieldValue(combinedFormData, 'panelNumbers', 'panel_numbers');
+    
+    if (panelNumber) {
+      panelNumbers.add(String(panelNumber));
     }
-  });
+    
+    if (panelNumbersStr) {
+      // Handle comma-separated panel numbers
+      const numbers = String(panelNumbersStr).split(',').map(n => n.trim()).filter(Boolean);
+      numbers.forEach(n => panelNumbers.add(n));
+    }
+  }
   
   const panelNumbersArray = Array.from(panelNumbers);
 
-  // Handle delete with confirmation
-  const handleDelete = async () => {
-    if (confirm(`Are you sure you want to delete Patch ${patch.patchNumber || patch.id.slice(0, 8)}? This action cannot be undone.`)) {
-      try {
-        await onDelete();
-        onClose(); // Close mini-sidebar after deletion
-      } catch (error) {
-        console.error('Error deleting patch:', error);
-        alert('Failed to delete patch. Please try again.');
-      }
+  // Handle delete button click - open confirmation dialog
+  const handleDeleteClick = () => {
+    setShowDeleteDialog(true);
+  };
+
+  // Handle confirmed delete
+  const handleConfirmDelete = async () => {
+    setIsDeleting(true);
+    try {
+      await onDelete();
+      setShowDeleteDialog(false);
+      onClose(); // Close mini-sidebar after deletion
+    } catch (error) {
+      console.error('Error deleting patch:', error);
+      // Error will be handled by parent component or show toast notification
+      setIsDeleting(false);
     }
   };
 
@@ -103,47 +146,59 @@ export function PatchMiniSidebarContent({
             <div className="text-gray-500 text-xs font-semibold uppercase tracking-wide mb-2">Form Information</div>
             
             {/* Welder/Operator */}
-            {(formData.operatorInitials || formData.seamerInitials) && (
+            {(getFieldValue(formData, 'operatorInitials', 'operator_initials') || 
+              getFieldValue(formData, 'seamerInitials', 'seamer_initials')) && (
               <div className="bg-gray-50 p-2 rounded">
                 <div className="text-gray-500 text-xs mb-1">Welder/Operator</div>
-                <div className="font-medium">{formData.operatorInitials || formData.seamerInitials}</div>
+                <div className="font-medium">
+                  {getFieldValue(formData, 'operatorInitials', 'operator_initials') || 
+                   getFieldValue(formData, 'seamerInitials', 'seamer_initials')}
+                </div>
               </div>
             )}
 
             {/* Extruder Number */}
-            {formData.extruderNumber && (
-              <div className="bg-gray-50 p-2 rounded">
-                <div className="text-gray-500 text-xs mb-1">Extruder Number</div>
-                <div className="font-medium">{formData.extruderNumber}</div>
+            <div className="bg-gray-50 p-2 rounded">
+              <div className="text-gray-500 text-xs mb-1">Extruder Number</div>
+              <div className="font-medium">
+                {getFieldValue(formData, 'extruderNumber', 'extruder_number') || 'N/A'}
               </div>
-            )}
+            </div>
 
             {/* Temperatures */}
-            {formData.wedgeTemp && (
+            {getFieldValue(formData, 'wedgeTemp', 'wedge_temp') && (
               <div className="bg-gray-50 p-2 rounded">
                 <div className="text-gray-500 text-xs mb-1">Wedge Temp</div>
-                <div className="font-medium">{formData.wedgeTemp} °F</div>
+                <div className="font-medium">
+                  {getFieldValue(formData, 'wedgeTemp', 'wedge_temp')} °F
+                </div>
               </div>
             )}
             
-            {formData.barrelTemp && (
+            {getFieldValue(formData, 'barrelTemp', 'barrel_temp') && (
               <div className="bg-gray-50 p-2 rounded">
                 <div className="text-gray-500 text-xs mb-1">Barrel Temp</div>
-                <div className="font-medium">{formData.barrelTemp} °F</div>
+                <div className="font-medium">
+                  {getFieldValue(formData, 'barrelTemp', 'barrel_temp')} °F
+                </div>
               </div>
             )}
             
-            {formData.preheatTemp && (
+            {getFieldValue(formData, 'preheatTemp', 'preheat_temp') && (
               <div className="bg-gray-50 p-2 rounded">
                 <div className="text-gray-500 text-xs mb-1">Preheat Temp</div>
-                <div className="font-medium">{formData.preheatTemp} °F</div>
+                <div className="font-medium">
+                  {getFieldValue(formData, 'preheatTemp', 'preheat_temp')} °F
+                </div>
               </div>
             )}
             
-            {formData.ambientTemp && (
+            {getFieldValue(formData, 'ambientTemp', 'ambient_temp') && (
               <div className="bg-gray-50 p-2 rounded">
                 <div className="text-gray-500 text-xs mb-1">Ambient Temp</div>
-                <div className="font-medium">{formData.ambientTemp} °F</div>
+                <div className="font-medium">
+                  {getFieldValue(formData, 'ambientTemp', 'ambient_temp')} °F
+                </div>
               </div>
             )}
           </div>
@@ -156,14 +211,6 @@ export function PatchMiniSidebarContent({
             {panelNumbersArray.length > 0 
               ? panelNumbersArray.join(', ') 
               : 'N/A'}
-          </div>
-        </div>
-
-        {/* Linked Forms Count */}
-        <div className="bg-blue-50 p-2 rounded">
-          <div className="text-gray-500 text-xs mb-1">Linked Forms</div>
-          <div className="font-medium">
-            {isLoading ? 'Loading...' : `${forms.length} form${forms.length !== 1 ? 's' : ''}`}
           </div>
         </div>
 
@@ -204,13 +251,42 @@ export function PatchMiniSidebarContent({
               variant="default"
               size="sm"
               className="w-full text-xs bg-red-600 hover:bg-red-700 text-white transition-all duration-150 ease-in-out hover:scale-105"
-              onClick={handleDelete}
+              onClick={handleDeleteClick}
             >
               Delete Patch
             </Button>
           </div>
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Patch</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete Patch <strong>{patch.patchNumber || patch.id.slice(0, 8)}</strong>? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowDeleteDialog(false)}
+              disabled={isDeleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmDelete}
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {isDeleting ? 'Deleting...' : 'Delete Patch'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
