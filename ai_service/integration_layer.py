@@ -655,6 +655,22 @@ class AIServiceIntegration:
             }
 
 
+def run_async(coro):
+    """
+    Helper function to run async coroutines in Flask context.
+    Handles both cases where an event loop exists and where it doesn't.
+    """
+    try:
+        return asyncio.run(coro)
+    except RuntimeError:
+        # If event loop already exists, create new one
+        loop = asyncio.new_event_loop()
+        try:
+            return loop.run_until_complete(coro)
+        finally:
+            loop.close()
+
+
 def get_ai_integration() -> AIServiceIntegration:
     """Get the global AI integration instance"""
     global ai_integration
