@@ -63,15 +63,13 @@ export function useFormData({
       // Fetch indirect link forms (if panelId provided)
       if (panelId) {
         try {
+          const params = new URLSearchParams();
+          params.append('projectId', projectId);
+          params.append('panelId', panelId);
+          
           const indirectResponse = await apiClient.request<{ success: boolean; records: AsbuiltRecord[] }>(
-            `/api/asbuilt/records`,
-            { 
-              method: 'GET',
-              params: {
-                projectId,
-                panelId
-              }
-            }
+            `/api/asbuilt/records?${params.toString()}`,
+            { method: 'GET' }
           );
           
           if (indirectResponse.success && Array.isArray(indirectResponse.records)) {
@@ -90,14 +88,12 @@ export function useFormData({
       // If no specific links, fetch all forms for the project
       if (!asbuiltRecordId && !panelId) {
         try {
+          const params = new URLSearchParams();
+          params.append('projectId', projectId);
+          
           const projectResponse = await apiClient.request<{ success: boolean; records: AsbuiltRecord[] }>(
-            `/api/asbuilt/records`,
-            { 
-              method: 'GET',
-              params: {
-                projectId
-              }
-            }
+            `/api/asbuilt/records?${params.toString()}`,
+            { method: 'GET' }
           );
           
           if (projectResponse.success && Array.isArray(projectResponse.records)) {

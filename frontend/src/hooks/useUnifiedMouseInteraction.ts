@@ -1939,9 +1939,31 @@ export function useUnifiedMouseInteraction({
       debugLog('🎯 [ROTATION HANDLE DEBUG] Canvas click at:', { screenX, screenY });
     }
     
-    // Check for panel hits (rotation handles are handled in mousedown)
+    // Check all item types with same priority as handleMouseDown: destructs > patches > panels
+    const clickedDestruct = visibleTypes.destructs ? getDestructiveTestAtPosition(screenX, screenY) : null;
+    const clickedPatch = visibleTypes.patches ? getPatchAtPosition(screenX, screenY) : null;
     const clickedPanel = getPanelAtPosition(screenX, screenY);
-    if (clickedPanel && onPanelClick) {
+    
+    // Priority order: destructs > patches > panels
+    if (clickedDestruct && onDestructiveTestClick) {
+      if (enableDebugLogging) {
+        debugLog('🎯 [ROTATION HANDLE DEBUG] Destructive test clicked, calling onDestructiveTestClick:', {
+          id: clickedDestruct.id
+        });
+      }
+      mouseStateRef.current.selectedPanelId = clickedDestruct.id;
+      render();
+      onDestructiveTestClick(clickedDestruct);
+    } else if (clickedPatch && onPatchClick) {
+      if (enableDebugLogging) {
+        debugLog('🎯 [ROTATION HANDLE DEBUG] Patch clicked, calling onPatchClick:', {
+          id: clickedPatch.id
+        });
+      }
+      mouseStateRef.current.selectedPanelId = clickedPatch.id;
+      render();
+      onPatchClick(clickedPatch);
+    } else if (clickedPanel && onPanelClick) {
       if (enableDebugLogging) {
         debugLog('🎯 [ROTATION HANDLE DEBUG] Panel clicked, calling onPanelClick:', {
           id: clickedPanel.id,
@@ -1961,14 +1983,14 @@ export function useUnifiedMouseInteraction({
       onPanelClick(clickedPanel);
     } else {
       if (enableDebugLogging) {
-        debugLog('🎯 [ROTATION HANDLE DEBUG] No panel clicked or onPanelClick not available');
+        debugLog('🎯 [ROTATION HANDLE DEBUG] No item clicked or click handler not available');
       }
-      // Clear selection if no panel clicked
+      // Clear selection if no item clicked
       mouseStateRef.current.selectedPanelId = null;
       // Trigger a re-render to hide selection handles
       render();
     }
-  }, [getPanelAtPosition, onPanelClick, render, panels]);
+  }, [getPanelAtPosition, getPatchAtPosition, getDestructiveTestAtPosition, onPanelClick, onPatchClick, onDestructiveTestClick, render, panels, patches, destructiveTests, visibleTypes, enableDebugLogging, isSSR]);
 
   const handleCanvasDoubleClick = useCallback((event: MouseEvent) => {
     // SSR Guard: Don't run on server
@@ -1980,12 +2002,23 @@ export function useUnifiedMouseInteraction({
     const screenX = event.clientX - rect.left;
     const screenY = event.clientY - rect.top;
     
-    // Use screen coordinates directly (panels are stored in unified pixels)
+    // Check all item types with same priority: destructs > patches > panels
+    // Note: Double-click is currently only supported for panels
+    const clickedDestruct = visibleTypes.destructs ? getDestructiveTestAtPosition(screenX, screenY) : null;
+    const clickedPatch = visibleTypes.patches ? getPatchAtPosition(screenX, screenY) : null;
     const clickedPanel = getPanelAtPosition(screenX, screenY);
+    
+    // Priority order: destructs > patches > panels
+    // Currently only panels support double-click, but check others first to prevent panel double-click when patch/destruct is on top
+    if (clickedDestruct || clickedPatch) {
+      // Don't trigger panel double-click if patch or destruct is on top
+      return;
+    }
+    
     if (clickedPanel && onPanelDoubleClick) {
       onPanelDoubleClick(clickedPanel);
     }
-  }, [getPanelAtPosition, onPanelDoubleClick]);
+  }, [getPanelAtPosition, getPatchAtPosition, getDestructiveTestAtPosition, onPanelDoubleClick, visibleTypes, isSSR]);
 
   // Handler refs to avoid recreating event listeners when handlers change
   const handleMouseDownRef = useRef(handleMouseDown);

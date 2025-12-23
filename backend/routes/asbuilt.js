@@ -31,6 +31,59 @@ const upload = multer({
 });
 
 /**
+ * @route GET /api/asbuilt/records
+ * @desc Get as-built records with query parameters (projectId, panelId, asbuiltRecordId)
+ * @access Private
+ */
+router.get('/records', auth, async (req, res) => {
+  try {
+    const { projectId, panelId, asbuiltRecordId } = req.query;
+    
+    // Validate that at least projectId is provided
+    if (!projectId) {
+      return res.status(400).json({
+        success: false,
+        error: 'projectId is required'
+      });
+    }
+    
+    let records = [];
+    
+    // If asbuiltRecordId is provided, fetch that specific record
+    if (asbuiltRecordId) {
+      console.log(`👁️ [ASBUILT] Fetching record ${asbuiltRecordId} for project ${projectId}`);
+      const record = await asbuiltService.getRecordById(asbuiltRecordId);
+      if (record && record.project_id === projectId) {
+        records = [record];
+      }
+    }
+    // If panelId is provided, fetch all records for that panel
+    else if (panelId) {
+      console.log(`🔍 [ASBUILT] Fetching records for project ${projectId}, panel ${panelId}`);
+      records = await asbuiltService.getPanelRecords(projectId, panelId);
+    }
+    // Otherwise, fetch all records for the project
+    else {
+      console.log(`🔍 [ASBUILT] Fetching all records for project ${projectId}`);
+      records = await asbuiltService.getProjectRecords(projectId);
+    }
+    
+    res.json({
+      success: true,
+      records: records || [],
+      count: records?.length || 0
+    });
+  } catch (error) {
+    console.error('❌ [ASBUILT] Error fetching records:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to fetch records',
+      message: error.message 
+    });
+  }
+});
+
+/**
  * @route GET /api/asbuilt/records/:recordId
  * @desc Get a single as-built record by ID
  * @access Private
