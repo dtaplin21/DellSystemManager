@@ -12,14 +12,14 @@ interface DestructiveTestMiniSidebarContentProps {
   destructiveTest: DestructiveTest;
   projectId: string;
   onClose: () => void;
-  onViewFullDetails: () => void;
+  onDelete: () => Promise<void>;
 }
 
 export function DestructiveTestMiniSidebarContent({
   destructiveTest,
   projectId,
   onClose,
-  onViewFullDetails
+  onDelete
 }: DestructiveTestMiniSidebarContentProps) {
   const { forms, isLoading } = useFormData({
     projectId,
@@ -28,6 +28,37 @@ export function DestructiveTestMiniSidebarContent({
   });
 
   const { canvas, dispatchCanvas } = useCanvasState();
+
+  // Extract primary form fields from the form that created this test or first form
+  const primaryForm = forms.find(f => f.id === destructiveTest.asbuiltRecordId) || forms[0];
+  // Handle both camelCase and snake_case from API
+  const formData = primaryForm?.mappedData || (primaryForm as any)?.mapped_data || {};
+
+  // Extract panel numbers from mobile forms only
+  const panelNumbers = new Set<string>();
+  
+  // From linked forms
+  forms.forEach(form => {
+    const formData = form.mappedData || (form as any)?.mapped_data || {};
+    if (formData.panelNumber) {
+      panelNumbers.add(String(formData.panelNumber));
+    }
+  });
+  
+  const panelNumbersArray = Array.from(panelNumbers);
+
+  // Handle delete with confirmation
+  const handleDelete = async () => {
+    if (confirm(`Are you sure you want to delete Test ${destructiveTest.sampleId || destructiveTest.id.slice(0, 8)}? This action cannot be undone.`)) {
+      try {
+        await onDelete();
+        onClose(); // Close mini-sidebar after deletion
+      } catch (error) {
+        console.error('Error deleting destructive test:', error);
+        alert('Failed to delete destructive test. Please try again.');
+      }
+    }
+  };
 
   return (
     <>
@@ -74,22 +105,6 @@ export function DestructiveTestMiniSidebarContent({
           </div>
         )}
 
-        {/* Position */}
-        <div className="bg-gray-50 p-2 rounded">
-          <div className="text-gray-500 text-xs mb-1">Position</div>
-          <div className="font-medium">
-            X: {Math.round(destructiveTest.x)}, Y: {Math.round(destructiveTest.y)}
-          </div>
-        </div>
-
-        {/* Dimensions */}
-        <div className="bg-gray-50 p-2 rounded">
-          <div className="text-gray-500 text-xs mb-1">Dimensions</div>
-          <div className="font-medium">
-            {destructiveTest.width} × {destructiveTest.height} ft
-          </div>
-        </div>
-
         {/* Location */}
         {destructiveTest.location && (
           <div className="bg-gray-50 p-2 rounded">
@@ -98,21 +113,78 @@ export function DestructiveTestMiniSidebarContent({
           </div>
         )}
 
-        {/* Material */}
-        {destructiveTest.material && (
-          <div className="bg-gray-50 p-2 rounded">
-            <div className="text-gray-500 text-xs mb-1">Material</div>
-            <div className="font-medium">{destructiveTest.material}</div>
+        {/* Form Information */}
+        {primaryForm && (
+          <div className="space-y-2">
+            <div className="text-gray-500 text-xs font-semibold uppercase tracking-wide mb-2">Form Information</div>
+            
+            {/* Tester/Operator */}
+            {(formData.testerInitials || formData.operatorInitials) && (
+              <div className="bg-gray-50 p-2 rounded">
+                <div className="text-gray-500 text-xs mb-1">Tester/Operator</div>
+                <div className="font-medium">{formData.testerInitials || formData.operatorInitials}</div>
+              </div>
+            )}
+
+            {/* Machine Number */}
+            {formData.machineNumber && (
+              <div className="bg-gray-50 p-2 rounded">
+                <div className="text-gray-500 text-xs mb-1">Machine Number</div>
+                <div className="font-medium">{formData.machineNumber}</div>
+              </div>
+            )}
+
+            {/* Extruder Number */}
+            {formData.extruderNumber && (
+              <div className="bg-gray-50 p-2 rounded">
+                <div className="text-gray-500 text-xs mb-1">Extruder Number</div>
+                <div className="font-medium">{formData.extruderNumber}</div>
+              </div>
+            )}
+
+            {/* Track Peel Inside */}
+            {formData.trackPeelInside !== undefined && formData.trackPeelInside !== null && (
+              <div className="bg-gray-50 p-2 rounded">
+                <div className="text-gray-500 text-xs mb-1">Track Peel Inside</div>
+                <div className="font-medium">{formData.trackPeelInside}</div>
+              </div>
+            )}
+
+            {/* Track Peel Outside */}
+            {formData.trackPeelOutside !== undefined && formData.trackPeelOutside !== null && (
+              <div className="bg-gray-50 p-2 rounded">
+                <div className="text-gray-500 text-xs mb-1">Track Peel Outside</div>
+                <div className="font-medium">{formData.trackPeelOutside}</div>
+              </div>
+            )}
+
+            {/* Tensile (lbs/in) */}
+            {formData.tensileLbsPerIn !== undefined && formData.tensileLbsPerIn !== null && (
+              <div className="bg-gray-50 p-2 rounded">
+                <div className="text-gray-500 text-xs mb-1">Tensile (lbs/in)</div>
+                <div className="font-medium">{formData.tensileLbsPerIn}</div>
+              </div>
+            )}
+
+            {/* Ambient Temp */}
+            {formData.ambientTemp !== undefined && formData.ambientTemp !== null && (
+              <div className="bg-gray-50 p-2 rounded">
+                <div className="text-gray-500 text-xs mb-1">Ambient Temp</div>
+                <div className="font-medium">{formData.ambientTemp} °F</div>
+              </div>
+            )}
           </div>
         )}
 
-        {/* Thickness */}
-        {destructiveTest.thickness && (
-          <div className="bg-gray-50 p-2 rounded">
-            <div className="text-gray-500 text-xs mb-1">Thickness</div>
-            <div className="font-medium">{destructiveTest.thickness} in</div>
+        {/* Panel Number(s) */}
+        <div className="bg-gray-50 p-2 rounded">
+          <div className="text-gray-500 text-xs mb-1">Panel Number(s)</div>
+          <div className="font-medium">
+            {panelNumbersArray.length > 0 
+              ? panelNumbersArray.join(', ') 
+              : 'N/A'}
           </div>
-        )}
+        </div>
 
         {/* Linked Forms Count */}
         <div className="bg-blue-50 p-2 rounded">
@@ -158,10 +230,10 @@ export function DestructiveTestMiniSidebarContent({
             <Button
               variant="default"
               size="sm"
-              className="w-full text-xs bg-blue-600 hover:bg-blue-700 text-white transition-all duration-150 ease-in-out hover:scale-105"
-              onClick={onViewFullDetails}
+              className="w-full text-xs bg-red-600 hover:bg-red-700 text-white transition-all duration-150 ease-in-out hover:scale-105"
+              onClick={handleDelete}
             >
-              View Full Details
+              Delete Test
             </Button>
           </div>
         </div>

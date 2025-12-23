@@ -28,6 +28,8 @@ interface FullscreenLayoutProps {
   onPatchUpdate?: (patchId: string, updates: Partial<Patch>) => Promise<void>;
   onDestructiveTestUpdate?: (testId: string, updates: Partial<DestructiveTest>) => Promise<void>;
   onPanelDelete?: (panelId: string) => void;
+  onPatchDelete?: (patchId: string) => Promise<void>;
+  onDestructiveTestDelete?: (testId: string) => Promise<void>;
   onAddPanel?: () => void;
   onCreatePanel?: (panelData: any) => Promise<void>;
   onAddPatch?: (patch: Omit<Patch, 'id'>) => Promise<void>;
@@ -57,6 +59,8 @@ export function FullscreenLayout({
   onPatchUpdate,
   onDestructiveTestUpdate,
   onPanelDelete,
+  onPatchDelete,
+  onDestructiveTestDelete,
   onAddPanel,
   onCreatePanel,
   onAddPatch,
@@ -515,9 +519,10 @@ export function FullscreenLayout({
               patch={fullscreen.selectedPatch}
               projectId={projectId}
               onClose={() => dispatchFullscreen({ type: 'SET_SELECTED_PATCH', payload: null })}
-              onViewFullDetails={() => {
-                // Open full sidebar - trigger the parent handler
-                onPatchClick?.(fullscreen.selectedPatch!);
+              onDelete={async () => {
+                if (onPatchDelete) {
+                  await onPatchDelete(fullscreen.selectedPatch!.id);
+                }
               }}
             />
           </div>
@@ -530,9 +535,10 @@ export function FullscreenLayout({
               destructiveTest={fullscreen.selectedDestructiveTest}
               projectId={projectId}
               onClose={() => dispatchFullscreen({ type: 'SET_SELECTED_DESTRUCTIVE_TEST', payload: null })}
-              onViewFullDetails={() => {
-                // Open full sidebar - trigger the parent handler
-                onDestructiveTestClick?.(fullscreen.selectedDestructiveTest!);
+              onDelete={async () => {
+                if (onDestructiveTestDelete) {
+                  await onDestructiveTestDelete(fullscreen.selectedDestructiveTest!.id);
+                }
               }}
             />
           </div>

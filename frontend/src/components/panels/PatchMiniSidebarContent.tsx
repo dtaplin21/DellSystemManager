@@ -12,14 +12,14 @@ interface PatchMiniSidebarContentProps {
   patch: Patch;
   projectId: string;
   onClose: () => void;
-  onViewFullDetails: () => void;
+  onDelete: () => Promise<void>;
 }
 
 export function PatchMiniSidebarContent({
   patch,
   projectId,
   onClose,
-  onViewFullDetails
+  onDelete
 }: PatchMiniSidebarContentProps) {
   const { forms, isLoading } = useFormData({
     projectId,
@@ -28,6 +28,37 @@ export function PatchMiniSidebarContent({
   });
 
   const { canvas, dispatchCanvas } = useCanvasState();
+
+  // Extract primary form fields from the form that created this patch or first form
+  const primaryForm = forms.find(f => f.id === patch.asbuiltRecordId) || forms[0];
+  // Handle both camelCase and snake_case from API
+  const formData = primaryForm?.mappedData || (primaryForm as any)?.mapped_data || {};
+
+  // Extract panel numbers from mobile forms only
+  const panelNumbers = new Set<string>();
+  
+  // From linked forms
+  forms.forEach(form => {
+    const formData = form.mappedData || (form as any)?.mapped_data || {};
+    if (formData.panelNumber) {
+      panelNumbers.add(String(formData.panelNumber));
+    }
+  });
+  
+  const panelNumbersArray = Array.from(panelNumbers);
+
+  // Handle delete with confirmation
+  const handleDelete = async () => {
+    if (confirm(`Are you sure you want to delete Patch ${patch.patchNumber || patch.id.slice(0, 8)}? This action cannot be undone.`)) {
+      try {
+        await onDelete();
+        onClose(); // Close mini-sidebar after deletion
+      } catch (error) {
+        console.error('Error deleting patch:', error);
+        alert('Failed to delete patch. Please try again.');
+      }
+    }
+  };
 
   return (
     <>
@@ -58,22 +89,6 @@ export function PatchMiniSidebarContent({
           </div>
         </div>
 
-        {/* Position */}
-        <div className="bg-gray-50 p-2 rounded">
-          <div className="text-gray-500 text-xs mb-1">Position</div>
-          <div className="font-medium">
-            X: {Math.round(patch.x)}, Y: {Math.round(patch.y)}
-          </div>
-        </div>
-
-        {/* Dimensions */}
-        <div className="bg-gray-50 p-2 rounded">
-          <div className="text-gray-500 text-xs mb-1">Radius</div>
-          <div className="font-medium">
-            {patch.radius} ft (Diameter: {patch.radius * 2} ft)
-          </div>
-        </div>
-
         {/* Location */}
         {patch.location && (
           <div className="bg-gray-50 p-2 rounded">
@@ -82,21 +97,67 @@ export function PatchMiniSidebarContent({
           </div>
         )}
 
-        {/* Material */}
-        {patch.material && (
-          <div className="bg-gray-50 p-2 rounded">
-            <div className="text-gray-500 text-xs mb-1">Material</div>
-            <div className="font-medium">{patch.material}</div>
+        {/* Form Information */}
+        {primaryForm && (
+          <div className="space-y-2">
+            <div className="text-gray-500 text-xs font-semibold uppercase tracking-wide mb-2">Form Information</div>
+            
+            {/* Welder/Operator */}
+            {(formData.operatorInitials || formData.seamerInitials) && (
+              <div className="bg-gray-50 p-2 rounded">
+                <div className="text-gray-500 text-xs mb-1">Welder/Operator</div>
+                <div className="font-medium">{formData.operatorInitials || formData.seamerInitials}</div>
+              </div>
+            )}
+
+            {/* Extruder Number */}
+            {formData.extruderNumber && (
+              <div className="bg-gray-50 p-2 rounded">
+                <div className="text-gray-500 text-xs mb-1">Extruder Number</div>
+                <div className="font-medium">{formData.extruderNumber}</div>
+              </div>
+            )}
+
+            {/* Temperatures */}
+            {formData.wedgeTemp && (
+              <div className="bg-gray-50 p-2 rounded">
+                <div className="text-gray-500 text-xs mb-1">Wedge Temp</div>
+                <div className="font-medium">{formData.wedgeTemp} °F</div>
+              </div>
+            )}
+            
+            {formData.barrelTemp && (
+              <div className="bg-gray-50 p-2 rounded">
+                <div className="text-gray-500 text-xs mb-1">Barrel Temp</div>
+                <div className="font-medium">{formData.barrelTemp} °F</div>
+              </div>
+            )}
+            
+            {formData.preheatTemp && (
+              <div className="bg-gray-50 p-2 rounded">
+                <div className="text-gray-500 text-xs mb-1">Preheat Temp</div>
+                <div className="font-medium">{formData.preheatTemp} °F</div>
+              </div>
+            )}
+            
+            {formData.ambientTemp && (
+              <div className="bg-gray-50 p-2 rounded">
+                <div className="text-gray-500 text-xs mb-1">Ambient Temp</div>
+                <div className="font-medium">{formData.ambientTemp} °F</div>
+              </div>
+            )}
           </div>
         )}
 
-        {/* Thickness */}
-        {patch.thickness && (
-          <div className="bg-gray-50 p-2 rounded">
-            <div className="text-gray-500 text-xs mb-1">Thickness</div>
-            <div className="font-medium">{patch.thickness} in</div>
+        {/* Panel Number(s) */}
+        <div className="bg-gray-50 p-2 rounded">
+          <div className="text-gray-500 text-xs mb-1">Panel Number(s)</div>
+          <div className="font-medium">
+            {panelNumbersArray.length > 0 
+              ? panelNumbersArray.join(', ') 
+              : 'N/A'}
           </div>
-        )}
+        </div>
 
         {/* Linked Forms Count */}
         <div className="bg-blue-50 p-2 rounded">
@@ -142,10 +203,10 @@ export function PatchMiniSidebarContent({
             <Button
               variant="default"
               size="sm"
-              className="w-full text-xs bg-blue-600 hover:bg-blue-700 text-white transition-all duration-150 ease-in-out hover:scale-105"
-              onClick={onViewFullDetails}
+              className="w-full text-xs bg-red-600 hover:bg-red-700 text-white transition-all duration-150 ease-in-out hover:scale-105"
+              onClick={handleDelete}
             >
-              View Full Details
+              Delete Patch
             </Button>
           </div>
         </div>

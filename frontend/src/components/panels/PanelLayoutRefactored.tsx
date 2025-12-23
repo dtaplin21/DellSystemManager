@@ -24,6 +24,8 @@ interface PanelLayoutRefactoredProps {
   onPatchUpdate?: (patchId: string, updates: Partial<Patch>) => Promise<void>;
   onDestructiveTestUpdate?: (testId: string, updates: Partial<DestructiveTest>) => Promise<void>;
   onPanelDelete?: (panelId: string) => void;
+  onPatchDelete?: (patchId: string) => Promise<void>;
+  onDestructiveTestDelete?: (testId: string) => Promise<void>;
   onAddPanel?: () => void;
   onCreatePanel?: (panelData: any) => Promise<void>;
   onAddPatch?: (patch: Omit<Patch, 'id'>) => Promise<void>;
@@ -64,6 +66,8 @@ function PanelLayoutContent({
   onPatchUpdate,
   onDestructiveTestUpdate,
   onPanelDelete,
+  onPatchDelete,
+  onDestructiveTestDelete,
   onAddPanel,
   onCreatePanel,
   onAddPatch,
@@ -198,6 +202,8 @@ function PanelLayoutContent({
                 onPatchUpdate={handlePatchUpdate}
                 onDestructiveTestUpdate={handleDestructiveTestUpdate}
                 onPanelDelete={onPanelDelete}
+                onPatchDelete={onPatchDelete}
+                onDestructiveTestDelete={onDestructiveTestDelete}
                 onAddPanel={onAddPanel}
                 onCreatePanel={onCreatePanel}
                 onAddPatch={onAddPatch}
@@ -218,6 +224,8 @@ export function PanelLayoutRefactored({
   onPatchUpdate,
   onDestructiveTestUpdate,
   onPanelDelete,
+  onPatchDelete,
+  onDestructiveTestDelete,
   onAddPanel,
   onCreatePanel,
   onAddPatch,
@@ -243,6 +251,8 @@ export function PanelLayoutRefactored({
           onPatchUpdate={onPatchUpdate}
           onDestructiveTestUpdate={onDestructiveTestUpdate}
           onPanelDelete={onPanelDelete}
+          onPatchDelete={onPatchDelete}
+          onDestructiveTestDelete={onDestructiveTestDelete}
           onAddPanel={onAddPanel}
           onCreatePanel={onCreatePanel}
           onAddPatch={onAddPatch}

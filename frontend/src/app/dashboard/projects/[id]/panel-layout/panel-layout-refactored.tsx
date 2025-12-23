@@ -224,6 +224,34 @@ export default function PanelLayoutRefactored() {
     }
   };
 
+  // Handle patch deletion
+  const handlePatchDelete = async (patchId: string) => {
+    try {
+      await removePatch(patchId);
+      // Clear selection if deleted patch was selected
+      if (selectedPatch?.id === patchId) {
+        setSelectedPatch(null);
+      }
+    } catch (error) {
+      console.error('🗑️ [PanelLayoutRefactored] Error deleting patch:', error);
+      throw error; // Re-throw so confirmation dialog can handle it
+    }
+  };
+
+  // Handle destructive test deletion
+  const handleDestructiveTestDelete = async (testId: string) => {
+    try {
+      await removeDestructiveTest(testId);
+      // Clear selection if deleted test was selected
+      if (selectedDestructiveTest?.id === testId) {
+        setSelectedDestructiveTest(null);
+      }
+    } catch (error) {
+      console.error('🗑️ [PanelLayoutRefactored] Error deleting destructive test:', error);
+      throw error; // Re-throw so confirmation dialog can handle it
+    }
+  };
+
   // Handle panel selection for sidebar
   const handlePanelSelect = (panel: Panel) => {
     setSelectedPanel(panel);
@@ -506,6 +534,8 @@ export default function PanelLayoutRefactored() {
                 }
               }}
               onPanelDelete={handlePanelDelete}
+              onPatchDelete={handlePatchDelete}
+              onDestructiveTestDelete={handleDestructiveTestDelete}
                     onAddPanel={activeTab === 'panels' ? handleAddPanel : undefined}
                     onCreatePanel={handleCreatePanel}
                     onAddPatch={async (patchData) => {
