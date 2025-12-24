@@ -671,6 +671,9 @@ def run_async(coro):
             loop.close()
 
 
+# Global AI integration instance
+ai_integration = None
+
 def get_ai_integration() -> AIServiceIntegration:
     """Get the global AI integration instance"""
     global ai_integration

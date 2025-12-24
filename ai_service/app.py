@@ -524,6 +524,7 @@ def extract_asbuilt_fields():
         project_id = data.get('project_id')
         
         logger.info(f"Extracting as-built form fields for form type: {form_type}, project: {project_id}")
+        logger.info(f"Image base64 length: {len(image_base64)} characters")
         
         # Call form field extraction
         extracted_fields = run_async(openai_service.extract_asbuilt_form_fields(
@@ -531,6 +532,15 @@ def extract_asbuilt_fields():
             form_type=form_type,
             project_id=project_id
         ))
+        
+        # Ensure extracted_fields is a dict, not None
+        if extracted_fields is None:
+            logger.warning("[extract_asbuilt_fields] AI service returned None, using empty dict")
+            extracted_fields = {}
+        
+        # Log extracted fields for debugging
+        logger.info(f"[extract_asbuilt_fields] Extracted fields: {json.dumps(extracted_fields, indent=2)}")
+        logger.info(f"[extract_asbuilt_fields] Number of non-null fields: {sum(1 for v in extracted_fields.values() if v is not None and v != '')}")
         
         return jsonify({
             'success': True,

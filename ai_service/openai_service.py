@@ -549,9 +549,15 @@ IMPORTANT ID FORMAT RULES:
                 
                 result_text = response.choices[0].message.content.strip()
                 
+                # Log raw AI response for debugging
+                logger.info(f"[extract_asbuilt_form_fields] Raw AI response for form_type={form_type}: {result_text[:500]}")
+                
                 # Parse JSON response
                 try:
                     result_json = json.loads(result_text)
+                    
+                    # Log parsed JSON for debugging
+                    logger.info(f"[extract_asbuilt_form_fields] Parsed JSON: {json.dumps(result_json, indent=2)}")
                     
                     # Post-process: Validate and normalize ID formats
                     import re
@@ -602,6 +608,8 @@ IMPORTANT ID FORMAT RULES:
             except Exception as e:
                 logger.error(f"Error in OpenAI API call for form extraction: {str(e)}")
                 raise
+        
+        return await asyncio.to_thread(_call)
 
     async def create_panels_from_forms(self, forms_data: List[Dict[str, Any]], project_id: str = None) -> Dict[str, Any]:
         """

@@ -199,7 +199,9 @@ router.post('/extract-form-data/:projectId', auth, upload.single('image'), async
               formType,
               fieldsExtracted: Object.keys(extractedFields).filter(
                 key => extractedFields[key] !== null && extractedFields[key] !== undefined
-              ).length
+              ).length,
+              extractedFields: JSON.stringify(extractedFields), // Log all extracted fields
+              repairId: extractedFields.repairId || extractedFields.repair_id || 'NOT FOUND'
             });
             
             return res.json({
