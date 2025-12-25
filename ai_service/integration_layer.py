@@ -1293,7 +1293,7 @@ def run_async(coro):
         # If event loop already exists, create new one
         loop = asyncio.new_event_loop()
         try:
-    return loop.run_until_complete(coro)
+            return loop.run_until_complete(coro)
         finally:
             loop.close()
 
