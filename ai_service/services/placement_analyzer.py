@@ -338,6 +338,181 @@ class PlacementAnalyzer:
         
         return suggestions
     
+    def _get_panel_coordinates(self, panel_number: str, existing_layout: Dict[str, Any]) -> Optional[Dict[str, float]]:
+        """
+        Get panel coordinates from layout by panel number.
+        
+        Args:
+            panel_number: Panel number/ID to find
+            existing_layout: Existing layout data
+            
+        Returns:
+            Dictionary with x, y, width, height, center_x, center_y, or None if not found
+        """
+        panels = existing_layout.get("panels", [])
+        for panel in panels:
+            panel_num = str(panel.get("panelNumber", "")).strip()
+            panel_id = str(panel.get("id", "")).strip()
+            
+            # Try multiple matching strategies
+            if (panel_num == panel_number or 
+                panel_num.endswith(panel_number.replace("P-", "")) or
+                panel_id == panel_number or
+                panel_number in panel_num):
+                x = float(panel.get("x", 0))
+                y = float(panel.get("y", 0))
+                width = float(panel.get("width", 0))
+                height = float(panel.get("height", 0))
+                
+                return {
+                    "x": x,
+                    "y": y,
+                    "width": width,
+                    "height": height,
+                    "center_x": x + width / 2,
+                    "center_y": y + height / 2,
+                    "left": x,
+                    "right": x + width,
+                    "top": y,
+                    "bottom": y + height
+                }
+        return None
+    
+    def _apply_cardinal_direction_offset(
+        self,
+        base_x: float,
+        base_y: float,
+        distance: float,
+        direction: str,
+        cardinal_direction: str = 'north'
+    ) -> Tuple[float, float]:
+        """
+        Apply cardinal direction offset to base coordinates.
+        
+        Args:
+            base_x: Base x coordinate
+            base_y: Base y coordinate
+            distance: Distance in feet to offset
+            direction: Cardinal direction ('north', 'south', 'east', 'west')
+            cardinal_direction: Project cardinal direction setting
+            
+        Returns:
+            Tuple of (new_x, new_y) coordinates
+        """
+        # Normalize direction
+        direction = direction.lower()
+        
+        # Convert feet to canvas units (assuming 1 foot = 1 canvas unit, adjust if needed)
+        canvas_distance = distance
+        
+        # Calculate offset based on direction
+        # Canvas coordinate system: origin at top-left, x increases right, y increases down
+        # North = up = negative y, South = down = positive y
+        # East = right = positive x, West = left = negative x
+        offset_x = 0.0
+        offset_y = 0.0
+        
+        if direction == 'north':
+            offset_y = -canvas_distance  # Up (negative y)
+        elif direction == 'south':
+            offset_y = canvas_distance  # Down (positive y)
+        elif direction == 'east':
+            offset_x = canvas_distance  # Right (positive x)
+        elif direction == 'west':
+            offset_x = -canvas_distance  # Left (negative x)
+        
+        return (base_x + offset_x, base_y + offset_y)
+    
+    def _calculate_coordinates_from_structured(
+        self,
+        panel_numbers: List[str],
+        distance: float,
+        direction: str,
+        placement_type: str,
+        existing_layout: Dict[str, Any],
+        cardinal_direction: str = 'north'
+    ) -> Dict[str, Any]:
+        """
+        Calculate x,y coordinates from structured location data.
+        
+        Args:
+            panel_numbers: List of panel numbers/IDs
+            distance: Distance in feet from reference point
+            direction: Cardinal direction ('north', 'south', 'east', 'west')
+            placement_type: 'single_panel' or 'seam'
+            existing_layout: Existing layout data
+            cardinal_direction: Project cardinal direction setting
+            
+        Returns:
+            Dictionary with x, y coordinates, confidence, strategy, and reasoning
+        """
+        if not panel_numbers or not existing_layout.get("panels"):
+            return {
+                "x": 2000,
+                "y": 2000,
+                "confidence": 0.3,
+                "strategy": "fallback_center",
+                "reasoning": "No panel references found for structured placement"
+            }
+        
+        # Find panels in layout
+        found_panels = []
+        for panel_num in panel_numbers:
+            panel_coords = self._get_panel_coordinates(panel_num, existing_layout)
+            if panel_coords:
+                found_panels.append(panel_coords)
+        
+        if not found_panels:
+            return {
+                "x": 2000,
+                "y": 2000,
+                "confidence": 0.3,
+                "strategy": "fallback_center",
+                "reasoning": f"Panels {panel_numbers} not found in layout"
+            }
+        
+        # Calculate base position based on placement type
+        if placement_type == "seam" and len(found_panels) >= 2:
+            # For seams: place between two panels
+            panel1 = found_panels[0]
+            panel2 = found_panels[1]
+            
+            # Calculate midpoint between panels
+            base_x = (panel1["center_x"] + panel2["center_x"]) / 2
+            base_y = (panel1["center_y"] + panel2["center_y"]) / 2
+            
+            reasoning = f"Seam placement between {panel_numbers[0]} and {panel_numbers[1]}"
+        else:
+            # For single panel: use panel center or edge based on direction
+            panel = found_panels[0]
+            
+            # Use panel center as base
+            base_x = panel["center_x"]
+            base_y = panel["center_y"]
+            
+            reasoning = f"Single panel placement relative to {panel_numbers[0]}"
+        
+        # Apply cardinal direction offset
+        final_x, final_y = self._apply_cardinal_direction_offset(
+            base_x, base_y, distance, direction, cardinal_direction
+        )
+        
+        reasoning += f", {distance} feet {direction}"
+        
+        return {
+            "x": final_x,
+            "y": final_y,
+            "confidence": 0.9,  # High confidence for structured data
+            "strategy": "structured_location_calculation",
+            "reasoning": reasoning,
+            "structured_fields_used": {
+                "placement_type": placement_type,
+                "distance": distance,
+                "direction": direction,
+                "panel_numbers": panel_numbers
+            }
+        }
+    
     def determine_placement(
         self, 
         form_data: Dict[str, Any], 
@@ -348,12 +523,15 @@ class PlacementAnalyzer:
     ) -> Dict[str, Any]:
         """
         Use AI to determine optimal placement coordinates.
+        Prioritizes structured location fields (placementType, locationDistance, locationDirection)
+        over text parsing for better accuracy.
         
         Args:
             form_data: Form mapped_data dictionary
             existing_layout: Existing layout data
             item_type: Type of item ('panel', 'patch', 'destructive_test')
             project_id: Optional project ID for context
+            cardinal_direction: Project cardinal direction setting ('north', 'south', 'east', 'west')
             
         Returns:
             Dictionary with x, y coordinates, confidence score, and strategy
@@ -361,7 +539,7 @@ class PlacementAnalyzer:
         # First, try to extract location hints from form
         location_hints = self.analyze_form_location(form_data)
         
-        # If explicit coordinates found, use them
+        # PRIORITY 1: If explicit coordinates found, use them
         if location_hints.get("coordinates"):
             coords = location_hints["coordinates"]
             return {
@@ -372,7 +550,29 @@ class PlacementAnalyzer:
                 "reasoning": "Explicit coordinates found in form data"
             }
         
-        # If panel references found, try to locate related panels
+        # PRIORITY 2: Use structured location fields if available
+        placement_type = location_hints.get("placement_type")
+        location_distance = location_hints.get("location_distance")
+        location_direction = location_hints.get("location_direction")
+        panel_references = location_hints.get("panel_references", [])
+        
+        if placement_type and location_distance is not None and location_direction and panel_references:
+            # Calculate coordinates from structured data
+            structured_result = self._calculate_coordinates_from_structured(
+                panel_numbers=panel_references,
+                distance=location_distance,
+                direction=location_direction,
+                placement_type=placement_type,
+                existing_layout=existing_layout,
+                cardinal_direction=cardinal_direction
+            )
+            
+            # Only use structured result if confidence is high enough
+            if structured_result.get("confidence", 0) >= 0.5:
+                logger.info(f"Using structured location data for placement: {structured_result.get('reasoning')}")
+                return structured_result
+        
+        # PRIORITY 3: If panel references found with cardinal directions, try to locate related panels
         if location_hints.get("panel_references") and existing_layout.get("panels"):
             related_panels = []
             for panel_ref in location_hints["panel_references"]:
@@ -391,23 +591,18 @@ class PlacementAnalyzer:
                 # Apply cardinal direction offset if specified
                 offset_x = 0
                 offset_y = 0
-                offset_distance = 150
+                offset_distance = location_hints.get("location_distance", 150)  # Use structured distance if available
                 
                 cardinal_dirs = location_hints.get("cardinal_directions", [])
                 if cardinal_dirs:
                     # Use the first cardinal direction found
                     direction = cardinal_dirs[0]
-                    # Adjust offset based on canvas orientation (cardinal_direction parameter)
-                    # Default: north is up (negative y), south is down (positive y)
-                    # east is right (positive x), west is left (negative x)
-                    if direction == 'north':
-                        offset_y = -offset_distance
-                    elif direction == 'south':
-                        offset_y = offset_distance
-                    elif direction == 'east':
-                        offset_x = offset_distance
-                    elif direction == 'west':
-                        offset_x = -offset_distance
+                    # Use helper method for consistent offset calculation
+                    final_x, final_y = self._apply_cardinal_direction_offset(
+                        avg_x, avg_y, offset_distance, direction, cardinal_direction
+                    )
+                    offset_x = final_x - avg_x
+                    offset_y = final_y - avg_y
                 
                 # If no cardinal direction, use default offset
                 if offset_x == 0 and offset_y == 0:
@@ -416,7 +611,7 @@ class PlacementAnalyzer:
                 
                 reasoning = f"Placed near referenced panels: {', '.join(location_hints['panel_references'])}"
                 if cardinal_dirs:
-                    reasoning += f", {direction} of panels"
+                    reasoning += f", {offset_distance} feet {cardinal_dirs[0]} of panels"
                 
                 return {
                     "x": avg_x + offset_x,

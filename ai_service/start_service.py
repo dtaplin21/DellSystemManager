@@ -9,6 +9,23 @@ import sys
 import logging
 from pathlib import Path
 
+# Load .env file from parent directory (project root) BEFORE reading environment variables
+try:
+    from dotenv import load_dotenv
+    # Get the parent directory (project root) where .env file is located
+    current_file = Path(__file__).resolve()
+    project_root = current_file.parent.parent  # Go up from ai_service/ to project root
+    env_path = project_root / '.env'
+    if env_path.exists():
+        load_dotenv(dotenv_path=env_path)
+        print(f"✅ Loaded .env file from {env_path}")
+    else:
+        print(f"⚠️ .env file not found at {env_path}")
+except ImportError:
+    print("⚠️ python-dotenv not installed. Install with: pip install python-dotenv")
+except Exception as e:
+    print(f"⚠️ Error loading .env file: {e}")
+
 # Add the current directory to Python path
 current_dir = Path(__file__).parent
 sys.path.insert(0, str(current_dir))

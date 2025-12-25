@@ -350,8 +350,104 @@ class BrowserInteractionTool(BaseTool):
                     logger.error("[%s] %s", session_id, error_msg)
                     return error_msg
 
+            if action == "click_canvas_coordinates":
+                """
+                Click specific x,y coordinates on the canvas.
+                Expects selector to be canvas selector (e.g., 'canvas', '[data-testid="panel-canvas"]')
+                and value to be JSON string with x, y coordinates: '{"x": 100, "y": 200}'
+                """
+                if value is None:
+                    return "Error: value parameter is required for click_canvas_coordinates action. Provide JSON: '{\"x\": 100, \"y\": 200}'"
+                
+                try:
+                    # Parse coordinates from value
+                    try:
+                        coords = json.loads(value) if isinstance(value, str) else value
+                        canvas_x = float(coords.get("x", 0))
+                        canvas_y = float(coords.get("y", 0))
+                    except (json.JSONDecodeError, ValueError, TypeError) as e:
+                        return f"Error: Invalid coordinate format. Expected JSON with x and y: {str(e)}"
+                    
+                    # Find canvas element
+                    canvas_element = await page.query_selector(selector)
+                    if not canvas_element:
+                        return f"Error: Canvas element '{selector}' not found"
+                    
+                    # Get canvas bounding box
+                    canvas_box = await canvas_element.bounding_box()
+                    if not canvas_box:
+                        return f"Error: Unable to determine bounding box for canvas '{selector}'"
+                    
+                    # Get canvas dimensions from element attributes or computed style
+                    canvas_width = canvas_box.get("width", 4000)
+                    canvas_height = canvas_box.get("height", 4000)
+                    
+                    # Try to get world transform from page context (zoom/pan)
+                    # Execute JavaScript to get canvas transform if available
+                    try:
+                        transform_data = await page.evaluate("""
+                            () => {
+                                const canvas = document.querySelector(arguments[0]);
+                                if (!canvas) return null;
+                                
+                                // Try to get transform from canvas context or parent element
+                                const rect = canvas.getBoundingClientRect();
+                                const style = window.getComputedStyle(canvas);
+                                const transform = style.transform;
+                                
+                                // Check if there's a transform context stored
+                                const canvasContext = canvas.__transformContext || {};
+                                
+                                return {
+                                    worldScale: canvasContext.worldScale || 1.0,
+                                    worldOffsetX: canvasContext.worldOffsetX || 0,
+                                    worldOffsetY: canvasContext.worldOffsetY || 0,
+                                    canvasWidth: canvas.width || rect.width,
+                                    canvasHeight: canvas.height || rect.height
+                                };
+                            }
+                        """, selector)
+                        
+                        if transform_data:
+                            world_scale = transform_data.get("worldScale", 1.0)
+                            world_offset_x = transform_data.get("worldOffsetX", 0)
+                            world_offset_y = transform_data.get("worldOffsetY", 0)
+                            
+                            # Convert world coordinates to screen coordinates
+                            screen_x = canvas_box["x"] + (canvas_x * world_scale) + world_offset_x
+                            screen_y = canvas_box["y"] + (canvas_y * world_scale) + world_offset_y
+                        else:
+                            # Fallback: assume no transform, use canvas coordinates directly
+                            # Scale world coordinates to canvas element size
+                            screen_x = canvas_box["x"] + (canvas_x / 4000) * canvas_width
+                            screen_y = canvas_box["y"] + (canvas_y / 4000) * canvas_height
+                    except Exception as e:
+                        logger.warning(f"Could not get canvas transform, using direct coordinates: {e}")
+                        # Fallback: use canvas coordinates scaled to element size
+                        screen_x = canvas_box["x"] + (canvas_x / 4000) * canvas_width
+                        screen_y = canvas_box["y"] + (canvas_y / 4000) * canvas_height
+                    
+                    # Click at calculated screen coordinates
+                    await page.mouse.click(screen_x, screen_y)
+                    
+                    message = f"Successfully clicked canvas at world coordinates ({canvas_x:.2f}, {canvas_y:.2f}) -> screen ({screen_x:.2f}, {screen_y:.2f})"
+                    if session.security.log_actions:
+                        logger.info("[%s] %s", session_id, message)
+                    await self._capture_state(
+                        session,
+                        page,
+                        action,
+                        selector,
+                        {"world_coords": [canvas_x, canvas_y], "screen_coords": [screen_x, screen_y]}
+                    )
+                    return message
+                except Exception as e:
+                    error_msg = f"Error clicking canvas coordinates: {str(e)}"
+                    logger.error("[%s] %s", session_id, error_msg)
+                    return f"Error: {error_msg}"
+
             return (
-                "Error: Unsupported action '{action}'. Supported actions: click, type, select, upload, hover, drag, drag_panel"
+                "Error: Unsupported action '{action}'. Supported actions: click, type, select, upload, hover, drag, drag_panel, click_canvas_coordinates"
                 .replace("{action}", action)
             )
 

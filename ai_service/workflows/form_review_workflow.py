@@ -77,11 +77,11 @@ def get_form_review_workflow() -> WorkflowBlueprint:
             "item_creator": AgentProfile(
                 name="Item Creator",
                 role="Form Automation Specialist",
-                goal="Fill form modals with extracted data, submit item creation, and handle field mapping for panels, patches, and destructive tests",
-                backstory="Automation engineer specializing in form filling and UI interaction. Expert at mapping form data to UI fields and handling different form types.",
+                goal="Fill form modals with extracted data, submit item creation, and handle field mapping for panels, patches, and destructive tests. Use canvas coordinate clicking for precise placement when coordinates are available.",
+                backstory="Automation engineer specializing in form filling and UI interaction. Expert at mapping form data to UI fields, handling different form types, and using canvas coordinate clicking for accurate item placement.",
                 complexity=TaskComplexity.COMPLEX,
                 tools=[
-                    "browser_interact",  # For clicking buttons and filling forms
+                    "browser_interact",  # For clicking buttons, filling forms, and canvas coordinate clicking
                     "browser_extract",  # To verify form state
                     "browser_screenshot",  # To capture form state
                 ],
@@ -110,10 +110,10 @@ def get_form_review_workflow() -> WorkflowBlueprint:
             ),
                 WorkflowTaskTemplate(
                     id="analyze-placement",
-                    description="Analyze the form data to determine optimal placement coordinates. Extract location hints from form fields (locationDescription, locationNote, typeDetailLocation, panelNumbers). Consider cardinal directions (North/South/East/West) mentioned in location descriptions. Query existing layout to find gaps or optimal positions. Use AI to interpret location descriptions with cardinal direction context and suggest x,y coordinates with confidence score.",
+                    description="Analyze the form data to determine optimal placement coordinates. PRIORITY: Use structured location fields if available (placementType, locationDistance, locationDirection, panelNumbers) to calculate precise x,y coordinates. For structured data: extract placementType ('single_panel' or 'seam'), locationDistance (feet), locationDirection ('north', 'south', 'east', 'west'), and panelNumbers. Calculate coordinates by finding referenced panel(s) in layout, then applying distance offset in the specified direction. For seam placement, place between two panels. For single panel, place relative to panel center/edge. If structured fields unavailable, fall back to extracting location hints from text fields (locationDescription, locationNote, typeDetailLocation). Consider cardinal directions (North/South/East/West) and project cardinal_direction setting. Query existing layout to find gaps or optimal positions. Return x,y coordinates with confidence score (structured data = high confidence 0.9, text parsing = lower confidence 0.6-0.8).",
                     agent="placement_analyst",
-                    expected_output="Placement analysis report with recommended x,y coordinates, confidence score, placement strategy used, and reasoning",
-                    context_keys=["form_record", "project_id", "existing_layout", "cardinal_direction"],
+                    expected_output="Placement analysis report with recommended x,y coordinates, confidence score, placement strategy used (structured_location_calculation or ai_interpretation), reasoning, and structured_fields_used metadata if applicable",
+                    context_keys=["form_record", "project_id", "existing_layout", "cardinal_direction", "structured_location"],
                 ),
             WorkflowTaskTemplate(
                 id="navigate-to-layout",
@@ -124,10 +124,10 @@ def get_form_review_workflow() -> WorkflowBlueprint:
             ),
             WorkflowTaskTemplate(
                 id="create-item",
-                description="Click the 'Add' button to open the creation modal. Fill all form fields with data from the form record, including coordinates from placement analysis. Handle different field types (text, number, date, select, textarea). Submit the form and wait for confirmation.",
+                description="Click the 'Add' button to open the creation modal. Fill all form fields with data from the form record, including coordinates from placement analysis. OPTION 1 (Preferred): Use click_canvas_coordinates action to click at the calculated x,y coordinates on the canvas, then fill the modal that appears. OPTION 2: Fill form fields including x and y coordinate inputs directly. Map structured location fields: placementType, locationDistance, locationDirection to form fields if supported. Map calculated x,y coordinates to coordinate inputs. Map locationDescription to description/notes field. Handle different field types (text, number, date, select, textarea). For patches: include repairId, vboxPassFail. For destructive tests: include sampleId, passFail. Submit the form and wait for confirmation.",
                 agent="item_creator",
-                expected_output="Item creation report with success status, filled fields, and any errors encountered",
-                context_keys=["form_record", "placement_coordinates", "item_type"],
+                expected_output="Item creation report with success status, filled fields, coordinates used, placement method (canvas_click or form_input), and any errors encountered",
+                context_keys=["form_record", "placement_coordinates", "item_type", "structured_location"],
             ),
             WorkflowTaskTemplate(
                 id="validate-creation",

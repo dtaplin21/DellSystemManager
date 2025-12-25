@@ -505,7 +505,40 @@ class AIServiceIntegration:
             except Exception as e:
                 logger.warning(f"Could not fetch cardinal direction, using default 'north': {e}")
             
-            # Prepare workflow context
+            # Extract structured location fields from form record
+            mapped_data = form_record.get('mapped_data', {})
+            if isinstance(mapped_data, str):
+                try:
+                    mapped_data = json.loads(mapped_data)
+                except:
+                    mapped_data = {}
+            
+            structured_location = {
+                "placement_type": mapped_data.get("placementType") or mapped_data.get("placement_type"),
+                "location_distance": mapped_data.get("locationDistance") or mapped_data.get("location_distance"),
+                "location_direction": mapped_data.get("locationDirection") or mapped_data.get("location_direction"),
+                "location_description": mapped_data.get("locationDescription") or mapped_data.get("location_description"),
+                "panel_numbers": mapped_data.get("panelNumbers") or mapped_data.get("panel_numbers")
+            }
+            
+            # Normalize structured location fields
+            if structured_location["placement_type"]:
+                pt = str(structured_location["placement_type"]).lower()
+                if pt in ["single panel", "single_panel"]:
+                    structured_location["placement_type"] = "single_panel"
+                elif pt in ["seam between panels", "seam"]:
+                    structured_location["placement_type"] = "seam"
+            
+            if structured_location["location_direction"]:
+                structured_location["location_direction"] = str(structured_location["location_direction"]).lower()
+            
+            if structured_location["location_distance"]:
+                try:
+                    structured_location["location_distance"] = float(structured_location["location_distance"])
+                except (ValueError, TypeError):
+                    structured_location["location_distance"] = None
+            
+            # Prepare workflow context with structured location fields
             workflow_context = {
                 "form_record": form_record,
                 "project_id": project_id,
@@ -514,11 +547,13 @@ class AIServiceIntegration:
                 "positioning": positioning or {},
                 "panel_layout_url": panel_layout_url,
                 "cardinal_direction": cardinal_direction,
+                "structured_location": structured_location,
                 "payload": {
                     "form_record": form_record,
                     "project_id": project_id,
                     "item_type": item_type,
-                    "cardinal_direction": cardinal_direction
+                    "cardinal_direction": cardinal_direction,
+                    "structured_location": structured_location
                 }
             }
             
@@ -721,9 +756,18 @@ class AIServiceIntegration:
                             }
                         }
                     elif item_type == 'patch':
+                        # Use structured location description if available, otherwise fall back to text
+                        location_value = (
+                            mapped_data.get('locationDescription') or 
+                            mapped_data.get('location_description') or
+                            mapped_data.get('location') or 
+                            mapped_data.get('typeDetailLocation') or
+                            mapped_data.get('type_detail_location')
+                        )
+                        
                         field_mappings = {
                             'patchNumber': {
-                                'value': mapped_data.get('repairId') or mapped_data.get('patchNumber'),
+                                'value': mapped_data.get('repairId') or mapped_data.get('repair_id') or mapped_data.get('patchNumber'),
                                 'type': 'text'
                             },
                             'date': {
@@ -731,7 +775,7 @@ class AIServiceIntegration:
                                 'type': 'date'
                             },
                             'location': {
-                                'value': mapped_data.get('location') or mapped_data.get('typeDetailLocation'),
+                                'value': location_value,
                                 'type': 'textarea'
                             },
                             'radius': {
@@ -745,9 +789,30 @@ class AIServiceIntegration:
                             'y': {
                                 'value': positioning.get('y'),
                                 'type': 'number'
+                            },
+                            # Add structured location fields if form supports them
+                            'placementType': {
+                                'value': mapped_data.get('placementType') or mapped_data.get('placement_type'),
+                                'type': 'text'
+                            },
+                            'locationDistance': {
+                                'value': mapped_data.get('locationDistance') or mapped_data.get('location_distance'),
+                                'type': 'number'
+                            },
+                            'locationDirection': {
+                                'value': mapped_data.get('locationDirection') or mapped_data.get('location_direction'),
+                                'type': 'text'
                             }
                         }
                     elif item_type == 'destructive_test':
+                        # Use structured location description if available
+                        location_value = (
+                            mapped_data.get('locationDescription') or 
+                            mapped_data.get('location_description') or
+                            mapped_data.get('location') or
+                            mapped_data.get('comments')
+                        )
+                        
                         field_mappings = {
                             'sampleId': {
                                 'value': mapped_data.get('sampleId') or mapped_data.get('sample_id'),
@@ -766,7 +831,7 @@ class AIServiceIntegration:
                                 'type': 'number'
                             },
                             'location': {
-                                'value': mapped_data.get('location'),
+                                'value': location_value,
                                 'type': 'textarea'
                             },
                             'x': {
@@ -776,6 +841,19 @@ class AIServiceIntegration:
                             'y': {
                                 'value': positioning.get('y'),
                                 'type': 'number'
+                            },
+                            # Add structured location fields if form supports them
+                            'placementType': {
+                                'value': mapped_data.get('placementType') or mapped_data.get('placement_type'),
+                                'type': 'text'
+                            },
+                            'locationDistance': {
+                                'value': mapped_data.get('locationDistance') or mapped_data.get('location_distance'),
+                                'type': 'number'
+                            },
+                            'locationDirection': {
+                                'value': mapped_data.get('locationDirection') or mapped_data.get('location_direction'),
+                                'type': 'text'
                             }
                         }
                     
@@ -998,11 +1076,35 @@ class AIServiceIntegration:
                         validation["valid"] = False
                         validation["critical_error"] = True
             
-            # Check coordinate validity
+            # Check coordinate validity - enhanced for structured location data
             item_x = created_item.get('x')
             item_y = created_item.get('y')
             expected_x = positioning.get('x')
             expected_y = positioning.get('y')
+            
+            # Extract structured location fields for validation context
+            mapped_data = form_record.get('mapped_data', {})
+            if isinstance(mapped_data, str):
+                try:
+                    mapped_data = json.loads(mapped_data)
+                except:
+                    mapped_data = {}
+            
+            structured_location = {
+                "placement_type": mapped_data.get("placementType") or mapped_data.get("placement_type"),
+                "location_distance": mapped_data.get("locationDistance") or mapped_data.get("location_distance"),
+                "location_direction": mapped_data.get("locationDirection") or mapped_data.get("location_direction")
+            }
+            
+            # Determine tolerance based on data source (structured = tighter tolerance)
+            if structured_location.get("location_distance") is not None:
+                # Structured data: tighter tolerance (5 units) since coordinates are precisely calculated
+                tolerance = 5
+                validation["structured_data_used"] = True
+            else:
+                # Text-based: looser tolerance (10 units) since coordinates are estimated
+                tolerance = 10
+                validation["structured_data_used"] = False
             
             if expected_x is not None and expected_y is not None:
                 if item_x is None or item_y is None:
@@ -1012,14 +1114,39 @@ class AIServiceIntegration:
                     })
                     validation["valid"] = False
                 else:
-                    # Allow some tolerance for coordinate matching (within 10 units)
-                    tolerance = 10
-                    if abs(float(item_x) - float(expected_x)) > tolerance or \
-                       abs(float(item_y) - float(expected_y)) > tolerance:
+                    # Calculate distance difference
+                    x_diff = abs(float(item_x) - float(expected_x))
+                    y_diff = abs(float(item_y) - float(expected_y))
+                    distance_diff = (x_diff ** 2 + y_diff ** 2) ** 0.5
+                    
+                    if x_diff > tolerance or y_diff > tolerance:
                         validation["warnings"].append({
                             "type": "coordinate_mismatch",
-                            "message": f"Coordinates differ from expected: got ({item_x}, {item_y}), expected ({expected_x}, {expected_y})"
+                            "message": f"Coordinates differ from expected: got ({item_x:.2f}, {item_y:.2f}), expected ({expected_x:.2f}, {expected_y:.2f}), difference: {distance_diff:.2f} units",
+                            "x_difference": x_diff,
+                            "y_difference": y_diff,
+                            "distance_difference": distance_diff,
+                            "tolerance": tolerance,
+                            "structured_data": structured_location.get("location_distance") is not None
                         })
+                        
+                        # If using structured data and difference is significant, mark as error
+                        if structured_location.get("location_distance") is not None and distance_diff > tolerance * 2:
+                            validation["errors"].append({
+                                "type": "significant_coordinate_mismatch",
+                                "message": f"Significant coordinate mismatch with structured location data: {distance_diff:.2f} units difference (expected < {tolerance} units)"
+                            })
+                            validation["valid"] = False
+                    else:
+                        # Coordinates match within tolerance
+                        validation["coordinate_validation"] = {
+                            "status": "passed",
+                            "item_coordinates": {"x": float(item_x), "y": float(item_y)},
+                            "expected_coordinates": {"x": float(expected_x), "y": float(expected_y)},
+                            "difference": {"x": x_diff, "y": y_diff, "distance": distance_diff},
+                            "tolerance": tolerance,
+                            "structured_data_used": structured_location.get("location_distance") is not None
+                        }
             
             # Check for overlapping items (simplified check)
             if item_x is not None and item_y is not None:
@@ -1166,7 +1293,7 @@ def run_async(coro):
         # If event loop already exists, create new one
         loop = asyncio.new_event_loop()
         try:
-            return loop.run_until_complete(coro)
+    return loop.run_until_complete(coro)
         finally:
             loop.close()
 
