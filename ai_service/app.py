@@ -553,9 +553,57 @@ def extract_asbuilt_fields():
         logger.error(traceback.format_exc())
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/ai/analyze-placement', methods=['POST'])
+def analyze_placement():
+    """Analyze optimal placement for form-based item creation"""
+    try:
+        data = request.json or {}
+        form_record = data.get('form_record')
+        project_id = data.get('project_id')
+        item_type = data.get('item_type')
+        
+        if not form_record or not project_id:
+            return jsonify({
+                'success': False,
+                'error': 'form_record and project_id are required'
+            }), 400
+        
+        logger.info(f"Analyzing placement for form {form_record.get('id')}, item_type: {item_type}")
+        
+        # Import placement analyzer
+        from services.placement_analyzer import PlacementAnalyzer
+        
+        analyzer = PlacementAnalyzer()
+        form_data = form_record.get('mapped_data', {}) or {}
+        
+        # Get existing layout (synchronous for now - could be async)
+        import asyncio
+        existing_layout = asyncio.run(analyzer.get_existing_layout(project_id))
+        
+        # Determine placement
+        placement_result = analyzer.determine_placement(
+            form_data=form_data,
+            existing_layout=existing_layout,
+            item_type=item_type,
+            project_id=project_id
+        )
+        
+        return jsonify({
+            'success': True,
+            'placement': placement_result
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error analyzing placement: {str(e)}")
+        logger.error(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @app.route('/api/automate-from-form', methods=['POST'])
 def automate_from_form():
-    """Automate item creation from approved form"""
+    """Automate item creation from approved form using multi-agent workflow"""
     try:
         data = request.json
         form_record = data.get('form_record')
@@ -572,16 +620,28 @@ def automate_from_form():
         
         logger.info(f"Automating from form {form_record.get('id')} for project {project_id}")
         
-        # Add item_type and positioning to form_record for the automation method
-        form_record['item_type'] = item_type
-        form_record['positioning'] = positioning
+        # Check if multi-agent workflow should be used
+        use_multi_agent = os.getenv('ENABLE_AI_FORM_REVIEW', 'true').lower() == 'true'
         
-        # Call automation method
-        result = run_async(ai_integration.automate_from_approved_form(
-            form_record=form_record,
-            project_id=project_id,
-            user_id=user_id
-        ))
+        if use_multi_agent:
+            # Use multi-agent workflow
+            result = run_async(ai_integration.automate_from_approved_form_with_workflow(
+                form_record=form_record,
+                project_id=project_id,
+                user_id=user_id,
+                item_type=item_type,
+                positioning=positioning
+            ))
+        else:
+            # Use legacy automation method
+            form_record['item_type'] = item_type
+            form_record['positioning'] = positioning
+            
+            result = run_async(ai_integration.automate_from_approved_form(
+                form_record=form_record,
+                project_id=project_id,
+                user_id=user_id
+            ))
         
         return jsonify(result), 200 if result.get('success') else 500
         

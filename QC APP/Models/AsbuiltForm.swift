@@ -92,6 +92,7 @@ struct AsbuiltFormConfig {
             return [
                 AsbuiltFormField(key: "dateTime", label: "Date & Time", type: .datetime, required: true),
                 AsbuiltFormField(key: "panelNumber", label: "Panel Number", type: .text, required: true),
+                AsbuiltFormField(key: "locationDescription", label: "Location Description", type: .textarea, required: true),
                 AsbuiltFormField(key: "locationNote", label: "Location Note", type: .textarea, required: false),
                 AsbuiltFormField(key: "weatherComments", label: "Weather Comments", type: .textarea, required: false)
             ]
@@ -147,6 +148,7 @@ struct AsbuiltFormConfig {
                 AsbuiltFormField(key: "date", label: "Date", type: .date, required: true),
                 AsbuiltFormField(key: "repairId", label: "Repair ID", type: .text, required: true),
                 AsbuiltFormField(key: "panelNumbers", label: "Panel Numbers", type: .text, required: true),
+                AsbuiltFormField(key: "locationDescription", label: "Location Description", type: .textarea, required: true),
                 AsbuiltFormField(key: "extruderNumber", label: "Extruder Number", type: .text, required: false),
                 AsbuiltFormField(key: "operatorInitials", label: "Operator Initials", type: .text, required: false),
                 AsbuiltFormField(key: "typeDetailLocation", label: "Type/Detail/Location", type: .textarea, required: false),

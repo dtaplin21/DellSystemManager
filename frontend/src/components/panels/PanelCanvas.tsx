@@ -6,6 +6,7 @@ import { useUnifiedMouseInteraction } from '@/hooks/useUnifiedMouseInteraction';
 import { Panel } from '@/types/panel';
 import { Patch } from '@/types/patch';
 import { DestructiveTest } from '@/types/destructiveTest';
+import { CompassRose } from './CompassRose';
 
 interface PanelCanvasProps {
   panels: Panel[];
@@ -24,6 +25,7 @@ interface PanelCanvasProps {
   onPatchUpdate?: (patchId: string, updates: Partial<Patch>) => Promise<void>;
   onDestructiveTestUpdate?: (testId: string, updates: Partial<DestructiveTest>) => Promise<void>;
   enableDebugLogging?: boolean;
+  cardinalDirection?: 'north' | 'south' | 'east' | 'west';
 }
 
 export function PanelCanvas({ 
@@ -38,7 +40,8 @@ export function PanelCanvas({
   onDestructiveTestClick,
   onPatchUpdate,
   onDestructiveTestUpdate,
-  enableDebugLogging = false 
+  enableDebugLogging = false,
+  cardinalDirection = 'north'
 }: PanelCanvasProps) {
   const { canvas: canvasContext, dispatchCanvas } = useCanvasState();
   const { panels: panelState, dispatchPanels } = usePanelState();
@@ -288,6 +291,9 @@ export function PanelCanvas({
           userSelect: 'none',
         }}
       />
+      
+      {/* Compass Rose - Always visible */}
+      <CompassRose cardinalDirection={cardinalDirection} />
       
       {/* Debug overlay for development */}
       {enableDebugLogging && (

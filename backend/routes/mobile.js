@@ -543,6 +543,13 @@ router.post('/upload-defect/:projectId', auth, upload.single('image'), async (re
           logger.info('[MOBILE] Using generated panel ID', { panelId });
         }
         
+        // Extract location description from form data
+        const locationDescription = parsedFormData.locationDescription || 
+                                   parsedFormData.locationNote || 
+                                   parsedFormData.typeDetailLocation || 
+                                   parsedFormData.location || 
+                                   null;
+        
         // Create asbuilt record with source='mobile'
         const record = await asbuiltService.createRecord({
           projectId,
@@ -554,7 +561,8 @@ router.post('/upload-defect/:projectId', auth, upload.single('image'), async (re
           aiConfidence: 1.0, // User-entered data has 100% confidence
           requiresReview: false,
           createdBy: req.user.id,
-          source: 'mobile' // Mark as mobile app submission
+          source: 'mobile', // Mark as mobile app submission
+          locationDescription // Include location description
         });
         
         asbuiltRecordId = record.id;

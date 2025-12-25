@@ -145,6 +145,16 @@ export function PatchMiniSidebarContent({
           <div className="space-y-2">
             <div className="text-gray-500 text-xs font-semibold uppercase tracking-wide mb-2">Form Information</div>
             
+            {/* Repair ID - Show for repair forms */}
+            {getFieldValue(formData, 'repairId', 'repair_id') && (
+              <div className="bg-gray-50 p-2 rounded">
+                <div className="text-gray-500 text-xs mb-1">Repair ID</div>
+                <div className="font-medium font-mono">
+                  {getFieldValue(formData, 'repairId', 'repair_id')}
+                </div>
+              </div>
+            )}
+            
             {/* Welder/Operator */}
             {(getFieldValue(formData, 'operatorInitials', 'operator_initials') || 
               getFieldValue(formData, 'seamerInitials', 'seamer_initials')) && (
@@ -164,6 +174,43 @@ export function PatchMiniSidebarContent({
                 {getFieldValue(formData, 'extruderNumber', 'extruder_number') || 'N/A'}
               </div>
             </div>
+
+            {/* VBox Result - Important for repair forms */}
+            {getFieldValue(formData, 'vboxPassFail', 'vbox_pass_fail') && (
+              <div className="bg-gray-50 p-2 rounded">
+                <div className="text-gray-500 text-xs mb-1">VBox Result</div>
+                <Badge 
+                  className={
+                    getFieldValue(formData, 'vboxPassFail', 'vbox_pass_fail') === 'Pass' || 
+                    getFieldValue(formData, 'vboxPassFail', 'vbox_pass_fail') === 'pass'
+                      ? 'bg-green-100 text-green-800' 
+                      : 'bg-red-100 text-red-800'
+                  }
+                >
+                  {String(getFieldValue(formData, 'vboxPassFail', 'vbox_pass_fail')).toUpperCase()}
+                </Badge>
+              </div>
+            )}
+
+            {/* Type/Detail/Location - Important repair field */}
+            {getFieldValue(formData, 'typeDetailLocation', 'type_detail_location') && (
+              <div className="bg-gray-50 p-2 rounded">
+                <div className="text-gray-500 text-xs mb-1">Type/Detail/Location</div>
+                <div className="font-medium text-xs">
+                  {getFieldValue(formData, 'typeDetailLocation', 'type_detail_location')}
+                </div>
+              </div>
+            )}
+
+            {/* Location Description */}
+            {getFieldValue(formData, 'locationDescription', 'location_description') && (
+              <div className="bg-gray-50 p-2 rounded">
+                <div className="text-gray-500 text-xs mb-1">Location Description</div>
+                <div className="font-medium text-xs">
+                  {getFieldValue(formData, 'locationDescription', 'location_description')}
+                </div>
+              </div>
+            )}
 
             {/* Temperatures */}
             {getFieldValue(formData, 'wedgeTemp', 'wedge_temp') && (

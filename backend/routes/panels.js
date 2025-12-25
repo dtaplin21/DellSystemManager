@@ -199,9 +199,20 @@ router.get('/layout/:projectId', async (req, res, next) => {
       return res.status(404).json({ message: 'Project not found' });
     }
     
-    // Get panel layout
+    // Get panel layout - explicitly select columns including cardinalDirection (after migration)
     let [panelLayout] = await db
-      .select()
+      .select({
+        id: panelLayouts.id,
+        projectId: panelLayouts.projectId,
+        panels: panelLayouts.panels,
+        patches: panelLayouts.patches,
+        destructiveTests: panelLayouts.destructiveTests,
+        width: panelLayouts.width,
+        height: panelLayouts.height,
+        scale: panelLayouts.scale,
+        lastUpdated: panelLayouts.lastUpdated,
+        cardinalDirection: panelLayouts.cardinalDirection,
+      })
       .from(panelLayouts)
       .where(eq(panelLayouts.projectId, projectId));
     
@@ -367,9 +378,20 @@ router.patch('/layout/:projectId', async (req, res, next) => {
       return res.status(404).json({ message: 'Project not found' });
     }
     
-    // Get existing panel layout
+    // Get existing panel layout - explicitly select columns including cardinalDirection (after migration)
     let [existingLayout] = await db
-      .select()
+      .select({
+        id: panelLayouts.id,
+        projectId: panelLayouts.projectId,
+        panels: panelLayouts.panels,
+        patches: panelLayouts.patches,
+        destructiveTests: panelLayouts.destructiveTests,
+        width: panelLayouts.width,
+        height: panelLayouts.height,
+        scale: panelLayouts.scale,
+        lastUpdated: panelLayouts.lastUpdated,
+        cardinalDirection: panelLayouts.cardinalDirection,
+      })
       .from(panelLayouts)
       .where(eq(panelLayouts.projectId, projectId));
     
@@ -590,8 +612,20 @@ router.get('/debug/:projectId', async (req, res, next) => {
     console.log('🔍 [DEBUG] Project found:', project ? 'YES' : 'NO');
     
     // Check if panel layout exists
+    // Explicitly select columns including cardinalDirection (after migration)
     let [panelLayout] = await db
-      .select()
+      .select({
+        id: panelLayouts.id,
+        projectId: panelLayouts.projectId,
+        panels: panelLayouts.panels,
+        patches: panelLayouts.patches,
+        destructiveTests: panelLayouts.destructiveTests,
+        width: panelLayouts.width,
+        height: panelLayouts.height,
+        scale: panelLayouts.scale,
+        lastUpdated: panelLayouts.lastUpdated,
+        cardinalDirection: panelLayouts.cardinalDirection,
+      })
       .from(panelLayouts)
       .where(eq(panelLayouts.projectId, projectId));
     
@@ -1109,6 +1143,101 @@ router.delete('/:projectId/destructive-tests/:testId', auth, async (req, res, ne
     res.json({ success: true, message: 'Destructive test deleted successfully' });
   } catch (error) {
     console.error('Error deleting destructive test:', error);
+    next(error);
+  }
+});
+
+// Get cardinal direction for panel layout
+router.get('/layout/:projectId/cardinal-direction', auth, async (req, res, next) => {
+  try {
+    const { projectId } = req.params;
+    
+    // Get cardinal direction from panel layout, fallback to project
+    const { pool } = require('../db');
+    const client = await pool.connect();
+    
+    try {
+      const result = await client.query(
+        `SELECT 
+          pl.cardinal_direction as layout_direction,
+          p.cardinal_direction as project_direction
+         FROM panel_layouts pl
+         JOIN projects p ON pl.project_id = p.id
+         WHERE pl.project_id = $1
+         LIMIT 1`,
+        [projectId]
+      );
+      
+      if (result.rows.length === 0) {
+        return res.status(404).json({ message: 'Panel layout not found' });
+      }
+      
+      const cardinalDirection = result.rows[0].layout_direction || 
+                                result.rows[0].project_direction || 
+                                'north';
+      
+      res.json({
+        success: true,
+        cardinalDirection
+      });
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Error getting cardinal direction:', error);
+    next(error);
+  }
+});
+
+// Update cardinal direction for panel layout
+router.put('/layout/:projectId/cardinal-direction', auth, async (req, res, next) => {
+  try {
+    const { projectId } = req.params;
+    const { cardinalDirection } = req.body;
+    
+    // Validate cardinal direction
+    const validDirections = ['north', 'south', 'east', 'west'];
+    if (!validDirections.includes(cardinalDirection)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid cardinal direction. Must be one of: ${validDirections.join(', ')}`
+      });
+    }
+    
+    const { pool } = require('../db');
+    const client = await pool.connect();
+    
+    try {
+      // Update panel layout cardinal direction
+      const updateResult = await client.query(
+        `UPDATE panel_layouts 
+         SET cardinal_direction = $1
+         WHERE project_id = $2
+         RETURNING cardinal_direction`,
+        [cardinalDirection, projectId]
+      );
+      
+      if (updateResult.rows.length === 0) {
+        // Create panel layout if it doesn't exist
+        await panelLayoutService.getOrCreateLayout(projectId);
+        await client.query(
+          `UPDATE panel_layouts 
+           SET cardinal_direction = $1
+           WHERE project_id = $2`,
+          [cardinalDirection, projectId]
+        );
+      }
+      
+      res.json({
+        success: true,
+        cardinalDirection,
+        message: 'Cardinal direction updated successfully'
+      });
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Error updating cardinal direction:', error);
     next(error);
   }
 });

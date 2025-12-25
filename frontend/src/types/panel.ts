@@ -39,6 +39,10 @@ export interface PanelLayout {
   id: string;
   projectId: string;
   panels: Panel[];
+  width?: number;
+  height?: number;
+  scale?: number;
+  cardinalDirection?: 'north' | 'south' | 'east' | 'west';
   createdAt?: string;
   updatedAt?: string;
 }

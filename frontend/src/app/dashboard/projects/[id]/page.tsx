@@ -22,6 +22,7 @@ interface Project {
   endDate: string;
   area: number;
   progress: number;
+  cardinalDirection?: 'north' | 'south' | 'east' | 'west';
 }
 
 export default function ProjectDetailsPage({ params }: { params: Promise<{ id: string }> }) {
@@ -30,6 +31,8 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
   const { toast } = useToast();
   const [id, setId] = useState<string>('');
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [cardinalDirection, setCardinalDirection] = useState<'north' | 'south' | 'east' | 'west'>('north');
+  const [isUpdatingDirection, setIsUpdatingDirection] = useState(false);
 
   useEffect(() => {
     const loadParams = async () => {
@@ -47,6 +50,19 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
         setIsLoading(true);
         const data = await fetchProjectById(id);
         setProject(data);
+        
+        // Fetch cardinal direction
+        try {
+          const dirResponse = await fetch(`/api/projects/${id}/cardinal-direction`);
+          if (dirResponse.ok) {
+            const dirData = await dirResponse.json();
+            if (dirData.success && dirData.cardinalDirection) {
+              setCardinalDirection(dirData.cardinalDirection);
+            }
+          }
+        } catch (error) {
+          console.error('Error loading cardinal direction:', error);
+        }
       } catch (error) {
         toast({
           title: 'Error',
@@ -60,6 +76,37 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
 
     loadProject();
   }, [id, toast]);
+  
+  const handleCardinalDirectionChange = async (direction: 'north' | 'south' | 'east' | 'west') => {
+    if (!id) return;
+    
+    setIsUpdatingDirection(true);
+    try {
+      const response = await fetch(`/api/projects/${id}/cardinal-direction`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cardinalDirection: direction })
+      });
+      
+      if (response.ok) {
+        setCardinalDirection(direction);
+        toast({
+          title: 'Success',
+          description: 'Cardinal direction updated successfully',
+        });
+      } else {
+        throw new Error('Failed to update cardinal direction');
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to update cardinal direction. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsUpdatingDirection(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -127,6 +174,44 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
             <div>
               <h3 className="text-sm font-medium text-gray-500">Status</h3>
               <p>{project.status}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Panel Layout Configuration</CardTitle>
+          <CardDescription>Configure cardinal direction orientation for the panel layout</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium text-gray-700 mb-2 block">
+                Cardinal Direction
+              </label>
+              <p className="text-sm text-gray-500 mb-3">
+                Set the orientation of North/South/East/West for this project. This helps AI agents understand location descriptions in forms.
+              </p>
+              <div className="grid grid-cols-4 gap-2">
+                {(['north', 'south', 'east', 'west'] as const).map((direction) => (
+                  <button
+                    key={direction}
+                    onClick={() => handleCardinalDirectionChange(direction)}
+                    disabled={isUpdatingDirection}
+                    className={`px-4 py-2 rounded border-2 transition-all ${
+                      cardinalDirection === direction
+                        ? 'border-blue-600 bg-blue-50 text-blue-700 font-semibold'
+                        : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                  >
+                    {direction.charAt(0).toUpperCase() + direction.slice(1)}
+                  </button>
+                ))}
+              </div>
+              {isUpdatingDirection && (
+                <p className="text-sm text-gray-500 mt-2">Updating...</p>
+              )}
             </div>
           </div>
         </CardContent>

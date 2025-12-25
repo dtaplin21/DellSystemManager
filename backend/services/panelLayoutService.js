@@ -565,8 +565,20 @@ class PanelLayoutService {
    */
   async getLayout(projectId) {
     try {
+      // Explicitly select columns including cardinalDirection (after migration)
       const [layout] = await db
-        .select()
+        .select({
+          id: panelLayouts.id,
+          projectId: panelLayouts.projectId,
+          panels: panelLayouts.panels,
+          patches: panelLayouts.patches,
+          destructiveTests: panelLayouts.destructiveTests,
+          width: panelLayouts.width,
+          height: panelLayouts.height,
+          scale: panelLayouts.scale,
+          lastUpdated: panelLayouts.lastUpdated,
+          cardinalDirection: panelLayouts.cardinalDirection,
+        })
         .from(panelLayouts)
         .where(eq(panelLayouts.projectId, projectId));
 
@@ -957,8 +969,20 @@ class PanelLayoutService {
    */
   async getDestructiveTests(projectId) {
     try {
+      // Explicitly select columns including cardinalDirection (after migration)
       const [existingLayout] = await db
-        .select()
+        .select({
+          id: panelLayouts.id,
+          projectId: panelLayouts.projectId,
+          panels: panelLayouts.panels,
+          patches: panelLayouts.patches,
+          destructiveTests: panelLayouts.destructiveTests,
+          width: panelLayouts.width,
+          height: panelLayouts.height,
+          scale: panelLayouts.scale,
+          lastUpdated: panelLayouts.lastUpdated,
+          cardinalDirection: panelLayouts.cardinalDirection,
+        })
         .from(panelLayouts)
         .where(eq(panelLayouts.projectId, projectId));
 
@@ -1076,8 +1100,20 @@ class PanelLayoutService {
    */
   async updateDestructiveTest(projectId, testId, updates) {
     try {
+      // Explicitly select columns including cardinalDirection (after migration)
       const [existingLayout] = await db
-        .select()
+        .select({
+          id: panelLayouts.id,
+          projectId: panelLayouts.projectId,
+          panels: panelLayouts.panels,
+          patches: panelLayouts.patches,
+          destructiveTests: panelLayouts.destructiveTests,
+          width: panelLayouts.width,
+          height: panelLayouts.height,
+          scale: panelLayouts.scale,
+          lastUpdated: panelLayouts.lastUpdated,
+          cardinalDirection: panelLayouts.cardinalDirection,
+        })
         .from(panelLayouts)
         .where(eq(panelLayouts.projectId, projectId));
 
@@ -1127,8 +1163,20 @@ class PanelLayoutService {
    */
   async deleteDestructiveTest(projectId, testId) {
     try {
+      // Explicitly select columns including cardinalDirection (after migration)
       const [existingLayout] = await db
-        .select()
+        .select({
+          id: panelLayouts.id,
+          projectId: panelLayouts.projectId,
+          panels: panelLayouts.panels,
+          patches: panelLayouts.patches,
+          destructiveTests: panelLayouts.destructiveTests,
+          width: panelLayouts.width,
+          height: panelLayouts.height,
+          scale: panelLayouts.scale,
+          lastUpdated: panelLayouts.lastUpdated,
+          cardinalDirection: panelLayouts.cardinalDirection,
+        })
         .from(panelLayouts)
         .where(eq(panelLayouts.projectId, projectId));
 

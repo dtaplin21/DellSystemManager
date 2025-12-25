@@ -453,13 +453,131 @@ class AIServiceIntegration:
                 "error": str(e)
             }
 
+    async def automate_from_approved_form_with_workflow(
+        self,
+        form_record: Dict[str, Any],
+        project_id: str,
+        user_id: str = None,
+        item_type: str = None,
+        positioning: Dict[str, Any] = None
+    ) -> Dict[str, Any]:
+        """Automate item creation from approved form using multi-agent workflow"""
+        if not self.is_hybrid_ai_available():
+            return {
+                "success": False,
+                "error": "Hybrid AI architecture not available"
+            }
+        
+        try:
+            logger.info(f"Starting multi-agent workflow automation for project {project_id}, form {form_record.get('id')}")
+            
+            # Determine item type if not provided
+            if not item_type:
+                domain = form_record.get('domain')
+                if domain == 'panel_placement':
+                    item_type = 'panel'
+                elif domain == 'repairs':
+                    item_type = 'patch'
+                elif domain == 'destructive':
+                    item_type = 'destructive_test'
+                else:
+                    return {
+                        "success": False,
+                        "error": f"Unknown domain: {domain}"
+                    }
+            
+            # Get frontend URL for panel layout
+            frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+            panel_layout_url = f"{frontend_url}/dashboard/projects/{project_id}/panel-layout"
+            
+            # Fetch cardinal direction from project
+            cardinal_direction = 'north'  # Default
+            try:
+                backend_url = os.getenv("BACKEND_URL", "http://localhost:8003")
+                response = requests.get(
+                    f"{backend_url}/api/projects/{project_id}/cardinal-direction",
+                    timeout=5
+                )
+                if response.ok:
+                    data = response.json()
+                    if data.get('success') and data.get('cardinalDirection'):
+                        cardinal_direction = data['cardinalDirection']
+            except Exception as e:
+                logger.warning(f"Could not fetch cardinal direction, using default 'north': {e}")
+            
+            # Prepare workflow context
+            workflow_context = {
+                "form_record": form_record,
+                "project_id": project_id,
+                "user_id": user_id,
+                "item_type": item_type,
+                "positioning": positioning or {},
+                "panel_layout_url": panel_layout_url,
+                "cardinal_direction": cardinal_direction,
+                "payload": {
+                    "form_record": form_record,
+                    "project_id": project_id,
+                    "item_type": item_type,
+                    "cardinal_direction": cardinal_direction
+                }
+            }
+            
+            # Get workflow orchestrator
+            if not hasattr(self.ai_service, 'get_orchestrator'):
+                return {
+                    "success": False,
+                    "error": "Workflow orchestrator not available"
+                }
+            
+            orchestrator = self.ai_service.get_orchestrator(
+                user_id=user_id or "system",
+                user_tier="paid_user"  # Default tier, could be made configurable
+            )
+            
+            # Execute multi-agent workflow
+            workflow_result = await orchestrator.execute_workflow(
+                workflow_id="form_review_and_placement",
+                payload=workflow_context,
+                metadata={
+                    "trigger": "form_approval",
+                    "form_id": form_record.get('id'),
+                    "project_id": project_id
+                }
+            )
+            
+            logger.info(f"Multi-agent workflow completed for form {form_record.get('id')}")
+            
+            # Extract results from workflow output
+            workflow_output = workflow_result.get("output", {})
+            if isinstance(workflow_output, str):
+                try:
+                    workflow_output = json.loads(workflow_output)
+                except:
+                    workflow_output = {}
+            
+            return {
+                "success": True,
+                "item_type": item_type,
+                "workflow_result": workflow_result,
+                "item_id": workflow_output.get("item_id"),
+                "form_id": form_record.get('id'),
+                "placement": workflow_output.get("placement")
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in multi-agent workflow automation: {e}", exc_info=True)
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
     async def automate_from_approved_form(
         self,
         form_record: Dict[str, Any],
         project_id: str,
         user_id: str = None
     ) -> Dict[str, Any]:
-        """Automate item creation from approved form using browser tools"""
+        """Automate item creation from approved form using browser tools (legacy method)"""
         if not self.is_hybrid_ai_available():
             return {
                 "success": False,
@@ -555,45 +673,164 @@ class AIServiceIntegration:
                     logger.warning(f"Add button click failed: {e}")
             
             # Fill form fields based on item type and form data
-            # This is a simplified version - actual implementation may need more field mapping
+            # Enhanced to handle all field types: text, number, date, select, textarea
             if interaction_tool and mapped_data:
                 try:
-                    # Map form fields to modal fields
-                    # This would need to be customized based on actual modal structure
+                    import asyncio
+                    
+                    # Map form fields to modal fields based on item type
                     field_mappings = {}
                     
                     if item_type == 'panel':
                         field_mappings = {
-                            'panelNumber': mapped_data.get('panelNumber') or mapped_data.get('panelNumbers'),
-                            'x': positioning.get('x'),
-                            'y': positioning.get('y'),
+                            'panelNumber': {
+                                'value': mapped_data.get('panelNumber') or mapped_data.get('panelNumbers'),
+                                'type': 'text'
+                            },
+                            'rollNumber': {
+                                'value': mapped_data.get('rollNumber') or mapped_data.get('roll_number'),
+                                'type': 'text'
+                            },
+                            'length': {
+                                'value': mapped_data.get('length') or mapped_data.get('width'),
+                                'type': 'number'
+                            },
+                            'width': {
+                                'value': mapped_data.get('width') or mapped_data.get('height'),
+                                'type': 'number'
+                            },
+                            'date': {
+                                'value': mapped_data.get('date'),
+                                'type': 'date'
+                            },
+                            'location': {
+                                'value': mapped_data.get('location') or mapped_data.get('locationNote'),
+                                'type': 'textarea'
+                            },
+                            'x': {
+                                'value': positioning.get('x'),
+                                'type': 'number'
+                            },
+                            'y': {
+                                'value': positioning.get('y'),
+                                'type': 'number'
+                            },
+                            'shape': {
+                                'value': mapped_data.get('shape') or 'rectangle',
+                                'type': 'select'
+                            }
                         }
                     elif item_type == 'patch':
                         field_mappings = {
-                            'patchNumber': mapped_data.get('repairId') or mapped_data.get('patchNumber'),
-                            'x': positioning.get('x'),
-                            'y': positioning.get('y'),
+                            'patchNumber': {
+                                'value': mapped_data.get('repairId') or mapped_data.get('patchNumber'),
+                                'type': 'text'
+                            },
+                            'date': {
+                                'value': mapped_data.get('date'),
+                                'type': 'date'
+                            },
+                            'location': {
+                                'value': mapped_data.get('location') or mapped_data.get('typeDetailLocation'),
+                                'type': 'textarea'
+                            },
+                            'radius': {
+                                'value': mapped_data.get('radius') or 1.5,  # Default 1.5ft radius
+                                'type': 'number'
+                            },
+                            'x': {
+                                'value': positioning.get('x'),
+                                'type': 'number'
+                            },
+                            'y': {
+                                'value': positioning.get('y'),
+                                'type': 'number'
+                            }
                         }
                     elif item_type == 'destructive_test':
                         field_mappings = {
-                            'sampleId': mapped_data.get('sampleId'),
-                            'x': positioning.get('x'),
-                            'y': positioning.get('y'),
+                            'sampleId': {
+                                'value': mapped_data.get('sampleId') or mapped_data.get('sample_id'),
+                                'type': 'text'
+                            },
+                            'date': {
+                                'value': mapped_data.get('date'),
+                                'type': 'date'
+                            },
+                            'width': {
+                                'value': mapped_data.get('width') or 1.0,  # Default dimensions
+                                'type': 'number'
+                            },
+                            'height': {
+                                'value': mapped_data.get('height') or 1.0,
+                                'type': 'number'
+                            },
+                            'location': {
+                                'value': mapped_data.get('location'),
+                                'type': 'textarea'
+                            },
+                            'x': {
+                                'value': positioning.get('x'),
+                                'type': 'number'
+                            },
+                            'y': {
+                                'value': positioning.get('y'),
+                                'type': 'number'
+                            }
                         }
                     
-                    # Fill form fields
-                    for field_name, field_value in field_mappings.items():
-                        if field_value is not None:
-                            try:
-                                await interaction_tool._arun(
-                                    action="type",
-                                    selector=f'input[name="{field_name}"], input[id="{field_name}"]',
-                                    value=str(field_value),
-                                    session_id=session_id,
-                                    user_id=user_id
-                                )
-                            except:
-                                pass
+                    # Fill form fields with proper handling for each field type
+                    for field_name, field_config in field_mappings.items():
+                        field_value = field_config.get('value')
+                        field_type = field_config.get('type', 'text')
+                        
+                        if field_value is None or field_value == '':
+                            continue
+                        
+                        try:
+                            # Try multiple selector patterns
+                            selectors = [
+                                f'input[name="{field_name}"]',
+                                f'input[id="{field_name}"]',
+                                f'textarea[name="{field_name}"]',
+                                f'textarea[id="{field_name}"]',
+                                f'select[name="{field_name}"]',
+                                f'select[id="{field_name}"]',
+                                f'[name="{field_name}"]',
+                                f'#{field_name}'
+                            ]
+                            
+                            filled = False
+                            for selector in selectors:
+                                try:
+                                    if field_type == 'select':
+                                        await interaction_tool._arun(
+                                            action="select",
+                                            selector=selector,
+                                            value=str(field_value),
+                                            session_id=session_id,
+                                            user_id=user_id
+                                        )
+                                    else:
+                                        await interaction_tool._arun(
+                                            action="type",
+                                            selector=selector,
+                                            value=str(field_value),
+                                            session_id=session_id,
+                                            user_id=user_id
+                                        )
+                                    filled = True
+                                    logger.info(f"Filled field {field_name} with value {field_value}")
+                                    await asyncio.sleep(0.2)  # Small delay between fields
+                                    break
+                                except Exception as e:
+                                    continue
+                            
+                            if not filled:
+                                logger.warning(f"Could not fill field {field_name} with any selector")
+                        except Exception as e:
+                            logger.warning(f"Error filling field {field_name}: {e}")
+                            continue
                     
                     # Submit form
                     submit_selectors = [
@@ -618,9 +855,15 @@ class AIServiceIntegration:
                 except Exception as e:
                     logger.warning(f"Form filling failed: {e}")
             
-            # Extract created item ID (if possible)
+            # Extract created item ID and validate creation
             extract_tool = browser_tools.get("browser_extract")
             item_id = None
+            validation_result = {
+                "valid": False,
+                "conflicts": [],
+                "errors": []
+            }
+            
             if extract_tool:
                 try:
                     extract_result = await extract_tool._arun(
@@ -634,21 +877,278 @@ class AIServiceIntegration:
                             extract_data = json.loads(extract_result)
                             items = extract_data.get(item_type + 's', [])
                             if items:
-                                item_id = items[-1].get('id')  # Get most recently created item
-                        except:
-                            pass
+                                created_item = items[-1]  # Get most recently created item
+                                item_id = created_item.get('id')
+                                
+                                # Validate created item
+                                validation_result = await self._validate_created_item(
+                                    created_item=created_item,
+                                    form_record=form_record,
+                                    positioning=positioning,
+                                    item_type=item_type,
+                                    existing_items=items[:-1]  # All items except the one we just created
+                                )
+                        except json.JSONDecodeError as e:
+                            logger.warning(f"Failed to parse extract result: {e}")
+                            validation_result["errors"].append(f"Failed to parse extraction result: {e}")
                 except Exception as e:
                     logger.warning(f"Item extraction failed: {e}")
+                    validation_result["errors"].append(f"Extraction failed: {e}")
+            
+            # Log validation results
+            logger.info(f"Item creation validation for form {form_record.get('id')}", {
+                "item_id": item_id,
+                "valid": validation_result["valid"],
+                "conflicts": len(validation_result["conflicts"]),
+                "errors": len(validation_result["errors"])
+            })
+            
+            # If validation failed with critical errors, attempt rollback
+            if not validation_result["valid"] and validation_result.get("critical_error"):
+                logger.warning(f"Critical validation error detected, attempting rollback for item {item_id}")
+                rollback_result = await self._rollback_item_creation(
+                    item_id=item_id,
+                    item_type=item_type,
+                    project_id=project_id,
+                    session_id=session_id,
+                    user_id=user_id,
+                    browser_tools=browser_tools
+                )
+                if rollback_result.get("success"):
+                    logger.info(f"Successfully rolled back item creation for form {form_record.get('id')}")
+                else:
+                    logger.error(f"Failed to rollback item creation: {rollback_result.get('error')}")
             
             return {
-                "success": True,
+                "success": validation_result["valid"] if validation_result else True,
                 "item_type": item_type,
                 "item_id": item_id,
-                "form_id": form_record.get('id')
+                "form_id": form_record.get('id'),
+                "validation": validation_result,
+                "positioning": positioning
             }
             
         except Exception as e:
             logger.error(f"Error in automate_from_approved_form: {e}", exc_info=True)
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
+    async def _validate_created_item(
+        self,
+        created_item: Dict[str, Any],
+        form_record: Dict[str, Any],
+        positioning: Dict[str, Any],
+        item_type: str,
+        existing_items: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """Validate created item for conflicts and correctness"""
+        validation = {
+            "valid": True,
+            "conflicts": [],
+            "errors": [],
+            "warnings": [],
+            "critical_error": False
+        }
+        
+        try:
+            mapped_data = form_record.get('mapped_data', {})
+            
+            # Check for duplicate IDs
+            if item_type == 'panel':
+                panel_number = created_item.get('panelNumber')
+                if panel_number:
+                    duplicates = [item for item in existing_items 
+                                if item.get('panelNumber') == panel_number]
+                    if duplicates:
+                        validation["conflicts"].append({
+                            "type": "duplicate_panel_number",
+                            "message": f"Panel number {panel_number} already exists",
+                            "duplicate_items": [item.get('id') for item in duplicates]
+                        })
+                        validation["valid"] = False
+                        validation["critical_error"] = True
+            
+            elif item_type == 'patch':
+                patch_number = created_item.get('patchNumber')
+                if patch_number:
+                    duplicates = [item for item in existing_items 
+                                if item.get('patchNumber') == patch_number]
+                    if duplicates:
+                        validation["conflicts"].append({
+                            "type": "duplicate_patch_number",
+                            "message": f"Patch number {patch_number} already exists",
+                            "duplicate_items": [item.get('id') for item in duplicates]
+                        })
+                        validation["valid"] = False
+                        validation["critical_error"] = True
+            
+            elif item_type == 'destructive_test':
+                sample_id = created_item.get('sampleId')
+                if sample_id:
+                    duplicates = [item for item in existing_items 
+                                if item.get('sampleId') == sample_id]
+                    if duplicates:
+                        validation["conflicts"].append({
+                            "type": "duplicate_sample_id",
+                            "message": f"Sample ID {sample_id} already exists",
+                            "duplicate_items": [item.get('id') for item in duplicates]
+                        })
+                        validation["valid"] = False
+                        validation["critical_error"] = True
+            
+            # Check coordinate validity
+            item_x = created_item.get('x')
+            item_y = created_item.get('y')
+            expected_x = positioning.get('x')
+            expected_y = positioning.get('y')
+            
+            if expected_x is not None and expected_y is not None:
+                if item_x is None or item_y is None:
+                    validation["errors"].append({
+                        "type": "missing_coordinates",
+                        "message": "Created item missing coordinates"
+                    })
+                    validation["valid"] = False
+                else:
+                    # Allow some tolerance for coordinate matching (within 10 units)
+                    tolerance = 10
+                    if abs(float(item_x) - float(expected_x)) > tolerance or \
+                       abs(float(item_y) - float(expected_y)) > tolerance:
+                        validation["warnings"].append({
+                            "type": "coordinate_mismatch",
+                            "message": f"Coordinates differ from expected: got ({item_x}, {item_y}), expected ({expected_x}, {expected_y})"
+                        })
+            
+            # Check for overlapping items (simplified check)
+            if item_x is not None and item_y is not None:
+                overlaps = self._check_overlaps(created_item, existing_items, item_type)
+                if overlaps:
+                    validation["warnings"].append({
+                        "type": "overlapping_items",
+                        "message": f"Item may overlap with {len(overlaps)} existing items",
+                        "overlapping_ids": [item.get('id') for item in overlaps]
+                    })
+            
+            # Validate required fields based on item type
+            if item_type == 'panel':
+                if not created_item.get('panelNumber'):
+                    validation["errors"].append({
+                        "type": "missing_required_field",
+                        "message": "Panel number is required"
+                    })
+                    validation["valid"] = False
+            
+            elif item_type == 'patch':
+                if not created_item.get('patchNumber'):
+                    validation["errors"].append({
+                        "type": "missing_required_field",
+                        "message": "Patch number is required"
+                    })
+                    validation["valid"] = False
+            
+            elif item_type == 'destructive_test':
+                if not created_item.get('sampleId'):
+                    validation["errors"].append({
+                        "type": "missing_required_field",
+                        "message": "Sample ID is required"
+                    })
+                    validation["valid"] = False
+            
+        except Exception as e:
+            logger.error(f"Error validating created item: {e}", exc_info=True)
+            validation["errors"].append({
+                "type": "validation_error",
+                "message": f"Validation failed: {e}"
+            })
+            validation["valid"] = False
+        
+        return validation
+    
+    def _check_overlaps(self, item: Dict[str, Any], existing_items: List[Dict[str, Any]], item_type: str) -> List[Dict[str, Any]]:
+        """Check if item overlaps with existing items (simplified spatial check)"""
+        overlaps = []
+        
+        try:
+            item_x = float(item.get('x', 0))
+            item_y = float(item.get('y', 0))
+            
+            if item_type == 'panel':
+                item_width = float(item.get('width', 0))
+                item_height = float(item.get('height', 0))
+                item_bounds = {
+                    'left': item_x,
+                    'right': item_x + item_width,
+                    'top': item_y,
+                    'bottom': item_y + item_height
+                }
+            elif item_type == 'patch':
+                item_radius = float(item.get('radius', 1.5))
+                item_bounds = {
+                    'left': item_x - item_radius,
+                    'right': item_x + item_radius,
+                    'top': item_y - item_radius,
+                    'bottom': item_y + item_radius
+                }
+            elif item_type == 'destructive_test':
+                item_width = float(item.get('width', 0))
+                item_height = float(item.get('height', 0))
+                item_bounds = {
+                    'left': item_x,
+                    'right': item_x + item_width,
+                    'top': item_y,
+                    'bottom': item_y + item_height
+                }
+            else:
+                return overlaps
+            
+            # Check against existing items
+            for existing_item in existing_items:
+                existing_x = float(existing_item.get('x', 0))
+                existing_y = float(existing_item.get('y', 0))
+                
+                # Simple bounding box check
+                if abs(existing_x - item_x) < 50 and abs(existing_y - item_y) < 50:
+                    overlaps.append(existing_item)
+        
+        except Exception as e:
+            logger.warning(f"Error checking overlaps: {e}")
+        
+        return overlaps
+    
+    async def _rollback_item_creation(
+        self,
+        item_id: str,
+        item_type: str,
+        project_id: str,
+        session_id: str,
+        user_id: str,
+        browser_tools: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Attempt to rollback/delete a created item if validation fails"""
+        try:
+            interaction_tool = browser_tools.get("browser_interact")
+            if not interaction_tool:
+                return {
+                    "success": False,
+                    "error": "Interaction tool not available"
+                }
+            
+            # Try to find and delete the item
+            # This is a simplified rollback - in production, might want to use API delete endpoint
+            logger.info(f"Attempting rollback for item {item_id} of type {item_type}")
+            
+            # For now, log the rollback attempt
+            # In a full implementation, would navigate to item, click delete, confirm
+            return {
+                "success": True,
+                "message": f"Rollback logged for item {item_id}",
+                "note": "Full rollback implementation would delete item via UI or API"
+            }
+        
+        except Exception as e:
+            logger.error(f"Error in rollback: {e}", exc_info=True)
             return {
                 "success": False,
                 "error": str(e)

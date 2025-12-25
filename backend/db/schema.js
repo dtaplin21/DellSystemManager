@@ -1,5 +1,8 @@
 const { pgTable, uuid, varchar, text, timestamp, integer, decimal, boolean, json, serial, jsonb, pgEnum } = require('drizzle-orm/pg-core');
 
+// Cardinal direction enum type
+const cardinalDirectionEnum = pgEnum('cardinal_direction', ['north', 'south', 'east', 'west']);
+
 
 // Users table
 const users = pgTable('users', {
@@ -34,6 +37,7 @@ const projects = pgTable('projects', {
   scale: decimal('scale').default('1.0'), // Consistent with panel layouts default
   layoutWidth: integer('layout_width').default(15000),
   layoutHeight: integer('layout_height').default(15000),
+  cardinalDirection: cardinalDirectionEnum('cardinal_direction').default('north'), // Cardinal direction: north, south, east, west
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow()
 });
@@ -48,6 +52,7 @@ const panelLayouts = pgTable('panel_layouts', {
   width: decimal('width').notNull().default('4000'),
   height: decimal('height').notNull().default('4000'),
   scale: decimal('scale').notNull().default('1.0'),
+  cardinalDirection: cardinalDirectionEnum('cardinal_direction'), // Cardinal direction: north, south, east, west (inherits from project)
   lastUpdated: timestamp('last_updated').notNull().defaultNow(),
 });
 

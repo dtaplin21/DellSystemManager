@@ -32,7 +32,8 @@ class FormAutomationService {
   }
 
   /**
-   * Extract positioning data from form
+   * Extract positioning data from form (legacy method - kept for backward compatibility)
+   * @deprecated Use analyzePlacement() instead for AI-powered placement
    */
   extractPositioningData(formRecord) {
     const mappedData = formRecord.mapped_data || {};
@@ -61,6 +62,69 @@ class FormAutomationService {
     }
 
     return { x, y };
+  }
+
+  /**
+   * Analyze placement using AI service
+   * Calls the AI service to determine optimal placement coordinates
+   */
+  async analyzePlacement(formRecord, projectId, itemType, authToken = null) {
+    try {
+      logger.info(`[FORM_AUTOMATION] Analyzing placement for form ${formRecord.id}`, {
+        formId: formRecord.id,
+        projectId,
+        itemType
+      });
+
+      const response = await axios.post(
+        `${this.aiServiceUrl}/api/ai/analyze-placement`,
+        {
+          form_record: formRecord,
+          project_id: projectId,
+          item_type: itemType
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            ...(authToken && { 'Authorization': `Bearer ${authToken}` })
+          },
+          timeout: 30000 // 30 second timeout
+        }
+      );
+
+      if (response.data && response.data.success) {
+        const placement = response.data.placement || {};
+        logger.info(`[FORM_AUTOMATION] Placement analysis completed`, {
+          formId: formRecord.id,
+          x: placement.x,
+          y: placement.y,
+          confidence: placement.confidence,
+          strategy: placement.strategy
+        });
+        return {
+          x: placement.x || 2000,
+          y: placement.y || 2000,
+          confidence: placement.confidence || 0.5,
+          strategy: placement.strategy || 'ai_analysis',
+          reasoning: placement.reasoning
+        };
+      } else {
+        logger.warn(`[FORM_AUTOMATION] Placement analysis returned unsuccessful response`, {
+          formId: formRecord.id,
+          response: response.data
+        });
+        // Fallback to default positioning
+        return this.extractPositioningData(formRecord);
+      }
+    } catch (error) {
+      logger.error(`[FORM_AUTOMATION] Error analyzing placement`, {
+        formId: formRecord.id,
+        error: error.message,
+        stack: error.stack
+      });
+      // Fallback to default positioning
+      return this.extractPositioningData(formRecord);
+    }
   }
 
   /**
@@ -104,7 +168,9 @@ class FormAutomationService {
         userId
       });
 
-      // Extract positioning data
+      // Analyze placement using AI service (async, don't block)
+      // The AI service will handle placement analysis as part of the workflow
+      // For now, use default positioning - will be enhanced by multi-agent workflow
       const positioning = this.extractPositioningData(formRecord);
 
       // Queue browser automation job instead of direct HTTP call

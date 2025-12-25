@@ -1956,6 +1956,7 @@ class WorkflowOrchestrator:
                     ),
                 ],
             ),
+            "form_review_and_placement": get_form_review_workflow(),
         }
         return cls._BASE_BLUEPRINTS
 

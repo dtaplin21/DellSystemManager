@@ -709,6 +709,19 @@ async function applyMigrations() {
       });
     }
 
+    // Apply cardinal directions migration
+    try {
+      const cardinalDirectionsMigrationPath = path.join(__dirname, 'migrations', '011_add_cardinal_directions.sql');
+      const cardinalDirectionsSql = await fs.readFile(cardinalDirectionsMigrationPath, 'utf8');
+      await client.query(cardinalDirectionsSql);
+      logger.debug('Cardinal directions migration applied');
+    } catch (cardinalDirectionsErr) {
+      logger.warn('Cardinal directions migration not applied', {
+        error: { message: cardinalDirectionsErr.message },
+        hint: 'If permissions restrict file reads, run the SQL manually in the DB. The migration file is at backend/db/migrations/011_add_cardinal_directions.sql'
+      });
+    }
+
     client.release();
     logger.info('Database migrations completed successfully');
   } catch (error) {

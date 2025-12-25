@@ -85,6 +85,9 @@ export default function PanelLayoutRefactored() {
   // Fullscreen state detection
   const [isFullscreen, setIsFullscreen] = useState(false);
   
+  // Cardinal direction state
+  const [cardinalDirection, setCardinalDirection] = useState<'north' | 'south' | 'east' | 'west'>('north');
+  
   // Feature flags for debugging/development
   const featureFlags = {
     ENABLE_PERSISTENCE: true,
@@ -487,6 +490,7 @@ export default function PanelLayoutRefactored() {
                     patches={patches}
                     destructiveTests={destructiveTests}
                     visibleTypes={visibleTypes}
+                    cardinalDirection={cardinalDirection}
               projectId={Array.isArray(params.id) ? params.id[0] || 'unknown' : params.id || 'unknown'}
               onPanelSelect={handlePanelClick}
               onPatchClick={handlePatchClick}

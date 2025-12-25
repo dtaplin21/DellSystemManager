@@ -234,6 +234,105 @@
             "expectedOutput": "Validation report with success status, data integrity checks, error detection, and final panel state"
           }
         ]
+      },
+      {
+        "id": "form_review_and_placement",
+        "name": "Form Review and Layout Automation",
+        "description": "Review uploaded forms, analyze placement requirements, and automatically create panels, patches, or destructive tests in optimal locations",
+        "process": "sequential",
+        "agents": [
+          {
+            "key": "form_reviewer",
+            "name": "Form Reviewer",
+            "role": "Form Data Quality Analyst",
+            "goal": "Validate form data completeness, check required fields, identify form type, and assess data quality",
+            "complexity": "moderate",
+            "tools": [],
+            "allowDelegation": true
+          },
+          {
+            "key": "placement_analyst",
+            "name": "Placement Analyst",
+            "role": "Spatial Layout Specialist",
+            "goal": "Analyze form location data, existing panel layout, and determine optimal x,y coordinates for item placement",
+            "complexity": "complex",
+            "tools": [
+              "browser_extract",
+              "browser_screenshot"
+            ],
+            "allowDelegation": true
+          },
+          {
+            "key": "layout_navigator",
+            "name": "Layout Navigator",
+            "role": "Browser Navigation Coordinator",
+            "goal": "Navigate to panel layout page, switch to correct tab (Panels/Patches/Destructs), and verify page readiness",
+            "complexity": "moderate",
+            "tools": [
+              "browser_navigate",
+              "browser_interact",
+              "browser_screenshot"
+            ],
+            "allowDelegation": true
+          },
+          {
+            "key": "item_creator",
+            "name": "Item Creator",
+            "role": "Form Automation Specialist",
+            "goal": "Fill form modals with extracted data, submit item creation, and handle field mapping for panels, patches, and destructive tests",
+            "complexity": "complex",
+            "tools": [
+              "browser_interact",
+              "browser_extract",
+              "browser_screenshot"
+            ],
+            "allowDelegation": true
+          },
+          {
+            "key": "validation_agent",
+            "name": "Validation Agent",
+            "role": "Quality Assurance Validator",
+            "goal": "Extract created item data, verify placement coordinates, check for conflicts (duplicate IDs, overlapping items), and validate item was created correctly",
+            "complexity": "moderate",
+            "tools": [
+              "browser_extract",
+              "browser_screenshot"
+            ],
+            "allowDelegation": true
+          }
+        ],
+        "tasks": [
+          {
+            "id": "review-form-data",
+            "description": "Review the uploaded form data. Validate that all required fields are present, check data quality, identify the form type (panel_placement, repairs, destructive, etc.), and assess if the form is ready for automation.",
+            "agent": "form_reviewer",
+            "expectedOutput": "Form validation report with completeness status, identified form type, missing fields (if any), and readiness assessment"
+          },
+          {
+            "id": "analyze-placement",
+            "description": "Analyze the form data to determine optimal placement coordinates. Extract location hints from form fields (locationNote, typeDetailLocation, panelNumbers). Query existing layout to find gaps or optimal positions. Use AI to interpret location descriptions and suggest x,y coordinates with confidence score.",
+            "agent": "placement_analyst",
+            "expectedOutput": "Placement analysis report with recommended x,y coordinates, confidence score, placement strategy used, and reasoning"
+          },
+          {
+            "id": "navigate-to-layout",
+            "description": "Navigate to the panel layout page for the project. Switch to the appropriate tab based on item type (Panels tab for panels, Patches tab for patches, Destructive Tests tab for destructive tests). Verify the page loaded correctly and the correct tab is active.",
+            "agent": "layout_navigator",
+            "expectedOutput": "Navigation confirmation with page URL, active tab name, and page readiness status"
+          },
+          {
+            "id": "create-item",
+            "description": "Click the 'Add' button to open the creation modal. Fill all form fields with data from the form record, including coordinates from placement analysis. Handle different field types (text, number, date, select, textarea). Submit the form and wait for confirmation.",
+            "agent": "item_creator",
+            "expectedOutput": "Item creation report with success status, filled fields, and any errors encountered"
+          },
+          {
+            "id": "validate-creation",
+            "description": "Extract the newly created item data from the page. Verify the item was created with correct coordinates, check for duplicate IDs or overlapping items, and validate all fields match the form data. Generate a validation report.",
+            "agent": "validation_agent",
+            "expectedOutput": "Validation report with item ID, verified coordinates, conflict check results, and overall validation status"
+          }
+        ]
       }
     ]
   }

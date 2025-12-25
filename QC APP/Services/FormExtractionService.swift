@@ -33,6 +33,7 @@ struct ExtractedAsbuiltFormFields: Codable {
     let panelNumbers: String?
     
     // Location/Notes
+    let locationDescription: String?
     let locationNote: String?
     let weatherComments: String?
     let notes: String?
@@ -71,6 +72,7 @@ struct ExtractedAsbuiltFormFields: Codable {
         case date
         case panelNumber
         case panelNumbers
+        case locationDescription
         case locationNote
         case weatherComments
         case notes
@@ -270,6 +272,7 @@ class FormExtractionService {
                     date: nil,
                     panelNumber: nil,
                     panelNumbers: nil,
+                    locationDescription: nil,
                     locationNote: nil,
                     weatherComments: nil,
                     notes: nil,

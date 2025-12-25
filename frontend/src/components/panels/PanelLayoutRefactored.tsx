@@ -20,6 +20,7 @@ interface PanelLayoutRefactoredProps {
     patches: boolean;
     destructs: boolean;
   };
+  cardinalDirection?: 'north' | 'south' | 'east' | 'west';
   onPanelUpdate?: (panelId: string, updates: Partial<Panel>) => Promise<void>;
   onPatchUpdate?: (patchId: string, updates: Partial<Patch>) => Promise<void>;
   onDestructiveTestUpdate?: (testId: string, updates: Partial<DestructiveTest>) => Promise<void>;
@@ -62,6 +63,7 @@ function PanelLayoutContent({
   patches = [],
   destructiveTests = [],
   visibleTypes = { panels: true, patches: false, destructs: false },
+  cardinalDirection = 'north',
   onPanelUpdate,
   onPatchUpdate,
   onDestructiveTestUpdate,
@@ -175,6 +177,7 @@ function PanelLayoutContent({
             patches={patches}
             destructiveTests={destructiveTests}
             visibleTypes={visibleTypes}
+            cardinalDirection={cardinalDirection}
             onPanelClick={handlePanelClick}
             onPanelDoubleClick={handlePanelDoubleClick}
             onPanelUpdate={handlePanelUpdate}

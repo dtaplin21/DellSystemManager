@@ -297,6 +297,12 @@ struct AsbuiltFormView: View {
         // Map extracted fields to form data based on form type
         switch formType {
         case .panelPlacement:
+            // Map locationDescription first, then fallback to locationNote
+            if let locationDesc = extracted.locationDescription {
+                formData["locationDescription"] = locationDesc
+            } else if let locationNote = extracted.locationNote {
+                formData["locationDescription"] = locationNote
+            }
             if let dateTime = extracted.dateTime { formData["dateTime"] = dateTime }
             if let panelNumber = extracted.panelNumber { formData["panelNumber"] = panelNumber }
             if let locationNote = extracted.locationNote { formData["locationNote"] = locationNote }
@@ -346,6 +352,12 @@ struct AsbuiltFormView: View {
             if let date = extracted.date { formData["date"] = date }
             if let repairId = extracted.repairId { formData["repairId"] = repairId }
             if let panelNumbers = extracted.panelNumbers { formData["panelNumbers"] = panelNumbers }
+            // Map locationDescription first, then fallback to typeDetailLocation
+            if let locationDesc = extracted.locationDescription {
+                formData["locationDescription"] = locationDesc
+            } else if let typeDetailLocation = extracted.typeDetailLocation {
+                formData["locationDescription"] = typeDetailLocation
+            }
             if let extruderNumber = extracted.extruderNumber { formData["extruderNumber"] = extruderNumber }
             if let operatorInitials = extracted.operatorInitials { formData["operatorInitials"] = operatorInitials }
             if let typeDetailLocation = extracted.typeDetailLocation { formData["typeDetailLocation"] = typeDetailLocation }

@@ -250,23 +250,43 @@ router.patch('/:id', auth, async (req, res, next) => {
       return res.status(400).json({ message: error.details[0].message });
     }
     
-    // Update project using direct PostgreSQL query with retry
-    const updateResult = await queryWithRetry(
-      `UPDATE projects 
-       SET name = $1, description = $2, status = $3, location = $4, updated_at = $5
-       WHERE id = $6 AND user_id = $7
-       RETURNING id, name, description, status, location, created_at, updated_at`,
-      [
-        updateData.name,
-        updateData.description,
-        updateData.status,
-        updateData.location,
-        new Date().toISOString(),
-        id,
-        req.user.id
-      ],
-      3
-    );
+    // Build dynamic update query to handle optional fields including cardinal_direction
+    const updateFields = [];
+    const updateValues = [];
+    let paramIndex = 1;
+    
+    if (updateData.name !== undefined) {
+      updateFields.push(`name = $${paramIndex++}`);
+      updateValues.push(updateData.name);
+    }
+    if (updateData.description !== undefined) {
+      updateFields.push(`description = $${paramIndex++}`);
+      updateValues.push(updateData.description);
+    }
+    if (updateData.status !== undefined) {
+      updateFields.push(`status = $${paramIndex++}`);
+      updateValues.push(updateData.status);
+    }
+    if (updateData.location !== undefined) {
+      updateFields.push(`location = $${paramIndex++}`);
+      updateValues.push(updateData.location);
+    }
+    if (updateData.cardinalDirection !== undefined) {
+      updateFields.push(`cardinal_direction = $${paramIndex++}`);
+      updateValues.push(updateData.cardinalDirection);
+    }
+    
+    updateFields.push(`updated_at = $${paramIndex++}`);
+    updateValues.push(new Date().toISOString());
+    
+    updateValues.push(id, req.user.id);
+    
+    const updateQuery = `UPDATE projects 
+       SET ${updateFields.join(', ')}
+       WHERE id = $${paramIndex++} AND user_id = $${paramIndex++}
+       RETURNING id, name, description, status, location, cardinal_direction, created_at, updated_at`;
+    
+    const updateResult = await queryWithRetry(updateQuery, updateValues, 3);
     
     if (updateResult.rows.length === 0) {
       console.error('Error updating project: No rows returned');

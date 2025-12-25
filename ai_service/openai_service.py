@@ -323,13 +323,20 @@ class OpenAIService:
 Look for and extract:
 - Date & Time (dateTime): Date and time of panel placement
 - Panel Number (panelNumber): Panel identifier/number
-- Location Note (locationNote): Location description or notes
+- Location Description (locationDescription): REQUIRED field describing where the panel is located. May include cardinal directions (North/South/East/West), panel references (e.g., "North of Panel P-5", "Between Panel P-5 and P-6"), or spatial descriptions
+- Location Note (locationNote): Additional location notes or comments
 - Weather Comments (weatherComments): Weather conditions or comments
+
+IMPORTANT: The Location Description field is REQUIRED and should capture detailed location information including:
+- Cardinal direction references (North, South, East, West)
+- Panel references (e.g., "Panel P-5", "between P-5 and P-6")
+- Spatial relationships (e.g., "north of", "south of", "between", "adjacent to")
 
 Return JSON with only the fields you can confidently detect:
 {
   "dateTime": "YYYY-MM-DDTHH:mm" or null,
   "panelNumber": "string or null",
+  "locationDescription": "string or null",
   "locationNote": "string or null",
   "weatherComments": "string or null"
 }
@@ -443,10 +450,16 @@ Look for and extract:
   Look for patterns like: "R-2", "R-15", "R-123", "R - 5", "r-10" (normalize to "R-{number}")
   If you see just a number without "R-" prefix, it is NOT a valid repair ID.
 - Panel Numbers (panelNumbers): Panel identifiers repaired
+- Location Description (locationDescription): REQUIRED field describing where the repair is located. May include cardinal directions (North/South/East/West), panel references (e.g., "North of Panel P-5", "Between Panel P-5 and P-6"), or spatial descriptions
 - Extruder Number (extruderNumber): Extruder machine identifier
 - Operator Initials (operatorInitials): Initials of repair operator
-- Type/Detail/Location (typeDetailLocation): Description of repair type, detail, and location
+- Type/Detail/Location (typeDetailLocation): Description of repair type, detail, and location (may contain location info if locationDescription is not separate)
 - VBox Result (vboxPassFail): "Pass" or "Fail"
+
+IMPORTANT: The Location Description field is REQUIRED and should capture detailed location information including:
+- Cardinal direction references (North, South, East, West)
+- Panel references (e.g., "Panel P-5", "between P-5 and P-6")
+- Spatial relationships (e.g., "north of", "south of", "between", "adjacent to")
 
 EXAMPLES FOR REPAIR ID:
 ✅ CORRECT: "R-2" → extract as "R-2"
@@ -462,6 +475,7 @@ Return JSON with only the fields you can confidently detect:
   "date": "YYYY-MM-DD" or null,
   "repairId": "string or null",
   "panelNumbers": "string or null",
+  "locationDescription": "string or null",
   "extruderNumber": "string or null",
   "operatorInitials": "string or null",
   "typeDetailLocation": "string or null",
