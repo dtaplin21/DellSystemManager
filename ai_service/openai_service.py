@@ -456,6 +456,22 @@ Look for and extract:
 - Type/Detail/Location (typeDetailLocation): Description of repair type, detail, and location (may contain location info if locationDescription is not separate)
 - VBox Result (vboxPassFail): "Pass" or "Fail"
 
+STRUCTURED LOCATION FIELDS (for better placement accuracy):
+- Placement Type (placementType): Determine if patch is on a single panel or on a seam between panels
+  - Extract as "single_panel" if location mentions only one panel or panel number
+  - Extract as "seam" if location mentions "between", "seam", "joint", or references two panels (e.g., "between P-5 and P-6")
+- Location Distance (locationDistance): Extract numeric distance value in feet
+  - Look for patterns like: "10 feet", "5 ft", "15'", "20 feet down", "12 feet from"
+  - Extract only the numeric value (e.g., "10 feet down" → 10)
+  - If no distance is mentioned, set to null
+- Location Direction (locationDirection): Extract cardinal direction relative to North as reference
+  - Extract as lowercase: "north", "south", "east", "west"
+  - Look for explicit directions: "North", "South", "East", "West"
+  - Interpret relative terms: "down" = "south" (when North is up), "up" = "north", "left" = "west", "right" = "east"
+  - Examples: "10 feet down from north side" → direction: "south", distance: 10
+  - Examples: "5 feet north" → direction: "north", distance: 5
+  - Examples: "Between Panel P-5 and P-6, 8 feet east" → placementType: "seam", direction: "east", distance: 8
+
 IMPORTANT: The Location Description field is REQUIRED and should capture detailed location information including:
 - Cardinal direction references (North, South, East, West)
 - Panel references (e.g., "Panel P-5", "between P-5 and P-6")
@@ -470,12 +486,22 @@ EXAMPLES FOR REPAIR ID:
 ❌ INCORRECT: "Repair 2" → do NOT extract (not in R-{number} format)
 ❌ INCORRECT: "R2" → do NOT extract (missing hyphen, not in R-{number} format)
 
+EXAMPLES FOR STRUCTURED LOCATION EXTRACTION:
+✅ "10 feet down from north side" → placementType: "single_panel", locationDistance: 10, locationDirection: "south"
+✅ "Between Panel P-5 and P-6, 5 feet north" → placementType: "seam", locationDistance: 5, locationDirection: "north"
+✅ "15 feet south of Panel P-3" → placementType: "single_panel", locationDistance: 15, locationDirection: "south"
+✅ "8 ft east along seam" → placementType: "seam", locationDistance: 8, locationDirection: "east"
+✅ "North of Panel P-5" → placementType: "single_panel", locationDistance: null, locationDirection: "north"
+
 Return JSON with only the fields you can confidently detect:
 {
   "date": "YYYY-MM-DD" or null,
   "repairId": "string or null",
   "panelNumbers": "string or null",
   "locationDescription": "string or null",
+  "placementType": "single_panel" | "seam" | null,
+  "locationDistance": number or null,
+  "locationDirection": "north" | "south" | "east" | "west" | null,
   "extruderNumber": "string or null",
   "operatorInitials": "string or null",
   "typeDetailLocation": "string or null",

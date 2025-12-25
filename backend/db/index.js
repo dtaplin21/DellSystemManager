@@ -722,6 +722,19 @@ async function applyMigrations() {
       });
     }
 
+    // Apply structured location migration
+    try {
+      const structuredLocationMigrationPath = path.join(__dirname, 'migrations', '012_add_structured_location.sql');
+      const structuredLocationSql = await fs.readFile(structuredLocationMigrationPath, 'utf8');
+      await client.query(structuredLocationSql);
+      logger.debug('Structured location migration applied');
+    } catch (structuredLocationErr) {
+      logger.warn('Structured location migration not applied', {
+        error: { message: structuredLocationErr.message },
+        hint: 'If permissions restrict file reads, run the SQL manually in the DB. The migration file is at backend/db/migrations/012_add_structured_location.sql'
+      });
+    }
+
     client.release();
     logger.info('Database migrations completed successfully');
   } catch (error) {

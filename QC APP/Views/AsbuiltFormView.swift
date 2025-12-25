@@ -93,15 +93,45 @@ struct AsbuiltFormView: View {
                 // Dynamic Form Fields
                 Section(header: Text("Form Information")) {
                     ForEach(fields, id: \.key) { field in
-                        FormFieldView(
-                            field: field,
-                            value: Binding(
-                                get: { getValue(for: field.key) },
-                                set: { setValue(for: field.key, value: $0) }
-                            ),
-                            validationError: validationErrors[field.key],
-                            isDisabled: isExtracting
-                        )
+                        // Special handling for locationDescription in repair forms - use structured view
+                        if formType == .repairs && field.key == "locationDescription" {
+                            StructuredLocationView(
+                                placementType: Binding(
+                                    get: { getValue(for: "placementType") },
+                                    set: { 
+                                        setValue(for: "placementType", value: $0)
+                                        updateLocationDescription()
+                                    }
+                                ),
+                                distance: Binding(
+                                    get: { getValue(for: "locationDistance") },
+                                    set: { 
+                                        setValue(for: "locationDistance", value: $0)
+                                        updateLocationDescription()
+                                    }
+                                ),
+                                direction: Binding(
+                                    get: { getValue(for: "locationDirection") },
+                                    set: { 
+                                        setValue(for: "locationDirection", value: $0)
+                                        updateLocationDescription()
+                                    }
+                                ),
+                                panelNumbers: getValue(for: "panelNumbers"),
+                                validationErrors: validationErrors,
+                                isDisabled: isExtracting
+                            )
+                        } else {
+                            FormFieldView(
+                                field: field,
+                                value: Binding(
+                                    get: { getValue(for: field.key) },
+                                    set: { setValue(for: field.key, value: $0) }
+                                ),
+                                validationError: validationErrors[field.key],
+                                isDisabled: isExtracting
+                            )
+                        }
                     }
                 }
                 .disabled(isExtracting)
@@ -181,6 +211,43 @@ struct AsbuiltFormView: View {
         validationErrors.removeValue(forKey: key)
     }
     
+    // MARK: - Location Description Generation
+    private func updateLocationDescription() {
+        guard formType == .repairs else { return }
+        
+        let placementType = getValue(for: "placementType")
+        let distanceStr = getValue(for: "locationDistance")
+        let direction = getValue(for: "locationDirection")
+        let panelNumbers = getValue(for: "panelNumbers")
+        
+        guard !placementType.isEmpty, !distanceStr.isEmpty, !direction.isEmpty, !panelNumbers.isEmpty else {
+            // Clear locationDescription if fields are incomplete
+            formData.removeValue(forKey: "locationDescription")
+            return
+        }
+        
+        guard let distance = Double(distanceStr) else {
+            formData.removeValue(forKey: "locationDescription")
+            return
+        }
+        
+        // Generate formatted location description
+        let formattedDescription: String
+        if placementType == "Seam Between Panels" {
+            // Parse panel numbers to get two panels for seam
+            let panels = panelNumbers.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+            if panels.count >= 2 {
+                formattedDescription = "\(Int(distance)) feet \(direction) along seam between \(panels[0]) and \(panels[1])"
+            } else {
+                formattedDescription = "\(Int(distance)) feet \(direction) along seam between panels"
+            }
+        } else {
+            formattedDescription = "\(Int(distance)) feet \(direction) from \(panelNumbers)"
+        }
+        
+        formData["locationDescription"] = formattedDescription
+    }
+    
     // MARK: - Validation
     private func validateForm() -> Bool {
         validationErrors = [:]
@@ -193,6 +260,26 @@ struct AsbuiltFormView: View {
                     validationErrors[field.key] = "\(field.label) is required"
                     isValid = false
                 }
+            }
+        }
+        
+        // Special validation for repair forms: ensure structured location fields are filled
+        if formType == .repairs {
+            let placementType = getValue(for: "placementType")
+            let distance = getValue(for: "locationDistance")
+            let direction = getValue(for: "locationDirection")
+            
+            if placementType.isEmpty {
+                validationErrors["placementType"] = "Placement Type is required"
+                isValid = false
+            }
+            if distance.isEmpty {
+                validationErrors["locationDistance"] = "Distance is required"
+                isValid = false
+            }
+            if direction.isEmpty {
+                validationErrors["locationDirection"] = "Direction is required"
+                isValid = false
             }
         }
         
@@ -352,12 +439,35 @@ struct AsbuiltFormView: View {
             if let date = extracted.date { formData["date"] = date }
             if let repairId = extracted.repairId { formData["repairId"] = repairId }
             if let panelNumbers = extracted.panelNumbers { formData["panelNumbers"] = panelNumbers }
-            // Map locationDescription first, then fallback to typeDetailLocation
+            
+            // Map structured location fields if available
+            if let placementType = extracted.placementType {
+                // Convert "single_panel" to "Single Panel", "seam" to "Seam Between Panels"
+                let displayPlacementType = placementType == "single_panel" ? "Single Panel" : 
+                                         placementType == "seam" ? "Seam Between Panels" : placementType
+                formData["placementType"] = displayPlacementType
+            }
+            if let distance = extracted.locationDistance {
+                formData["locationDistance"] = distance
+            }
+            if let direction = extracted.locationDirection {
+                // Capitalize first letter: "north" -> "North"
+                let capitalizedDirection = direction.prefix(1).uppercased() + direction.dropFirst()
+                formData["locationDirection"] = capitalizedDirection
+            }
+            
+            // Map locationDescription (for backward compatibility and AI extraction)
             if let locationDesc = extracted.locationDescription {
                 formData["locationDescription"] = locationDesc
             } else if let typeDetailLocation = extracted.typeDetailLocation {
                 formData["locationDescription"] = typeDetailLocation
             }
+            
+            // Generate locationDescription from structured fields if all are present
+            if formData["placementType"] != nil && formData["locationDistance"] != nil && formData["locationDirection"] != nil {
+                updateLocationDescription()
+            }
+            
             if let extruderNumber = extracted.extruderNumber { formData["extruderNumber"] = extruderNumber }
             if let operatorInitials = extracted.operatorInitials { formData["operatorInitials"] = operatorInitials }
             if let typeDetailLocation = extracted.typeDetailLocation { formData["typeDetailLocation"] = typeDetailLocation }
@@ -502,6 +612,101 @@ struct FormFieldView: View {
             formatter.dateFormat = "yyyy-MM-dd"
         }
         return formatter.string(from: date)
+    }
+}
+
+// MARK: - Structured Location View
+struct StructuredLocationView: View {
+    @Binding var placementType: String
+    @Binding var distance: String
+    @Binding var direction: String
+    let panelNumbers: String
+    let validationErrors: [String: String]
+    let isDisabled: Bool
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Location Description")
+                .font(.subheadline)
+                + Text(" *")
+                .foregroundColor(.red)
+            
+            // Placement Type
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Placement Type")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Picker("Placement Type", selection: $placementType) {
+                    Text("Select...").tag("")
+                    Text("Single Panel").tag("Single Panel")
+                    Text("Seam Between Panels").tag("Seam Between Panels")
+                }
+                .pickerStyle(.menu)
+                .disabled(isDisabled)
+                .opacity(isDisabled ? 0.6 : 1.0)
+                if let error = validationErrors["placementType"] {
+                    Text(error)
+                        .foregroundColor(.red)
+                        .font(.caption)
+                }
+            }
+            
+            // Distance and Direction Row
+            HStack(spacing: 12) {
+                // Distance
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Distance (feet)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    TextField("0", text: $distance)
+                        .keyboardType(.decimalPad)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .disabled(isDisabled)
+                        .opacity(isDisabled ? 0.6 : 1.0)
+                    if let error = validationErrors["locationDistance"] {
+                        Text(error)
+                            .foregroundColor(.red)
+                            .font(.caption)
+                    }
+                }
+                
+                // Direction
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Direction")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Picker("Direction", selection: $direction) {
+                        Text("Select...").tag("")
+                        Text("North").tag("North")
+                        Text("South").tag("South")
+                        Text("East").tag("East")
+                        Text("West").tag("West")
+                    }
+                    .pickerStyle(.menu)
+                    .disabled(isDisabled)
+                    .opacity(isDisabled ? 0.6 : 1.0)
+                    if let error = validationErrors["locationDirection"] {
+                        Text(error)
+                            .foregroundColor(.red)
+                            .font(.caption)
+                    }
+                }
+            }
+            
+            // Helper text
+            if !panelNumbers.isEmpty {
+                Text("Using North as reference: \(distance.isEmpty ? "?" : distance) feet \(direction.isEmpty ? "?" : direction) from \(panelNumbers)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .padding(.top, 4)
+            } else {
+                Text("Enter panel numbers above to see location preview")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .padding(.top, 4)
+            }
+        }
+        .padding(.vertical, 4)
     }
 }
 

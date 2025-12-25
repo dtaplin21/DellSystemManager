@@ -27,14 +27,56 @@ class AsbuiltService {
         requiresReview,
         createdBy,
         source = 'import', // Default to 'import', can be 'mobile', 'web', or 'import'
-        locationDescription // New field for location description
+        locationDescription, // Combined formatted string
+        placementType, // Structured: "single_panel" or "seam"
+        locationDistance, // Structured: distance in feet
+        locationDirection // Structured: "north", "south", "east", "west"
       } = recordData;
+
+      // Generate locationDescription from structured fields if not provided
+      let finalLocationDescription = locationDescription;
+      if (!finalLocationDescription && placementType && locationDistance && locationDirection) {
+        const panelNumbers = mappedData?.panelNumbers || mappedData?.panelNumber || panelId || '';
+        const distance = Math.round(locationDistance);
+        const direction = locationDirection.charAt(0).toUpperCase() + locationDirection.slice(1).toLowerCase();
+        
+        if (placementType === 'seam' || placementType === 'Seam Between Panels') {
+          // Parse panel numbers for seam
+          const panels = panelNumbers.split(',').map(p => p.trim()).filter(p => p);
+          if (panels.length >= 2) {
+            finalLocationDescription = `${distance} feet ${direction} along seam between ${panels[0]} and ${panels[1]}`;
+          } else {
+            finalLocationDescription = `${distance} feet ${direction} along seam between panels`;
+          }
+        } else {
+          finalLocationDescription = `${distance} feet ${direction} from ${panelNumbers}`;
+        }
+      }
+
+      // Normalize placementType: "Single Panel" -> "single_panel", "Seam Between Panels" -> "seam"
+      let normalizedPlacementType = null;
+      if (placementType) {
+        if (placementType === 'Single Panel' || placementType === 'single_panel') {
+          normalizedPlacementType = 'single_panel';
+        } else if (placementType === 'Seam Between Panels' || placementType === 'seam') {
+          normalizedPlacementType = 'seam';
+        } else {
+          normalizedPlacementType = placementType.toLowerCase().replace(/\s+/g, '_');
+        }
+      }
+
+      // Normalize locationDirection: "North" -> "north"
+      let normalizedDirection = null;
+      if (locationDirection) {
+        normalizedDirection = locationDirection.toLowerCase();
+      }
 
       const query = `
         INSERT INTO asbuilt_records (
           id, project_id, panel_id, domain, source_doc_id, 
-          raw_data, mapped_data, ai_confidence, requires_review, created_by, source, status, location_description
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+          raw_data, mapped_data, ai_confidence, requires_review, created_by, source, status, 
+          location_description, placement_type, location_distance, location_direction
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
         RETURNING *
       `;
 
@@ -51,7 +93,10 @@ class AsbuiltService {
         createdBy,
         source,
         'pending', // New forms start as pending
-        locationDescription || null // Location description from form
+        finalLocationDescription || null,
+        normalizedPlacementType,
+        locationDistance || null,
+        normalizedDirection
       ];
 
       const result = await client.query(query, values);

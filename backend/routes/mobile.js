@@ -543,12 +543,20 @@ router.post('/upload-defect/:projectId', auth, upload.single('image'), async (re
           logger.info('[MOBILE] Using generated panel ID', { panelId });
         }
         
-        // Extract location description from form data
+        // Extract location description from form data (for backward compatibility)
         const locationDescription = parsedFormData.locationDescription || 
                                    parsedFormData.locationNote || 
                                    parsedFormData.typeDetailLocation || 
                                    parsedFormData.location || 
                                    null;
+        
+        // Extract structured location fields (for repair forms)
+        const placementType = parsedFormData.placementType || null;
+        const locationDistance = parsedFormData.locationDistance ? 
+          (typeof parsedFormData.locationDistance === 'string' ? 
+            parseFloat(parsedFormData.locationDistance) : 
+            parsedFormData.locationDistance) : null;
+        const locationDirection = parsedFormData.locationDirection || null;
         
         // Create asbuilt record with source='mobile'
         const record = await asbuiltService.createRecord({
@@ -562,7 +570,10 @@ router.post('/upload-defect/:projectId', auth, upload.single('image'), async (re
           requiresReview: false,
           createdBy: req.user.id,
           source: 'mobile', // Mark as mobile app submission
-          locationDescription // Include location description
+          locationDescription, // Combined formatted string
+          placementType, // Structured: "Single Panel" or "Seam Between Panels"
+          locationDistance, // Structured: distance in feet
+          locationDirection // Structured: "North", "South", "East", "West"
         });
         
         asbuiltRecordId = record.id;

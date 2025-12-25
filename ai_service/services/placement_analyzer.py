@@ -26,6 +26,8 @@ class PlacementAnalyzer:
     def analyze_form_location(self, form_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Extract location hints from form data, including cardinal direction references.
+        Prioritizes structured location fields (placementType, locationDistance, locationDirection)
+        over text parsing for better accuracy.
         
         Args:
             form_data: Form mapped_data dictionary
@@ -38,10 +40,46 @@ class PlacementAnalyzer:
             "panel_references": [],
             "location_description": None,
             "spatial_references": [],
-            "cardinal_directions": []
+            "cardinal_directions": [],
+            "placement_type": None,
+            "location_distance": None,
+            "location_direction": None
         }
         
-        # Check for explicit coordinates in locationDescription, locationNote, or typeDetailLocation
+        # PRIORITY 1: Check for structured location fields (preferred method)
+        placement_type = form_data.get("placementType") or form_data.get("placement_type")
+        location_distance = form_data.get("locationDistance") or form_data.get("location_distance")
+        location_direction = form_data.get("locationDirection") or form_data.get("location_direction")
+        
+        if placement_type or location_distance or location_direction:
+            # Normalize placement_type
+            if placement_type:
+                if placement_type.lower() in ["single panel", "single_panel"]:
+                    hints["placement_type"] = "single_panel"
+                elif placement_type.lower() in ["seam between panels", "seam"]:
+                    hints["placement_type"] = "seam"
+                else:
+                    hints["placement_type"] = placement_type.lower().replace(" ", "_")
+            
+            # Store structured fields
+            if location_distance:
+                try:
+                    hints["location_distance"] = float(location_distance)
+                except (ValueError, TypeError):
+                    pass
+            
+            if location_direction:
+                # Normalize direction to lowercase
+                direction = str(location_direction).lower()
+                if direction in ["north", "south", "east", "west"]:
+                    hints["location_direction"] = direction
+                    hints["cardinal_directions"].append(direction)
+                elif direction in ["n", "s", "e", "w"]:
+                    direction_map = {"n": "north", "s": "south", "e": "east", "w": "west"}
+                    hints["location_direction"] = direction_map[direction]
+                    hints["cardinal_directions"].append(direction_map[direction])
+        
+        # PRIORITY 2: Check for explicit coordinates in locationDescription, locationNote, or typeDetailLocation
         location_fields = [
             form_data.get("locationDescription"),
             form_data.get("locationNote"),

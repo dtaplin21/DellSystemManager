@@ -62,6 +62,11 @@ struct ExtractedAsbuiltFormFields: Codable {
     let extruderNumber: String?
     let typeDetailLocation: String?
     
+    // Structured location fields
+    let placementType: String?
+    let locationDistance: Double?
+    let locationDirection: String?
+    
     // Testing fields
     let sampleId: String?
     let passFail: String?
@@ -94,6 +99,9 @@ struct ExtractedAsbuiltFormFields: Codable {
         case repairId
         case extruderNumber
         case typeDetailLocation
+        case placementType
+        case locationDistance
+        case locationDirection
         case sampleId
         case passFail
         case ambientTemp
@@ -294,6 +302,9 @@ class FormExtractionService {
                     repairId: nil,
                     extruderNumber: nil,
                     typeDetailLocation: nil,
+                    placementType: nil,
+                    locationDistance: nil,
+                    locationDirection: nil,
                     sampleId: nil,
                     passFail: nil,
                     ambientTemp: nil

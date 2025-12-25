@@ -202,13 +202,52 @@ export function PatchMiniSidebarContent({
               </div>
             )}
 
-            {/* Location Description */}
-            {getFieldValue(formData, 'locationDescription', 'location_description') && (
+            {/* Location Description - Show structured fields if available, otherwise show text */}
+            {(getFieldValue(formData, 'placementType', 'placement_type') || 
+              getFieldValue(formData, 'locationDistance', 'location_distance') || 
+              getFieldValue(formData, 'locationDirection', 'location_direction') ||
+              getFieldValue(formData, 'locationDescription', 'location_description')) && (
               <div className="bg-gray-50 p-2 rounded">
                 <div className="text-gray-500 text-xs mb-1">Location Description</div>
-                <div className="font-medium text-xs">
-                  {getFieldValue(formData, 'locationDescription', 'location_description')}
-                </div>
+                {getFieldValue(formData, 'placementType', 'placement_type') || 
+                 getFieldValue(formData, 'locationDistance', 'location_distance') || 
+                 getFieldValue(formData, 'locationDirection', 'location_direction') ? (
+                  // Show structured location fields
+                  <div className="font-medium text-xs space-y-1">
+                    {getFieldValue(formData, 'placementType', 'placement_type') && (
+                      <div>
+                        <span className="text-gray-500">Placement: </span>
+                        {getFieldValue(formData, 'placementType', 'placement_type') === 'single_panel' || 
+                         getFieldValue(formData, 'placementType', 'placement_type') === 'Single Panel' 
+                          ? 'Single Panel' 
+                          : getFieldValue(formData, 'placementType', 'placement_type') === 'seam' || 
+                            getFieldValue(formData, 'placementType', 'placement_type') === 'Seam Between Panels'
+                          ? 'Seam Between Panels'
+                          : getFieldValue(formData, 'placementType', 'placement_type')}
+                      </div>
+                    )}
+                    {getFieldValue(formData, 'locationDistance', 'location_distance') && 
+                     getFieldValue(formData, 'locationDirection', 'location_direction') && (
+                      <div>
+                        <span className="text-gray-500">Position: </span>
+                        {Math.round(Number(getFieldValue(formData, 'locationDistance', 'location_distance')))} feet{' '}
+                        {String(getFieldValue(formData, 'locationDirection', 'location_direction'))
+                          .charAt(0).toUpperCase() + 
+                         String(getFieldValue(formData, 'locationDirection', 'location_direction')).slice(1).toLowerCase()}
+                      </div>
+                    )}
+                    {getFieldValue(formData, 'locationDescription', 'location_description') && (
+                      <div className="text-gray-400 text-xs mt-1 italic">
+                        {getFieldValue(formData, 'locationDescription', 'location_description')}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  // Fallback to text description
+                  <div className="font-medium text-xs">
+                    {getFieldValue(formData, 'locationDescription', 'location_description')}
+                  </div>
+                )}
               </div>
             )}
 
