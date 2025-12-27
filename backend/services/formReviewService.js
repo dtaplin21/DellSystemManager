@@ -307,6 +307,21 @@ class FormReviewService {
           
           if (isEnabled) {
             console.log(`[FORM_REVIEW] Auto-creation enabled, triggering automation for form ${recordId}`);
+            
+            // Check if form has required location data (for repair/destructive forms)
+            const domain = approvedForm.domain;
+            if (domain === 'repairs' || domain === 'destructive') {
+              const hasRequiredData = formAutomationService.hasRequiredLocationData(approvedForm);
+              if (!hasRequiredData) {
+                console.log(`[FORM_REVIEW] Skipping automation - form ${recordId} missing required location data`, {
+                  formId: recordId,
+                  domain,
+                  reason: 'Missing structured location fields (placementType, locationDistance, locationDirection, panelNumbers)'
+                });
+                return; // Don't proceed with automation
+              }
+            }
+            
             const automationResult = await formAutomationService.automateFromForm(
               approvedForm,
               projectId,

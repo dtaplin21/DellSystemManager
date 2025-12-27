@@ -486,6 +486,37 @@ class AIServiceIntegration:
                         "error": f"Unknown domain: {domain}"
                     }
             
+            # Validate required location data for patch-creating forms
+            domain = form_record.get('domain')
+            if domain in ['repairs', 'destructive']:
+                mapped_data = form_record.get('mapped_data', {})
+                if isinstance(mapped_data, str):
+                    try:
+                        mapped_data = json.loads(mapped_data)
+                    except:
+                        mapped_data = {}
+                
+                has_placement_type = bool(mapped_data.get("placementType") or mapped_data.get("placement_type"))
+                has_distance = mapped_data.get("locationDistance") is not None or mapped_data.get("location_distance") is not None
+                has_direction = bool(mapped_data.get("locationDirection") or mapped_data.get("location_direction"))
+                has_panel_numbers = bool(mapped_data.get("panelNumbers") or mapped_data.get("panel_numbers"))
+                
+                if not (has_placement_type and has_distance and has_direction and has_panel_numbers):
+                    logger.warning(f"Skipping workflow - missing required location data for form {form_record.get('id')}", {
+                        "form_id": form_record.get('id'),
+                        "domain": domain,
+                        "has_placement_type": has_placement_type,
+                        "has_distance": has_distance,
+                        "has_direction": has_direction,
+                        "has_panel_numbers": has_panel_numbers
+                    })
+                    return {
+                        "success": False,
+                        "skipped": True,
+                        "error": "Missing required structured location fields. Form must have placementType, locationDistance, locationDirection, and panelNumbers to automatically create patches.",
+                        "item_type": item_type
+                    }
+            
             # Get frontend URL for panel layout
             frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
             panel_layout_url = f"{frontend_url}/dashboard/projects/{project_id}/panel-layout"
@@ -756,6 +787,27 @@ class AIServiceIntegration:
                             }
                         }
                     elif item_type == 'patch':
+                        # Validate required structured location fields before creating patch
+                        has_placement_type = bool(mapped_data.get('placementType') or mapped_data.get('placement_type'))
+                        has_distance = mapped_data.get('locationDistance') is not None or mapped_data.get('location_distance') is not None
+                        has_direction = bool(mapped_data.get('locationDirection') or mapped_data.get('location_direction'))
+                        has_panel_numbers = bool(mapped_data.get('panelNumbers') or mapped_data.get('panel_numbers'))
+                        
+                        if not (has_placement_type and has_distance and has_direction and has_panel_numbers):
+                            logger.warning(f"Cannot create patch - missing required structured location fields", {
+                                "form_id": form_record.get('id'),
+                                "has_placement_type": has_placement_type,
+                                "has_distance": has_distance,
+                                "has_direction": has_direction,
+                                "has_panel_numbers": has_panel_numbers
+                            })
+                            return {
+                                "success": False,
+                                "error": "Missing required structured location fields. Form must have placementType, locationDistance, locationDirection, and panelNumbers to create patches.",
+                                "item_type": item_type,
+                                "form_id": form_record.get('id')
+                            }
+                        
                         # Use structured location description if available, otherwise fall back to text
                         location_value = (
                             mapped_data.get('locationDescription') or 
@@ -805,6 +857,27 @@ class AIServiceIntegration:
                             }
                         }
                     elif item_type == 'destructive_test':
+                        # Validate required structured location fields before creating destructive test (which may create patches)
+                        has_placement_type = bool(mapped_data.get('placementType') or mapped_data.get('placement_type'))
+                        has_distance = mapped_data.get('locationDistance') is not None or mapped_data.get('location_distance') is not None
+                        has_direction = bool(mapped_data.get('locationDirection') or mapped_data.get('location_direction'))
+                        has_panel_numbers = bool(mapped_data.get('panelNumbers') or mapped_data.get('panel_numbers'))
+                        
+                        if not (has_placement_type and has_distance and has_direction and has_panel_numbers):
+                            logger.warning(f"Cannot create destructive test - missing required structured location fields", {
+                                "form_id": form_record.get('id'),
+                                "has_placement_type": has_placement_type,
+                                "has_distance": has_distance,
+                                "has_direction": has_direction,
+                                "has_panel_numbers": has_panel_numbers
+                            })
+                            return {
+                                "success": False,
+                                "error": "Missing required structured location fields. Form must have placementType, locationDistance, locationDirection, and panelNumbers to create patches from destructive tests.",
+                                "item_type": item_type,
+                                "form_id": form_record.get('id')
+                            }
+                        
                         # Use structured location description if available
                         location_value = (
                             mapped_data.get('locationDescription') or 

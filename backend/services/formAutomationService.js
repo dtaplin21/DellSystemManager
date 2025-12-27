@@ -32,6 +32,43 @@ class FormAutomationService {
   }
 
   /**
+   * Check if form has all required structured location data for patch creation
+   * Required fields: placementType, locationDistance, locationDirection, panelNumbers
+   */
+  hasRequiredLocationData(formRecord) {
+    const domain = formRecord.domain;
+    
+    // Only repair and destructive forms require structured location data for patches
+    if (domain !== 'repairs' && domain !== 'destructive') {
+      return true; // Not a patch-creating form, no validation needed
+    }
+    
+    const mappedData = formRecord.mapped_data || {};
+    
+    // Check for all required structured location fields
+    const hasPlacementType = mappedData.placementType || mappedData.placement_type;
+    const hasDistance = mappedData.locationDistance !== undefined && mappedData.locationDistance !== null ||
+                       mappedData.location_distance !== undefined && mappedData.location_distance !== null;
+    const hasDirection = mappedData.locationDirection || mappedData.location_direction;
+    const hasPanelNumbers = mappedData.panelNumbers || mappedData.panel_numbers;
+    
+    const isValid = !!(hasPlacementType && hasDistance && hasDirection && hasPanelNumbers);
+    
+    if (!isValid) {
+      logger.info(`[FORM_AUTOMATION] Missing required location data for form ${formRecord.id}`, {
+        formId: formRecord.id,
+        domain,
+        hasPlacementType: !!hasPlacementType,
+        hasDistance,
+        hasDirection: !!hasDirection,
+        hasPanelNumbers: !!hasPanelNumbers
+      });
+    }
+    
+    return isValid;
+  }
+
+  /**
    * Extract positioning data from form (legacy method - kept for backward compatibility)
    * @deprecated Use analyzePlacement() instead for AI-powered placement
    */
@@ -167,6 +204,22 @@ class FormAutomationService {
         projectId,
         userId
       });
+
+      // Validate required location data for patch-creating forms
+      if (!this.hasRequiredLocationData(formRecord)) {
+        logger.warn(`[FORM_AUTOMATION] Skipping automation - missing required location data`, {
+          formId: formRecord.id,
+          domain,
+          itemType,
+          reason: 'Missing required structured location fields (placementType, locationDistance, locationDirection, panelNumbers)'
+        });
+        return {
+          success: false,
+          skipped: true,
+          reason: 'Missing required structured location fields. Form must have placementType, locationDistance, locationDirection, and panelNumbers to automatically create patches.',
+          itemType
+        };
+      }
 
       // Analyze placement using AI service (async, don't block)
       // The AI service will handle placement analysis as part of the workflow

@@ -103,9 +103,9 @@ def get_form_review_workflow() -> WorkflowBlueprint:
         tasks=[
             WorkflowTaskTemplate(
                 id="review-form-data",
-                description="Review the uploaded form data. Validate that all required fields are present, check data quality, identify the form type (panel_placement, repairs, destructive, etc.), and assess if the form is ready for automation.",
+                description="Review the uploaded form data. Validate that all required fields are present, check data quality, identify the form type (panel_placement, repairs, destructive, etc.), and assess if the form is ready for automation. CRITICAL: For repair forms (repairs domain) and destructive test forms (destructive domain), verify that ALL structured location fields are present: placementType (single_panel or seam), locationDistance (numeric, feet), locationDirection (north/south/east/west), and panelNumbers (comma-separated panel identifiers). If any of these fields are missing, mark the form as NOT ready for automation and provide a clear error message listing the missing fields.",
                 agent="form_reviewer",
-                expected_output="Form validation report with completeness status, identified form type, missing fields (if any), and readiness assessment",
+                expected_output="Form validation report with completeness status, identified form type, missing fields (if any), readiness assessment, and validation of structured location fields for patch-creating forms",
                 context_keys=["form_record", "payload"],
             ),
                 WorkflowTaskTemplate(
@@ -124,9 +124,9 @@ def get_form_review_workflow() -> WorkflowBlueprint:
             ),
             WorkflowTaskTemplate(
                 id="create-item",
-                description="Click the 'Add' button to open the creation modal. Fill all form fields with data from the form record, including coordinates from placement analysis. OPTION 1 (Preferred): Use click_canvas_coordinates action to click at the calculated x,y coordinates on the canvas, then fill the modal that appears. OPTION 2: Fill form fields including x and y coordinate inputs directly. Map structured location fields: placementType, locationDistance, locationDirection to form fields if supported. Map calculated x,y coordinates to coordinate inputs. Map locationDescription to description/notes field. Handle different field types (text, number, date, select, textarea). For patches: include repairId, vboxPassFail. For destructive tests: include sampleId, passFail. Submit the form and wait for confirmation.",
+                description="Click the 'Add' button to open the creation modal. Fill all form fields with data from the form record, including coordinates from placement analysis. VALIDATION: Before creating patches, verify that structured location data is present (placementType, locationDistance, locationDirection, panelNumbers). If missing, do not create the patch and return an error. OPTION 1 (Preferred): Use click_canvas_coordinates action to click at the calculated x,y coordinates on the canvas, then fill the modal that appears. OPTION 2: Fill form fields including x and y coordinate inputs directly. Map structured location fields: placementType, locationDistance, locationDirection to form fields if supported. Map calculated x,y coordinates to coordinate inputs. Map locationDescription to description/notes field. Handle different field types (text, number, date, select, textarea). For patches: include repairId, vboxPassFail. For destructive tests: include sampleId, passFail. Submit the form and wait for confirmation.",
                 agent="item_creator",
-                expected_output="Item creation report with success status, filled fields, coordinates used, placement method (canvas_click or form_input), and any errors encountered",
+                expected_output="Item creation report with success status, filled fields, coordinates used, placement method (canvas_click or form_input), validation status of structured location data, and any errors encountered",
                 context_keys=["form_record", "placement_coordinates", "item_type", "structured_location"],
             ),
             WorkflowTaskTemplate(
