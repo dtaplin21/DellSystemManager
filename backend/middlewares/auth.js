@@ -6,13 +6,19 @@ const DEV_BYPASS_HEADER = 'x-dev-bypass';
 
 const auth = async (req, res, next) => {
   try {
+    // Check for development bypass header (case-insensitive)
+    const bypassHeader = req.headers['x-dev-bypass'] || req.headers['X-Dev-Bypass'] || req.headers['X-DEV-BYPASS'];
+    
     logger.debug('[AUTH] Middleware invoked', {
       method: req.method,
       path: req.path,
-      hasAuthorizationHeader: Boolean(req.headers?.authorization)
+      hasAuthorizationHeader: Boolean(req.headers?.authorization),
+      hasDevBypass: Boolean(bypassHeader),
+      devBypassValue: bypassHeader,
+      isDevelopment: config.isDevelopment
     });
     
-    if (config.isDevelopment && req.headers[DEV_BYPASS_HEADER] === 'true') {
+    if (config.isDevelopment && bypassHeader === 'true') {
       logger.warn('[AUTH] Development bypass enabled - using mock authentication');
       try {
         // Try to get any user from the database first with retry logic
@@ -34,7 +40,7 @@ const auth = async (req, res, next) => {
             profileImageUrl: null
           };
           logger.debug('[AUTH] Development bypass using real user ID from database', { userId: req.user.id });
-          return next();
+          return next(); // CRITICAL: Return here to prevent Supabase call
         }
       } catch (error) {
         logger.warn('[AUTH] Development bypass failed to fetch user from database', {
@@ -57,7 +63,7 @@ const auth = async (req, res, next) => {
         profileImageUrl: null
       };
       logger.debug('[AUTH] Development bypass using fallback UUID', { userId: req.user.id });
-      return next();
+      return next(); // CRITICAL: Return here to prevent Supabase call
     }
     
     const authorizationHeader = req.headers?.authorization;
@@ -78,17 +84,61 @@ const auth = async (req, res, next) => {
       });
     }
     
-    const { data: { user: supabaseUser }, error } = await supabase.auth.getUser(token);
+    let supabaseUser;
+    let supabaseError;
     
-    if (error) {
-      if (error.message.includes('expired')) {
+    try {
+      const result = await supabase.auth.getUser(token);
+      supabaseUser = result.data?.user;
+      supabaseError = result.error;
+    } catch (fetchError) {
+      // Handle network/timeout errors
+      const isTimeoutError = fetchError.message?.includes('timeout') || 
+                            fetchError.message?.includes('fetch failed') ||
+                            fetchError.code === 'UND_ERR_CONNECT_TIMEOUT' ||
+                            fetchError.cause?.code === 'UND_ERR_CONNECT_TIMEOUT';
+      
+      if (isTimeoutError) {
+        logger.error('[AUTH] Supabase connection timeout - this may be a network issue', {
+          error: fetchError.message,
+          code: fetchError.code,
+          cause: fetchError.cause
+        });
+        
+        // In development, fall back to bypass if Supabase is unreachable
+        if (config.isDevelopment) {
+          logger.warn('[AUTH] Falling back to development bypass due to Supabase timeout');
+          req.user = {
+            id: '00000000-0000-0000-0000-000000000001',
+            email: 'dev@example.com',
+            displayName: 'Development User',
+            company: 'Development Company',
+            subscription: 'premium',
+            isAdmin: true,
+            profileImageUrl: null
+          };
+          return next();
+        }
+        
+        return res.status(503).json({
+          message: 'Authentication service unavailable. Please try again later.',
+          code: 'AUTH_SERVICE_UNAVAILABLE'
+        });
+      }
+      
+      // Re-throw other fetch errors
+      throw fetchError;
+    }
+    
+    if (supabaseError) {
+      if (supabaseError.message?.includes('expired')) {
         return res.status(401).json({
           message: 'Token expired. Please refresh your session.',
           code: 'TOKEN_EXPIRED'
         });
       }
       
-      if (error.message.includes('invalid')) {
+      if (supabaseError.message?.includes('invalid')) {
         return res.status(401).json({
           message: 'Invalid token. Please log in again.',
           code: 'INVALID_TOKEN'
