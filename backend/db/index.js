@@ -748,6 +748,19 @@ async function applyMigrations() {
       });
     }
 
+    // Apply automation trigger timing migration
+    try {
+      const automationTriggerTimingMigrationPath = path.join(__dirname, 'migrations', '013_add_automation_trigger_timing.sql');
+      const automationTriggerTimingSql = await fs.readFile(automationTriggerTimingMigrationPath, 'utf8');
+      await client.query(automationTriggerTimingSql);
+      logger.debug('Automation trigger timing migration applied');
+    } catch (automationTriggerTimingErr) {
+      logger.warn('Automation trigger timing migration not applied', {
+        error: { message: automationTriggerTimingErr.message },
+        hint: 'If permissions restrict file reads, run the SQL manually in the DB. The migration file is at backend/db/migrations/013_add_automation_trigger_timing.sql'
+      });
+    }
+
     client.release();
     logger.info('Database migrations completed successfully');
   } catch (error) {

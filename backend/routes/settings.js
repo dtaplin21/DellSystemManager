@@ -82,7 +82,8 @@ router.get('/', auth, async (req, res, next) => {
       success: true,
       settings: {
         autoCreateFromForms: settings.autoCreateFromForms,
-        autoCreateProjectIds: settings.autoCreateProjectIds || []
+        autoCreateProjectIds: settings.autoCreateProjectIds || [],
+        automationTriggerTiming: settings.automationTriggerTiming || 'approval'
       }
     });
   } catch (error) {
@@ -105,7 +106,15 @@ router.get('/', auth, async (req, res, next) => {
 router.put('/', auth, async (req, res, next) => {
   try {
     const userId = req.user.id;
-    const { autoCreateFromForms, autoCreateProjectIds } = req.body;
+    const { autoCreateFromForms, autoCreateProjectIds, automationTriggerTiming } = req.body;
+
+    // Validate automationTriggerTiming
+    if (automationTriggerTiming && !['upload', 'approval'].includes(automationTriggerTiming)) {
+      return res.status(400).json({
+        success: false,
+        error: 'automationTriggerTiming must be either "upload" or "approval"'
+      });
+    }
 
     // Check if settings exist
     let [existingSettings] = await db
@@ -122,6 +131,7 @@ router.put('/', auth, async (req, res, next) => {
         .set({
           autoCreateFromForms: autoCreateFromForms !== undefined ? autoCreateFromForms : existingSettings.autoCreateFromForms,
           autoCreateProjectIds: autoCreateProjectIds !== undefined ? autoCreateProjectIds : existingSettings.autoCreateProjectIds,
+          automationTriggerTiming: automationTriggerTiming !== undefined ? automationTriggerTiming : existingSettings.automationTriggerTiming,
           updatedAt: new Date()
         })
         .where(eq(userSettings.userId, userId))
@@ -133,7 +143,8 @@ router.put('/', auth, async (req, res, next) => {
         .values({
           userId,
           autoCreateFromForms: autoCreateFromForms !== undefined ? autoCreateFromForms : true,  // Default to enabled
-          autoCreateProjectIds: autoCreateProjectIds !== undefined ? autoCreateProjectIds : []
+          autoCreateProjectIds: autoCreateProjectIds !== undefined ? autoCreateProjectIds : [],
+          automationTriggerTiming: automationTriggerTiming || 'approval'
         })
         .returning();
     }
@@ -142,7 +153,8 @@ router.put('/', auth, async (req, res, next) => {
       success: true,
       settings: {
         autoCreateFromForms: updatedSettings.autoCreateFromForms,
-        autoCreateProjectIds: updatedSettings.autoCreateProjectIds || []
+        autoCreateProjectIds: updatedSettings.autoCreateProjectIds || [],
+        automationTriggerTiming: updatedSettings.automationTriggerTiming || 'approval'
       }
     });
   } catch (error) {

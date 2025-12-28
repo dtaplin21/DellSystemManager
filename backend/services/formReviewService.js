@@ -300,7 +300,8 @@ class FormReviewService {
 
       // After approval, check if automation should be triggered
       // Run asynchronously - don't block approval response
-      setImmediate(async () => {
+      // Use process.nextTick with proper promise handling
+      process.nextTick(async () => {
         try {
           const projectId = approvedForm.project_id;
           const domain = approvedForm.domain;

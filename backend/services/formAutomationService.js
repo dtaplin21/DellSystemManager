@@ -342,6 +342,38 @@ class FormAutomationService {
       return true;
     }
   }
+
+  /**
+   * Get automation trigger timing setting for user
+   * Returns 'upload' or 'approval'
+   */
+  async getAutomationTriggerTiming(userId) {
+    try {
+      const { db } = require('../db');
+      const { userSettings } = require('../db/schema');
+      const { eq } = require('drizzle-orm');
+
+      const [settings] = await db
+        .select()
+        .from(userSettings)
+        .where(eq(userSettings.userId, userId))
+        .limit(1);
+
+      if (!settings) {
+        // Default to 'approval' if no settings exist
+        return 'approval';
+      }
+
+      return settings.automationTriggerTiming || 'approval';
+    } catch (error) {
+      logger.error(`[FORM_AUTOMATION] Error getting automation trigger timing`, {
+        userId,
+        error: error.message
+      });
+      // Default to 'approval' on error
+      return 'approval';
+    }
+  }
 }
 
 module.exports = new FormAutomationService();

@@ -117,6 +117,7 @@ const userSettings = pgTable('user_settings', {
   userId: uuid('user_id').notNull().unique().references(() => users.id, { onDelete: 'cascade' }),
   autoCreateFromForms: boolean('auto_create_from_forms').default(true),
   autoCreateProjectIds: jsonb('auto_create_project_ids').default('[]'),
+  automationTriggerTiming: varchar('automation_trigger_timing', { length: 20 }).default('approval'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });

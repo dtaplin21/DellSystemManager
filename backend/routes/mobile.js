@@ -585,17 +585,21 @@ router.post('/upload-defect/:projectId', auth, upload.single('image'), async (re
           panelId
         });
         
-        // Auto-approve form if requiresReview is false (user-entered data)
-        // This triggers automation automatically
-        if (!requiresReview) {
+        // Check automation trigger timing setting
+        const formAutomationService = require('../services/formAutomationService');
+        const triggerTiming = await formAutomationService.getAutomationTriggerTiming(req.user.id);
+        
+        // Auto-approve form if trigger timing is 'upload' and requiresReview is false
+        if (triggerTiming === 'upload' && !requiresReview) {
           try {
             const formReviewService = require('../services/formReviewService');
-            await formReviewService.approveForm(asbuiltRecordId, req.user.id, 'Auto-approved: Mobile form submission');
-            logger.info('[MOBILE] Form auto-approved, automation should trigger', {
+            await formReviewService.approveForm(asbuiltRecordId, req.user.id, 'Auto-approved: Mobile form submission (trigger on upload)');
+            logger.info('[MOBILE] Form auto-approved (trigger on upload), automation should trigger', {
               recordId: asbuiltRecordId,
               domain: formType,
               userId: req.user.id,
-              projectId
+              projectId,
+              triggerTiming
             });
           } catch (approvalError) {
             logger.error('[MOBILE] Failed to auto-approve form', {
@@ -605,6 +609,13 @@ router.post('/upload-defect/:projectId', auth, upload.single('image'), async (re
             });
             // Don't fail the upload if auto-approval fails
           }
+        } else {
+          logger.info('[MOBILE] Form will require manual approval before automation triggers', {
+            recordId: asbuiltRecordId,
+            domain: formType,
+            triggerTiming,
+            requiresReview
+          });
         }
         
         // Update automation job with asbuilt_record_id if job was created

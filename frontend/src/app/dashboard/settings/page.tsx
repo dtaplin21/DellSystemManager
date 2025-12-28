@@ -29,6 +29,7 @@ export default function SettingsPage() {
   
   // Automation Settings State
   const [autoCreateFromForms, setAutoCreateFromForms] = useState(false);
+  const [automationTriggerTiming, setAutomationTriggerTiming] = useState<'upload' | 'approval'>('approval');
   const [isLoadingSettings, setIsLoadingSettings] = useState(false);
 
   // Helper function to make authenticated fetch requests
@@ -99,6 +100,7 @@ export default function SettingsPage() {
           // #endregion
           if (data.success && data.settings) {
             setAutoCreateFromForms(data.settings.autoCreateFromForms || false);
+            setAutomationTriggerTiming(data.settings.automationTriggerTiming || 'approval');
           }
         } else {
           // #region agent log
@@ -557,6 +559,57 @@ export default function SettingsPage() {
                       }} 
                     />
                   </div>
+                </div>
+              </div>
+
+              <div className="setting-item">
+                <div className="setting-info">
+                  <h3 className="setting-label">Automation Trigger Timing</h3>
+                  <p className="setting-description">
+                    Choose when automation should trigger:
+                    <br />
+                    <strong>On Upload:</strong> Forms are automatically approved and automation triggers immediately when uploaded from mobile app.
+                    <br />
+                    <strong>On Approval:</strong> Forms require manual approval before automation triggers. Use this if you want to review forms before they're processed.
+                  </p>
+                </div>
+                <div className="setting-control">
+                  <select
+                    value={automationTriggerTiming}
+                    onChange={async (e) => {
+                      const newValue = e.target.value as 'upload' | 'approval';
+                      setAutomationTriggerTiming(newValue);
+                      setIsLoadingSettings(true);
+                      try {
+                        const response = await makeAuthenticatedFetch('/api/settings', {
+                          method: 'PUT',
+                          body: JSON.stringify({ automationTriggerTiming: newValue })
+                        });
+                        if (!response.ok) {
+                          const errorData = await response.json().catch(() => ({}));
+                          throw new Error(errorData.error || `Failed to update settings: ${response.status} ${response.statusText}`);
+                        }
+                        const result = await response.json();
+                        if (result.success) {
+                          alert('Automation trigger timing updated successfully!');
+                        } else {
+                          throw new Error(result.error || 'Failed to update settings');
+                        }
+                      } catch (error) {
+                        console.error('Error updating automation trigger timing:', error);
+                        setAutomationTriggerTiming(automationTriggerTiming); // Revert on error
+                        alert(`Failed to save automation trigger timing: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                      } finally {
+                        setIsLoadingSettings(false);
+                      }
+                    }}
+                    className="form-select"
+                    style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc', minWidth: '300px' }}
+                    disabled={isLoadingSettings}
+                  >
+                    <option value="approval">On Approval (Manual Review Required)</option>
+                    <option value="upload">On Upload (Auto-approve and Trigger)</option>
+                  </select>
                 </div>
               </div>
 
