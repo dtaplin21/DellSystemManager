@@ -559,6 +559,8 @@ router.post('/upload-defect/:projectId', auth, upload.single('image'), async (re
         const locationDirection = parsedFormData.locationDirection || null;
         
         // Create asbuilt record with source='mobile'
+        // Mobile forms don't require review since they're user-entered
+        const requiresReview = false;
         const record = await asbuiltService.createRecord({
           projectId,
           panelId,
@@ -567,7 +569,7 @@ router.post('/upload-defect/:projectId', auth, upload.single('image'), async (re
           rawData: parsedFormData,
           mappedData: parsedFormData, // For mobile, raw and mapped are the same
           aiConfidence: 1.0, // User-entered data has 100% confidence
-          requiresReview: false,
+          requiresReview,
           createdBy: req.user.id,
           source: 'mobile', // Mark as mobile app submission
           locationDescription, // Combined formatted string
@@ -582,6 +584,28 @@ router.post('/upload-defect/:projectId', auth, upload.single('image'), async (re
           domain: formType,
           panelId
         });
+        
+        // Auto-approve form if requiresReview is false (user-entered data)
+        // This triggers automation automatically
+        if (!requiresReview) {
+          try {
+            const formReviewService = require('../services/formReviewService');
+            await formReviewService.approveForm(asbuiltRecordId, req.user.id, 'Auto-approved: Mobile form submission');
+            logger.info('[MOBILE] Form auto-approved, automation should trigger', {
+              recordId: asbuiltRecordId,
+              domain: formType,
+              userId: req.user.id,
+              projectId
+            });
+          } catch (approvalError) {
+            logger.error('[MOBILE] Failed to auto-approve form', {
+              recordId: asbuiltRecordId,
+              error: approvalError.message,
+              stack: approvalError.stack
+            });
+            // Don't fail the upload if auto-approval fails
+          }
+        }
         
         // Update automation job with asbuilt_record_id if job was created
         if (automationJobId) {

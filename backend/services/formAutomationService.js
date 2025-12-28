@@ -40,6 +40,10 @@ class FormAutomationService {
     
     // Only repair and destructive forms require structured location data for patches
     if (domain !== 'repairs' && domain !== 'destructive') {
+      logger.info(`[FORM_AUTOMATION] Form domain ${domain} does not require location data validation`, {
+        formId: formRecord.id,
+        domain
+      });
       return true; // Not a patch-creating form, no validation needed
     }
     
@@ -54,16 +58,20 @@ class FormAutomationService {
     
     const isValid = !!(hasPlacementType && hasDistance && hasDirection && hasPanelNumbers);
     
-    if (!isValid) {
-      logger.info(`[FORM_AUTOMATION] Missing required location data for form ${formRecord.id}`, {
-        formId: formRecord.id,
-        domain,
-        hasPlacementType: !!hasPlacementType,
-        hasDistance,
-        hasDirection: !!hasDirection,
-        hasPanelNumbers: !!hasPanelNumbers
-      });
-    }
+    logger.info(`[FORM_AUTOMATION] Location data validation for form ${formRecord.id}`, {
+      formId: formRecord.id,
+      domain,
+      hasPlacementType: !!hasPlacementType,
+      placementType: mappedData.placementType || mappedData.placement_type,
+      hasDistance,
+      locationDistance: mappedData.locationDistance || mappedData.location_distance,
+      hasDirection: !!hasDirection,
+      locationDirection: mappedData.locationDirection || mappedData.location_direction,
+      hasPanelNumbers: !!hasPanelNumbers,
+      panelNumbers: mappedData.panelNumbers || mappedData.panel_numbers,
+      isValid,
+      mappedDataKeys: Object.keys(mappedData)
+    });
     
     return isValid;
   }

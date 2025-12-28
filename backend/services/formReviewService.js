@@ -303,37 +303,90 @@ class FormReviewService {
       setImmediate(async () => {
         try {
           const projectId = approvedForm.project_id;
+          const domain = approvedForm.domain;
+          
+          console.log(`[FORM_REVIEW] Starting automation check for form ${recordId}`, {
+            formId: recordId,
+            userId,
+            projectId,
+            domain,
+            status: approvedForm.status
+          });
+          
+          // Check if automation is enabled
           const isEnabled = await formAutomationService.isAutoCreateEnabled(userId, projectId);
           
-          if (isEnabled) {
-            console.log(`[FORM_REVIEW] Auto-creation enabled, triggering automation for form ${recordId}`);
-            
-            // Check if form has required location data (for repair/destructive forms)
-            const domain = approvedForm.domain;
-            if (domain === 'repairs' || domain === 'destructive') {
-              const hasRequiredData = formAutomationService.hasRequiredLocationData(approvedForm);
-              if (!hasRequiredData) {
-                console.log(`[FORM_REVIEW] Skipping automation - form ${recordId} missing required location data`, {
-                  formId: recordId,
-                  domain,
-                  reason: 'Missing structured location fields (placementType, locationDistance, locationDirection, panelNumbers)'
-                });
-                return; // Don't proceed with automation
-              }
-            }
-            
-            const automationResult = await formAutomationService.automateFromForm(
-              approvedForm,
-              projectId,
-              userId
-            );
-            console.log(`[FORM_REVIEW] Automation result:`, automationResult);
-          } else {
-            console.log(`[FORM_REVIEW] Auto-creation disabled, skipping automation for form ${recordId}`);
+          console.log(`[FORM_REVIEW] Automation enabled check result:`, {
+            formId: recordId,
+            isEnabled,
+            userId,
+            projectId
+          });
+          
+          if (!isEnabled) {
+            console.log(`[FORM_REVIEW] Auto-creation disabled, skipping automation for form ${recordId}`, {
+              formId: recordId,
+              userId,
+              projectId
+            });
+            return;
           }
+          
+          console.log(`[FORM_REVIEW] Auto-creation enabled, checking form requirements for form ${recordId}`);
+          
+          // Check if form has required location data (for repair/destructive forms)
+          if (domain === 'repairs' || domain === 'destructive') {
+            const hasRequiredData = formAutomationService.hasRequiredLocationData(approvedForm);
+            
+            console.log(`[FORM_REVIEW] Required location data check for form ${recordId}`, {
+              formId: recordId,
+              domain,
+              hasRequiredData,
+              mappedData: approvedForm.mapped_data
+            });
+            
+            if (!hasRequiredData) {
+              console.log(`[FORM_REVIEW] Skipping automation - form ${recordId} missing required location data`, {
+                formId: recordId,
+                domain,
+                reason: 'Missing structured location fields (placementType, locationDistance, locationDirection, panelNumbers)',
+                mappedData: approvedForm.mapped_data
+              });
+              return; // Don't proceed with automation
+            }
+          }
+          
+          console.log(`[FORM_REVIEW] Triggering automation for form ${recordId}`, {
+            formId: recordId,
+            projectId,
+            userId,
+            domain
+          });
+          
+          const automationResult = await formAutomationService.automateFromForm(
+            approvedForm,
+            projectId,
+            userId
+          );
+          
+          console.log(`[FORM_REVIEW] Automation result for form ${recordId}:`, {
+            formId: recordId,
+            success: automationResult.success,
+            skipped: automationResult.skipped,
+            error: automationResult.error,
+            reason: automationResult.reason,
+            jobId: automationResult.jobId,
+            itemType: automationResult.itemType
+          });
         } catch (error) {
           // Log error but don't fail approval
-          console.error(`[FORM_REVIEW] Error triggering automation after approval:`, error);
+          console.error(`[FORM_REVIEW] Error triggering automation after approval for form ${recordId}:`, {
+            formId: recordId,
+            error: error.message,
+            stack: error.stack,
+            userId,
+            projectId: approvedForm?.project_id
+          });
         }
       });
 
