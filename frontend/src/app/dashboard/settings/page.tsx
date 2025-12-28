@@ -88,7 +88,34 @@ export default function SettingsPage() {
     <div 
       className={`toggle-switch ${active ? 'active' : ''}`}
       onClick={onChange}
-    />
+      role="switch"
+      aria-checked={active}
+      aria-label={active ? 'Enabled' : 'Disabled'}
+      style={{
+        position: 'relative',
+        width: '44px',
+        height: '24px',
+        backgroundColor: active ? '#0052cc' : '#d1d5db',
+        borderRadius: '12px',
+        cursor: 'pointer',
+        transition: 'background-color 0.3s',
+        flexShrink: 0
+      }}
+    >
+      <span 
+        style={{
+          position: 'absolute',
+          width: '20px',
+          height: '20px',
+          borderRadius: '50%',
+          backgroundColor: 'white',
+          top: '2px',
+          left: active ? '22px' : '2px',
+          transition: 'left 0.3s',
+          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+        }}
+      />
+    </div>
   );
 
   return (
@@ -419,29 +446,41 @@ export default function SettingsPage() {
                   </p>
                 </div>
                 <div className="setting-control">
-                  <ToggleSwitch 
-                    active={autoCreateFromForms} 
-                    onChange={async () => {
-                      const newValue = !autoCreateFromForms;
-                      setAutoCreateFromForms(newValue);
-                      setIsLoadingSettings(true);
-                      try {
-                        const response = await fetch('/api/settings', {
-                          method: 'PUT',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ autoCreateFromForms: newValue })
-                        });
-                        if (!response.ok) throw new Error('Failed to update settings');
-                        alert('Automation settings saved successfully!');
-                      } catch (error) {
-                        console.error('Error updating automation settings:', error);
-                        setAutoCreateFromForms(!newValue); // Revert on error
-                        alert('Failed to save automation settings. Please try again.');
-                      } finally {
-                        setIsLoadingSettings(false);
-                      }
-                    }} 
-                  />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <span 
+                      style={{ 
+                        fontSize: '0.875rem', 
+                        color: autoCreateFromForms ? '#0052cc' : '#6b7280',
+                        fontWeight: 500,
+                        minWidth: '60px'
+                      }}
+                    >
+                      {autoCreateFromForms ? 'Enabled' : 'Disabled'}
+                    </span>
+                    <ToggleSwitch 
+                      active={autoCreateFromForms} 
+                      onChange={async () => {
+                        const newValue = !autoCreateFromForms;
+                        setAutoCreateFromForms(newValue);
+                        setIsLoadingSettings(true);
+                        try {
+                          const response = await fetch('/api/settings', {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ autoCreateFromForms: newValue })
+                          });
+                          if (!response.ok) throw new Error('Failed to update settings');
+                          alert('Automation settings saved successfully!');
+                        } catch (error) {
+                          console.error('Error updating automation settings:', error);
+                          setAutoCreateFromForms(!newValue); // Revert on error
+                          alert('Failed to save automation settings. Please try again.');
+                        } finally {
+                          setIsLoadingSettings(false);
+                        }
+                      }} 
+                    />
+                  </div>
                 </div>
               </div>
 

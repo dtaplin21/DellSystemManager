@@ -147,6 +147,9 @@
 
 .setting-control {
   margin-left: 1rem;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
 }
 
 .toggle-switch {
@@ -157,10 +160,20 @@
   border-radius: 12px;
   cursor: pointer;
   transition: background-color 0.3s;
+  flex-shrink: 0;
+  min-width: 44px;
+}
+
+.toggle-switch:hover {
+  background-color: var(--gray-400);
 }
 
 .toggle-switch.active {
   background-color: var(--blue-500);
+}
+
+.toggle-switch.active:hover {
+  background-color: #0041a3;
 }
 
 .toggle-switch::after {
@@ -172,11 +185,13 @@
   background-color: white;
   top: 2px;
   left: 2px;
-  transition: transform 0.3s;
+  transition: transform 0.3s, left 0.3s;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .toggle-switch.active::after {
   transform: translateX(20px);
+  left: 22px;
 }
 
 .select-dropdown {

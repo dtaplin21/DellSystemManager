@@ -159,8 +159,36 @@ class PlacementAnalyzer:
             panel_str = str(form_data["panelNumbers"])
             # Handle comma-separated panel numbers
             panel_numbers = [p.strip() for p in panel_str.split(",") if p.strip()]
+            # Normalize panel numbers to consistent format (ensure P- prefix if missing)
+            normalized_panel_numbers = []
+            for pn in panel_numbers:
+                # If it's just a number, add P- prefix
+                if pn.isdigit():
+                    normalized_panel_numbers.append(f"P-{pn}")
+                # If it already has P- prefix or similar, keep as is
+                elif pn.upper().startswith("P-") or pn.upper().startswith("P"):
+                    # Normalize to P-{number} format
+                    number_part = pn.upper().replace("P-", "").replace("P", "").strip()
+                    if number_part.isdigit():
+                        normalized_panel_numbers.append(f"P-{number_part}")
+                    else:
+                        normalized_panel_numbers.append(pn)  # Keep original if can't normalize
+                else:
+                    normalized_panel_numbers.append(pn)  # Keep original format
+            panel_numbers = normalized_panel_numbers
         elif form_data.get("panelNumber"):
-            panel_numbers = [str(form_data["panelNumber"])]
+            pn = str(form_data["panelNumber"]).strip()
+            # Normalize single panel number
+            if pn.isdigit():
+                panel_numbers = [f"P-{pn}"]
+            elif pn.upper().startswith("P-") or pn.upper().startswith("P"):
+                number_part = pn.upper().replace("P-", "").replace("P", "").strip()
+                if number_part.isdigit():
+                    panel_numbers = [f"P-{number_part}"]
+                else:
+                    panel_numbers = [pn]
+            else:
+                panel_numbers = [pn]
         
         hints["panel_references"].extend(panel_numbers)
         hints["panel_references"] = list(set(hints["panel_references"]))  # Remove duplicates
