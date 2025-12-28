@@ -3,6 +3,8 @@ export const dynamic = "force-dynamic";
 
 import { useState, useEffect } from 'react';
 import './settings.css';
+import { getCurrentSession } from '@/lib/supabase';
+import config from '@/lib/config';
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('general');
@@ -29,18 +31,85 @@ export default function SettingsPage() {
   const [autoCreateFromForms, setAutoCreateFromForms] = useState(false);
   const [isLoadingSettings, setIsLoadingSettings] = useState(false);
 
+  // Helper function to make authenticated fetch requests
+  const makeAuthenticatedFetch = async (url: string, options: RequestInit = {}) => {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'settings/page.tsx:34',message:'makeAuthenticatedFetch entry',data:{url,method:options.method||'GET'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+    
+    let session;
+    try {
+      session = await getCurrentSession();
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'settings/page.tsx:40',message:'getCurrentSession result',data:{hasSession:!!session,hasAccessToken:!!session?.access_token,tokenLength:session?.access_token?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
+    } catch (error) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'settings/page.tsx:45',message:'getCurrentSession error',data:{error:error instanceof Error?error.message:String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+      // #endregion
+      throw error;
+    }
+    
+    const headers = new Headers(options.headers);
+    headers.set('Content-Type', 'application/json');
+    
+    if (session?.access_token) {
+      headers.set('Authorization', `Bearer ${session.access_token}`);
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'settings/page.tsx:52',message:'Auth header added',data:{hasAuthHeader:true},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
+    } else {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'settings/page.tsx:56',message:'No auth header - session missing token',data:{hasSession:!!session},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
+    }
+    
+    // Resolve relative URLs to backend URL
+    const backendUrl = config.backend.baseUrl || 'http://localhost:8003';
+    const fullUrl = url.startsWith('http') ? url : `${backendUrl}${url}`;
+    
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'settings/page.tsx:63',message:'Fetch URL resolution',data:{originalUrl:url,fullUrl,backendUrl,isRelative:!url.startsWith('http')},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+    
+    const response = await fetch(fullUrl, {
+      ...options,
+      headers,
+    });
+    
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'settings/page.tsx:71',message:'Fetch response received',data:{status:response.status,statusText:response.statusText,ok:response.ok,url:response.url},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+    
+    return response;
+  };
+
   // Load automation settings on mount
   useEffect(() => {
     const loadSettings = async () => {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'settings/page.tsx:77',message:'loadSettings entry',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
       try {
-        const response = await fetch('/api/settings');
+        const response = await makeAuthenticatedFetch('/api/settings');
         if (response.ok) {
           const data = await response.json();
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'settings/page.tsx:82',message:'Settings loaded successfully',data:{success:data.success,hasSettings:!!data.settings,autoCreateFromForms:data.settings?.autoCreateFromForms},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+          // #endregion
           if (data.success && data.settings) {
             setAutoCreateFromForms(data.settings.autoCreateFromForms || false);
           }
+        } else {
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'settings/page.tsx:88',message:'Settings load failed',data:{status:response.status,statusText:response.statusText,url:response.url},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+          // #endregion
+          console.error('Failed to load settings:', response.status, response.statusText);
         }
       } catch (error) {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'settings/page.tsx:93',message:'Settings load exception',data:{error:error instanceof Error?error.message:String(error),errorType:error?.constructor?.name},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+        // #endregion
         console.error('Error loading automation settings:', error);
       }
     };
@@ -464,17 +533,24 @@ export default function SettingsPage() {
                         setAutoCreateFromForms(newValue);
                         setIsLoadingSettings(true);
                         try {
-                          const response = await fetch('/api/settings', {
+                          const response = await makeAuthenticatedFetch('/api/settings', {
                             method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ autoCreateFromForms: newValue })
                           });
-                          if (!response.ok) throw new Error('Failed to update settings');
-                          alert('Automation settings saved successfully!');
+                          if (!response.ok) {
+                            const errorData = await response.json().catch(() => ({}));
+                            throw new Error(errorData.error || `Failed to update settings: ${response.status} ${response.statusText}`);
+                          }
+                          const result = await response.json();
+                          if (result.success) {
+                            alert('Automation settings saved successfully!');
+                          } else {
+                            throw new Error(result.error || 'Failed to update settings');
+                          }
                         } catch (error) {
                           console.error('Error updating automation settings:', error);
                           setAutoCreateFromForms(!newValue); // Revert on error
-                          alert('Failed to save automation settings. Please try again.');
+                          alert(`Failed to save automation settings: ${error instanceof Error ? error.message : 'Unknown error'}`);
                         } finally {
                           setIsLoadingSettings(false);
                         }
@@ -490,16 +566,23 @@ export default function SettingsPage() {
                   onClick={async () => {
                     setIsLoadingSettings(true);
                     try {
-                      const response = await fetch('/api/settings', {
+                      const response = await makeAuthenticatedFetch('/api/settings', {
                         method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ autoCreateFromForms })
                       });
-                      if (!response.ok) throw new Error('Failed to update settings');
-                      alert('Automation settings saved successfully!');
+                      if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({}));
+                        throw new Error(errorData.error || `Failed to update settings: ${response.status} ${response.statusText}`);
+                      }
+                      const result = await response.json();
+                      if (result.success) {
+                        alert('Automation settings saved successfully!');
+                      } else {
+                        throw new Error(result.error || 'Failed to update settings');
+                      }
                     } catch (error) {
                       console.error('Error saving automation settings:', error);
-                      alert('Failed to save automation settings. Please try again.');
+                      alert(`Failed to save automation settings: ${error instanceof Error ? error.message : 'Unknown error'}`);
                     } finally {
                       setIsLoadingSettings(false);
                     }

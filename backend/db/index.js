@@ -709,6 +709,19 @@ async function applyMigrations() {
       });
     }
 
+    // Apply user settings table migration
+    try {
+      const userSettingsMigrationPath = path.join(__dirname, 'migrations', '010_create_user_settings.sql');
+      const userSettingsSql = await fs.readFile(userSettingsMigrationPath, 'utf8');
+      await client.query(userSettingsSql);
+      logger.debug('User settings table migration applied');
+    } catch (userSettingsErr) {
+      logger.warn('User settings table migration not applied', {
+        error: { message: userSettingsErr.message },
+        hint: 'If permissions restrict file reads, run the SQL manually in the DB. The migration file is at backend/db/migrations/010_create_user_settings.sql'
+      });
+    }
+
     // Apply cardinal directions migration
     try {
       const cardinalDirectionsMigrationPath = path.join(__dirname, 'migrations', '011_add_cardinal_directions.sql');
