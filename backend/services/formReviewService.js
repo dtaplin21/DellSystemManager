@@ -314,6 +314,20 @@ class FormReviewService {
             status: approvedForm.status
           });
           
+          // Check automation trigger timing setting
+          // Only trigger automation on approval if trigger timing is set to 'approval'
+          const triggerTiming = await formAutomationService.getAutomationTriggerTiming(userId);
+          
+          if (triggerTiming !== 'approval') {
+            console.log(`[FORM_REVIEW] Automation trigger timing is '${triggerTiming}', skipping automation on approval for form ${recordId}`, {
+              formId: recordId,
+              triggerTiming,
+              userId,
+              projectId
+            });
+            return; // Don't trigger automation if timing is 'upload'
+          }
+          
           // Check if automation is enabled
           const isEnabled = await formAutomationService.isAutoCreateEnabled(userId, projectId);
           
@@ -321,7 +335,8 @@ class FormReviewService {
             formId: recordId,
             isEnabled,
             userId,
-            projectId
+            projectId,
+            triggerTiming
           });
           
           if (!isEnabled) {
@@ -457,6 +472,18 @@ class FormReviewService {
       // Run asynchronously - don't block approval response
       setImmediate(async () => {
         try {
+          // Check automation trigger timing setting first
+          const triggerTiming = await formAutomationService.getAutomationTriggerTiming(userId);
+          
+          if (triggerTiming !== 'approval') {
+            console.log(`[FORM_REVIEW] Automation trigger timing is '${triggerTiming}', skipping bulk automation on approval`, {
+              triggerTiming,
+              userId,
+              recordCount: approvedRecordIds.length
+            });
+            return; // Don't trigger automation if timing is 'upload'
+          }
+          
           // Fetch full form records for automation
           const fetchQuery = `
             SELECT * FROM asbuilt_records
