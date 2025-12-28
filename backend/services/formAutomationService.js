@@ -295,21 +295,34 @@ class FormAutomationService {
         .limit(1);
 
       if (!settings) {
-        // No settings found - default to false
-        return false;
+        // No settings found - default to true (enable automation by default)
+        logger.info(`[FORM_AUTOMATION] No settings found for user ${userId}, defaulting to enabled`);
+        return true;
       }
 
       // Check global setting
-      if (settings.autoCreateFromForms) {
+      if (settings.autoCreateFromForms === true) {
+        logger.info(`[FORM_AUTOMATION] Global auto-create enabled for user ${userId}`);
         return true;
       }
 
       // Check project-specific setting
+      // Convert projectId to string for comparison to handle UUID/string mismatches
+      const projectIdStr = String(projectId);
       const projectIds = settings.autoCreateProjectIds || [];
-      if (Array.isArray(projectIds) && projectIds.includes(projectId)) {
+      const projectIdsStr = Array.isArray(projectIds) 
+        ? projectIds.map(id => String(id))
+        : [];
+      
+      if (projectIdsStr.includes(projectIdStr)) {
+        logger.info(`[FORM_AUTOMATION] Project-specific auto-create enabled for user ${userId}, project ${projectId}`);
         return true;
       }
 
+      logger.info(`[FORM_AUTOMATION] Auto-create disabled for user ${userId}, project ${projectId}`, {
+        globalEnabled: settings.autoCreateFromForms,
+        projectIds: projectIdsStr
+      });
       return false;
     } catch (error) {
       logger.error(`[FORM_AUTOMATION] Error checking auto-create settings`, {
@@ -317,8 +330,8 @@ class FormAutomationService {
         projectId,
         error: error.message
       });
-      // Default to false on error
-      return false;
+      // Default to true on error (enable automation by default)
+      return true;
     }
   }
 }

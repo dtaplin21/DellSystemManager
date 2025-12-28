@@ -56,7 +56,7 @@ router.get('/', auth, async (req, res, next) => {
         .insert(userSettings)
         .values({
           userId,
-          autoCreateFromForms: false,
+          autoCreateFromForms: true,  // Default to enabled
           autoCreateProjectIds: []
         })
         .returning();
@@ -132,7 +132,7 @@ router.put('/', auth, async (req, res, next) => {
         .insert(userSettings)
         .values({
           userId,
-          autoCreateFromForms: autoCreateFromForms !== undefined ? autoCreateFromForms : false,
+          autoCreateFromForms: autoCreateFromForms !== undefined ? autoCreateFromForms : true,  // Default to enabled
           autoCreateProjectIds: autoCreateProjectIds !== undefined ? autoCreateProjectIds : []
         })
         .returning();
@@ -176,7 +176,7 @@ router.get('/auto-create', auth, async (req, res, next) => {
     if (!settings) {
       return res.json({
         success: true,
-        enabled: false,
+        enabled: true,  // Default to enabled
         source: 'default'
       });
     }
@@ -191,8 +191,13 @@ router.get('/auto-create', auth, async (req, res, next) => {
     }
 
     // Check project-specific setting
+    // Convert projectId to string for comparison to handle UUID/string mismatches
+    const projectIdStr = String(projectId);
     const projectIds = settings.autoCreateProjectIds || [];
-    const isProjectEnabled = Array.isArray(projectIds) && projectIds.includes(projectId);
+    const projectIdsStr = Array.isArray(projectIds) 
+      ? projectIds.map(id => String(id))
+      : [];
+    const isProjectEnabled = projectIdsStr.includes(projectIdStr);
 
     res.json({
       success: true,
@@ -234,23 +239,28 @@ router.put('/auto-create/:projectId', auth, async (req, res, next) => {
         .insert(userSettings)
         .values({
           userId,
-          autoCreateFromForms: false,
+          autoCreateFromForms: true,  // Default to enabled
           autoCreateProjectIds: enabled ? [projectId] : []
         })
         .returning();
     } else {
       // Update project-specific list
+      // Convert projectId to string for comparison to handle UUID/string mismatches
+      const projectIdStr = String(projectId);
       const projectIds = settings.autoCreateProjectIds || [];
+      const projectIdsStr = Array.isArray(projectIds) 
+        ? projectIds.map(id => String(id))
+        : [];
       let updatedProjectIds;
 
       if (enabled) {
         // Add project ID if not already present
-        updatedProjectIds = projectIds.includes(projectId) 
+        updatedProjectIds = projectIdsStr.includes(projectIdStr) 
           ? projectIds 
           : [...projectIds, projectId];
       } else {
-        // Remove project ID
-        updatedProjectIds = projectIds.filter(id => id !== projectId);
+        // Remove project ID (compare as strings)
+        updatedProjectIds = projectIds.filter(id => String(id) !== projectIdStr);
       }
 
       [settings] = await db

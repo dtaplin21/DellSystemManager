@@ -5,7 +5,7 @@
 CREATE TABLE IF NOT EXISTS user_settings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL UNIQUE,
-  auto_create_from_forms BOOLEAN DEFAULT false,
+  auto_create_from_forms BOOLEAN DEFAULT true,
   auto_create_project_ids JSONB DEFAULT '[]'::jsonb,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
