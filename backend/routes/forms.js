@@ -11,6 +11,19 @@ const logger = require('../lib/logger');
  * @access Private
  */
 router.get('/:projectId', auth, async (req, res) => {
+  const requestId = `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  console.log(`🔵 [FORMS] === REQUEST RECEIVED ===`, {
+    requestId,
+    method: req.method,
+    path: req.path,
+    projectId: req.params.projectId,
+    query: req.query,
+    headers: {
+      authorization: req.headers.authorization ? 'Present' : 'Missing',
+      'x-dev-bypass': req.headers['x-dev-bypass'] || 'Not set'
+    }
+  });
+  
   try {
     const { projectId } = req.params;
     const {
@@ -23,11 +36,13 @@ router.get('/:projectId', auth, async (req, res) => {
     } = req.query;
 
     console.log(`📋 [FORMS] Fetching forms for project ${projectId}`, {
+      requestId,
       status,
       source,
       domain,
       limit,
-      offset
+      offset,
+      search
     });
 
     const forms = await formReviewService.getForms(projectId, {
@@ -37,6 +52,24 @@ router.get('/:projectId', auth, async (req, res) => {
       limit: parseInt(limit),
       offset: parseInt(offset),
       search
+    });
+
+    console.log(`📋 [FORMS] Forms returned:`, {
+      requestId,
+      count: forms.length,
+      projectId,
+      status,
+      source,
+      domain,
+      firstFormId: forms[0]?.id,
+      firstFormStatus: forms[0]?.status,
+      firstFormSource: forms[0]?.source
+    });
+
+    console.log(`✅ [FORMS] === REQUEST COMPLETE ===`, {
+      requestId,
+      statusCode: 200,
+      formsCount: forms.length
     });
 
     res.json({
@@ -49,6 +82,12 @@ router.get('/:projectId', auth, async (req, res) => {
       }
     });
   } catch (error) {
+    console.error(`❌ [FORMS] === REQUEST ERROR ===`, {
+      requestId,
+      error: error.message,
+      stack: error.stack,
+      projectId: req.params.projectId
+    });
     console.error('❌ [FORMS] Error fetching forms:', error);
     console.error('❌ [FORMS] Error stack:', error.stack);
     res.status(500).json({

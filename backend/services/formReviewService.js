@@ -38,13 +38,6 @@ class FormReviewService {
       const hasSourceColumn = columnCheck.rows.some(r => r.column_name === 'source');
       const hasStatusColumn = columnCheck.rows.some(r => r.column_name === 'status');
 
-      let query = `
-        SELECT * FROM asbuilt_records 
-        WHERE project_id = $1
-      `;
-      const params = [projectId];
-      let paramCount = 1;
-
       // Check if automation_jobs table exists
       const tableCheck = await client.query(`
         SELECT EXISTS (
@@ -54,49 +47,14 @@ class FormReviewService {
       `);
       const hasAutomationJobsTable = tableCheck.rows[0]?.exists || false;
 
-      // Determine table alias/prefix based on whether we're joining
-      const tablePrefix = hasAutomationJobsTable ? 'ar.' : '';
-
-      // Add source filter (only if column exists)
-      if (source && hasSourceColumn) {
-        paramCount++;
-        query += ` AND ${tablePrefix}source = $${paramCount}`;
-        params.push(source);
-      } else if (source && !hasSourceColumn) {
-        // If source column doesn't exist, return empty array with a note
-        console.warn('⚠️ [FORMS] source column does not exist. Please run migration 006_add_form_review_columns.sql');
-        return [];
-      }
-
-      // Add status filter (only if column exists)
-      if (status && status !== 'all' && hasStatusColumn) {
-        paramCount++;
-        query += ` AND ${tablePrefix}status = $${paramCount}`;
-        params.push(status);
-      }
-
-      // Add domain filter
-      if (domain && domain !== 'all') {
-        paramCount++;
-        query += ` AND ${tablePrefix}domain = $${paramCount}`;
-        params.push(domain);
-      }
-
-      // Add search filter
-      if (search) {
-        paramCount++;
-        query += ` AND (
-          ${tablePrefix}mapped_data::text ILIKE $${paramCount} OR
-          ${tablePrefix}raw_data::text ILIKE $${paramCount}
-        )`;
-        params.push(`%${search}%`);
-      }
-
-      // Join with automation_jobs if table exists
+      // Build base query - always use alias for consistency
+      let query;
+      let tableAlias = 'ar';
+      
       if (hasAutomationJobsTable) {
-        query = query.replace(
-          'SELECT * FROM asbuilt_records',
-          `SELECT 
+        // Build query with JOIN
+        query = `
+          SELECT 
             ar.*,
             aj.job_id as automation_job_id,
             aj.status as automation_status,
@@ -107,16 +65,95 @@ class FormReviewService {
             aj.started_at as automation_started_at,
             aj.completed_at as automation_completed_at
           FROM asbuilt_records ar
-          LEFT JOIN automation_jobs aj ON ar.id = aj.asbuilt_record_id`
-        );
-        // Update WHERE clause to use alias
-        query = query.replace('WHERE project_id = $1', 'WHERE ar.project_id = $1');
+          LEFT JOIN automation_jobs aj ON ar.id = aj.asbuilt_record_id
+          WHERE ar.project_id = $1
+        `;
+      } else {
+        // Build query without JOIN
+        query = `
+          SELECT * FROM asbuilt_records 
+          WHERE project_id = $1
+        `;
+        tableAlias = 'asbuilt_records';
+      }
+      
+      const params = [projectId];
+      let paramCount = 1;
+
+      // Add source filter (only if column exists)
+      if (source && hasSourceColumn) {
+        paramCount++;
+        query += ` AND ${tableAlias}.source = $${paramCount}`;
+        params.push(source);
+      } else if (source && !hasSourceColumn) {
+        // If source column doesn't exist, return empty array with a note
+        console.warn('⚠️ [FORMS] source column does not exist. Please run migration 006_add_form_review_columns.sql');
+        return [];
       }
 
-      query += ` ORDER BY ${tablePrefix}created_at DESC LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`;
+      // Add status filter (only if column exists)
+      if (status && status !== 'all' && hasStatusColumn) {
+        paramCount++;
+        query += ` AND ${tableAlias}.status = $${paramCount}`;
+        params.push(status);
+      }
+
+      // Add domain filter
+      if (domain && domain !== 'all') {
+        paramCount++;
+        query += ` AND ${tableAlias}.domain = $${paramCount}`;
+        params.push(domain);
+      }
+
+      // Add search filter
+      if (search) {
+        paramCount++;
+        query += ` AND (
+          ${tableAlias}.mapped_data::text ILIKE $${paramCount} OR
+          ${tableAlias}.raw_data::text ILIKE $${paramCount}
+        )`;
+        params.push(`%${search}%`);
+      }
+
+      query += ` ORDER BY ${tableAlias}.created_at DESC LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`;
       params.push(limit, offset);
 
+      console.log(`[FORM_REVIEW] Executing query:`, {
+        fullQuery: query,
+        params: params.map((p, i) => i === 0 ? p : typeof p === 'string' && p.length > 50 ? p.substring(0, 50) + '...' : p),
+        paramCount: params.length,
+        tableAlias,
+        hasSourceColumn,
+        hasStatusColumn,
+        hasAutomationJobsTable
+      });
+
       const result = await client.query(query, params);
+      
+      console.log(`[FORM_REVIEW] Query executed successfully:`, {
+        rowCount: result.rows.length,
+        projectId,
+        source,
+        status,
+        domain
+      });
+      
+      if (result.rows.length === 0) {
+        console.log(`[FORM_REVIEW] No forms found. Checking if forms exist without filters...`);
+        // Debug query to see if forms exist at all
+        const debugQuery = `SELECT id, source, status, domain, created_at FROM asbuilt_records WHERE project_id = $1 LIMIT 5`;
+        const debugResult = await client.query(debugQuery, [projectId]);
+        console.log(`[FORM_REVIEW] Debug - Forms in database for project:`, {
+          totalFormsFound: debugResult.rows.length,
+          forms: debugResult.rows.map(r => ({
+            id: r.id,
+            source: r.source,
+            status: r.status,
+            domain: r.domain,
+            created_at: r.created_at
+          }))
+        });
+      }
       
       // Parse JSON fields and structure automation job data
       return result.rows.map(row => {
@@ -163,7 +200,8 @@ class FormReviewService {
         code: error.code,
         message: error.message,
         detail: error.detail,
-        hint: error.hint
+        hint: error.hint,
+        query: query?.substring(0, 500)
       });
       throw new Error(`Database query failed: ${error.message}. ${error.hint || ''} Please ensure migration 006_add_form_review_columns.sql has been run.`);
     } finally {
