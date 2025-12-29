@@ -236,6 +236,9 @@ class FormAutomationService {
 
       // Queue browser automation job instead of direct HTTP call
       try {
+        // #region debug log
+        fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'formAutomationService.js:238',message:'Queueing automation job',data:{formId:formRecord.id,projectId,userId,itemType,type:'form_automation'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+        // #endregion
         const jobResult = await jobQueue.addAutomationJob({
           type: 'form_automation',
           form_record: formRecord,
@@ -245,6 +248,10 @@ class FormAutomationService {
           positioning: positioning,
           asbuilt_record_id: formRecord.id
         });
+
+        // #region debug log
+        fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'formAutomationService.js:249',message:'Automation job queued successfully',data:{formId:formRecord.id,jobId:jobResult.jobId,itemType},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+        // #endregion
 
         logger.info(`[FORM_AUTOMATION] Automation job queued`, {
           formId: formRecord.id,

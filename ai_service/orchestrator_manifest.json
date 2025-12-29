@@ -1,5 +1,5 @@
 {
-  "generatedAt": 1766535749.4767098,
+  "generatedAt": 1767045581.368901,
   "manifest": {
     "capabilities": {
       "multiAgent": true,
@@ -279,7 +279,7 @@
             "key": "item_creator",
             "name": "Item Creator",
             "role": "Form Automation Specialist",
-            "goal": "Fill form modals with extracted data, submit item creation, and handle field mapping for panels, patches, and destructive tests",
+            "goal": "Fill form modals with extracted data, submit item creation, and handle field mapping for panels, patches, and destructive tests. Use canvas coordinate clicking for precise placement when coordinates are available.",
             "complexity": "complex",
             "tools": [
               "browser_interact",
@@ -299,20 +299,35 @@
               "browser_screenshot"
             ],
             "allowDelegation": true
+          },
+          {
+            "key": "correction_agent",
+            "name": "Autonomous Correction Agent",
+            "role": "Quality Correction Specialist",
+            "goal": "Review reflection results from all workflow agents, identify issues requiring UI corrections, navigate to affected UI elements, and autonomously make corrections to fix placement errors, data inconsistencies, or validation failures",
+            "complexity": "complex",
+            "tools": [
+              "browser_navigate",
+              "browser_interact",
+              "browser_extract",
+              "browser_screenshot",
+              "browser_vision_analyze"
+            ],
+            "allowDelegation": true
           }
         ],
         "tasks": [
           {
             "id": "review-form-data",
-            "description": "Review the uploaded form data. Validate that all required fields are present, check data quality, identify the form type (panel_placement, repairs, destructive, etc.), and assess if the form is ready for automation.",
+            "description": "Review the uploaded form data. Validate that all required fields are present, check data quality, identify the form type (panel_placement, repairs, destructive, etc.), and assess if the form is ready for automation. CRITICAL: For repair forms (repairs domain) and destructive test forms (destructive domain), verify that ALL structured location fields are present: placementType (single_panel or seam), locationDistance (numeric, feet), locationDirection (north/south/east/west), and panelNumbers (comma-separated panel identifiers). If any of these fields are missing, mark the form as NOT ready for automation and provide a clear error message listing the missing fields.",
             "agent": "form_reviewer",
-            "expectedOutput": "Form validation report with completeness status, identified form type, missing fields (if any), and readiness assessment"
+            "expectedOutput": "Form validation report with completeness status, identified form type, missing fields (if any), readiness assessment, and validation of structured location fields for patch-creating forms"
           },
           {
             "id": "analyze-placement",
-            "description": "Analyze the form data to determine optimal placement coordinates. Extract location hints from form fields (locationNote, typeDetailLocation, panelNumbers). Query existing layout to find gaps or optimal positions. Use AI to interpret location descriptions and suggest x,y coordinates with confidence score.",
+            "description": "Analyze the form data to determine optimal placement coordinates. PRIORITY: Use structured location fields if available (placementType, locationDistance, locationDirection, panelNumbers) to calculate precise x,y coordinates. For structured data: extract placementType ('single_panel' or 'seam'), locationDistance (feet), locationDirection ('north', 'south', 'east', 'west'), and panelNumbers. Calculate coordinates by finding referenced panel(s) in layout, then applying distance offset in the specified direction. For seam placement, place between two panels. For single panel, place relative to panel center/edge. If structured fields unavailable, fall back to extracting location hints from text fields (locationDescription, locationNote, typeDetailLocation). Consider cardinal directions (North/South/East/West) and project cardinal_direction setting. Query existing layout to find gaps or optimal positions. Return x,y coordinates with confidence score (structured data = high confidence 0.9, text parsing = lower confidence 0.6-0.8).",
             "agent": "placement_analyst",
-            "expectedOutput": "Placement analysis report with recommended x,y coordinates, confidence score, placement strategy used, and reasoning"
+            "expectedOutput": "Placement analysis report with recommended x,y coordinates, confidence score, placement strategy used (structured_location_calculation or ai_interpretation), reasoning, and structured_fields_used metadata if applicable"
           },
           {
             "id": "navigate-to-layout",
@@ -322,9 +337,9 @@
           },
           {
             "id": "create-item",
-            "description": "Click the 'Add' button to open the creation modal. Fill all form fields with data from the form record, including coordinates from placement analysis. Handle different field types (text, number, date, select, textarea). Submit the form and wait for confirmation.",
+            "description": "Click the 'Add' button to open the creation modal. Fill all form fields with data from the form record, including coordinates from placement analysis. VALIDATION: Before creating patches, verify that structured location data is present (placementType, locationDistance, locationDirection, panelNumbers). If missing, do not create the patch and return an error. OPTION 1 (Preferred): Use click_canvas_coordinates action to click at the calculated x,y coordinates on the canvas, then fill the modal that appears. OPTION 2: Fill form fields including x and y coordinate inputs directly. Map structured location fields: placementType, locationDistance, locationDirection to form fields if supported. Map calculated x,y coordinates to coordinate inputs. Map locationDescription to description/notes field. Handle different field types (text, number, date, select, textarea). For patches: include repairId, vboxPassFail. For destructive tests: include sampleId, passFail. Submit the form and wait for confirmation.",
             "agent": "item_creator",
-            "expectedOutput": "Item creation report with success status, filled fields, and any errors encountered"
+            "expectedOutput": "Item creation report with success status, filled fields, coordinates used, placement method (canvas_click or form_input), validation status of structured location data, and any errors encountered"
           },
           {
             "id": "validate-creation",

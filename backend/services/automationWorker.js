@@ -51,6 +51,10 @@ class AutomationWorker {
     const { form_record, project_id, user_id, item_type, positioning, asbuilt_record_id } = job.data;
     const jobId = job.id;
 
+    // #region debug log
+    fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'automationWorker.js:50',message:'Processing form automation job',data:{jobId,formId:form_record?.id,itemType:item_type,projectId:project_id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
+
     try {
       // Update job status in database to 'processing'
       await this.updateJobStatus(jobId, 'processing', 0, null, asbuilt_record_id);
@@ -66,6 +70,10 @@ class AutomationWorker {
         itemType: item_type,
         aiServiceUrl: this.AI_SERVICE_URL
       });
+
+      // #region debug log
+      fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'automationWorker.js:70',message:'Calling AI service endpoint',data:{jobId,aiServiceUrl:this.AI_SERVICE_URL,endpoint:`${this.AI_SERVICE_URL}/api/automate-from-form`},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+      // #endregion
 
       const automationResponse = await axios.post(
         `${this.AI_SERVICE_URL}/api/automate-from-form`,
@@ -88,6 +96,10 @@ class AutomationWorker {
       await job.progress(90);
       await this.updateJobStatus(jobId, 'processing', 90, null, asbuilt_record_id);
 
+      // #region debug log
+      fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'automationWorker.js:91',message:'AI service response received',data:{jobId,success:automationResponse.data.success,itemId:automationResponse.data.item_id,responseData:automationResponse.data},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+      // #endregion
+
       const result = {
         success: automationResponse.data.success !== false,
         jobId: automationResponse.data.job_id,
@@ -100,6 +112,10 @@ class AutomationWorker {
       await job.progress(100);
       await this.updateJobStatus(jobId, 'completed', 100, result, asbuilt_record_id);
 
+      // #region debug log
+      fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'automationWorker.js:100',message:'Form automation job completed successfully',data:{jobId,result},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+      // #endregion
+
       logger.info('[AutomationWorker] Form automation job completed successfully', {
         jobId,
         result
@@ -107,6 +123,9 @@ class AutomationWorker {
 
       return result;
     } catch (error) {
+      // #region debug log
+      fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'automationWorker.js:109',message:'Form automation job failed',data:{jobId,error:error.message,responseData:error.response?.data,statusCode:error.response?.status},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+      // #endregion
       logger.error('[AutomationWorker] Form automation job failed', {
         jobId,
         error: error.message,

@@ -7,9 +7,21 @@ struct LoginView: View {
     @State private var showPassword = false
     @State private var isLoading = false
     @State private var errorMessage: String?
+    @State private var showSettings = false
     
     var body: some View {
         VStack(spacing: 20) {
+            // Settings button at the top
+            HStack {
+                Spacer()
+                Button(action: { showSettings = true }) {
+                    Image(systemName: "gearshape.fill")
+                        .font(.title2)
+                        .foregroundColor(.secondary)
+                        .padding()
+                }
+            }
+            
             Spacer()
             
             // Logo/Title
@@ -66,6 +78,9 @@ struct LoginView: View {
             .padding(.horizontal, 32)
             
             Spacer()
+        }
+        .sheet(isPresented: $showSettings) {
+            SettingsView()
         }
     }
     

@@ -4,18 +4,15 @@ import Foundation
 class TelemetryService {
     static let shared = TelemetryService()
     
-    private let baseURL: String
+    private var baseURL: String {
+        return ServerSettingsService.shared.serverURL
+    }
+    
     private var enabled: Bool {
         return UserDefaults.standard.bool(forKey: "telemetry_enabled") != false
     }
     
-    private init() {
-        if let apiURL = Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") as? String, !apiURL.isEmpty {
-            self.baseURL = apiURL
-        } else {
-            self.baseURL = "http://localhost:8003"
-        }
-    }
+    private init() {}
     
     /// Track an error
     func trackError(_ error: Error, context: [String: Any]? = nil, userId: String? = nil) {

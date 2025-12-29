@@ -390,7 +390,14 @@ class FormReviewService {
           
           // Check if form has required location data (for repair/destructive forms)
           if (domain === 'repairs' || domain === 'destructive') {
+            // #region debug log
+            fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'formReviewService.js:392',message:'Checking required location data',data:{formId:recordId,domain,mappedData:approvedForm.mapped_data},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+            // #endregion
             const hasRequiredData = formAutomationService.hasRequiredLocationData(approvedForm);
+            
+            // #region debug log
+            fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'formReviewService.js:394',message:'Required location data check result',data:{formId:recordId,hasRequiredData,mappedData:approvedForm.mapped_data},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+            // #endregion
             
             console.log(`[FORM_REVIEW] Required location data check for form ${recordId}`, {
               formId: recordId,
@@ -400,6 +407,9 @@ class FormReviewService {
             });
             
             if (!hasRequiredData) {
+              // #region debug log
+              fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'formReviewService.js:402',message:'Missing required location data - skipping automation',data:{formId:recordId,domain,mappedData:approvedForm.mapped_data},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+              // #endregion
               console.log(`[FORM_REVIEW] Skipping automation - form ${recordId} missing required location data`, {
                 formId: recordId,
                 domain,
@@ -417,11 +427,19 @@ class FormReviewService {
             domain
           });
           
+          // #region debug log
+          fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'formReviewService.js:420',message:'Calling automateFromForm',data:{formId:recordId,projectId,userId,domain},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+          // #endregion
+          
           const automationResult = await formAutomationService.automateFromForm(
             approvedForm,
             projectId,
             userId
           );
+          
+          // #region debug log
+          fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'formReviewService.js:426',message:'Automation result received',data:{formId:recordId,success:automationResult.success,skipped:automationResult.skipped,error:automationResult.error,jobId:automationResult.jobId,itemType:automationResult.itemType},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+          // #endregion
           
           console.log(`[FORM_REVIEW] Automation result for form ${recordId}:`, {
             formId: recordId,

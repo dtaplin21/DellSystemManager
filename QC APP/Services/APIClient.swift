@@ -35,7 +35,9 @@ enum APIError: Error, LocalizedError {
 class APIClient {
     static let shared = APIClient()
     
-    private let baseURL: String
+    private var baseURL: String {
+        return ServerSettingsService.shared.serverURL
+    }
     private var authToken: String?
     
     // Custom URLSession with extended timeout for long-running operations (AI form extraction)
@@ -46,13 +48,26 @@ class APIClient {
         return URLSession(configuration: configuration)
     }()
     
+    // Custom session with reasonable timeout for regular requests
+    private lazy var defaultSession: URLSession = {
+        let configuration = URLSessionConfiguration.default
+        configuration.timeoutIntervalForRequest = 30.0 // 30 seconds
+        configuration.timeoutIntervalForResource = 60.0 // 60 seconds total
+        return URLSession(configuration: configuration)
+    }()
+    
     init() {
-        // Get from Info.plist or use default
-        if let apiURL = Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") as? String, !apiURL.isEmpty {
-            self.baseURL = apiURL
-        } else {
-            self.baseURL = "http://localhost:8003"
-        }
+        // Listen for server URL changes
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(serverURLDidChange),
+            name: .serverURLDidChange,
+            object: nil
+        )
+    }
+    
+    @objc private func serverURLDidChange() {
+        print("🌐 [APIClient] Server URL changed to: \(baseURL)")
     }
     
     func setAuthToken(_ token: String) {
@@ -101,7 +116,8 @@ class APIClient {
         }
         
         do {
-            let (data, response) = try await URLSession.shared.data(for: request)
+            // Use defaultSession instead of URLSession.shared for better timeout control
+            let (data, response) = try await defaultSession.data(for: request)
             
             guard let httpResponse = response as? HTTPURLResponse else {
                 throw APIError.unknown

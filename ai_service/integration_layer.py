@@ -469,6 +469,11 @@ class AIServiceIntegration:
             }
         
         try:
+            # #region debug log
+            import time
+            with open('/Users/dtaplin21/DellSystemManager/.cursor/debug.log', 'a') as f:
+                f.write(json.dumps({"location":"integration_layer.py:472","message":"Starting workflow automation","data":{"formId":form_record.get('id'),"projectId":project_id,"userId":user_id},"timestamp":int(time.time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"E"})+"\n")
+            # #endregion
             logger.info(f"Starting multi-agent workflow automation for project {project_id}, form {form_record.get('id')}")
             
             # Determine item type if not provided
@@ -600,6 +605,11 @@ class AIServiceIntegration:
                 user_tier="paid_user"  # Default tier, could be made configurable
             )
             
+            # #region debug log
+            with open('/Users/dtaplin21/DellSystemManager/.cursor/debug.log', 'a') as f:
+                f.write(json.dumps({"location":"integration_layer.py:605","message":"Executing workflow with reflection","data":{"formId":form_record.get('id'),"workflowId":"form_review_and_placement","itemType":item_type},"timestamp":int(time.time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"E"})+"\n")
+            # #endregion
+            
             # Execute multi-agent workflow with async reflection and correction
             # Use execute_workflow_with_reflection for form_review_and_placement workflow
             workflow_result = await orchestrator.execute_workflow_with_reflection(
@@ -611,6 +621,11 @@ class AIServiceIntegration:
                     "project_id": project_id
                 }
             )
+            
+            # #region debug log
+            with open('/Users/dtaplin21/DellSystemManager/.cursor/debug.log', 'a') as f:
+                f.write(json.dumps({"location":"integration_layer.py:615","message":"Workflow completed","data":{"formId":form_record.get('id'),"hasReflections":"reflections" in workflow_result,"hasCorrections":"corrections" in workflow_result},"timestamp":int(time.time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"E"})+"\n")
+            # #endregion
             
             logger.info(f"Multi-agent workflow with reflection completed for form {form_record.get('id')}")
             

@@ -31,6 +31,8 @@
 		C932AFBBEC4E4AE6B91EBDC5 /* AsbuiltFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EDC8A1319324DF79D08C1C1 /* AsbuiltFormView.swift */; };
 		A1B2C3D4E5F6A7B8C9D0E1F2 /* TelemetryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E1F3 /* TelemetryService.swift */; };
 		B2C3D4E5F6A7B8C9D0E1F2A3 /* FormExtractionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E5F6A7B8C9D0E1F2A4 /* FormExtractionService.swift */; };
+		C3D4E5F6A7B8C9D0E1F2A3B4 /* ServerSettingsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3D4E5F6A7B8C9D0E1F2A3B5 /* ServerSettingsService.swift */; };
+		D4E5F6A7B8C9D0E1F2A3B4C5 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4E5F6A7B8C9D0E1F2A3B4C6 /* SettingsView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -78,6 +80,8 @@
 		2EDC8A1319324DF79D08C1C1 /* AsbuiltFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AsbuiltFormView.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6A7B8C9D0E1F3 /* TelemetryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TelemetryService.swift; sourceTree = "<group>"; };
 		B2C3D4E5F6A7B8C9D0E1F2A4 /* FormExtractionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FormExtractionService.swift; sourceTree = "<group>"; };
+		C3D4E5F6A7B8C9D0E1F2A3B5 /* ServerSettingsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerSettingsService.swift; sourceTree = "<group>"; };
+		D4E5F6A7B8C9D0E1F2A3B4C6 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -169,6 +173,7 @@
 				FED396A22EDBBDFB0026C657 /* ProjectService.swift */,
 				A1B2C3D4E5F6A7B8C9D0E1F3 /* TelemetryService.swift */,
 				B2C3D4E5F6A7B8C9D0E1F2A4 /* FormExtractionService.swift */,
+				C3D4E5F6A7B8C9D0E1F2A3B5 /* ServerSettingsService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -195,6 +200,7 @@
 				FED396B32EDBBE4E0026C657 /* UploadResultsView.swift */,
 				D6B63C66026C4ECBADFFBD52 /* FormTypeSelectionView.swift */,
 				2EDC8A1319324DF79D08C1C1 /* AsbuiltFormView.swift */,
+				D4E5F6A7B8C9D0E1F2A3B4C6 /* SettingsView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -367,6 +373,8 @@
 				C932AFBBEC4E4AE6B91EBDC5 /* AsbuiltFormView.swift in Sources */,
 				A1B2C3D4E5F6A7B8C9D0E1F2 /* TelemetryService.swift in Sources */,
 				B2C3D4E5F6A7B8C9D0E1F2A3 /* FormExtractionService.swift in Sources */,
+				C3D4E5F6A7B8C9D0E1F2A3B4 /* ServerSettingsService.swift in Sources */,
+				D4E5F6A7B8C9D0E1F2A3B4C5 /* SettingsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

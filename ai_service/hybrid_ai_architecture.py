@@ -1958,21 +1958,23 @@ class WorkflowOrchestrator:
                     ),
                 ],
             ),
-            # Import form review workflow (lazy import to avoid circular dependencies)
-            try:
-                from workflows.form_review_workflow import get_form_review_workflow
-                cls._BASE_BLUEPRINTS["form_review_and_placement"] = get_form_review_workflow()
-            except ImportError as e:
-                logger.warning(f"Could not import form_review_workflow: {e}")
-                # Create placeholder blueprint if import fails
-                cls._BASE_BLUEPRINTS["form_review_and_placement"] = WorkflowBlueprint(
-                    id="form_review_and_placement",
-                    name="Form Review and Layout Automation",
-                    description="Placeholder - workflow not loaded",
-                    process=Process.sequential,
-                    agents={},
-                    tasks=[],
-                )
+        }
+        
+        # Import form review workflow (lazy import to avoid circular dependencies)
+        try:
+            from workflows.form_review_workflow import get_form_review_workflow
+            cls._BASE_BLUEPRINTS["form_review_and_placement"] = get_form_review_workflow()
+        except ImportError as e:
+            logger.warning(f"Could not import form_review_workflow: {e}")
+            # Create placeholder blueprint if import fails
+            cls._BASE_BLUEPRINTS["form_review_and_placement"] = WorkflowBlueprint(
+                id="form_review_and_placement",
+                name="Form Review and Layout Automation",
+                description="Placeholder - workflow not loaded",
+                process=Process.sequential,
+                agents={},
+                tasks=[],
+            )
         
         # Import reflection tasks and correction task
         try:
