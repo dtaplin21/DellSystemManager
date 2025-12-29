@@ -600,8 +600,9 @@ class AIServiceIntegration:
                 user_tier="paid_user"  # Default tier, could be made configurable
             )
             
-            # Execute multi-agent workflow
-            workflow_result = await orchestrator.execute_workflow(
+            # Execute multi-agent workflow with async reflection and correction
+            # Use execute_workflow_with_reflection for form_review_and_placement workflow
+            workflow_result = await orchestrator.execute_workflow_with_reflection(
                 workflow_id="form_review_and_placement",
                 payload=workflow_context,
                 metadata={
@@ -611,23 +612,65 @@ class AIServiceIntegration:
                 }
             )
             
-            logger.info(f"Multi-agent workflow completed for form {form_record.get('id')}")
+            logger.info(f"Multi-agent workflow with reflection completed for form {form_record.get('id')}")
+            
+            # Log reflection and correction results if available
+            if "reflections" in workflow_result:
+                logger.info(f"Reflection results: {list(workflow_result['reflections'].keys())}")
+            if "corrections" in workflow_result:
+                corrections = workflow_result.get("corrections", {})
+                if corrections.get("output"):
+                    logger.info(f"Corrections made: {corrections.get('output', {})}")
             
             # Extract results from workflow output
-            workflow_output = workflow_result.get("output", {})
+            # workflow_result structure: {"result": {...}, "reflections": {...}, "corrections": {...}}
+            workflow_output = workflow_result.get("result", {})
             if isinstance(workflow_output, str):
                 try:
                     workflow_output = json.loads(workflow_output)
                 except:
                     workflow_output = {}
             
+            # Extract item_id and placement from workflow output
+            # Check both the main result and correction result
+            item_id = None
+            placement = None
+            
+            # Try to get from main workflow result
+            if isinstance(workflow_output, dict):
+                # Check various possible locations for item_id
+                item_id = (
+                    workflow_output.get("create-item", {}).get("output", {}).get("item_id") or
+                    workflow_output.get("item_id") or
+                    workflow_output.get("validate-creation", {}).get("output", {}).get("item_id")
+                )
+                placement = (
+                    workflow_output.get("analyze-placement", {}).get("output", {}).get("coordinates") or
+                    workflow_output.get("placement")
+                )
+            
+            # If corrections were made, check correction result for updated item_id
+            if "corrections" in workflow_result:
+                correction_output = workflow_result.get("corrections", {}).get("output", {})
+                if isinstance(correction_output, str):
+                    try:
+                        correction_output = json.loads(correction_output)
+                    except:
+                        correction_output = {}
+                if isinstance(correction_output, dict):
+                    correction_item_id = correction_output.get("item_id") or correction_output.get("corrected_item_id")
+                    if correction_item_id:
+                        item_id = correction_item_id
+            
             return {
                 "success": True,
                 "item_type": item_type,
                 "workflow_result": workflow_result,
-                "item_id": workflow_output.get("item_id"),
+                "item_id": item_id,
                 "form_id": form_record.get('id'),
-                "placement": workflow_output.get("placement")
+                "placement": placement,
+                "reflections": workflow_result.get("reflections", {}),
+                "corrections": workflow_result.get("corrections", {})
             }
             
         except Exception as e:

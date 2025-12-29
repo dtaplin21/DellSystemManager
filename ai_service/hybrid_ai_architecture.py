@@ -1706,6 +1706,8 @@ class WorkflowOrchestrator:
     """Orchestrates collaborative workflows with multiple agents"""
 
     _BASE_BLUEPRINTS: Optional[Dict[str, WorkflowBlueprint]] = None
+    _REFLECTION_TASKS: Optional[Dict[str, WorkflowTaskTemplate]] = None
+    _CORRECTION_TASK: Optional[WorkflowTaskTemplate] = None
 
     def __init__(
         self,
@@ -1956,8 +1958,36 @@ class WorkflowOrchestrator:
                     ),
                 ],
             ),
-            "form_review_and_placement": get_form_review_workflow(),
-        }
+            # Import form review workflow (lazy import to avoid circular dependencies)
+            try:
+                from workflows.form_review_workflow import get_form_review_workflow
+                cls._BASE_BLUEPRINTS["form_review_and_placement"] = get_form_review_workflow()
+            except ImportError as e:
+                logger.warning(f"Could not import form_review_workflow: {e}")
+                # Create placeholder blueprint if import fails
+                cls._BASE_BLUEPRINTS["form_review_and_placement"] = WorkflowBlueprint(
+                    id="form_review_and_placement",
+                    name="Form Review and Layout Automation",
+                    description="Placeholder - workflow not loaded",
+                    process=Process.sequential,
+                    agents={},
+                    tasks=[],
+                )
+        
+        # Import reflection tasks and correction task
+        try:
+            from workflows.form_review_workflow import (
+                get_async_reflection_tasks,
+                get_correction_task
+            )
+            # Store reflection tasks and correction task for use in execute_workflow
+            cls._REFLECTION_TASKS = get_async_reflection_tasks()
+            cls._CORRECTION_TASK = get_correction_task()
+        except ImportError as e:
+            logger.warning(f"Could not import reflection tasks: {e}")
+            cls._REFLECTION_TASKS = {}
+            cls._CORRECTION_TASK = None
+        
         return cls._BASE_BLUEPRINTS
 
     def register_workflow(self, blueprint: WorkflowBlueprint, override: bool = False) -> None:
@@ -2135,6 +2165,352 @@ CRITICAL: You have access to browser automation tools. When tasks require visual
             "models": models_used,
             "context": updated_context,
             "metadata": metadata or {},
+        }
+
+    async def execute_reflection_task(
+        self,
+        reflection_task_id: str,
+        context: Dict[str, Any],
+        agent: Agent,
+        timeout: float = 60.0
+    ) -> Dict[str, Any]:
+        """
+        Execute a single reflection task asynchronously.
+        Reflection tasks review agent outputs and identify issues.
+        """
+        try:
+            reflection_tasks = self._REFLECTION_TASKS or {}
+            if reflection_task_id not in reflection_tasks:
+                logger.warning(f"Reflection task {reflection_task_id} not found")
+                return {"error": f"Reflection task {reflection_task_id} not found"}
+            
+            task_template = reflection_tasks[reflection_task_id]
+            
+            # Build task description with context
+            task_description = task_template.description
+            if context:
+                context_str = json.dumps(context, default=str)
+                task_description = f"{task_description}\n\nContext: {context_str}"
+            
+            task = Task(
+                description=task_description,
+                agent=agent,
+                expected_output=task_template.expected_output,
+                tools=getattr(agent, "tools", None),
+            )
+            
+            crew = Crew(
+                agents=[agent],
+                tasks=[task],
+                process=Process.sequential,
+                verbose=False,
+                share_crew=True,
+            )
+            
+            logger.info(f"🔄 [WorkflowOrchestrator] Executing reflection task: {reflection_task_id}")
+            
+            # Execute with timeout
+            crew_inputs = {
+                "payload": context,
+                "shared": {},
+                "metadata": {"reflection_task": True},
+            }
+            
+            crew_result = await asyncio.wait_for(
+                asyncio.to_thread(crew.kickoff, crew_inputs),
+                timeout=timeout
+            )
+            
+            if isinstance(crew_result, dict):
+                reflection_result = crew_result
+            else:
+                reflection_result = {"output": crew_result}
+            
+            logger.info(f"✅ [WorkflowOrchestrator] Reflection task {reflection_task_id} completed")
+            return reflection_result
+            
+        except asyncio.TimeoutError:
+            logger.warning(f"⏱️ [WorkflowOrchestrator] Reflection task {reflection_task_id} timed out after {timeout}s")
+            return {"error": "Reflection task timed out", "timeout": timeout}
+        except Exception as error:
+            logger.error(f"❌ [WorkflowOrchestrator] Reflection task {reflection_task_id} failed: {error}")
+            return {"error": str(error)}
+
+    async def execute_correction_task(
+        self,
+        workflow_result: Dict[str, Any],
+        reflection_results: Dict[str, Any],
+        payload: Optional[Dict[str, Any]],
+        agents: Dict[str, Agent]
+    ) -> Dict[str, Any]:
+        """
+        Execute the autonomous correction task after workflow completes.
+        This agent reviews reflection results and makes UI corrections as needed.
+        """
+        try:
+            if not self._CORRECTION_TASK:
+                logger.warning("Correction task not available")
+                return {"error": "Correction task not available"}
+            
+            correction_agent = agents.get("correction_agent")
+            if not correction_agent:
+                logger.warning("Correction agent not found in workflow agents")
+                return {"error": "Correction agent not found"}
+            
+            task_template = self._CORRECTION_TASK
+            
+            # Build comprehensive context from workflow results and reflections
+            correction_context = {
+                "workflow_result": workflow_result,
+                "reflection_results": reflection_results,
+                "payload": payload or {},
+            }
+            
+            # Build task description with all context
+            task_description = task_template.description
+            context_str = json.dumps(correction_context, default=str, indent=2)
+            task_description = f"""{task_description}
+
+WORKFLOW RESULTS:
+{json.dumps(workflow_result, default=str, indent=2)}
+
+REFLECTION RESULTS:
+{json.dumps(reflection_results, default=str, indent=2)}
+
+ORIGINAL FORM DATA:
+{json.dumps(payload or {}, default=str, indent=2)}
+"""
+            
+            task = Task(
+                description=task_description,
+                agent=correction_agent,
+                expected_output=task_template.expected_output,
+                tools=getattr(correction_agent, "tools", None),
+            )
+            
+            crew = Crew(
+                agents=[correction_agent],
+                tasks=[task],
+                process=Process.sequential,
+                verbose=True,  # Enable verbose for correction agent
+                share_crew=True,
+            )
+            
+            logger.info("🔧 [WorkflowOrchestrator] Executing autonomous correction task")
+            
+            crew_inputs = {
+                "payload": correction_context,
+                "shared": {},
+                "metadata": {"correction_task": True},
+            }
+            
+            crew_result = await asyncio.to_thread(crew.kickoff, crew_inputs)
+            
+            if isinstance(crew_result, dict):
+                correction_result = crew_result
+            else:
+                correction_result = {"output": crew_result}
+            
+            logger.info("✅ [WorkflowOrchestrator] Correction task completed")
+            return correction_result
+            
+        except Exception as error:
+            logger.error(f"❌ [WorkflowOrchestrator] Correction task failed: {error}", exc_info=True)
+            return {"error": str(error)}
+
+    async def execute_workflow_with_reflection(
+        self,
+        workflow_id: str,
+        payload: Optional[Dict[str, Any]],
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        Execute workflow with async reflection and autonomous correction.
+        This is the enhanced version for form_review_and_placement workflow.
+        """
+        # Execute main workflow first
+        main_result = await self.execute_workflow(workflow_id, payload, metadata)
+        
+        # Only apply reflection pattern for form_review_and_placement workflow
+        if workflow_id != "form_review_and_placement":
+            return main_result
+        
+        logger.info("🔄 [WorkflowOrchestrator] Starting async reflection phase")
+        
+        # Get workflow result - main_result structure: {"result": {...}, "workflowId": "...", ...}
+        workflow_output = main_result.get("result", {})
+        if isinstance(workflow_output, str):
+            try:
+                workflow_output = json.loads(workflow_output)
+            except:
+                workflow_output = {}
+        
+        # If result is empty, try to get from output key (fallback)
+        if not workflow_output:
+            workflow_output = main_result.get("output", {})
+            if isinstance(workflow_output, str):
+                try:
+                    workflow_output = json.loads(workflow_output)
+                except:
+                    workflow_output = {}
+        
+        # Get agents for reflection tasks
+        blueprint = self.blueprints[workflow_id]
+        agents: Dict[str, Agent] = {}
+        
+        # Create agents for reflection (reuse same agents from workflow)
+        for key, profile in blueprint.agents.items():
+            if key in ["form_reviewer", "placement_analyst"]:
+                requires_browser_tools = any(
+                    tool_name.startswith("browser_") for tool_name in profile.tools
+                )
+                model_name = "gpt-4o"  # Always use GPT-4o
+                
+                llm = ChatOpenAI(
+                    model=model_name,
+                    temperature=0,
+                    openai_api_key=os.getenv("OPENAI_API_KEY")
+                )
+                
+                enhanced_backstory = profile.backstory
+                if requires_browser_tools:
+                    enhanced_backstory = f"""{profile.backstory}
+
+CRITICAL: You have access to browser automation tools. When tasks require visual analysis or UI interaction:
+- ALWAYS execute browser_navigate, browser_screenshot, browser_extract tools
+- NEVER describe what you would do - ACTUALLY execute the tools"""
+                
+                agent = Agent(
+                    role=profile.role,
+                    goal=profile.goal,
+                    backstory=enhanced_backstory,
+                    allow_delegation=profile.allow_delegation,
+                    verbose=False,
+                    llm=llm,
+                    tools=[self.tools[name] for name in profile.tools if name in self.tools],
+                )
+                agents[key] = agent
+        
+        # Create correction agent
+        correction_profile = blueprint.agents.get("correction_agent")
+        if correction_profile:
+            requires_browser_tools = any(
+                tool_name.startswith("browser_") for tool_name in correction_profile.tools
+            )
+            model_name = "gpt-4o"
+            
+            llm = ChatOpenAI(
+                model=model_name,
+                temperature=0,
+                openai_api_key=os.getenv("OPENAI_API_KEY")
+            )
+            
+            enhanced_backstory = f"""{correction_profile.backstory}
+
+CRITICAL: You have access to browser automation tools. When making corrections:
+- ALWAYS execute browser_navigate, browser_interact, browser_extract, browser_screenshot tools
+- NEVER describe what you would do - ACTUALLY execute the tools
+- Navigate to UI elements, make corrections, and verify results"""
+            
+            correction_agent = Agent(
+                role=correction_profile.role,
+                goal=correction_profile.goal,
+                backstory=enhanced_backstory,
+                allow_delegation=correction_profile.allow_delegation,
+                verbose=True,  # Enable verbose for correction agent
+                llm=llm,
+                tools=[self.tools[name] for name in correction_profile.tools if name in self.tools],
+            )
+            agents["correction_agent"] = correction_agent
+        
+        # Start reflection tasks in parallel (non-blocking)
+        reflection_tasks = {}
+        
+        # Reflection for form review
+        # CrewAI returns results in different formats - check both "output" key and direct task results
+        review_result = None
+        if isinstance(workflow_output, dict):
+            # Try different possible structures
+            review_result = (
+                workflow_output.get("review-form-data") or
+                workflow_output.get("review_form_data") or
+                (workflow_output.get("output", {}) if isinstance(workflow_output.get("output"), dict) else {}).get("review-form-data")
+            )
+        
+        if review_result and "form_reviewer" in agents:
+            # Extract the actual output if it's nested
+            review_output = review_result
+            if isinstance(review_result, dict):
+                review_output = review_result.get("output", review_result)
+            
+            reflection_tasks["form_review"] = asyncio.create_task(
+                self.execute_reflection_task(
+                    "async-reflect-form-review",
+                    {"review_result": review_output},
+                    agents["form_reviewer"],
+                    timeout=60.0
+                )
+            )
+            logger.info("🔄 [WorkflowOrchestrator] Started async reflection for form review")
+        
+        # Reflection for placement
+        placement_result = None
+        if isinstance(workflow_output, dict):
+            placement_result = (
+                workflow_output.get("analyze-placement") or
+                workflow_output.get("analyze_placement") or
+                (workflow_output.get("output", {}) if isinstance(workflow_output.get("output"), dict) else {}).get("analyze-placement")
+            )
+        
+        if placement_result and "placement_analyst" in agents:
+            # Extract the actual output if it's nested
+            placement_output = placement_result
+            if isinstance(placement_result, dict):
+                placement_output = placement_result.get("output", placement_result)
+            
+            reflection_tasks["placement"] = asyncio.create_task(
+                self.execute_reflection_task(
+                    "async-reflect-placement",
+                    {"placement_result": placement_output},
+                    agents["placement_analyst"],
+                    timeout=60.0
+                )
+            )
+            logger.info("🔄 [WorkflowOrchestrator] Started async reflection for placement")
+        
+        # Wait for all reflections to complete (or timeout)
+        reflection_results = {}
+        for key, task in reflection_tasks.items():
+            try:
+                reflection_results[key] = await asyncio.wait_for(task, timeout=90.0)
+                logger.info(f"✅ [WorkflowOrchestrator] Reflection {key} completed")
+            except asyncio.TimeoutError:
+                logger.warning(f"⏱️ [WorkflowOrchestrator] Reflection {key} timed out")
+                reflection_results[key] = {"error": "Reflection timed out"}
+            except Exception as e:
+                logger.error(f"❌ [WorkflowOrchestrator] Reflection {key} failed: {e}")
+                reflection_results[key] = {"error": str(e)}
+        
+        # Execute correction task if correction agent is available
+        correction_result = {}
+        if "correction_agent" in agents and self._CORRECTION_TASK:
+            logger.info("🔧 [WorkflowOrchestrator] Starting autonomous correction phase")
+            correction_result = await self.execute_correction_task(
+                workflow_output,
+                reflection_results,
+                payload,
+                agents
+            )
+            logger.info("✅ [WorkflowOrchestrator] Correction phase completed")
+        else:
+            logger.info("⚠️ [WorkflowOrchestrator] Correction agent not available, skipping correction phase")
+        
+        # Combine all results
+        return {
+            **main_result,
+            "reflections": reflection_results,
+            "corrections": correction_result,
+            "status": "completed_with_reflection"
         }
 
     def describe(self) -> Dict[str, Any]:

@@ -26,12 +26,13 @@ def get_form_review_workflow() -> WorkflowBlueprint:
     """
     Define the multi-agent workflow for form review and layout automation.
     
-    This workflow uses 5 specialized agents:
+    This workflow uses 6 specialized agents:
     1. Form Reviewer - Validates form data quality and completeness
     2. Placement Analyst - Determines optimal placement using form data and layout analysis
     3. Layout Navigator - Handles browser navigation and tab switching
     4. Item Creator - Executes browser automation to create items
     5. Validation Agent - Verifies created items and checks for conflicts
+    6. Correction Agent - Reviews reflection results and autonomously corrects UI issues
     """
     
     return WorkflowBlueprint(
@@ -99,6 +100,28 @@ def get_form_review_workflow() -> WorkflowBlueprint:
                 ],
                 allow_delegation=True,
             ),
+            "correction_agent": AgentProfile(
+                name="Autonomous Correction Agent",
+                role="Quality Correction Specialist",
+                goal="Review reflection results from all workflow agents, identify issues requiring UI corrections, navigate to affected UI elements, and autonomously make corrections to fix placement errors, data inconsistencies, or validation failures",
+                backstory="""Senior quality control engineer with expertise in autonomous error correction. 
+                Specializes in reviewing agent outputs, identifying discrepancies between intended and actual results, 
+                and autonomously navigating UI to make precise corrections. Expert at:
+                - Analyzing reflection reports from multiple agents
+                - Identifying root causes of placement errors
+                - Navigating complex UI hierarchies
+                - Making precise corrections without disrupting existing work
+                - Validating corrections before completing tasks""",
+                complexity=TaskComplexity.COMPLEX,
+                tools=[
+                    "browser_navigate",      # Navigate to UI elements
+                    "browser_interact",      # Click, edit, move items
+                    "browser_extract",       # Read current state
+                    "browser_screenshot",    # Visual verification
+                    "browser_vision_analyze" # Analyze visual placement
+                ],
+                allow_delegation=True,
+            ),
         },
         tasks=[
             WorkflowTaskTemplate(
@@ -138,5 +161,103 @@ def get_form_review_workflow() -> WorkflowBlueprint:
             ),
         ],
         allow_real_time_collaboration=True,
+    )
+
+
+def get_async_reflection_tasks() -> Dict[str, WorkflowTaskTemplate]:
+    """
+    Define async reflection tasks that run in parallel with main workflow.
+    These tasks review agent outputs and identify issues for potential correction.
+    """
+    return {
+        "async-reflect-form-review": WorkflowTaskTemplate(
+            id="async-reflect-form-review",
+            description="""Review the form validation results from the Form Reviewer agent. 
+            Analyze the validation report for:
+            1. Any inconsistencies or edge cases that might have been missed
+            2. Confidence level of the validation (high >= 0.9, medium 0.7-0.9, low < 0.7)
+            3. Potential issues that could cause problems in later steps
+            4. Recommendations for refinement if confidence is low
+            
+            This reflection runs asynchronously and does not block the workflow.
+            Focus on identifying issues that would require UI corrections if the workflow proceeds.""",
+            agent="form_reviewer",
+            expected_output="Reflection report with confidence score (0-1), identified issues, refinement recommendations, and flag indicating if UI correction may be needed",
+            context_keys=["review-form-data"],
+        ),
+        "async-reflect-placement": WorkflowTaskTemplate(
+            id="async-reflect-placement",
+            description="""Review the placement analysis results from the Placement Analyst agent.
+            Analyze the placement report for:
+            1. Confidence score - is it high enough to proceed? (threshold: 0.8)
+            2. Coordinate accuracy - do the calculated coordinates make sense?
+            3. Potential conflicts - will this placement overlap with existing items?
+            4. Edge cases - are there any unusual scenarios that weren't handled?
+            5. Structured vs parsed data - was structured data used (higher confidence) or text parsing (lower confidence)?
+            
+            This reflection runs asynchronously and does not block the workflow.
+            Flag any issues that would require moving or recreating the item.""",
+            agent="placement_analyst",
+            expected_output="Reflection report with confidence assessment, coordinate validation, conflict warnings, and flag indicating if placement correction may be needed",
+            context_keys=["analyze-placement"],
+        ),
+    }
+
+
+def get_correction_task() -> WorkflowTaskTemplate:
+    """
+    Define the autonomous correction task that runs after workflow completes.
+    This agent reviews all reflection results and makes UI corrections as needed.
+    """
+    return WorkflowTaskTemplate(
+        id="autonomous-correction",
+        description="""Review all reflection results from previous agents and the final validation results. 
+        
+        CRITICAL TASKS:
+        1. Analyze reflection reports from Form Reviewer and Placement Analyst
+        2. Compare intended results (from form data) vs actual results (from validation)
+        3. Identify any discrepancies requiring UI corrections:
+           - Placement coordinates incorrect (item created at wrong location)
+           - Item created in wrong location (should be moved)
+           - Missing or incorrect form fields (field values don't match form data)
+           - Validation failures (item created but doesn't meet requirements)
+           - Wrong item type (patch created instead of destructive test, etc.)
+        
+        4. For each identified issue:
+           a. Navigate to the affected UI element (panel layout page, correct tab)
+           b. Extract current state (screenshot + data extraction)
+           c. Determine correction needed (move, edit, delete and recreate)
+           d. Execute correction autonomously:
+              - If placement wrong: Use browser_interact to move item to correct coordinates
+              - If field missing/incorrect: Click edit button, fill correct field, submit
+              - If wrong item type: Delete incorrect item, switch to correct tab, recreate
+              - If validation failed: Fix the issue (move, edit, or recreate as needed)
+           e. Verify correction was successful (extract and validate)
+        
+        5. If corrections were made, re-validate the corrected item
+        
+        AUTONOMOUS OPERATION:
+        - You have full authority to make corrections
+        - Navigate anywhere in the panel layout UI
+        - Edit, move, or delete items as needed
+        - Only correct issues identified in reflections - don't make unnecessary changes
+        - Be precise and careful - verify each correction before moving to the next
+        
+        PRIORITY ORDER:
+        1. Critical issues (wrong location, wrong item type) - fix immediately
+        2. Data inconsistencies (missing fields) - fix if validation flagged them
+        3. Low confidence placements - only fix if reflection indicates high risk of error""",
+        agent="correction_agent",
+        expected_output="Correction report with list of issues found, corrections made (with before/after states), final validation status, and confirmation that all identified issues were addressed",
+        context_keys=[
+            "review-form-data",           # Original form review
+            "async-reflect-form-review",   # Reflection results
+            "analyze-placement",           # Placement analysis
+            "async-reflect-placement",     # Placement reflection
+            "validate-creation",           # Final validation
+            "form_record",                 # Original form data for comparison
+            "project_id",                 # For navigation
+            "panel_layout_url"            # For navigation
+        ],
     )
 
