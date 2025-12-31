@@ -756,6 +756,104 @@ def create_panels_from_forms():
         logger.error(traceback.format_exc())
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/ai/extract-plan-geometry', methods=['POST'])
+def extract_plan_geometry():
+    """Extract Plan Geometry Model from construction documents"""
+    try:
+        data = request.json
+        project_id = data.get('project_id')
+        documents = data.get('documents', [])
+
+        if not project_id or not documents:
+            return jsonify({
+                'success': False,
+                'error': 'project_id and documents are required'
+            }), 400
+
+        logger.info(f"Extracting plan geometry from {len(documents)} documents for project {project_id}")
+
+        # Use OpenAI to extract geometry from document text
+        # This is a basic implementation - can be enhanced with vision models for drawings
+        extracted_geometry = {
+            'site_boundary': [],
+            'reference_points': [],
+            'site_width': 4000,  # Default - will be extracted from documents
+            'site_height': 4000,  # Default
+            'units': 'feet',
+            'scale_factor': None,
+            'no_go_zones': [],
+            'key_features': [],
+            'panel_map_requirements': {},
+            'extraction_method': 'text_parsing',
+            'confidence_score': 0.5  # Low confidence for basic extraction
+        }
+
+        # Extract text from all documents
+        combined_text = ''
+        for doc in documents:
+            text_content = doc.get('textContent', '')
+            if text_content:
+                combined_text += text_content + '\n\n'
+
+        # Use OpenAI to extract geometry information
+        if combined_text:
+            try:
+                extraction_prompt = f"""Extract plan geometry information from the following construction documents:
+
+{combined_text}
+
+Extract:
+1. Site boundary (polygon coordinates if available)
+2. Site dimensions (width, height in feet)
+3. Scale factor (e.g., "1 inch = 50 feet")
+4. Reference points/anchors (if mentioned)
+5. No-go zones or constraints
+6. Key features (buildings, utilities, etc.)
+7. Panel requirements (orientation rules, naming conventions, allowed tolerances)
+
+Return as JSON with keys: site_boundary, site_width, site_height, units, scale_factor, reference_points, no_go_zones, key_features, panel_map_requirements."""
+
+                # Call OpenAI for extraction
+                extraction_result = run_async(openai_service.chat_completion(
+                    messages=[{
+                        'role': 'user',
+                        'content': extraction_prompt
+                    }],
+                    model='gpt-4o',
+                    temperature=0.3
+                ))
+
+                # Parse extraction result
+                if extraction_result and 'choices' in extraction_result:
+                    content = extraction_result['choices'][0]['message']['content']
+                    # Try to parse JSON from response
+                    try:
+                        import re
+                        json_match = re.search(r'\{.*\}', content, re.DOTALL)
+                        if json_match:
+                            parsed = json.loads(json_match.group())
+                            extracted_geometry.update(parsed)
+                            extracted_geometry['confidence_score'] = 0.7  # Higher confidence with AI extraction
+                            extracted_geometry['extraction_method'] = 'ai_text_parsing'
+                    except json.JSONDecodeError:
+                        logger.warn("Could not parse JSON from AI extraction")
+            except Exception as ai_error:
+                logger.warn(f"AI extraction failed, using defaults: {ai_error}")
+
+        return jsonify({
+            'success': True,
+            'geometry': extracted_geometry,
+            'confidence_score': extracted_geometry['confidence_score']
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Error extracting plan geometry: {str(e)}")
+        logger.error(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 # Debug endpoint to list all registered routes
 @app.route('/debug/routes', methods=['GET'])
 def list_routes():

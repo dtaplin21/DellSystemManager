@@ -441,6 +441,21 @@ class FormReviewService {
           fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'formReviewService.js:426',message:'Automation result received',data:{formId:recordId,success:automationResult.success,skipped:automationResult.skipped,error:automationResult.error,jobId:automationResult.jobId,itemType:automationResult.itemType},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
           // #endregion
           
+          // Trigger compliance validation after form approval (non-blocking)
+          try {
+            const complianceOperationsService = require('../services/complianceOperationsService');
+            // Validate form compliance asynchronously
+            complianceOperationsService.validateFormCompliance(
+              projectId,
+              recordId,
+              userId
+            ).catch(err => {
+              console.warn('[FORM_REVIEW] Compliance validation failed (non-blocking):', err.message);
+            });
+          } catch (err) {
+            console.warn('[FORM_REVIEW] Could not trigger compliance validation:', err.message);
+          }
+          
           console.log(`[FORM_REVIEW] Automation result for form ${recordId}:`, {
             formId: recordId,
             success: automationResult.success,

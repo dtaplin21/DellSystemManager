@@ -563,6 +563,20 @@ router.patch('/layout/:projectId', async (req, res, next) => {
         console.warn('⚠️ [PANELS] WebSocket notification failed:', wsError.message);
       }
       
+      // Trigger compliance validation after layout save (non-blocking)
+      try {
+        const complianceOperationsService = require('../services/complianceOperationsService');
+        // Validate layout compliance asynchronously
+        complianceOperationsService.validateLayoutCompliance(
+          projectId,
+          req.user.id
+        ).catch(err => {
+          console.warn('[PANELS] Compliance validation failed (non-blocking):', err.message);
+        });
+      } catch (err) {
+        console.warn('[PANELS] Could not trigger compliance validation:', err.message);
+      }
+      
       console.log('🔍 [PANELS] === PATCH /layout/:projectId END ===');
       return res.status(200).json(parsedLayout);
       

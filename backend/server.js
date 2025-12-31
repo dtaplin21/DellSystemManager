@@ -128,11 +128,13 @@ app.use('/api/forms', require('./routes/forms'));
 app.use('/api/settings', require('./routes/settings'));
 app.use('/api/jobs', require('./routes/jobs'));
 app.use('/api/document-processing', require('./routes/documentProcessing'));
+app.use('/api/compliance', require('./routes/complianceOperations'));
 logger.debug('Routes registered', {
   routes: [
     '/api/connected-workflow',
     '/api/asbuilt',
-    '/api/document-processing'
+    '/api/document-processing',
+    '/api/compliance'
   ]
 });
 

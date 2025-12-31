@@ -1990,6 +1990,22 @@ class WorkflowOrchestrator:
             cls._REFLECTION_TASKS = {}
             cls._CORRECTION_TASK = None
         
+        # Import layout compliance governor workflow
+        try:
+            from workflows.layout_compliance_governor_workflow import get_layout_compliance_governor_workflow
+            cls._BASE_BLUEPRINTS["layout_compliance_governor"] = get_layout_compliance_governor_workflow()
+        except ImportError as e:
+            logger.warning(f"Could not import layout_compliance_governor_workflow: {e}")
+            # Create placeholder blueprint if import fails
+            cls._BASE_BLUEPRINTS["layout_compliance_governor"] = WorkflowBlueprint(
+                id="layout_compliance_governor",
+                name="Broad Layout Compliance Governor",
+                description="Placeholder - workflow not loaded",
+                process=Process.sequential,
+                agents={},
+                tasks=[],
+            )
+        
         return cls._BASE_BLUEPRINTS
 
     def register_workflow(self, blueprint: WorkflowBlueprint, override: bool = False) -> None:

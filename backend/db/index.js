@@ -761,6 +761,19 @@ async function applyMigrations() {
       });
     }
 
+    // Apply plan geometry model migration
+    try {
+      const planGeometryMigrationPath = path.join(__dirname, 'migrations', '014_create_plan_geometry_model.sql');
+      const planGeometrySql = await fs.readFile(planGeometryMigrationPath, 'utf8');
+      await client.query(planGeometrySql);
+      logger.debug('Plan geometry model migration applied');
+    } catch (planGeometryErr) {
+      logger.warn('Plan geometry model migration not applied', {
+        error: { message: planGeometryErr.message },
+        hint: 'If permissions restrict file reads, run the SQL manually in the DB. The migration file is at backend/db/migrations/014_create_plan_geometry_model.sql'
+      });
+    }
+
     client.release();
     logger.info('Database migrations completed successfully');
   } catch (error) {

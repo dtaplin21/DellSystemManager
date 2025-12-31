@@ -3,6 +3,15 @@ const { pgTable, uuid, varchar, text, timestamp, integer, decimal, boolean, json
 // Cardinal direction enum type
 const cardinalDirectionEnum = pgEnum('cardinal_direction', ['north', 'south', 'east', 'west']);
 
+// Transform method enum type
+const transformMethodEnum = pgEnum('transform_method', ['anchor_points', 'boundary_fit', 'manual']);
+
+// Operation risk level enum type
+const operationRiskLevelEnum = pgEnum('operation_risk_level', ['low', 'medium', 'high', 'critical']);
+
+// Operation status enum type
+const operationStatusEnum = pgEnum('operation_status', ['pending', 'approved', 'rejected', 'applied', 'rolled_back']);
+
 
 // Users table
 const users = pgTable('users', {
@@ -122,6 +131,101 @@ const userSettings = pgTable('user_settings', {
   updatedAt: timestamp('updated_at').defaultNow(),
 });
 
+// Plan Geometry Model table
+const planGeometryModels = pgTable('plan_geometry_models', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  documentId: uuid('document_id').references(() => documents.id, { onDelete: 'set null' }),
+  siteBoundary: jsonb('site_boundary').notNull(),
+  referencePoints: jsonb('reference_points').default('[]'),
+  siteWidth: decimal('site_width').notNull(),
+  siteHeight: decimal('site_height').notNull(),
+  units: varchar('units', { length: 20 }).default('feet'),
+  scaleFactor: decimal('scale_factor'),
+  noGoZones: jsonb('no_go_zones').default('[]'),
+  keyFeatures: jsonb('key_features').default('[]'),
+  panelMapRequirements: jsonb('panel_map_requirements').default('{}'),
+  confidenceScore: decimal('confidence_score', { precision: 5, scale: 2 }),
+  extractionMethod: varchar('extraction_method', { length: 50 }),
+  extractedAt: timestamp('extracted_at').defaultNow(),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+// Layout Registration Transforms table
+const layoutTransforms = pgTable('layout_transforms', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  planGeometryModelId: uuid('plan_geometry_model_id').notNull().references(() => planGeometryModels.id, { onDelete: 'cascade' }),
+  translationX: decimal('translation_x').default('0'),
+  translationY: decimal('translation_y').default('0'),
+  rotationDegrees: decimal('rotation_degrees').default('0'),
+  scaleX: decimal('scale_x').default('1'),
+  scaleY: decimal('scale_y').default('1'),
+  skewX: decimal('skew_x').default('0'),
+  skewY: decimal('skew_y').default('0'),
+  method: transformMethodEnum('method').notNull(),
+  anchorPoints: jsonb('anchor_points').default('[]'),
+  confidenceScore: decimal('confidence_score', { precision: 5, scale: 2 }),
+  residualError: decimal('residual_error'),
+  maxError: decimal('max_error'),
+  scaleDeltaPercent: decimal('scale_delta_percent'),
+  isUniformScale: boolean('is_uniform_scale').default(true),
+  tolerancePass: boolean('tolerance_pass').default(false),
+  isActive: boolean('is_active').default(true),
+  createdAt: timestamp('created_at').defaultNow(),
+  createdBy: uuid('created_by').references(() => users.id),
+  appliedAt: timestamp('applied_at'),
+});
+
+// Compliance Operations table
+const complianceOperations = pgTable('compliance_operations', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  operationType: varchar('operation_type', { length: 50 }).notNull(),
+  operationData: jsonb('operation_data').notNull(),
+  riskLevel: operationRiskLevelEnum('risk_level').notNull(),
+  status: operationStatusEnum('status').default('pending'),
+  requiresApproval: boolean('requires_approval').default(true),
+  changePlan: jsonb('change_plan'),
+  executionResult: jsonb('execution_result'),
+  beforeSnapshot: jsonb('before_snapshot'),
+  afterSnapshot: jsonb('after_snapshot'),
+  proposedBy: uuid('proposed_by').references(() => users.id),
+  proposedAt: timestamp('proposed_at').defaultNow(),
+  approvedBy: uuid('approved_by').references(() => users.id),
+  approvedAt: timestamp('approved_at'),
+  rejectedBy: uuid('rejected_by').references(() => users.id),
+  rejectedAt: timestamp('rejected_at'),
+  rejectionReason: text('rejection_reason'),
+  rolledBackAt: timestamp('rolled_back_at'),
+  rolledBackBy: uuid('rolled_back_by').references(() => users.id),
+  rollbackReason: text('rollback_reason'),
+  evidenceReferences: jsonb('evidence_references').default('[]'),
+  agentRunId: uuid('agent_run_id'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+// Compliance Validations table
+const complianceValidations = pgTable('compliance_validations', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  planGeometryModelId: uuid('plan_geometry_model_id').references(() => planGeometryModels.id, { onDelete: 'set null' }),
+  layoutTransformId: uuid('layout_transform_id').references(() => layoutTransforms.id, { onDelete: 'set null' }),
+  validationType: varchar('validation_type', { length: 50 }).notNull(),
+  passed: boolean('passed').notNull(),
+  complianceScore: decimal('compliance_score', { precision: 5, scale: 2 }),
+  issues: jsonb('issues').default('[]'),
+  warnings: jsonb('warnings').default('[]'),
+  recommendations: jsonb('recommendations').default('[]'),
+  scaleDeltaPercent: decimal('scale_delta_percent'),
+  boundaryViolationsCount: integer('boundary_violations_count').default(0),
+  shapeMismatchesCount: integer('shape_mismatches_count').default(0),
+  validatedAt: timestamp('validated_at').defaultNow(),
+  validatedBy: uuid('validated_by').references(() => users.id),
+});
+
 
 module.exports = {
   users,
@@ -132,4 +236,8 @@ module.exports = {
   notifications,
   panelLayoutRequirements,
   userSettings,
+  planGeometryModels,
+  layoutTransforms,
+  complianceOperations,
+  complianceValidations,
 };

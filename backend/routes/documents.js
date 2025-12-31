@@ -199,6 +199,31 @@ router.post('/:projectId/upload', auth, upload.array('documents', 5), async (req
       
       uploadedDocuments.push(document);
       console.log('✅ File saved with text content:', file.originalname);
+      
+      // Trigger plan geometry extraction if document is a plan or specification
+      const documentType = file.originalname.toLowerCase();
+      const isPlanDocument = documentType.includes('plan') || 
+                            documentType.includes('spec') || 
+                            documentType.includes('specification') ||
+                            documentType.includes('drawing') ||
+                            documentType.includes('site');
+      
+      if (isPlanDocument) {
+        try {
+          const complianceOperationsService = require('../services/complianceOperationsService');
+          // Extract plan geometry asynchronously (don't block response)
+          complianceOperationsService.extractPlanGeometry(
+            projectId,
+            [document.id],
+            { autoRegister: false }
+          ).catch(err => {
+            console.warn('[DOCUMENTS] Plan geometry extraction failed (non-blocking):', err.message);
+          });
+          console.log('✅ Triggered plan geometry extraction for:', file.originalname);
+        } catch (err) {
+          console.warn('[DOCUMENTS] Could not trigger plan geometry extraction:', err.message);
+        }
+      }
     }
     
     console.log('🎉 All files uploaded successfully:', uploadedDocuments.length);
