@@ -36,15 +36,8 @@ import { FileMetadata } from '@/contexts/AsbuiltDataContext';
 import { getAsbuiltRecordDetails } from '@/lib/safe-api';
 
 export default function AsbuiltPageContent() {
-  console.log('🚀 [ASBUILT] AsbuiltPageContent component is rendering!');
-  
   const searchParams = useSearchParams();
   const urlProjectId = searchParams.get('projectId') || '';
-  
-  console.log('🔍 [ASBUILT] Component render - urlProjectId:', urlProjectId);
-  console.log('🔍 [ASBUILT] searchParams:', searchParams.toString());
-  console.log('🔍 [ASBUILT] searchParams.getAll:', Array.from(searchParams.entries()));
-  console.log('🔍 [ASBUILT] window.location.href:', typeof window !== 'undefined' ? window.location.href : 'SSR');
   
   // Use shared contexts
   const {
@@ -73,14 +66,8 @@ export default function AsbuiltPageContent() {
   // Use URL projectId if available, otherwise fall back to contextSelectedProject
   const projectId = urlProjectId || contextSelectedProject?.id || '';
   
-  console.log('🔍 [ASBUILT] Final projectId:', projectId);
-  console.log('🔍 [ASBUILT] contextSelectedProject?.id:', contextSelectedProject?.id);
-  
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDomain, setSelectedDomain] = useState<string>('all');
-  
-  // Debug: Log the selectedDomain value
-  console.log('🔍 [ASBUILT] selectedDomain state:', selectedDomain);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showFileViewer, setShowFileViewer] = useState(false);
   const [selectedFile, setSelectedFile] = useState<FileMetadata | null>(null);
@@ -94,17 +81,9 @@ export default function AsbuiltPageContent() {
 
   // Handle URL-based project selection
   useEffect(() => {
-    console.log('🔄 [ASBUILT] Project selection useEffect triggered:');
-    console.log('  - urlProjectId:', urlProjectId);
-    console.log('  - projectId (final):', projectId);
-    console.log('  - projects.length:', projects.length);
-    console.log('  - contextSelectedProject:', contextSelectedProject?.id);
-    
     if (urlProjectId && projects.length > 0) {
       const project = projects.find(p => p.id === urlProjectId);
-      console.log('  - found project:', project?.name);
       if (project && project.id !== contextSelectedProject?.id) {
-        console.log('  - selecting project:', project.id);
         selectProject(project.id);
       }
     }
@@ -112,20 +91,11 @@ export default function AsbuiltPageContent() {
 
   // Refresh data when project is selected
   useEffect(() => {
-    console.log('🔄 [ASBUILT] Data refresh useEffect triggered:');
-    console.log('  - contextSelectedProject:', contextSelectedProject?.id);
-    console.log('  - projectId:', projectId);
-    console.log('  - refreshAllData function:', typeof refreshAllData);
-    
     if (contextSelectedProject && projectId) {
-      console.log('🔄 [ASBUILT] Calling refreshAllData for project:', projectId);
       refreshAllData(projectId);
     } else if (contextSelectedProject && !projectId) {
       // If we have a selected project but no URL projectId, use the selected project
-      console.log('🔄 [ASBUILT] Using contextSelectedProject as projectId:', contextSelectedProject.id);
       refreshAllData(contextSelectedProject.id);
-    } else {
-      console.log('❌ [ASBUILT] Not calling refreshAllData - missing contextSelectedProject or projectId');
     }
   }, [contextSelectedProject, projectId, refreshAllData]);
 
@@ -138,7 +108,6 @@ export default function AsbuiltPageContent() {
   const handleRecordView = async (recordId: string) => {
     setLoadingRecord(true);
     try {
-      console.log('🔍 [ASBUILT] Fetching record details for:', recordId);
       const record = await getAsbuiltRecordDetails(recordId);
       setSelectedRecord(record);
       setShowRecordViewer(true);
@@ -156,9 +125,7 @@ export default function AsbuiltPageContent() {
     }
 
     try {
-      console.log('🗑️ [ASBUILT] Deleting record:', recordId);
       await deleteRecord(recordId);
-      console.log('✅ [ASBUILT] Record deleted successfully');
       // The context will automatically update the UI by removing the record from the list
     } catch (error) {
       console.error('❌ [ASBUILT] Failed to delete record:', error);
@@ -172,9 +139,7 @@ export default function AsbuiltPageContent() {
     }
 
     try {
-      console.log('🗑️ [ASBUILT] Deleting file:', fileId);
       await deleteFile(fileId);
-      console.log('✅ [ASBUILT] File deleted successfully');
       // The context will automatically update the UI by removing the file from the list
     } catch (error) {
       console.error('❌ [ASBUILT] Failed to delete file:', error);
@@ -183,7 +148,6 @@ export default function AsbuiltPageContent() {
   };
 
   const handleImportComplete = () => {
-    console.log('🔍 [ASBUILT] Import completed, refreshing data...');
     if (contextSelectedProject) {
       refreshAllData(contextSelectedProject.id);
     }
@@ -318,33 +282,9 @@ export default function AsbuiltPageContent() {
     
     const matchesDomain = selectedDomain === 'all' || record.domain === selectedDomain;
     
-    // Debug logging
-    if (projectRecords.length > 0 && projectRecords.length < 5) {
-      console.log('🔍 [ASBUILT] Filtering record:', {
-        recordDomain: record.domain,
-        selectedDomain,
-        matchesDomain,
-        searchQuery,
-        matchesSearch
-      });
-    }
-    
     return matchesSearch && matchesDomain;
   });
 
-  // Debug logging for domain filtering
-  React.useEffect(() => {
-    if (projectRecords && projectRecords.length > 0) {
-      console.log('📊 [ASBUILT] Record domains:', 
-        projectRecords.map(r => r.domain)
-      );
-      console.log('📊 [ASBUILT] Unique domains:', 
-        Array.from(new Set(projectRecords.map(r => r.domain)))
-      );
-      console.log('📊 [ASBUILT] Current filter:', selectedDomain);
-      console.log('📊 [ASBUILT] Filtered records count:', filteredRecords.length);
-    }
-  }, [projectRecords, selectedDomain, filteredRecords.length]);
 
   // Get all files from the shared context
   const allFiles = Array.from(fileMetadata.values());
@@ -375,18 +315,7 @@ export default function AsbuiltPageContent() {
     return <Badge className="bg-red-100 text-red-800">Low</Badge>;
   };
 
-  console.log('🔍 [ASBUILT] Loading states check:');
-  console.log('🔍 [ASBUILT] projects.length:', projects.length);
-  console.log('🔍 [ASBUILT] projectsLoading:', projectsLoading);
-  console.log('🔍 [ASBUILT] isLoading (context):', isLoading);
-  console.log('🔍 [ASBUILT] contextError:', contextError);
-  console.log('🔍 [ASBUILT] projectsError:', projectsError);
-  console.log('🔍 [ASBUILT] projects.length === 0:', projects.length === 0);
-  console.log('🔍 [ASBUILT] !projectsLoading:', !projectsLoading);
-  console.log('🔍 [ASBUILT] Condition (projects.length === 0 && !projectsLoading):', projects.length === 0 && !projectsLoading);
-  
   if (projects.length === 0 && !projectsLoading) {
-    console.log('🔍 [ASBUILT] Showing no projects available message');
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
@@ -422,27 +351,11 @@ export default function AsbuiltPageContent() {
     );
   }
 
-  console.log('🔍 [ASBUILT] === CONDITIONAL RENDERING CHECK ===');
-  console.log('🔍 [ASBUILT] contextSelectedProject value:', contextSelectedProject);
-  console.log('🔍 [ASBUILT] projectRecords length:', projectRecords.length);
-  console.log('🔍 [ASBUILT] isLoading:', isLoading);
-  console.log('🔍 [ASBUILT] error:', contextError);
-  
   if (!contextSelectedProject) {
-    console.log('🔍 [ASBUILT] ✅ Taking project selection branch');
-    console.log('🔍 [ASBUILT] Rendering project selection UI');
-    console.log('🔍 [ASBUILT] Projects state:', projects);
-    console.log('🔍 [ASBUILT] Projects length:', projects.length);
-    console.log('🔍 [ASBUILT] ContextSelectedProject:', contextSelectedProject);
-    console.log('🔍 [ASBUILT] About to return JSX for project selection');
-    
     return (
-      <div className="space-y-6">
-        <div className="p-4 bg-red-500 text-white text-xl font-bold">
-          DEBUG: This should be visible if JSX is rendering!
-        </div>
-        <div className="flex items-center justify-between">
-          <div>
+      <div className="space-y-6 p-8 pl-10">
+        <div className="flex items-center justify-center">
+          <div className="text-center">
             <h1 className="text-3xl font-bold text-gray-900">As-Built Data</h1>
             <p className="text-gray-600 mt-1">Select a project to view as-built records.</p>
           </div>
@@ -453,26 +366,17 @@ export default function AsbuiltPageContent() {
             <CardTitle>Select Project ({projects.length} available)</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="mb-4 p-2 bg-yellow-100 rounded">
-              <p className="text-sm">Debug: {projects.length} projects loaded</p>
-            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {(() => {
-                console.log('🔍 [ASBUILT] About to map projects:', projects);
-                return null;
-              })()}
               {projects.length === 0 ? (
                 <div className="col-span-2 text-center py-8">
                   <p className="text-gray-500">No projects available</p>
                 </div>
               ) : (
-                projects.map((project, index) => {
-                  console.log(`🔍 [ASBUILT] Rendering project ${index}:`, project);
+                projects.map((project) => {
                   return (
                     <div
                       key={project.id}
                       onClick={() => {
-                        console.log('🔍 [ASBUILT] Project clicked:', project.name);
                         selectProject(project.id);
                       }}
                       className="p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 hover:border-blue-300 transition-colors"
@@ -490,14 +394,9 @@ export default function AsbuiltPageContent() {
       </div>
     );
   }
-
-  console.log('🔍 [ASBUILT] ❌ Taking main content branch (project selected)');
-  console.log('🔍 [ASBUILT] Rendering main content with selected project');
-  console.log('🔍 [ASBUILT] ContextSelectedProject:', contextSelectedProject);
-  console.log('🔍 [ASBUILT] Projects:', projects);
   
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-8 pl-10">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -511,7 +410,7 @@ export default function AsbuiltPageContent() {
             )}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 rounded-lg border border-gray-200">
         <Button
           variant="outline"
           onClick={() => clearSelection()}
@@ -646,7 +545,6 @@ export default function AsbuiltPageContent() {
                 <select
                   value={selectedDomain}
                   onChange={(e) => {
-                    console.log('🔍 [ASBUILT] Domain changed to:', e.target.value);
                     setSelectedDomain(e.target.value);
                   }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
