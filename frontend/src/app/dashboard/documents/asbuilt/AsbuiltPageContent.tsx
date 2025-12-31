@@ -249,7 +249,7 @@ export default function AsbuiltPageContent() {
 
     setExporting(`${recordId}-${format}`);
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/asbuilt/records/${recordId}/export/${format}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003'}/api/asbuilt/records/${recordId}/export/${format}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -285,7 +285,7 @@ export default function AsbuiltPageContent() {
 
     setExporting(`project-${format}`);
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/asbuilt/${projectId}/export/${format}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003'}/api/asbuilt/${projectId}/export/${format}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
