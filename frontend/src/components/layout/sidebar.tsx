@@ -54,7 +54,7 @@ export default function Sidebar() {
       name: 'Documents',
       href: '/dashboard/documents',
       icon: FileText,
-      current: Boolean(isActive('/dashboard/documents'))
+      current: Boolean(pathname === '/dashboard/documents')
     },
     {
       name: 'As-Built Data',
