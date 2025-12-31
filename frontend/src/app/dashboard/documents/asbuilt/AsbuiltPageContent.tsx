@@ -249,15 +249,13 @@ export default function AsbuiltPageContent() {
 
     setExporting(`${recordId}-${format}`);
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003'}/api/asbuilt/records/${recordId}/export/${format}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+      const response = await makeAuthenticatedRequest(`/api/asbuilt/records/${recordId}/export/${format}`, {
+        method: 'GET'
       });
 
       if (!response.ok) {
-        throw new Error('Export failed');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || errorData.error || `Export failed: ${response.status}`);
       }
 
       const blob = await response.blob();
@@ -285,15 +283,13 @@ export default function AsbuiltPageContent() {
 
     setExporting(`project-${format}`);
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003'}/api/asbuilt/${projectId}/export/${format}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+      const response = await makeAuthenticatedRequest(`/api/asbuilt/${projectId}/export/${format}`, {
+        method: 'GET'
       });
 
       if (!response.ok) {
-        throw new Error('Export failed');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || errorData.error || `Export failed: ${response.status}`);
       }
 
       const blob = await response.blob();
