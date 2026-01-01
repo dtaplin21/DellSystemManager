@@ -121,10 +121,42 @@ export default function ProjectsPage() {
       });
     } catch (error) {
       console.error('Error deleting project:', error);
+      
+      // Extract detailed error information
+      let errorMessage = 'Failed to delete project';
+      let errorTitle = 'Error';
+      
+      if (error instanceof Error) {
+        // Check if error has errorData property (from our API function)
+        const errorData = (error as any).errorData;
+        
+        if (errorData) {
+          errorMessage = errorData.message || errorMessage;
+          if (errorData.step) {
+            errorTitle = `Error deleting ${errorData.step}`;
+            if (errorData.details) {
+              errorMessage += `\n\nDetails: ${errorData.details}`;
+            }
+            if (errorData.constraint) {
+              errorMessage += `\n\nConstraint: ${errorData.constraint}`;
+            }
+            if (errorData.table) {
+              errorMessage += `\n\nTable: ${errorData.table}`;
+            }
+          } else if (errorData.details) {
+            errorMessage = `${errorData.message || errorMessage}\n\nDetails: ${errorData.details}`;
+          }
+        } else {
+          // Fallback to error message
+          errorMessage = error.message;
+        }
+      }
+      
       toast({
-        title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to delete project',
-        variant: 'destructive'
+        title: errorTitle,
+        description: errorMessage,
+        variant: 'destructive',
+        duration: 5000 // Show for 5 seconds to allow reading detailed messages
       });
     } finally {
       setIsDeleting(false);

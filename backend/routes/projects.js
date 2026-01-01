@@ -1,6 +1,7 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const router = express.Router();
+const fs = require('fs');
 const { auth } = require('../middlewares/auth');
 const { supabase, pool, queryWithRetry } = require('../db');
 
@@ -311,36 +312,187 @@ router.patch('/:id', auth, async (req, res, next) => {
 
 // Delete project
 router.delete('/:id', auth, async (req, res, next) => {
+  const client = await pool.connect();
   try {
+    await client.query('BEGIN');
     const { id } = req.params;
     
-    // Check if project exists and belongs to user using direct PostgreSQL query with retry
-    const checkResult = await queryWithRetry(
+    // Check if project exists and belongs to user
+    const checkResult = await client.query(
       `SELECT id FROM projects WHERE id = $1 AND user_id = $2`,
-      [id, req.user.id],
-      3
+      [id, req.user.id]
     );
     
     if (checkResult.rows.length === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ message: 'Project not found' });
     }
     
-    // Delete project using direct PostgreSQL query with retry
-    const deleteResult = await queryWithRetry(
+    // Delete files from filesystem first (before database deletion)
+    // Note: File deletion happens OUTSIDE transaction to avoid aborting transaction on file errors
+    try {
+      const documentsResult = await client.query(
+        `SELECT path FROM documents WHERE project_id = $1`,
+        [id]
+      );
+      for (const doc of documentsResult.rows) {
+        if (doc.path && fs.existsSync(doc.path)) {
+          try {
+            fs.unlinkSync(doc.path);
+            console.log(`✅ Deleted file: ${doc.path}`);
+          } catch (fileError) {
+            console.warn(`⚠️ Failed to delete file ${doc.path}:`, fileError.message);
+            // Continue with other files even if one fails
+          }
+        }
+      }
+      
+      const uploadedFilesResult = await client.query(
+        `SELECT file_path FROM uploaded_files WHERE project_id = $1`,
+        [id]
+      );
+      for (const file of uploadedFilesResult.rows) {
+        if (file.file_path && fs.existsSync(file.file_path)) {
+          try {
+            fs.unlinkSync(file.file_path);
+            console.log(`✅ Deleted uploaded file: ${file.file_path}`);
+          } catch (fileError) {
+            console.warn(`⚠️ Failed to delete uploaded file ${file.file_path}:`, fileError.message);
+            // Continue with other files even if one fails
+          }
+        }
+      }
+    } catch (dbError) {
+      // If this is a database error, rollback and abort
+      if (dbError.code) {
+        console.error('❌ Database error during file path query:', dbError.message);
+        await client.query('ROLLBACK');
+        return res.status(500).json({
+          message: 'Failed to query file paths for deletion',
+          code: 'FILE_QUERY_FAILED',
+          details: dbError.message,
+          errorCode: dbError.code
+        });
+      }
+      // If it's a file system error, log and continue
+      console.warn('⚠️ Warning: File deletion failed (continuing with database deletion):', dbError.message);
+    }
+    
+    // Delete database records in transaction (in order of dependencies)
+    const deletionSteps = [
+      { name: 'automation_jobs', query: `DELETE FROM automation_jobs WHERE project_id = $1` },
+      { name: 'asbuilt_records', query: `DELETE FROM asbuilt_records WHERE project_id = $1` },
+      { name: 'file_metadata', query: `DELETE FROM file_metadata WHERE project_id = $1` },
+      { name: 'qc_data', query: `DELETE FROM qc_data WHERE project_id = $1` },
+      { name: 'documents', query: `DELETE FROM documents WHERE project_id = $1` },
+      { name: 'uploaded_files', query: `DELETE FROM uploaded_files WHERE project_id = $1` },
+    ];
+    
+    for (const step of deletionSteps) {
+      try {
+        const result = await client.query(step.query, [id]);
+        console.log(`✅ Deleted ${result.rowCount} records from ${step.name}`);
+      } catch (error) {
+        console.error(`❌ Failed to delete from ${step.name}:`, error.message);
+        console.error(`   Error code: ${error.code}, Constraint: ${error.constraint || 'N/A'}, Table: ${error.table || 'N/A'}`);
+        
+        // Check if transaction is already aborted
+        if (error.message && error.message.includes('current transaction is aborted')) {
+          console.error('⚠️ Transaction was already aborted, rolling back...');
+        }
+        
+        // Always try to rollback, but handle errors gracefully
+        try {
+          await client.query('ROLLBACK');
+        } catch (rollbackError) {
+          console.error('⚠️ Error during rollback (transaction may already be aborted):', rollbackError.message);
+        }
+        
+        return res.status(500).json({
+          message: `Failed to delete project: Error deleting ${step.name}`,
+          code: 'DELETION_FAILED',
+          step: step.name,
+          details: error.message,
+          errorCode: error.code,
+          constraint: error.constraint,
+          table: error.table
+        });
+      }
+    }
+    
+    // Delete the project
+    const deleteResult = await client.query(
       `DELETE FROM projects WHERE id = $1 AND user_id = $2`,
-      [id, req.user.id],
-      3
+      [id, req.user.id]
     );
     
     if (deleteResult.rowCount === 0) {
-      console.error('Error deleting project: No rows deleted');
-      return res.status(500).json({ message: 'Failed to delete project' });
+      await client.query('ROLLBACK');
+      console.error('❌ Error deleting project: No rows deleted');
+      return res.status(500).json({ message: 'Failed to delete project: No rows deleted' });
     }
     
+    await client.query('COMMIT');
+    console.log(`✅ Successfully deleted project ${id}`);
     res.status(200).json({ message: 'Project deleted successfully' });
   } catch (error) {
-    console.error('Project deletion error:', error);
+    // Always try to rollback on error, but handle gracefully if transaction is already aborted
+    try {
+      await client.query('ROLLBACK');
+    } catch (rollbackError) {
+      // If rollback fails, transaction might already be aborted - that's okay
+      if (rollbackError.message && rollbackError.message.includes('current transaction is aborted')) {
+        console.warn('⚠️ Transaction was already aborted, rollback not needed');
+      } else {
+        console.error('⚠️ Failed to rollback transaction:', rollbackError.message);
+      }
+    }
+    
+    console.error('❌ Project deletion error:', error);
+    console.error('   Error details:', {
+      message: error.message,
+      code: error.code,
+      constraint: error.constraint,
+      table: error.table,
+      stack: error.stack
+    });
+    
+    // Provide more specific error messages
+    if (error.code === '23503') { // Foreign key constraint violation
+      return res.status(409).json({ 
+        message: 'Cannot delete project: It has related records that must be removed first',
+        code: 'FOREIGN_KEY_CONSTRAINT',
+        details: error.message,
+        constraint: error.constraint,
+        table: error.table
+      });
+    }
+    
+    // Handle transaction aborted errors specifically
+    if (error.message && error.message.includes('current transaction is aborted')) {
+      return res.status(500).json({
+        message: 'Transaction error during project deletion. Please try again.',
+        code: 'TRANSACTION_ABORTED',
+        details: error.message
+      });
+    }
+    
+    // Handle database connection errors
+    if (error.message && (
+      error.message.includes('timeout') ||
+      error.message.includes('Connection terminated') ||
+      error.message.includes('ECONNREFUSED') ||
+      error.message.includes('ENOTFOUND')
+    )) {
+      return res.status(503).json({
+        message: 'Database connection error. Please try again.',
+        code: 'DATABASE_ERROR'
+      });
+    }
+    
     next(error);
+  } finally {
+    client.release();
   }
 });
 

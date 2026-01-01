@@ -667,8 +667,12 @@ export async function deleteProject(projectId: string): Promise<void> {
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Failed to delete project' }));
-    throw new Error(error.message || 'Failed to delete project');
+    const errorData = await response.json().catch(() => ({ message: 'Failed to delete project' }));
+    // Preserve full error object for detailed error handling
+    const error = new Error(errorData.message || 'Failed to delete project');
+    (error as any).errorData = errorData;
+    (error as any).status = response.status;
+    throw error;
   }
 }
 
