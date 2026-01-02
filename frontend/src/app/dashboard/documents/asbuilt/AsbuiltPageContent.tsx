@@ -398,7 +398,7 @@ export default function AsbuiltPageContent() {
   return (
     <div className="space-y-6 p-8 pl-10">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between" data-testid="asbuilt-page">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">As-Built Data</h1>
           <p className="text-gray-600 mt-1">
@@ -415,6 +415,7 @@ export default function AsbuiltPageContent() {
           variant="outline"
           onClick={() => clearSelection()}
           className="text-gray-600 hover:text-gray-800"
+          data-testid="change-project-button"
         >
           Change Project
         </Button>
@@ -422,6 +423,7 @@ export default function AsbuiltPageContent() {
             variant="outline"
             onClick={() => refreshAllData(projectId)}
             disabled={isLoading}
+            data-testid="refresh-button"
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
             Refresh
@@ -431,6 +433,7 @@ export default function AsbuiltPageContent() {
             disabled={syncing || !projectId}
             className="bg-green-600 hover:bg-green-700"
             title="Sync forms to panel layout"
+            data-testid="sync-panel-layout-button"
           >
             <Repeat className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
             {syncing ? 'Syncing...' : 'Sync to Panel Layout'}
@@ -440,6 +443,7 @@ export default function AsbuiltPageContent() {
             disabled={exporting !== null || !projectId || projectRecords.length === 0}
             variant="outline"
             title="Export all forms as Excel"
+            data-testid="export-excel-button"
           >
             <FileDown className="h-4 w-4 mr-2" />
             Export Excel
@@ -449,6 +453,7 @@ export default function AsbuiltPageContent() {
             disabled={exporting !== null || !projectId || projectRecords.length === 0}
             variant="outline"
             title="Export all forms as PDF"
+            data-testid="export-pdf-button"
           >
             <FileDown className="h-4 w-4 mr-2" />
             Export PDF
@@ -456,6 +461,7 @@ export default function AsbuiltPageContent() {
           <Button
             onClick={() => setShowImportModal(true)}
             className="bg-blue-600 hover:bg-blue-700"
+            data-testid="import-data-button"
           >
             <Upload className="h-4 w-4 mr-2" />
             Import Data

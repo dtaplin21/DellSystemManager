@@ -189,13 +189,14 @@ export default function ProjectsPage() {
   };
 
   return (
-    <div className="projects-page">
+    <div className="projects-page" data-testid="projects-page">
       <div className="projects-container">
         <div className="projects-header">
           <h1 className="projects-title">Projects</h1>
           <button 
             onClick={() => setShowCreateModal(true)}
             className="btn-create"
+            data-testid="create-project-button"
           >
             + New Project
           </button>
@@ -290,12 +291,13 @@ export default function ProjectsPage() {
                   >
                     Cancel
                   </button>
-                  <button
-                    type="submit"
-                    className="btn-submit"
-                  >
-                    Create Project
-                  </button>
+                <button
+                  type="submit"
+                  className="btn-submit"
+                  data-testid="submit-project-button"
+                >
+                  Create Project
+                </button>
                 </div>
               </form>
             </div>
@@ -333,6 +335,7 @@ export default function ProjectsPage() {
                   onClick={handleDeleteProject}
                   className="btn-delete"
                   disabled={isDeleting}
+                  data-testid="delete-project-button"
                 >
                   {isDeleting ? 'Deleting...' : 'Delete Project'}
                 </button>
@@ -359,7 +362,7 @@ export default function ProjectsPage() {
         ) : (
           <div className="projects-grid">
             {projects.map((project) => (
-              <div key={project.id} className="project-card">
+              <div key={project.id} className="project-card" data-testid="project-card">
                 <div className="project-card-header">
                   <div>
                     <h3 className="project-name">{project.name}</h3>
