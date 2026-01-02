@@ -14,7 +14,8 @@
     "dev:all": "concurrently --names \"REDIS,FRONTEND,BACKEND,AI,WORKER\" --prefix-colors \"red,blue,green,yellow,magenta\" \"npm run dev:redis\" \"npm run dev:frontend\" \"npm run dev:backend\" \"npm run dev:ai\" \"npm run dev:worker\"",
     "dev:frontend": "cd frontend && npm run dev",
     "dev:backend": "cd backend && npm run dev",
-    "dev:ai": "cd ai_service && PORT=5001 LITELLM_MODEL=gpt-4o OPENAI_MODEL=gpt-4o python3 app.py",
+    "dev:ai": "node scripts/start-ai-service.js",
+    "setup:ai": "node scripts/setup-ai-service.js",
     "dev:redis": "redis-server",
     "dev:worker": "node backend/workers/start-worker.js"
   },
