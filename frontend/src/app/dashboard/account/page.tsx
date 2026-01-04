@@ -35,7 +35,7 @@ export default function AccountPage() {
     },
     premium: {
       name: 'Premium Plan',
-      price: '$315/month',
+      price: '$145/month',
       renewalDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString(),
       features: [
         'Everything in Basic',

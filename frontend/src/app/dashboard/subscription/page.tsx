@@ -35,27 +35,26 @@ export default function SubscriptionPage() {
       },
       features: [
         'Project dashboard',
-        'Document storage (25 projects)',
+        'Document storage (unlimited projects)',
         'Manual QC data entry',
-        'Basic reporting',
-        'Email support',
-      ],
-      disabledFeatures: [
+        'Advanced reporting',
         'AI document analysis',
         'QC data anomaly detection',
-        'Panel layout automation',
         'Premium reporting',
         'CAD integration',
         'Real-time collaboration',
         'Priority support',
+      ],
+      disabledFeatures: [
+        'Panel layout automation',
       ],
     },
     premium: {
       name: 'Premium Plan',
       description: 'Advanced tools with AI-powered automation',
       price: {
-        monthly: 315,
-        yearly: 3150, // 10 months for the price of 12
+        monthly: 145,
+        yearly: 1450, // 10 months for the price of 12
       },
       features: [
         'Project dashboard',

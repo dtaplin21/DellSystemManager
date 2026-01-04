@@ -25,7 +25,7 @@ export default function Checkout({ plan, onCancel }: CheckoutProps) {
     },
     premium: {
       name: 'Premium Plan',
-      price: 315,
+      price: 145,
       description: 'Everything in basic plus 2D automation, CAD integration, and AI analysis'
     }
   };

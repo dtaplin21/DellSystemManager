@@ -207,7 +207,7 @@ export default function ProfilePage() {
             <div className="subscription-info">
               <div className="plan-details">
                 <h3>Professional Plan</h3>
-                <p>$315/month • Next billing: June 15, 2025</p>
+                <p>$145/month • Next billing: June 15, 2025</p>
               </div>
               <button onClick={handleManageSubscription} className="btn-manage">
                 Manage Subscription

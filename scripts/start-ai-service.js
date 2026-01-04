@@ -5,7 +5,7 @@
  * Works on Windows, macOS, and Linux
  */
 
-const { spawn } = require('child_process');
+const { spawn, execSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
@@ -47,12 +47,18 @@ const isLinux = process.platform === 'linux';
 
 // Find Python command
 function findPythonCommand() {
-  const commands = isWindows ? ['python', 'py', 'python3'] : ['python3', 'python'];
+  // Prefer Python 3.11 or 3.12 for compatibility (avoid 3.13 which breaks tiktoken)
+  const commands = isWindows 
+    ? ['python3.11', 'python3.12', 'python', 'py', 'python3'] 
+    : ['python3.11', 'python3.12', 'python3', 'python'];
   
   for (const cmd of commands) {
     try {
-      const { execSync } = require('child_process');
-      execSync(`${cmd} --version`, { stdio: 'ignore' });
+      const versionOutput = execSync(`${cmd} --version`, { encoding: 'utf8', stdio: 'pipe' });
+      // Check if version is 3.13 and skip it
+      if (versionOutput.includes('3.13')) {
+        continue;
+      }
       return cmd;
     } catch (e) {
       // Command not found, try next
@@ -65,7 +71,6 @@ function findPythonCommand() {
 // Check if Redis is running
 function checkRedis() {
   try {
-    const { execSync } = require('child_process');
     if (isWindows) {
       // Windows: Use tasklist or Get-Process
       try {
@@ -124,7 +129,6 @@ async function startAIService() {
       logStatus('Creating virtual environment...');
     }
     try {
-      const { execSync } = require('child_process');
       execSync(`${pythonCmd} -m venv venv`, {
         cwd: aiServiceDir,
         stdio: isConcurrent ? 'ignore' : 'inherit'
@@ -148,6 +152,32 @@ async function startAIService() {
     pythonExecutable = path.join(venvDir, 'bin', 'python');
   }
 
+  // Verify Python executable exists, recreate venv if needed
+  if (!fs.existsSync(pythonExecutable)) {
+    logWarning(`Python executable not found at ${pythonExecutable}`);
+    logStatus('Recreating virtual environment with correct Python version...');
+    // Remove old venv
+    if (fs.existsSync(venvDir)) {
+      try {
+        fs.rmSync(venvDir, { recursive: true, force: true });
+      } catch (error) {
+        logWarning(`Failed to remove old venv: ${error.message}`);
+        logStatus('Attempting to recreate anyway...');
+      }
+    }
+    // Recreate with current Python
+    try {
+      execSync(`${pythonCmd} -m venv venv`, {
+        cwd: aiServiceDir,
+        stdio: isConcurrent ? 'ignore' : 'inherit'
+      });
+      logSuccess('Virtual environment recreated');
+    } catch (error) {
+      logError(`Failed to recreate virtual environment: ${error.message}`);
+      process.exit(1);
+    }
+  }
+
   // Install/upgrade dependencies (only if venv was just created or if SKIP_DEPS is not set)
   // Skip dependency installation when running via concurrently to speed up startup
   const skipDeps = process.env.SKIP_AI_DEPS === 'true';
@@ -159,7 +189,6 @@ async function startAIService() {
       : `"${pythonExecutable}" -c "import flask, openai" 2>/dev/null`;
     
     try {
-      const { execSync } = require('child_process');
       execSync(testImport, { cwd: aiServiceDir, stdio: 'ignore' });
       // Dependencies already installed, skip
     } catch {
@@ -228,7 +257,7 @@ async function startAIService() {
     process.exit(1);
   }
 
-  const child = spawn(`"${pythonExecutable}"`, ['app.py'], {
+  const child = spawn(pythonExecutable, ['app.py'], {
     cwd: aiServiceDir,
     env,
     shell: isWindows,

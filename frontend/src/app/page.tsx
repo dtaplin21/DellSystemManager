@@ -132,7 +132,7 @@ export default function Home() {
               <div className="pricing-header">
                 <h3>Premium</h3>
                 <div>
-                  <span className="price">$315</span>
+                  <span className="price">$145</span>
                   <span className="period">per month</span>
                 </div>
                 <p className="description">Advanced features for professional teams and enterprises</p>

@@ -31,7 +31,7 @@ export const subscriptionPlans = {
   premium: {
     id: 'price_premium',
     name: 'Premium Plan',
-    price: 315,
+    price: 145,
     interval: 'month',
     features: [
       'Everything in Basic',

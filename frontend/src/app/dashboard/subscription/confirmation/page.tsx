@@ -49,7 +49,7 @@ export default function SubscriptionConfirmationPage() {
     },
     premium: {
       name: 'Premium Plan',
-      price: '$315/month',
+      price: '$145/month',
       featuresEnabled: [
         'Access to document uploads',
         'Dashboard and project management',
