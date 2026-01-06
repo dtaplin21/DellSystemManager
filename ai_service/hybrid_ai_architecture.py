@@ -1566,7 +1566,7 @@ Context: {json.dumps(enhanced_context, default=str)}
 
 {f'⚠️ PRE-FLIGHT AUTOMATION FAILED: {preflight_error}.' if preflight_error else '✅ Pre-flight automation completed successfully.'}
 {f'This means the system attempted to navigate and capture the layout automatically but encountered an error.' if preflight_error else 'The system has already navigated to the page and captured a screenshot.'}
-{f'YOU MUST STILL USE BROWSER TOOLS YOURSELF to complete the task. Do not rely on pre-flight automation.' if preflight_error else 'You can use the pre-flight data, but you MUST STILL EXECUTE browser tools to answer the user\'s question.'}
+{f'YOU MUST STILL USE BROWSER TOOLS YOURSELF to complete the task. Do not rely on pre-flight automation.' if preflight_error else "You can use the pre-flight data, but you MUST STILL EXECUTE browser tools to answer the user's question."}
 
 ❌ DO NOT USE PanelManipulationTool.get_panels() - This returns backend data, not visual order.
 ❌ DO NOT USE any backend API tools for this question.

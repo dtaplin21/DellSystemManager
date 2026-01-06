@@ -3,6 +3,7 @@ const { Pool } = require('pg');
 const { createClient } = require('@supabase/supabase-js');
 const fs = require('fs/promises');
 const path = require('path');
+const crypto = require('crypto');
 const schema = require('./schema');
 const config = require('../config/env');
 const logger = require('../lib/logger');
@@ -584,198 +585,287 @@ async function connectToDatabase() {
   }
 }
 
-async function applyMigrations() {
+/**
+ * Calculate SHA-256 hash of migration file content
+ */
+function calculateMigrationChecksum(content) {
+  return crypto.createHash('sha256').update(content, 'utf8').digest('hex');
+}
+
+/**
+ * Ensure migration tracking table exists (bootstrap)
+ */
+async function ensureMigrationTrackingTable(client) {
   try {
-    logger.info('Applying database migrations');
-    const client = await pool.connect();
-    
-    // Create panel_layouts table if it doesn't exist
-    const createPanelLayoutsTable = `
-      CREATE TABLE IF NOT EXISTS panel_layouts (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-        panels JSONB NOT NULL DEFAULT '[]',
-        width DECIMAL NOT NULL DEFAULT 4000,
-        height DECIMAL NOT NULL DEFAULT 4000,
-        scale DECIMAL NOT NULL DEFAULT 1.0,
-        last_updated TIMESTAMP NOT NULL DEFAULT NOW()
+    // Check if table exists
+    const tableCheck = await client.query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'schema_migrations'
       );
-    `;
+    `);
     
-    await client.query(createPanelLayoutsTable);
-    logger.debug('panel_layouts table verified');
+    if (!tableCheck.rows[0].exists) {
+      logger.info('Creating migration tracking table...');
+      const trackingTableSql = `
+        CREATE TABLE schema_migrations (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          migration_name VARCHAR(255) UNIQUE NOT NULL,
+          migration_file VARCHAR(255) NOT NULL,
+          applied_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+          applied_by VARCHAR(100) DEFAULT 'system',
+          checksum VARCHAR(64),
+          execution_time_ms INTEGER,
+          success BOOLEAN DEFAULT true,
+          error_message TEXT,
+          retry_count INTEGER DEFAULT 0,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+        
+        CREATE INDEX idx_schema_migrations_name ON schema_migrations(migration_name);
+        CREATE INDEX idx_schema_migrations_applied_at ON schema_migrations(applied_at DESC);
+      `;
+      
+      await client.query(trackingTableSql);
+      logger.info('✅ Migration tracking table created');
+    }
+  } catch (error) {
+    logger.error('Failed to create migration tracking table', {
+      error: { message: error.message }
+    });
+    throw error; // Can't proceed without tracking table
+  }
+}
+
+/**
+ * Get list of all migration files from migrations directory
+ */
+async function getMigrationFiles() {
+  const migrationsDir = path.join(__dirname, 'migrations');
+  const files = await fs.readdir(migrationsDir);
+  
+  // Filter to only .sql files and sort by filename
+  const migrationFiles = files
+    .filter(file => file.endsWith('.sql'))
+    .sort(); // Natural sort will work for numbered files
+  
+  return migrationFiles.map(file => ({
+    filename: file,
+    path: path.join(migrationsDir, file),
+    name: file.replace('.sql', '') // Migration name without extension
+  }));
+}
+
+/**
+ * Get list of already applied migrations
+ */
+async function getAppliedMigrations(client) {
+  try {
+    const result = await client.query(`
+      SELECT migration_name, migration_file, checksum, success, error_message, retry_count
+      FROM schema_migrations
+      WHERE success = true
+      ORDER BY migration_name;
+    `);
+    return result.rows;
+  } catch (error) {
+    logger.error('Failed to query applied migrations', {
+      error: { message: error.message }
+    });
+    return [];
+  }
+}
+
+/**
+ * Record migration as applied
+ */
+async function recordMigrationSuccess(client, migration, checksum, executionTimeMs) {
+  try {
+    await client.query(`
+      INSERT INTO schema_migrations (
+        migration_name, migration_file, checksum, execution_time_ms, success, applied_by
+      ) VALUES ($1, $2, $3, $4, $5, $6)
+      ON CONFLICT (migration_name) 
+      DO UPDATE SET
+        checksum = EXCLUDED.checksum,
+        execution_time_ms = EXCLUDED.execution_time_ms,
+        success = true,
+        error_message = NULL,
+        retry_count = schema_migrations.retry_count + 1,
+        applied_at = NOW();
+    `, [
+      migration.name,
+      migration.filename,
+      checksum,
+      executionTimeMs,
+      true,
+      'system'
+    ]);
+  } catch (error) {
+    logger.error('Failed to record migration success', {
+      migration: migration.name,
+      error: { message: error.message }
+    });
+  }
+}
+
+/**
+ * Record migration failure
+ */
+async function recordMigrationFailure(client, migration, checksum, error, executionTimeMs) {
+  try {
+    await client.query(`
+      INSERT INTO schema_migrations (
+        migration_name, migration_file, checksum, execution_time_ms, success, error_message, retry_count
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+      ON CONFLICT (migration_name) 
+      DO UPDATE SET
+        checksum = EXCLUDED.checksum,
+        execution_time_ms = EXCLUDED.execution_time_ms,
+        success = false,
+        error_message = EXCLUDED.error_message,
+        retry_count = schema_migrations.retry_count + 1;
+    `, [
+      migration.name,
+      migration.filename,
+      checksum,
+      executionTimeMs,
+      false,
+      error.message.substring(0, 1000), // Limit error message length
+      1
+    ]);
+  } catch (error) {
+    logger.error('Failed to record migration failure', {
+      migration: migration.name,
+      error: { message: error.message }
+    });
+  }
+}
+
+/**
+ * Apply database migrations with tracking
+ */
+async function applyMigrations() {
+  const client = await pool.connect();
+  
+  try {
+    logger.info('Starting database migrations with tracking system...');
     
-    // Create index if it doesn't exist
-    const createIndex = `
-      CREATE INDEX IF NOT EXISTS idx_panel_layouts_project_id 
-      ON panel_layouts(project_id);
-    `;
+    // Step 1: Ensure migration tracking table exists
+    await ensureMigrationTrackingTable(client);
     
-    await client.query(createIndex);
-    logger.debug('panel_layouts index verified');
+    // Step 2: Get all migration files
+    const migrationFiles = await getMigrationFiles();
+    logger.info(`Found ${migrationFiles.length} migration files`);
     
-    // Create file_metadata table if it doesn't exist
-    const createFileMetadataTable = `
-      CREATE TABLE IF NOT EXISTS file_metadata (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        file_name TEXT NOT NULL,
-        file_type VARCHAR(50) NOT NULL,
-        file_size INTEGER NOT NULL,
-        project_id UUID NOT NULL,
-        uploaded_by UUID,
-        domain VARCHAR(50),
-        panel_id UUID,
-        metadata JSONB,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-      );
-    `;
+    // Step 3: Get already applied migrations
+    const appliedMigrations = await getAppliedMigrations(client);
+    const appliedNames = new Set(appliedMigrations.map(m => m.migration_name));
+    logger.info(`Found ${appliedMigrations.length} already applied migrations`);
     
-    await client.query(createFileMetadataTable);
-    logger.debug('file_metadata table verified');
+    // Step 4: Filter to only unapplied migrations
+    const pendingMigrations = migrationFiles.filter(m => !appliedNames.has(m.name));
     
-    // Create indexes for file_metadata
-    const createFileMetadataIndexes = [
-      `CREATE INDEX IF NOT EXISTS idx_file_metadata_project_id ON file_metadata(project_id);`,
-      `CREATE INDEX IF NOT EXISTS idx_file_metadata_panel_id ON file_metadata(panel_id);`,
-      `CREATE INDEX IF NOT EXISTS idx_file_metadata_domain ON file_metadata(domain);`,
-      `CREATE INDEX IF NOT EXISTS idx_file_metadata_created_at ON file_metadata(created_at);`
-    ];
+    if (pendingMigrations.length === 0) {
+      logger.info('✅ All migrations are up to date');
+      return;
+    }
     
-    for (const indexQuery of createFileMetadataIndexes) {
-      await client.query(indexQuery);
-    }
-    logger.debug('file_metadata indexes verified');
+    logger.info(`Applying ${pendingMigrations.length} pending migrations...`);
     
-    // Ensure pgcrypto extension for gen_random_uuid
-    try {
-      await client.query('CREATE EXTENSION IF NOT EXISTS pgcrypto');
-      logger.debug('pgcrypto extension verified');
-    } catch (extErr) {
-      logger.warn('Could not ensure pgcrypto extension (may already exist or lack perms)', {
-        error: { message: extErr.message }
+    // Step 5: Apply each pending migration
+    for (const migration of pendingMigrations) {
+      const startTime = Date.now();
+      
+      try {
+        logger.info(`Applying migration: ${migration.filename}`);
+        
+        // Read migration file
+        const migrationSql = await fs.readFile(migration.path, 'utf8');
+        const checksum = calculateMigrationChecksum(migrationSql);
+        
+        // Check if this migration was previously attempted but failed
+        const previousAttempt = appliedMigrations.find(m => m.migration_name === migration.name);
+        if (previousAttempt && !previousAttempt.success) {
+          logger.warn(`Retrying previously failed migration: ${migration.filename}`, {
+            previousError: previousAttempt.error_message,
+            retryCount: previousAttempt.retry_count
+          });
+        }
+        
+        // Execute migration within a transaction
+        await client.query('BEGIN');
+        try {
+          await client.query(migrationSql);
+          await client.query('COMMIT');
+          
+          const executionTimeMs = Date.now() - startTime;
+          
+          // Record success
+          await recordMigrationSuccess(client, migration, checksum, executionTimeMs);
+          
+          logger.info(`✅ Migration applied successfully: ${migration.filename} (${executionTimeMs}ms)`);
+        } catch (migrationError) {
+          await client.query('ROLLBACK');
+          throw migrationError;
+        }
+      } catch (error) {
+        const executionTimeMs = Date.now() - startTime;
+        
+        // Record failure
+        let migrationSql = '';
+        try {
+          migrationSql = await fs.readFile(migration.path, 'utf8');
+        } catch (readError) {
+          logger.warn(`Could not read migration file for checksum: ${migration.filename}`);
+        }
+        const checksum = migrationSql ? calculateMigrationChecksum(migrationSql) : '';
+        await recordMigrationFailure(client, migration, checksum, error, executionTimeMs);
+        
+        logger.error(`❌ Migration failed: ${migration.filename}`, {
+          error: {
+            message: error.message,
+            code: error.code,
+            hint: error.hint,
+            position: error.position
+          },
+          hint: 'Check the error message above. You may need to manually fix the database state.'
+        });
+        
+        // Continue with next migration instead of stopping
+        // This allows other migrations to proceed even if one fails
+        continue;
+      }
+    }
+    
+    // Step 6: Report summary
+    const finalApplied = await getAppliedMigrations(client);
+    const failedMigrations = await client.query(`
+      SELECT migration_name, error_message, retry_count
+      FROM schema_migrations
+      WHERE success = false
+      ORDER BY migration_name;
+    `);
+    
+    logger.info('Migration summary', {
+      totalMigrations: migrationFiles.length,
+      applied: finalApplied.length,
+      failed: failedMigrations.rows.length,
+      pending: migrationFiles.length - finalApplied.length - failedMigrations.rows.length
+    });
+    
+    if (failedMigrations.rows.length > 0) {
+      logger.warn('Some migrations failed', {
+        failed: failedMigrations.rows.map(m => ({
+          name: m.migration_name,
+          error: m.error_message,
+          retries: m.retry_count
+        }))
       });
     }
-
-    // Apply ML infrastructure migration (tables: ml_models, ml_predictions, etc.)
-    try {
-      const mlMigrationPath = path.join(__dirname, 'migrations', '004_ml_infrastructure.sql');
-      const mlSql = await fs.readFile(mlMigrationPath, 'utf8');
-      await client.query(mlSql);
-      logger.debug('ML infrastructure migration applied');
-    } catch (mlErr) {
-      logger.warn('ML infrastructure migration not applied', {
-        error: { message: mlErr.message },
-        hint: 'If permissions restrict file reads, run the SQL manually in the DB.'
-      });
-    }
-
-    // Apply form review columns migration
-    try {
-      const formReviewMigrationPath = path.join(__dirname, 'migrations', '006_add_form_review_columns.sql');
-      const formReviewSql = await fs.readFile(formReviewMigrationPath, 'utf8');
-      await client.query(formReviewSql);
-      logger.debug('Form review columns migration applied');
-    } catch (formReviewErr) {
-      logger.warn('Form review columns migration not applied', {
-        error: { message: formReviewErr.message },
-        hint: 'If permissions restrict file reads, run the SQL manually in the DB. The migration file is at backend/db/migrations/006_add_form_review_columns.sql'
-      });
-    }
-
-    // Apply automation jobs table migration
-    try {
-      const automationJobsMigrationPath = path.join(__dirname, 'migrations', '007_add_automation_jobs_table.sql');
-      const automationJobsSql = await fs.readFile(automationJobsMigrationPath, 'utf8');
-      await client.query(automationJobsSql);
-      logger.debug('Automation jobs table migration applied');
-    } catch (automationJobsErr) {
-      logger.warn('Automation jobs table migration not applied', {
-        error: { message: automationJobsErr.message },
-        hint: 'If permissions restrict file reads, run the SQL manually in the DB. The migration file is at backend/db/migrations/007_add_automation_jobs_table.sql'
-      });
-    }
-
-    // Apply patches and destructive tests columns migration
-    try {
-      const patchesMigrationPath = path.join(__dirname, 'migrations', '008_add_patches_and_destructs.sql');
-      const patchesSql = await fs.readFile(patchesMigrationPath, 'utf8');
-      await client.query(patchesSql);
-      logger.debug('Patches and destructive tests columns migration applied');
-    } catch (patchesErr) {
-      logger.warn('Patches and destructive tests columns migration not applied', {
-        error: { message: patchesErr.message },
-        hint: 'If permissions restrict file reads, run the SQL manually in the DB. The migration file is at backend/db/migrations/008_add_patches_and_destructs.sql'
-      });
-    }
-
-    // Apply user settings table migration
-    try {
-      const userSettingsMigrationPath = path.join(__dirname, 'migrations', '010_create_user_settings.sql');
-      const userSettingsSql = await fs.readFile(userSettingsMigrationPath, 'utf8');
-      await client.query(userSettingsSql);
-      logger.debug('User settings table migration applied');
-    } catch (userSettingsErr) {
-      logger.warn('User settings table migration not applied', {
-        error: { message: userSettingsErr.message },
-        hint: 'If permissions restrict file reads, run the SQL manually in the DB. The migration file is at backend/db/migrations/010_create_user_settings.sql'
-      });
-    }
-
-    // Apply cardinal directions migration
-    try {
-      const cardinalDirectionsMigrationPath = path.join(__dirname, 'migrations', '011_add_cardinal_directions.sql');
-      const cardinalDirectionsSql = await fs.readFile(cardinalDirectionsMigrationPath, 'utf8');
-      await client.query(cardinalDirectionsSql);
-      logger.debug('Cardinal directions migration applied');
-    } catch (cardinalDirectionsErr) {
-      logger.warn('Cardinal directions migration not applied', {
-        error: { message: cardinalDirectionsErr.message },
-        hint: 'If permissions restrict file reads, run the SQL manually in the DB. The migration file is at backend/db/migrations/011_add_cardinal_directions.sql'
-      });
-    }
-
-    // Apply structured location migration
-    try {
-      const structuredLocationMigrationPath = path.join(__dirname, 'migrations', '012_add_structured_location.sql');
-      const structuredLocationSql = await fs.readFile(structuredLocationMigrationPath, 'utf8');
-      await client.query(structuredLocationSql);
-      logger.debug('Structured location migration applied');
-    } catch (structuredLocationErr) {
-      logger.warn('Structured location migration not applied', {
-        error: { message: structuredLocationErr.message },
-        hint: 'If permissions restrict file reads, run the SQL manually in the DB. The migration file is at backend/db/migrations/012_add_structured_location.sql'
-      });
-    }
-
-    // Apply automation trigger timing migration
-    try {
-      const automationTriggerTimingMigrationPath = path.join(__dirname, 'migrations', '013_add_automation_trigger_timing.sql');
-      const automationTriggerTimingSql = await fs.readFile(automationTriggerTimingMigrationPath, 'utf8');
-      await client.query(automationTriggerTimingSql);
-      logger.debug('Automation trigger timing migration applied');
-    } catch (automationTriggerTimingErr) {
-      logger.warn('Automation trigger timing migration not applied', {
-        error: { message: automationTriggerTimingErr.message },
-        hint: 'If permissions restrict file reads, run the SQL manually in the DB. The migration file is at backend/db/migrations/013_add_automation_trigger_timing.sql'
-      });
-    }
-
-    // Apply plan geometry model migration
-    try {
-      const planGeometryMigrationPath = path.join(__dirname, 'migrations', '014_create_plan_geometry_model.sql');
-      const planGeometrySql = await fs.readFile(planGeometryMigrationPath, 'utf8');
-      await client.query(planGeometrySql);
-      logger.debug('Plan geometry model migration applied');
-    } catch (planGeometryErr) {
-      logger.warn('Plan geometry model migration not applied', {
-        error: { message: planGeometryErr.message },
-        hint: 'If permissions restrict file reads, run the SQL manually in the DB. The migration file is at backend/db/migrations/014_create_plan_geometry_model.sql'
-      });
-    }
-
-    client.release();
-    logger.info('Database migrations completed successfully');
+    
+    logger.info('✅ Database migrations completed');
   } catch (error) {
     logger.error('Failed to apply database migrations', {
       error: {
@@ -784,8 +874,47 @@ async function applyMigrations() {
         stack: config.isDevelopment ? error.stack : undefined
       }
     });
-    // Don't throw error - allow server to continue without database
-    logger.warn('Server will continue without completed migrations');
+    // Don't throw error - allow server to continue
+    logger.warn('Server will continue, but some migrations may not be applied');
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Get migration status for debugging/admin
+ */
+async function getMigrationStatus() {
+  const client = await pool.connect();
+  try {
+    const allMigrations = await getMigrationFiles();
+    const appliedMigrations = await getAppliedMigrations(client);
+    const failedMigrations = await client.query(`
+      SELECT migration_name, error_message, retry_count, applied_at
+      FROM schema_migrations
+      WHERE success = false
+      ORDER BY migration_name;
+    `);
+    
+    const appliedNames = new Set(appliedMigrations.map(m => m.migration_name));
+    const pending = allMigrations.filter(m => !appliedNames.has(m.name));
+    
+    return {
+      total: allMigrations.length,
+      applied: appliedMigrations.length,
+      pending: pending.length,
+      failed: failedMigrations.rows.length,
+      migrations: allMigrations.map(m => ({
+        name: m.name,
+        file: m.filename,
+        status: appliedNames.has(m.name) ? 'applied' : 'pending',
+        applied: appliedMigrations.find(a => a.migration_name === m.name)?.applied_at,
+        failed: failedMigrations.rows.find(f => f.migration_name === m.name)
+      })),
+      failed: failedMigrations.rows
+    };
+  } finally {
+    client.release();
   }
 }
 
@@ -795,6 +924,7 @@ module.exports = {
   createUserScopedSupabaseClient,
   connectToDatabase,
   applyMigrations,
+  getMigrationStatus,
   pool,
   queryWithRetry,
   getPoolHealth,

@@ -325,6 +325,28 @@ router.get('/db-test', async (req, res) => {
 });
 
 /**
+ * @route GET /api/system/migrations
+ * @desc Get database migration status
+ * @access Public (consider adding auth in production)
+ */
+router.get('/migrations', async (req, res) => {
+  try {
+    const { getMigrationStatus } = require('../../db');
+    const status = await getMigrationStatus();
+    res.json({
+      ...status,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error getting migration status:', error);
+    res.status(500).json({ 
+      error: 'Failed to get migration status',
+      message: error.message 
+    });
+  }
+});
+
+/**
  * @route GET /api/system/services
  * @desc Get system services status
  * @access Public
