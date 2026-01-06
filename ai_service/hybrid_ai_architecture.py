@@ -1603,7 +1603,7 @@ If any browser tool fails, you MUST:
 IMPORTANT TOOL USAGE RULES:
 - For visual layout questions (order, arrangement, visual positioning): Use browser tools ONLY (browser_navigate, browser_screenshot, browser_extract). DO NOT use PanelManipulationTool.
 - For panel operations (move, arrange, reorder via API): Use PanelManipulationTool.
-- When using browser tools, always pass user_id='{user_id}' in your tool calls."""
+- When using browser tools, always pass user_id='{{user_id}}' in your tool calls."""
             else:
                 enhanced_query = message
             

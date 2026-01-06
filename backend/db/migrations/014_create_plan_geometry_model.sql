@@ -115,7 +115,7 @@ CREATE TABLE IF NOT EXISTS layout_transforms (
   created_by UUID REFERENCES users(id),
   applied_at TIMESTAMP WITH TIME ZONE,
   
-  UNIQUE(project_id, plan_geometry_model_id, is_active) WHERE is_active = true
+  UNIQUE(project_id, plan_geometry_model_id) WHERE is_active = true
 );
 
 -- Compliance Operations table (tracks all operations with approval workflow)
