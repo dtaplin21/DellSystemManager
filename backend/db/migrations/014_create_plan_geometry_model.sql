@@ -113,10 +113,15 @@ CREATE TABLE IF NOT EXISTS layout_transforms (
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   created_by UUID REFERENCES users(id),
-  applied_at TIMESTAMP WITH TIME ZONE,
-  
-  UNIQUE(project_id, plan_geometry_model_id) WHERE is_active = true
+  applied_at TIMESTAMP WITH TIME ZONE
 );
+
+-- Add unique constraint conditionally (idempotent)
+-- Partial unique constraint: only one active transform per project+pgm combination
+-- Note: PostgreSQL requires using CREATE UNIQUE INDEX for partial unique constraints
+CREATE UNIQUE INDEX IF NOT EXISTS layout_transforms_project_pgm_active_unique 
+ON layout_transforms(project_id, plan_geometry_model_id) 
+WHERE is_active = true;
 
 -- Compliance Operations table (tracks all operations with approval workflow)
 CREATE TABLE IF NOT EXISTS compliance_operations (
