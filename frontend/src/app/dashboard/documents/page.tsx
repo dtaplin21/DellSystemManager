@@ -253,6 +253,7 @@ export default function DocumentsPage() {
           <button 
             onClick={() => setShowUploadModal(true)}
             className="btn-upload"
+            data-testid="upload-document-button"
           >
             📤 Upload Document
           </button>

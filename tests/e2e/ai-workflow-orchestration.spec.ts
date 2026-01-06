@@ -1,0 +1,73 @@
+import { test, expect } from '@playwright/test';
+import { AuthHelpers } from '../helpers/auth-helpers';
+import { testUsers } from '../fixtures/test-data';
+
+/**
+ * AI Workflow Orchestration E2E Tests
+ * Tests multi-agent workflow orchestration
+ */
+test.describe('AI Workflow Orchestration', () => {
+  test.beforeEach(async ({ page }) => {
+    await AuthHelpers.login(page, testUsers.admin.email, testUsers.admin.password);
+  });
+
+  test('should get available workflows', async ({ page }) => {
+    const response = await page.request.get('/api/ai/orchestration/workflows');
+    
+    expect(response.ok()).toBeTruthy();
+    
+    const workflows = await response.json();
+    expect(workflows).toBeInstanceOf(Array);
+    
+    // Verify workflow structure
+    if (workflows.length > 0) {
+      const workflow = workflows[0];
+      expect(workflow).toHaveProperty('id');
+      expect(workflow).toHaveProperty('name');
+      expect(workflow).toHaveProperty('description');
+    }
+  });
+
+  test('should start workflow orchestration', async ({ page }) => {
+    const response = await page.request.post('/api/ai/orchestration/start/test-project-id', {
+      data: {
+        workflow_type: 'comprehensive',
+        options: {}
+      }
+    });
+    
+    expect(response.ok()).toBeTruthy();
+    
+    const result = await response.json();
+    expect(result).toHaveProperty('orchestration_id');
+    expect(result.orchestration_id).toBeTruthy();
+  });
+
+  test('should get orchestration status', async ({ page }) => {
+    // Start orchestration first
+    const startResponse = await page.request.post('/api/ai/orchestration/start/test-project-id', {
+      data: { workflow_type: 'comprehensive' }
+    });
+    
+    const { orchestration_id } = await startResponse.json();
+    
+    // Check status
+    const statusResponse = await page.request.get(`/api/ai/orchestration/status/${orchestration_id}`);
+    expect(statusResponse.ok()).toBeTruthy();
+    
+    const status = await statusResponse.json();
+    expect(status).toHaveProperty('status');
+    expect(status).toHaveProperty('progress');
+  });
+
+  test('should get orchestrator manifest', async ({ page }) => {
+    const response = await page.request.get('/api/ai/orchestration/manifest');
+    
+    expect(response.ok()).toBeTruthy();
+    
+    const manifest = await response.json();
+    expect(manifest).toHaveProperty('capabilities');
+    expect(manifest).toHaveProperty('workflows');
+  });
+});
+

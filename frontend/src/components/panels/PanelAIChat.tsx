@@ -351,6 +351,7 @@ export default function PanelAIChat({
                     ? 'bg-primary text-primary-foreground'
                     : 'bg-muted text-foreground'
                 )}
+                data-testid={message.role === 'assistant' ? 'ai-response' : 'user-message'}
               >
                 <div className="whitespace-pre-wrap leading-relaxed">
                   {message.content}
@@ -385,8 +386,9 @@ export default function PanelAIChat({
           placeholder="Describe the task you need the MCP agents to handle..."
           className="flex-1 rounded-lg border px-4 py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
           disabled={isSending}
+          data-testid="ai-chat-input"
         />
-        <Button onClick={handleSubmit} disabled={isSending || !inputMessage.trim()}>
+        <Button onClick={handleSubmit} disabled={isSending || !inputMessage.trim()} data-testid="send-message-button">
           {isSending ? 'Sending…' : 'Send'}
         </Button>
       </div>

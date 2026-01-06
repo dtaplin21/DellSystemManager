@@ -58,3 +58,46 @@ export const testPanelLayout = {
   },
 };
 
+export const testAIData = {
+  documents: {
+    pdf: {
+      path: '../../backend/test-document.pdf',
+      type: 'application/pdf'
+    },
+    qc: {
+      path: '../../backend/test-qc-document.pdf',
+      type: 'application/pdf'
+    }
+  },
+  images: {
+    form: '../../backend/test-form-image.jpg',
+    defect: '../../backend/test-defect-image.jpg',
+    clean: '../../backend/test-clean-image.jpg'
+  },
+  panels: {
+    sample: [
+      {
+        id: 'P001',
+        width: 40,
+        height: 100,
+        x: 0,
+        y: 0,
+        rotation: 0
+      },
+      {
+        id: 'P002',
+        width: 40,
+        height: 100,
+        x: 50,
+        y: 0,
+        rotation: 0
+      }
+    ]
+  },
+  workflows: {
+    newProject: 'new_project_setup',
+    panelOptimization: 'panel_optimization',
+    formReview: 'form_review_and_placement'
+  }
+};
+

@@ -169,6 +169,7 @@ export default function AIAnalysis({ projectId, documents, onDocumentsUpdate }: 
                     onClick={() => fileInputRef?.click()}
                     disabled={uploading}
                     className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                    data-testid="upload-document-button"
                   >
                     {uploading ? (
                       <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
@@ -215,10 +216,12 @@ export default function AIAnalysis({ projectId, documents, onDocumentsUpdate }: 
                       value={question}
                       onChange={(e) => setQuestion(e.target.value)}
                       disabled={isAnalyzing}
+                      data-testid="analysis-question-input"
                     />
                     <Button 
                       onClick={handleAnalyze}
                       disabled={isAnalyzing || !question.trim()}
+                      data-testid="submit-analysis-button"
                     >
                       {isAnalyzing ? 'Analyzing...' : 'Ask'}
                     </Button>
@@ -235,7 +238,7 @@ export default function AIAnalysis({ projectId, documents, onDocumentsUpdate }: 
                 )}
                 
                 {analysisResult && (
-                  <div className="mt-6">
+                  <div className="mt-6" data-testid="analysis-results">
                     <div className="flex justify-between items-center mb-2">
                       <h3 className="text-sm font-semibold">Analysis Result</h3>
                       <Button 

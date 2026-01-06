@@ -211,6 +211,7 @@ export default function DocumentAutoExtractor({
               onClick={runExtraction} 
               disabled={isExtracting}
               className="w-full max-w-xs"
+              data-testid="extract-data-button"
             >
               {isExtracting ? (
                 <>
@@ -228,7 +229,7 @@ export default function DocumentAutoExtractor({
         )}
         
         {extractionResults && (
-          <div className="space-y-6">
+          <div className="space-y-6" data-testid="extracted-data">
             <div className="bg-blue-50 p-4 rounded-md border border-blue-100">
               <div className="flex justify-between items-center">
                 <h3 className="text-sm font-medium text-blue-800">Document Analysis</h3>

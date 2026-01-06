@@ -555,6 +555,7 @@ export default function PanelRequirementsForm({ projectId, documents: propDocume
                     disabled={uploading}
                     variant="outline"
                     className="flex items-center space-x-2"
+                    data-testid="upload-document-button"
                   >
                     {uploading ? (
                       <RefreshCw className="h-4 w-4 animate-spin" />
@@ -567,6 +568,7 @@ export default function PanelRequirementsForm({ projectId, documents: propDocume
                     onClick={handleAIAnalysis}
                     disabled={aiAnalyzing || selectedDocumentsForAnalysis.length === 0}
                     className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700"
+                    data-testid="analyze-document-button"
                   >
                     {aiAnalyzing ? (
                       <>

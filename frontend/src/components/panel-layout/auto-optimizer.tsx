@@ -158,6 +158,7 @@ export default function PanelLayoutAutoOptimizer({
               onClick={runOptimization} 
               disabled={isOptimizing}
               className="w-full"
+              data-testid="optimize-panels-button"
             >
               {isOptimizing ? (
                 <>
@@ -175,9 +176,9 @@ export default function PanelLayoutAutoOptimizer({
         )}
         
         {optimizationResults && (
-          <div className="space-y-6">
+          <div className="space-y-6" data-testid="optimization-complete">
             <div className="grid grid-cols-3 gap-4">
-              <div className="bg-green-50 p-3 rounded-md border border-green-100 col-span-3 md:col-span-1">
+              <div className="bg-green-50 p-3 rounded-md border border-green-100 col-span-3 md:col-span-1" data-testid="optimization-success">
                 <div className="text-sm text-green-600 font-medium">Waste Reduction</div>
                 <div className="text-xl font-bold">{optimizationResults.savings.wasteReduction.toFixed(1)}%</div>
                 <div className="text-xs text-green-500 mt-1">Material savings</div>
