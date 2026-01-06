@@ -86,6 +86,7 @@ This document tracks all development-specific configurations that need to be cha
 - [ ] `CORS_ORIGIN` is restricted to production frontend URL
 - [ ] `OPENAI_API_KEY` is production key
 - [ ] `AI_SERVICE_URL` points to production AI service
+- [ ] `REDIS_URL` points to production Redis service (optional, for job queue)
 
 **Action**: Verify all environment variables in production environment
 
@@ -141,6 +142,64 @@ const allowedOrigins = [
 
 ---
 
+## 🔴 Redis Service Configuration
+
+### Production Setup Required
+
+#### 1. Create Redis Service on Render
+- [ ] Create new Redis service in Render Dashboard
+- [ ] Choose plan (Free tier available for beta, no persistence)
+- [ ] Note the Internal Redis URL (format: `redis://red-xxxxx:6379`)
+
+#### 2. Configure Services to Use Redis
+- [ ] Backend API: Add `REDIS_URL` environment variable
+- [ ] Worker Service: Add `REDIS_URL` environment variable  
+- [ ] AI Service: Add `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD` (or `REDIS_URL`)
+
+**Action**: All services should point to the same Redis instance
+
+**Note**: Free tier Redis on Render has no persistence, which is acceptable for beta. Jobs are also stored in PostgreSQL database, so critical data is safe.
+
+---
+
+## 🔄 Worker Service Configuration
+
+### Production Setup Required
+
+#### 1. Create Worker Service on Render
+- [ ] Create new Background Worker service
+- [ ] Set Name: `geosynth-automation-worker` (or `geosyntec-worker`)
+- [ ] Set Language: `Node`
+- [ ] Set Root Directory: `backend`
+- [ ] Set Build Command: `npm install`
+- [ ] Set Start Command: `node workers/start-worker.js`
+- [ ] Set Instance Type: `Starter` ($7/month)
+
+#### 2. Environment Variables
+**File**: Render Dashboard → Worker Service → Environment
+
+**Required**:
+- [ ] `NODE_ENV=production`
+- [ ] `REDIS_URL=redis://red-xxxxx:6379` (from Render Redis service)
+- [ ] `DATABASE_URL` (same as backend - PostgreSQL connection string)
+- [ ] `SUPABASE_URL` (same as backend)
+- [ ] `SUPABASE_SERVICE_ROLE_KEY` (same as backend)
+- [ ] `AI_SERVICE_URL` (your AI service Render URL)
+- [ ] `OPENAI_API_KEY` (optional, if worker needs direct OpenAI access)
+- [ ] `LOG_LEVEL=info` (optional)
+
+**Action**: Add all environment variables in Render Dashboard
+
+#### 3. Verify Worker is Processing Jobs
+- [ ] Check worker logs for: "Redis connected"
+- [ ] Check worker logs for: "Automation worker started and ready to process jobs"
+- [ ] Test job processing by creating a test job
+- [ ] Verify jobs are being processed from the queue
+
+**Action**: Monitor worker logs after deployment
+
+---
+
 ## 🤖 AI Service Configuration
 
 ### Current Development Settings
@@ -156,9 +215,9 @@ const allowedOrigins = [
 **Check**:
 - [ ] `OPENAI_API_KEY` is production key
 - [ ] `ANTHROPIC_API_KEY` is set (if used)
-- [ ] `REDIS_HOST` points to production Redis
-- [ ] `REDIS_PORT` is production port
-- [ ] `REDIS_PASSWORD` is production password
+- [ ] `REDIS_HOST` points to production Redis (or use `REDIS_URL`)
+- [ ] `REDIS_PORT` is production port (default: 6379)
+- [ ] `REDIS_PASSWORD` is production password (if required)
 - [ ] `FLASK_ENV=production`
 - [ ] `DEBUG=false`
 
@@ -272,14 +331,17 @@ const allowedOrigins = [
 
 ### Deployment
 
-1. [ ] Deploy backend to Render/production server
-2. [ ] Deploy AI service to Render/production server
-3. [ ] Deploy frontend to Vercel/production server
-4. [ ] Run database migrations on production
-5. [ ] Verify all services are running
-6. [ ] Test API endpoints
-7. [ ] Test frontend connectivity
-8. [ ] Test iOS app connectivity
+1. [ ] Create Redis service on Render
+2. [ ] Deploy backend to Render/production server
+3. [ ] Deploy AI service to Render/production server
+4. [ ] Deploy worker service to Render/production server
+5. [ ] Deploy frontend to Vercel/production server
+6. [ ] Run database migrations on production
+7. [ ] Verify all services are running
+8. [ ] Test API endpoints
+9. [ ] Test worker job processing
+10. [ ] Test frontend connectivity
+11. [ ] Test iOS app connectivity
 
 ### Post-Deployment
 
@@ -314,6 +376,14 @@ const allowedOrigins = [
    - `ai_service/config.py` - Environment variables
    - `ai_service/app.py` - CORS and security settings
 
+5. **Worker Service**:
+   - Render Dashboard → Environment Variables (no local config file)
+   - `backend/workers/start-worker.js` - Worker script
+
+6. **Redis Service**:
+   - Render Dashboard → Redis Service (managed service)
+   - No local configuration needed
+
 ---
 
 ## 🔄 Quick Switch Script (Future Enhancement)
@@ -331,10 +401,13 @@ Consider creating a script to switch between development and production configur
 
 ## 📅 Last Updated
 
-- **Date**: 2025-12-20
+- **Date**: 2026-01-05
 - **Current Development IP**: `192.168.22.170`
-- **Production Backend URL**: `https://geosyntec-backend.onrender.com` (verify)
-- **Production Frontend URL**: `https://dellsystemmanager.vercel.app` (verify)
+- **Production Backend URL**: `https://geosyntec-backend.onrender.com`
+- **Production Frontend URL**: `https://dellsystemmanager.vercel.app`
+- **Production AI Service URL**: `https://quality-control-quality-assurance.onrender.com`
+- **Production Worker Service**: `geosyntec-worker` (Render)
+- **Production Redis Service**: Created on Render (free tier)
 
 ---
 
