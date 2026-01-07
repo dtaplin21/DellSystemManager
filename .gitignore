@@ -188,6 +188,8 @@ dump.rdb
 
 # AI Service
 ai_service/venv/
+ai_service/venv_v2/
+ai_service/venv_v*/
 ai_service/__pycache__/
 ai_service/.pytest_cache/
 

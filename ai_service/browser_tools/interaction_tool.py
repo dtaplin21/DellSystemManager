@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 import nest_asyncio
-from langchain_core.tools import BaseTool
+from compat.crewai_tools import BaseTool
 from pydantic import BaseModel, Field
 
 from .browser_sessions import BrowserSessionManager

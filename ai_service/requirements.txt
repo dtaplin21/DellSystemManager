@@ -1,51 +1,68 @@
-# AI Service Dependencies - Production Optimized
-# Core AI and ML libraries
-openai>=1.0.0
+# AI Service Dependencies - Pydantic v2 aligned (production)
+# Goal: eliminate Pydantic v1/v2 mixing and align CrewAI/LangChain stack
 
-# Hybrid AI Architecture dependencies (Cloud-only)
-# NOTE: This codebase targets CrewAI 0.5.x (current venv uses 0.5.5).
-# In CrewAI 0.5.x, tool base classes come from LangChain (`langchain_core.tools.BaseTool`).
-crewai==0.5.5
-langchain>=0.1.0,<0.2.0  # CrewAI 0.5.x requires langchain 0.1.x
-langchain-openai>=0.0.2,<0.0.3
-# langchain-community removed - not used in codebase and conflicts with crewai 0.5.0's langchain==0.1.0 requirement
+# ----------------------------
+# Core AI
+# ----------------------------
+openai>=1.0.0,<2.0.0
 
-# Database and caching
-redis>=5.0.0
+# ----------------------------
+# CrewAI + LangChain (Pydantic v2-native)
+# ----------------------------
+# Pydantic schema verification references CrewAI 0.157.0 as a v2-compatible target.
+crewai==0.157.0
 
-# Web framework and utilities
-flask>=3.0.0
-flask-cors>=4.0.0
-fastapi>=0.104.0
-uvicorn>=0.24.0
-python-dotenv>=1.0.0
+# LangChain modern line
+langchain>=0.2.0,<0.3.0
+langchain-core>=0.2.0,<0.3.0
+langchain-openai>=0.1.0,<0.2.0
 
+# ----------------------------
+# Database / caching
+# ----------------------------
+redis>=5.0.0,<6.0.0
+
+# ----------------------------
+# Web framework / API
+# ----------------------------
+flask>=3.0.0,<4.0.0
+flask-cors>=4.0.0,<5.0.0
+fastapi>=0.104.0,<1.0.0
+uvicorn>=0.24.0,<1.0.0
+python-dotenv>=1.0.0,<2.0.0
+requests>=2.31.0,<3.0.0
+
+# ----------------------------
 # Data processing
-pandas>=2.0.0
-numpy>=1.24.0,<2.0.0  # Limit to numpy 1.x for better compatibility
-pydantic>=2.0.0,<3.0.0
+# ----------------------------
+pandas>=2.0.0,<3.0.0
+numpy>=1.24.0,<2.0.0
+pydantic==2.11.7
 
-# File handling and utilities
-python-multipart>=0.0.6
-aiofiles>=23.0.0
-PyMuPDF>=1.23.0  # For PDF processing
-openpyxl>=3.1.0  # For Excel processing
+# ----------------------------
+# File handling / docs
+# ----------------------------
+python-multipart>=0.0.6,<1.0.0
+aiofiles>=23.0.0,<25.0.0
+PyMuPDF>=1.23.0,<2.0.0
+openpyxl>=3.1.0,<4.0.0
 
+# ----------------------------
 # Browser automation
-playwright>=1.42.0
-nest-asyncio>=1.6.0  # Allows nested event loops (fixes CrewAI threading conflicts)
+# ----------------------------
+playwright>=1.42.0,<2.0.0
+nest-asyncio>=1.6.0,<2.0.0
 
-# Logging and monitoring
-structlog>=23.0.0
-requests>=2.31.0
+# ----------------------------
+# Token counting
+# ----------------------------
+tiktoken>=0.7.0,<1.0.0
 
-# Token counting - langchain-openai 0.0.2 requires tiktoken<0.6.0
-# Keeping at 0.5.2 to satisfy langchain-openai constraints
-# Note: litellm (used by CrewAI) may show warnings but should still function
-tiktoken>=0.5.2,<0.6.0
-
-# Development and testing
-pytest>=7.0.0
-pytest-asyncio>=0.21.0
-black>=23.0.0
-flake8>=6.0.0
+# ----------------------------
+# Logging / testing
+# ----------------------------
+structlog>=23.0.0,<25.0.0
+pytest>=7.0.0,<9.0.0
+pytest-asyncio>=0.21.0,<1.0.0
+black>=23.0.0,<25.0.0
+flake8>=6.0.0,<8.0.0

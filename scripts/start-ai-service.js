@@ -102,7 +102,10 @@ async function startAIService() {
   // Get paths
   const rootDir = path.resolve(__dirname, '..');
   const aiServiceDir = path.join(rootDir, 'ai_service');
-  const venvDir = path.join(aiServiceDir, 'venv');
+  const preferredVenvName =
+    process.env.AI_VENV_DIR ||
+    (fs.existsSync(path.join(aiServiceDir, 'venv_v2')) ? 'venv_v2' : 'venv');
+  const venvDir = path.join(aiServiceDir, preferredVenvName);
   const requirementsPath = path.join(aiServiceDir, 'requirements.txt');
 
   // Check if ai_service directory exists
@@ -129,7 +132,7 @@ async function startAIService() {
       logStatus('Creating virtual environment...');
     }
     try {
-      execSync(`${pythonCmd} -m venv venv`, {
+      execSync(`${pythonCmd} -m venv ${preferredVenvName}`, {
         cwd: aiServiceDir,
         stdio: isConcurrent ? 'ignore' : 'inherit'
       });
@@ -167,7 +170,7 @@ async function startAIService() {
     }
     // Recreate with current Python
     try {
-      execSync(`${pythonCmd} -m venv venv`, {
+      execSync(`${pythonCmd} -m venv ${preferredVenvName}`, {
         cwd: aiServiceDir,
         stdio: isConcurrent ? 'ignore' : 'inherit'
       });
@@ -184,9 +187,10 @@ async function startAIService() {
   
   if (!skipDeps && fs.existsSync(requirementsPath)) {
     // Check if dependencies need to be installed (venv exists but packages might be missing)
+    // Also ensure the environment matches current requirements (rough version gate).
     const testImport = isWindows 
-      ? `"${pythonExecutable}" -c "import flask, openai" 2>nul`
-      : `"${pythonExecutable}" -c "import flask, openai" 2>/dev/null`;
+      ? `"${pythonExecutable}" -c "import flask, openai, pydantic, crewai, langchain" 2>nul`
+      : `"${pythonExecutable}" -c "import flask, openai, pydantic, crewai, langchain" 2>/dev/null`;
     
     try {
       execSync(testImport, { cwd: aiServiceDir, stdio: 'ignore' });

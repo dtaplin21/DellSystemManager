@@ -17,7 +17,7 @@ from typing import Any, Dict, List, Optional, Tuple, Literal
 import redis
 import requests
 from crewai import Agent, Crew, Process, Task
-from langchain_core.tools import BaseTool
+from compat.crewai_tools import BaseTool
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field, PrivateAttr, ValidationError
 
