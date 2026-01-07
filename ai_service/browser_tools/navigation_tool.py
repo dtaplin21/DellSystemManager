@@ -9,7 +9,7 @@ import time
 from typing import Any, Optional
 
 import nest_asyncio
-from crewai.tools import BaseTool
+from langchain_core.tools import BaseTool
 from pydantic import BaseModel, Field
 
 from .browser_sessions import BrowserSessionManager

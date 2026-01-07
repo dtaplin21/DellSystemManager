@@ -3,9 +3,10 @@
 openai>=1.0.0
 
 # Hybrid AI Architecture dependencies (Cloud-only)
-# CrewAI 0.5.0 requires langchain 0.1.x and older langchain-openai
-crewai>=0.5.0,<0.6.0
-langchain>=0.1.0,<0.2.0  # CrewAI 0.5.0 requires langchain 0.1.x
+# NOTE: This codebase targets CrewAI 0.5.x (current venv uses 0.5.5).
+# In CrewAI 0.5.x, tool base classes come from LangChain (`langchain_core.tools.BaseTool`).
+crewai==0.5.5
+langchain>=0.1.0,<0.2.0  # CrewAI 0.5.x requires langchain 0.1.x
 langchain-openai>=0.0.2,<0.0.3
 # langchain-community removed - not used in codebase and conflicts with crewai 0.5.0's langchain==0.1.0 requirement
 

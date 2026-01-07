@@ -17,7 +17,7 @@ from typing import Any, Dict, List, Optional, Tuple, Literal
 import redis
 import requests
 from crewai import Agent, Crew, Process, Task
-from crewai.tools import BaseTool
+from langchain_core.tools import BaseTool
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field, PrivateAttr, ValidationError
 
@@ -358,9 +358,9 @@ class CostOptimizer:
             logger.debug(f'Failed to track usage via telemetry: {e}')
 
 # === TOOL DEFINITIONS ===
-# Note: All tools now inherit from CrewAI's BaseTool (imported at top of file)
-# Mock tools (PanelLayoutOptimizer, DocumentAnalyzer, ProjectConfigAgent) have been removed
-# Only browser tools remain, which properly inherit from crewai.tools.BaseTool
+# Note: CrewAI 0.5.x uses LangChain's tool base class under the hood.
+# Our tools inherit from `langchain_core.tools.BaseTool` for compatibility.
+# Mock tools (PanelLayoutOptimizer, DocumentAnalyzer, ProjectConfigAgent) have been removed.
 
 
 class PanelManipulationInput(BaseModel):
