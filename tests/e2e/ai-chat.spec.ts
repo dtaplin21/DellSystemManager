@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { AuthHelpers } from '../helpers/auth-helpers';
 import { testUsers } from '../fixtures/test-data';
+import { AI_SERVICE_BASE_URL } from '../helpers/service-urls';
 
 /**
  * AI Chat/Conversation E2E Tests
@@ -33,7 +34,10 @@ test.describe('AI Chat', () => {
   });
 
   test('should handle chat API endpoint', async ({ page }) => {
-    const response = await page.request.post('/api/ai/chat', {
+    test.skip(process.env.RUN_LIVE_AI_TESTS !== 'true', 'Set RUN_LIVE_AI_TESTS=true to run live AI service tests.');
+
+    const response = await page.request.post(`${AI_SERVICE_BASE_URL}/api/ai/chat`, {
+      timeout: 120_000,
       data: {
         message: 'What are the best practices for panel placement?',
         context: { project_id: 'test-project-id' },
@@ -50,8 +54,11 @@ test.describe('AI Chat', () => {
   });
 
   test('should maintain conversation context', async ({ page }) => {
+    test.skip(process.env.RUN_LIVE_AI_TESTS !== 'true', 'Set RUN_LIVE_AI_TESTS=true to run live AI service tests.');
+
     // Send first message
-    const response1 = await page.request.post('/api/ai/chat', {
+    const response1 = await page.request.post(`${AI_SERVICE_BASE_URL}/api/ai/chat`, {
+      timeout: 120_000,
       data: {
         message: 'I have 10 panels to place',
         context: { project_id: 'test-project-id' },
@@ -64,7 +71,8 @@ test.describe('AI Chat', () => {
     const conversationId = result1.conversation_id || result1.session_id;
     
     // Send follow-up message with context
-    const response2 = await page.request.post('/api/ai/chat', {
+    const response2 = await page.request.post(`${AI_SERVICE_BASE_URL}/api/ai/chat`, {
+      timeout: 120_000,
       data: {
         message: 'What is the optimal layout?',
         context: { project_id: 'test-project-id', conversation_id: conversationId },

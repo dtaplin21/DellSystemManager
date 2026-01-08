@@ -2,6 +2,8 @@ import { test, expect } from '@playwright/test';
 import { AuthHelpers } from '../helpers/auth-helpers';
 import { testUsers } from '../fixtures/test-data';
 import path from 'path';
+import fs from 'fs';
+import { AI_SERVICE_BASE_URL } from '../helpers/service-urls';
 
 /**
  * AI Defect Detection E2E Tests
@@ -13,10 +15,16 @@ test.describe('AI Defect Detection', () => {
   });
 
   test('should detect defects in uploaded image', async ({ page }) => {
-    const response = await page.request.post('/api/mobile/detect-defects', {
-      multipart: {
-        image: path.resolve(__dirname, '../../backend/test-defect-image.jpg'),
-        projectId: 'test-project-id'
+    test.skip(process.env.RUN_LIVE_AI_TESTS !== 'true', 'Set RUN_LIVE_AI_TESTS=true to run live AI service tests.');
+
+    const imagePath = path.resolve(__dirname, '../../backend/test-defect-image.jpg');
+    const imageBase64 = fs.readFileSync(imagePath).toString('base64');
+    const response = await page.request.post(`${AI_SERVICE_BASE_URL}/api/ai/detect-defects`, {
+      timeout: 120_000,
+      data: {
+        image_base64: imageBase64,
+        project_id: 'test-project-id',
+        metadata: { filename: path.basename(imagePath) }
       }
     });
     
@@ -36,11 +44,17 @@ test.describe('AI Defect Detection', () => {
   });
 
   test('should return empty defects array for clean image', async ({ page }) => {
+    test.skip(process.env.RUN_LIVE_AI_TESTS !== 'true', 'Set RUN_LIVE_AI_TESTS=true to run live AI service tests.');
+
     // Test with a clean image (no defects)
-    const response = await page.request.post('/api/mobile/detect-defects', {
-      multipart: {
-        image: path.resolve(__dirname, '../../backend/test-clean-image.jpg'),
-        projectId: 'test-project-id'
+    const imagePath = path.resolve(__dirname, '../../backend/test-clean-image.jpg');
+    const imageBase64 = fs.readFileSync(imagePath).toString('base64');
+    const response = await page.request.post(`${AI_SERVICE_BASE_URL}/api/ai/detect-defects`, {
+      timeout: 120_000,
+      data: {
+        image_base64: imageBase64,
+        project_id: 'test-project-id',
+        metadata: { filename: path.basename(imagePath) }
       }
     });
     

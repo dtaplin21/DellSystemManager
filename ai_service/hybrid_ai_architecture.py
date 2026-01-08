@@ -1305,6 +1305,15 @@ You MUST execute browser_navigate, browser_screenshot, and browser_extract tools
         logger.info(f"[handle_chat_message] Processing chat message from user {user_id} (tier: {user_tier})")
         
         try:
+            # Always resolve frontend URL early so later context enrichment cannot reference
+            # an uninitialized local variable when browser tools are NOT required.
+            frontend_url = (
+                context.get("frontendUrl")
+                or context.get("frontend_url")
+                or os.getenv("FRONTEND_URL")
+                or "http://localhost:3000"
+            )
+
             # Analyze task complexity
             complexity = self.cost_optimizer.analyze_task_complexity(message, context)
             
@@ -1336,7 +1345,6 @@ You MUST execute browser_navigate, browser_screenshot, and browser_extract tools
                 
                 # Get panel layout URL from context
                 panel_layout_url = context.get("panelLayoutUrl") or context.get("panel_layout_url")
-                frontend_url = context.get("frontendUrl") or context.get("frontend_url", "http://localhost:3000")
                 
                 if panel_layout_url and not panel_layout_url.startswith("http"):
                     panel_layout_url = f"{frontend_url}{panel_layout_url}"

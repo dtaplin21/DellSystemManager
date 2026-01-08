@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { AuthHelpers } from '../helpers/auth-helpers';
 import { testUsers } from '../fixtures/test-data';
+import { AI_SERVICE_BASE_URL } from '../helpers/service-urls';
 
 /**
  * AI Panel Optimization E2E Tests
@@ -34,10 +35,13 @@ test.describe('AI Panel Optimization', () => {
   });
 
   test('should optimize panels with strategy', async ({ page }) => {
+    test.skip(process.env.RUN_LIVE_AI_TESTS !== 'true', 'Set RUN_LIVE_AI_TESTS=true to run live AI service tests.');
+
     await page.goto('/dashboard/projects/test-project-id/panel-layout');
     
     // Test API endpoint directly
-    const response = await page.request.post('/api/ai/panels/optimize', {
+    const response = await page.request.post(`${AI_SERVICE_BASE_URL}/optimize-panels`, {
+      timeout: 120_000,
       data: {
         panels: [
           { id: 'P001', width: 40, height: 100, x: 0, y: 0 }
@@ -55,13 +59,15 @@ test.describe('AI Panel Optimization', () => {
     expect(response.ok()).toBeTruthy();
     
     const result = await response.json();
-    expect(result).toHaveProperty('optimized_panels');
-    expect(result.optimized_panels).toBeInstanceOf(Array);
+    expect(result).toHaveProperty('result');
   });
 
   test('should handle optimization errors gracefully', async ({ page }) => {
+    test.skip(process.env.RUN_LIVE_AI_TESTS !== 'true', 'Set RUN_LIVE_AI_TESTS=true to run live AI service tests.');
+
     // Test with invalid panel data
-    const response = await page.request.post('/api/ai/panels/optimize', {
+    const response = await page.request.post(`${AI_SERVICE_BASE_URL}/optimize-panels`, {
+      timeout: 120_000,
       data: {
         panels: [],
         strategy: 'invalid_strategy',

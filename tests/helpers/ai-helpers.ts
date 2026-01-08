@@ -1,4 +1,5 @@
 import { Page, APIRequestContext } from '@playwright/test';
+import { AI_SERVICE_BASE_URL, BACKEND_BASE_URL } from './service-urls';
 
 /**
  * AI service helper functions for E2E tests
@@ -12,7 +13,7 @@ export class AIHelpers {
     
     while (Date.now() - startTime < timeout) {
       try {
-        const response = await page.request.get('/api/system/services');
+        const response = await page.request.get(`${BACKEND_BASE_URL}/api/system/services`);
         if (response.ok()) {
           const services = await response.json();
           if (services.services?.ai?.openai) {
@@ -38,7 +39,7 @@ export class AIHelpers {
     imagePath: string,
     formType: string = 'panel_placement'
   ) {
-    const response = await request.post(`/api/mobile/extract-form-data/${projectId}`, {
+    const response = await request.post(`${BACKEND_BASE_URL}/api/mobile/extract-form-data/${projectId}`, {
       multipart: {
         image: imagePath,
         formType: formType
@@ -56,7 +57,7 @@ export class AIHelpers {
     documentPath: string,
     question: string = 'Provide a comprehensive analysis'
   ) {
-    const response = await request.post('/api/ai/documents/analyze', {
+    const response = await request.post(`${AI_SERVICE_BASE_URL}/api/ai/documents/analyze`, {
       data: {
         documents: [{ path: documentPath }],
         question: question,
@@ -76,7 +77,7 @@ export class AIHelpers {
     panels: any[],
     strategy: string = 'balanced'
   ) {
-    const response = await request.post('/api/ai/panels/optimize', {
+    const response = await request.post(`${AI_SERVICE_BASE_URL}/api/ai/panels/optimize`, {
       data: {
         panels: panels,
         strategy: strategy,
@@ -100,7 +101,7 @@ export class AIHelpers {
     message: string,
     context: Record<string, any> = {}
   ) {
-    const response = await request.post('/api/ai/chat', {
+    const response = await request.post(`${AI_SERVICE_BASE_URL}/api/ai/chat`, {
       data: {
         message: message,
         context: context,
@@ -123,7 +124,7 @@ export class AIHelpers {
     const startTime = Date.now();
     
     while (Date.now() - startTime < timeout) {
-      const response = await request.get(`/api/automation-jobs/${jobId}`);
+      const response = await request.get(`${BACKEND_BASE_URL}/api/automation-jobs/${jobId}`);
       const status = await response.json();
       
       if (status.status === 'completed' || status.status === 'failed') {
