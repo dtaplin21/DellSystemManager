@@ -570,7 +570,7 @@ export default function SettingsPage() {
                     <br />
                     <strong>On Upload:</strong> Forms are automatically approved and automation triggers immediately when uploaded from mobile app.
                     <br />
-                    <strong>On Approval:</strong> Forms require manual approval before automation triggers. Use this if you want to review forms before they're processed.
+                    <strong>On Approval:</strong> Forms require manual approval before automation triggers. Use this if you want to review forms before they&apos;re processed.
                   </p>
                 </div>
                 <div className="setting-control">

@@ -120,7 +120,8 @@ const PatchSidebar: React.FC<PatchSidebarProps> = ({
 
   // Render form data (simplified - forms are internal, not Excel)
   const renderFormData = (form: AsbuiltRecord) => {
-    const mappedData = form.mapped_data || {};
+    // Prefer canonical camelCase, but tolerate older snake_case payloads
+    const mappedData = form.mappedData || (form as any).mapped_data || {};
     
     return (
       <div className="space-y-2 text-sm">
@@ -267,11 +268,14 @@ const PatchSidebar: React.FC<PatchSidebarProps> = ({
                                       <Badge className="ml-2 bg-blue-500">Created This Patch</Badge>
                                     )}
                                   </CardTitle>
-                                  {form.created_at && (
+                                  {(() => {
+                                    const createdAt = form.createdAt || (form as any).created_at;
+                                    return createdAt ? (
                                     <span className="text-xs text-gray-500">
-                                      {new Date(form.created_at).toLocaleDateString()}
+                                      {new Date(createdAt).toLocaleDateString()}
                                     </span>
-                                  )}
+                                    ) : null;
+                                  })()}
                                 </div>
                               </CardHeader>
                               <CardContent>

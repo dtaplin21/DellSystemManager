@@ -14,6 +14,9 @@ export interface AsbuiltRecord {
   sourceDocId?: string;
   rawData: Record<string, any>;
   mappedData: Record<string, any>;
+  // Optional fields present in some API responses / UI views
+  status?: 'approved' | 'rejected' | 'pending' | string;
+  source?: string;
   aiConfidence: number;
   requiresReview: boolean;
   createdBy: string;

@@ -16,6 +16,12 @@ interface TelemetryData {
   hypothesisId?: string;
 }
 
+export interface ErrorContext {
+  component: string;
+  operation: string;
+  metadata?: Record<string, any>;
+}
+
 /**
  * Log telemetry data (only if telemetry is enabled)
  * Silently fails if telemetry service is unavailable
@@ -39,5 +45,24 @@ export function logTelemetry(data: TelemetryData): void {
     body: JSON.stringify(telemetryData),
   }).catch(() => {
     // Silently fail - telemetry is optional and shouldn't break the app
+  });
+}
+
+/**
+ * Capture an error to telemetry (only if telemetry is enabled)
+ */
+export function captureError(error: unknown, context: ErrorContext): void {
+  const message =
+    error instanceof Error ? error.message : typeof error === 'string' ? error : String(error);
+
+  const stack = error instanceof Error ? error.stack : undefined;
+
+  logTelemetry({
+    location: `${context.component}.${context.operation}`,
+    message,
+    data: {
+      ...context.metadata,
+      stack,
+    },
   });
 }

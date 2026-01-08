@@ -120,7 +120,8 @@ const DestructSidebar: React.FC<DestructSidebarProps> = ({
 
   // Render form data (simplified - forms are internal, not Excel)
   const renderFormData = (form: AsbuiltRecord) => {
-    const mappedData = form.mapped_data || {};
+    // Prefer canonical camelCase, but tolerate older snake_case payloads
+    const mappedData = form.mappedData || (form as any).mapped_data || {};
     
     // Highlight destructive test specific fields
     const isDestructiveForm = form.domain === 'destructive';
@@ -310,11 +311,14 @@ const DestructSidebar: React.FC<DestructSidebarProps> = ({
                                       <Badge className="ml-2 bg-blue-500">Created This Test</Badge>
                                     )}
                                   </CardTitle>
-                                  {form.created_at && (
+                                  {(() => {
+                                    const createdAt = form.createdAt || (form as any).created_at;
+                                    return createdAt ? (
                                     <span className="text-xs text-gray-500">
-                                      {new Date(form.created_at).toLocaleDateString()}
+                                      {new Date(createdAt).toLocaleDateString()}
                                     </span>
-                                  )}
+                                    ) : null;
+                                  })()}
                                 </div>
                               </CardHeader>
                               <CardContent>

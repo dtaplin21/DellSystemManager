@@ -492,7 +492,6 @@ export default function PanelLayoutRefactored() {
                     visibleTypes={visibleTypes}
                     cardinalDirection={cardinalDirection}
               projectId={Array.isArray(params.id) ? params.id[0] || 'unknown' : params.id || 'unknown'}
-              onPanelSelect={handlePanelClick}
               onPatchClick={handlePatchClick}
               onDestructiveTestClick={handleDestructiveTestClick}
               onPanelUpdate={handlePanelPositionUpdate}

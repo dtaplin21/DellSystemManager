@@ -156,7 +156,6 @@ export default function ProjectsPage() {
         title: errorTitle,
         description: errorMessage,
         variant: 'destructive',
-        duration: 5000 // Show for 5 seconds to allow reading detailed messages
       });
     } finally {
       setIsDeleting(false);
