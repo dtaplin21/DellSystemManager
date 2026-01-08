@@ -4,6 +4,10 @@ import { defineConfig, devices } from '@playwright/test';
  * Playwright Configuration for GeoSynth QC Pro
  * Water Board-grade compliance testing
  */
+const DEPLOYED_BASE_URL = 'https://quality-control-quality-assurance.onrender.com';
+const baseURL = process.env.PLAYWRIGHT_TEST_BASE_URL || DEPLOYED_BASE_URL;
+const useLocalWebServer = baseURL.includes('localhost') || baseURL.includes('127.0.0.1');
+
 export default defineConfig({
   testDir: './tests/e2e',
   
@@ -28,7 +32,7 @@ export default defineConfig({
   
   use: {
     // Base URL for all tests
-    baseURL: process.env.PLAYWRIGHT_TEST_BASE_URL || 'http://localhost:3000',
+    baseURL,
     
     // Trace and debugging
     trace: 'on-first-retry',
@@ -60,13 +64,17 @@ export default defineConfig({
   ],
 
   // Web server configuration
-  webServer: {
-    command: 'npm run dev:all',
-    url: 'http://localhost:3000',
-    reuseExistingServer: !process.env.CI,
-    timeout: 120 * 1000,
-    stdout: 'ignore',
-    stderr: 'pipe',
-  },
+  ...(useLocalWebServer
+    ? {
+        webServer: {
+          command: 'npm run dev:all',
+          url: 'http://localhost:3000',
+          reuseExistingServer: !process.env.CI,
+          timeout: 120 * 1000,
+          stdout: 'ignore',
+          stderr: 'pipe',
+        },
+      }
+    : {}),
 });
 
