@@ -4,7 +4,8 @@ import { defineConfig, devices } from '@playwright/test';
  * Playwright Configuration for GeoSynth QC Pro
  * Water Board-grade compliance testing
  */
-const DEPLOYED_BASE_URL = 'https://quality-control-quality-assurance.onrender.com';
+// Default to the deployed frontend domain (override via PLAYWRIGHT_TEST_BASE_URL when needed)
+const DEPLOYED_BASE_URL = 'https://dellsystemmanager.vercel.app';
 const baseURL = process.env.PLAYWRIGHT_TEST_BASE_URL || DEPLOYED_BASE_URL;
 const useLocalWebServer = baseURL.includes('localhost') || baseURL.includes('127.0.0.1');
 
