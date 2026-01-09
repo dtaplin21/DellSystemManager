@@ -35,10 +35,10 @@ export default defineConfig({
     ...(process.env.CI ? [['github'] as const] : []),
   ],
   
-  // Test timeout
-  timeout: 30 * 1000,
+  // Test timeout - increased for AI tests that may take longer
+  timeout: 120 * 1000, // 2 minutes for AI tests
   expect: {
-    timeout: 5000,
+    timeout: 10000, // 10 seconds for assertions
   },
   
   use: {

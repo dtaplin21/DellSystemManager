@@ -17,7 +17,8 @@ test.describe('AI Defect Detection', () => {
   test('should detect defects in uploaded image', async ({ page }) => {
     test.skip(process.env.RUN_LIVE_AI_TESTS !== 'true', 'Set RUN_LIVE_AI_TESTS=true to run live AI service tests.');
 
-    const imagePath = path.resolve(__dirname, '../../backend/test-defect-image.jpg');
+    const imagePath = path.resolve(__dirname, '../fixtures/images/test-defect-image.jpg');
+    test.skip(!fs.existsSync(imagePath), `Missing fixture image: ${imagePath}`);
     const imageBase64 = fs.readFileSync(imagePath).toString('base64');
     const response = await page.request.post(`${AI_SERVICE_BASE_URL}/api/ai/detect-defects`, {
       timeout: 120_000,
@@ -47,7 +48,8 @@ test.describe('AI Defect Detection', () => {
     test.skip(process.env.RUN_LIVE_AI_TESTS !== 'true', 'Set RUN_LIVE_AI_TESTS=true to run live AI service tests.');
 
     // Test with a clean image (no defects)
-    const imagePath = path.resolve(__dirname, '../../backend/test-clean-image.jpg');
+    const imagePath = path.resolve(__dirname, '../fixtures/images/test-clean-image.jpg');
+    test.skip(!fs.existsSync(imagePath), `Missing fixture image: ${imagePath}`);
     const imageBase64 = fs.readFileSync(imagePath).toString('base64');
     const response = await page.request.post(`${AI_SERVICE_BASE_URL}/api/ai/detect-defects`, {
       timeout: 120_000,

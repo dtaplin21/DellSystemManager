@@ -63,7 +63,12 @@ export async function makeAuthenticatedRequest(url: string, options: RequestInit
     ? url
     : `${BACKEND_URL.replace(/\/+$/, '')}/${url.replace(/^\/+/, '')}`;
   
-  try {
+  // Retry configuration for cold starts and transient errors
+  const maxRetries = 3;
+  const baseTimeout = config.backend.timeout || 60000;
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
     console.log('🔍 [AUTH] === makeAuthenticatedRequest START ===');
     console.log('🔍 [AUTH] Request URL:', url);
     console.log('🔍 [AUTH] Request method:', options.method || 'GET');
@@ -87,8 +92,10 @@ export async function makeAuthenticatedRequest(url: string, options: RequestInit
           headers.set('Content-Type', 'application/json');
           
           // Add timeout to prevent hanging requests
+          // Increase timeout on retry attempts (cold starts take longer)
+          const timeout = baseTimeout * (attempt + 1);
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), config.backend.timeout || 10000);
+          const timeoutId = setTimeout(() => controller.abort(), timeout);
           
           try {
             const response = await fetch(requestUrl, {
@@ -103,7 +110,8 @@ export async function makeAuthenticatedRequest(url: string, options: RequestInit
             console.log('🔍 [AUTH] Real auth response received:', {
               status: response.status,
               statusText: response.statusText,
-              ok: response.ok
+              ok: response.ok,
+              attempt: attempt + 1
             });
             
             return response;
@@ -127,8 +135,10 @@ export async function makeAuthenticatedRequest(url: string, options: RequestInit
       console.log('🔍 [AUTH] Development bypass headers:', headers);
       
       // Add timeout to prevent hanging requests
+      // Increase timeout on retry attempts (cold starts take longer)
+      const timeout = baseTimeout * (attempt + 1);
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), config.backend.timeout || 10000);
+      const timeoutId = setTimeout(() => controller.abort(), timeout);
       
       try {
         const response = await fetch(requestUrl, {
@@ -144,7 +154,8 @@ export async function makeAuthenticatedRequest(url: string, options: RequestInit
           status: response.status,
           statusText: response.statusText,
           ok: response.ok,
-          headers: Object.fromEntries(response.headers.entries())
+          headers: Object.fromEntries(response.headers.entries()),
+          attempt: attempt + 1
         });
         
         return response;
@@ -183,8 +194,10 @@ export async function makeAuthenticatedRequest(url: string, options: RequestInit
     console.log('🔍 [AUTH] Sending authenticated request...');
     
     // Add timeout to prevent hanging requests
+    // Increase timeout on retry attempts (cold starts take longer)
+    const timeout = baseTimeout * (attempt + 1);
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), config.backend.timeout || 10000);
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
     
     try {
       const response = await fetch(requestUrl, {
@@ -200,7 +213,8 @@ export async function makeAuthenticatedRequest(url: string, options: RequestInit
         status: response.status,
         statusText: response.statusText,
         ok: response.ok,
-        headers: Object.fromEntries(response.headers.entries())
+        headers: Object.fromEntries(response.headers.entries()),
+        attempt: attempt + 1
       });
       
       console.log('🔍 [AUTH] === makeAuthenticatedRequest END ===');
@@ -210,40 +224,45 @@ export async function makeAuthenticatedRequest(url: string, options: RequestInit
       throw fetchError;
     }
     
-  } catch (error) {
-    console.error('❌ [AUTH] makeAuthenticatedRequest error:', error);
-    
-    // Provide better error messages for common network issues
-    // Check for network errors (Failed to fetch can be TypeError or DOMException)
-    const isNetworkError = (error instanceof TypeError && error.message === 'Failed to fetch') ||
-                          (error instanceof Error && error.message === 'Failed to fetch') ||
-                          (error instanceof DOMException && error.message.includes('fetch'));
-    
-    if (isNetworkError) {
-      const backendUrl = requestUrl.split('/api')[0] || BACKEND_URL;
-      const errorMessage = `Cannot connect to backend server at ${backendUrl}. Please ensure the backend is running on port ${backendUrl.includes('8003') ? '8003' : 'the configured port'}.`;
-      console.error('❌ [AUTH] Network error details:', {
-        backendUrl,
-        requestUrl,
-        errorType: error?.constructor?.name,
-        errorMessage: error instanceof Error ? error.message : String(error)
-      });
-      const networkError = new Error(errorMessage);
-      (networkError as any).originalError = error;
-      throw networkError;
+    } catch (error) {
+      // Handle timeout/abort errors with retry logic
+      if (error instanceof Error && (error.name === 'AbortError' || error.name === 'TimeoutError')) {
+        // If we have retries left and it's a timeout, retry with exponential backoff
+        if (attempt < maxRetries - 1) {
+          const waitTime = Math.pow(2, attempt) * 1000; // Exponential backoff: 1s, 2s, 4s
+          console.log(`⏳ [AUTH] Request timeout (attempt ${attempt + 1}/${maxRetries}), retrying in ${waitTime}ms...`);
+          console.log(`⏳ [AUTH] This may be due to Render cold start (can take 30-60s)`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+          continue; // Retry the loop
+        }
+        // No more retries left
+        const errorMessage = `Request to ${requestUrl} timed out after ${timeout}ms (${attempt + 1} attempts). The backend may be slow or unresponsive.`;
+        console.error('❌ [AUTH] Request timeout (max retries exceeded):', errorMessage);
+        const timeoutError = new Error(errorMessage);
+        (timeoutError as any).originalError = error;
+        throw timeoutError;
+      }
+      
+      // For non-timeout errors, check if we should retry (network errors, 502, 503)
+      const isRetryableError = 
+        (error instanceof TypeError && error.message === 'Failed to fetch') ||
+        (error instanceof Error && error.message.includes('Failed to fetch')) ||
+        (error instanceof DOMException && error.message.includes('fetch'));
+      
+      if (isRetryableError && attempt < maxRetries - 1) {
+        const waitTime = Math.pow(2, attempt) * 1000;
+        console.log(`⏳ [AUTH] Network error (attempt ${attempt + 1}/${maxRetries}), retrying in ${waitTime}ms...`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        continue; // Retry the loop
+      }
+      
+      // Re-throw if not retryable or out of retries
+      throw error;
     }
-    
-    // Handle timeout/abort errors
-    if (error instanceof Error && (error.name === 'AbortError' || error.name === 'TimeoutError')) {
-      const errorMessage = `Request to ${requestUrl} timed out after ${config.backend.timeout || 10000}ms. The backend may be slow or unresponsive.`;
-      console.error('❌ [AUTH] Request timeout:', errorMessage);
-      const timeoutError = new Error(errorMessage);
-      (timeoutError as any).originalError = error;
-      throw timeoutError;
-    }
-    
-    throw error;
   }
+  
+  // This should never be reached, but TypeScript needs it
+  throw new Error('Unexpected: retry loop exhausted without returning or throwing');
 }
 
 export async function fetchProjectById(id: string): Promise<any> {

@@ -407,7 +407,7 @@ router.post('/chat', auth, async (req, res) => {
           url: `${AI_SERVICE_URL}/api/ai/chat`,
           payloadSize: JSON.stringify(payload).length,
           contextKeys: Object.keys(payload.context || {}),
-          timeout: 120000
+          timeout: 300000 // Increased to 5 minutes for cold starts and slow AI responses
         })
         
         const pythonResponse = await axios.post(
@@ -418,7 +418,7 @@ router.post('/chat', auth, async (req, res) => {
               'Content-Type': 'application/json',
               ...(req.headers['x-dev-bypass'] && { 'x-dev-bypass': req.headers['x-dev-bypass'] })
             },
-            timeout: 120000 // 120 second timeout for AI operations (increased to accommodate browser automation: navigation + selector wait + screenshot + extraction)
+            timeout: 300000 // Increased to 5 minutes (300s) for AI operations - accounts for cold starts (30-60s), OpenAI processing (30-120s), browser automation (30-60s), and network latency
           }
         );
         

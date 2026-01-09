@@ -17,8 +17,8 @@ interface ApiRequestOptions {
 
 class ApiClient {
   private baseUrl: string;
-  private maxRetries = 2;
-  private defaultTimeout = 10000; // 10 seconds
+  private maxRetries = 3; // Increased from 2 to 3 for better resilience
+  private defaultTimeout = 60000; // 60 seconds - increased for Render cold starts
 
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl.replace(/\/$/, ''); // Remove trailing slash

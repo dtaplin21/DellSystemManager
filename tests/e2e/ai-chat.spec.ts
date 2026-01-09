@@ -37,7 +37,7 @@ test.describe('AI Chat', () => {
     test.skip(process.env.RUN_LIVE_AI_TESTS !== 'true', 'Set RUN_LIVE_AI_TESTS=true to run live AI service tests.');
 
     const response = await page.request.post(`${AI_SERVICE_BASE_URL}/api/ai/chat`, {
-      timeout: 120_000,
+      timeout: 300_000, // Increased to 5 minutes for cold starts and slow AI responses
       data: {
         message: 'What are the best practices for panel placement?',
         context: { project_id: 'test-project-id' },
@@ -55,10 +55,11 @@ test.describe('AI Chat', () => {
 
   test('should maintain conversation context', async ({ page }) => {
     test.skip(process.env.RUN_LIVE_AI_TESTS !== 'true', 'Set RUN_LIVE_AI_TESTS=true to run live AI service tests.');
+    test.setTimeout(360_000); // Increased to 6 minutes to provide buffer for slow AI responses
 
     // Send first message
     const response1 = await page.request.post(`${AI_SERVICE_BASE_URL}/api/ai/chat`, {
-      timeout: 120_000,
+      timeout: 300_000, // Increased to 5 minutes for cold starts and slow AI responses
       data: {
         message: 'I have 10 panels to place',
         context: { project_id: 'test-project-id' },
@@ -72,7 +73,7 @@ test.describe('AI Chat', () => {
     
     // Send follow-up message with context
     const response2 = await page.request.post(`${AI_SERVICE_BASE_URL}/api/ai/chat`, {
-      timeout: 120_000,
+      timeout: 300_000, // Increased to 5 minutes for cold starts and slow AI responses
       data: {
         message: 'What is the optimal layout?',
         context: { project_id: 'test-project-id', conversation_id: conversationId },
