@@ -1,9 +1,19 @@
 import { defineConfig, devices } from '@playwright/test';
+import fs from 'fs';
+import path from 'path';
+import { config as loadEnv } from 'dotenv';
 
 /**
  * Playwright Configuration for GeoSynth QC Pro
  * Water Board-grade compliance testing
  */
+// Load local Playwright env (NOT committed). This lets you set TEST_USER_EMAIL/PASSWORD
+// without exporting them every time.
+const playwrightEnvPath = path.resolve(process.cwd(), '.env.playwright');
+if (fs.existsSync(playwrightEnvPath)) {
+  loadEnv({ path: playwrightEnvPath });
+}
+
 // Default to the deployed frontend domain (override via PLAYWRIGHT_TEST_BASE_URL when needed)
 const DEPLOYED_BASE_URL = 'https://dellsystemmanager.vercel.app';
 const baseURL = process.env.PLAYWRIGHT_TEST_BASE_URL || DEPLOYED_BASE_URL;

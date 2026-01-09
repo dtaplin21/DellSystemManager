@@ -2,6 +2,28 @@
  * Test data fixtures for E2E tests
  */
 
+const DEPLOYED_DEFAULT_BASE_URL = 'https://dellsystemmanager.vercel.app';
+const baseUrlForTests = process.env.PLAYWRIGHT_TEST_BASE_URL || DEPLOYED_DEFAULT_BASE_URL;
+const isRemoteTarget =
+  /^https?:\/\//i.test(baseUrlForTests) &&
+  !baseUrlForTests.includes('localhost') &&
+  !baseUrlForTests.includes('127.0.0.1');
+
+if (isRemoteTarget && (!process.env.TEST_USER_EMAIL || !process.env.TEST_USER_PASSWORD)) {
+  throw new Error(
+    [
+      'E2E tests are targeting a deployed URL but TEST_USER_EMAIL/TEST_USER_PASSWORD are not set.',
+      `Target: ${baseUrlForTests}`,
+      '',
+      'Fix: create a local .env.playwright file (not committed) with:',
+      '  TEST_USER_EMAIL=your-supabase-test-user-email',
+      '  TEST_USER_PASSWORD=your-supabase-test-user-password',
+      '',
+      'Or export them in your shell before running Playwright.',
+    ].join('\n')
+  );
+}
+
 export const testUsers = {
   admin: {
     email: process.env.TEST_USER_EMAIL || 'test@example.com',
