@@ -28,6 +28,7 @@ out/
 .env.production.local
 .env.test
 *.env
+.env.playwright
 
 # Logs
 logs/
