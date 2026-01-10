@@ -112,6 +112,48 @@ export function ProjectsProvider({ children }: ProjectsProviderProps) {
     setIsLoading(true);
     setError(null);
     
+    // CRITICAL: Wait for session to be accessible before making API calls
+    // This prevents race conditions where isAuthenticated is true but session isn't ready
+    let sessionReady = false;
+    let retries = 0;
+    const maxRetries = 5;
+    
+    while (!sessionReady && retries < maxRetries) {
+      try {
+        const { getSupabaseClient } = await import('../lib/supabase');
+        const { data: { session } } = await getSupabaseClient().auth.getSession();
+        
+        if (session?.access_token) {
+          sessionReady = true;
+          console.log('✅ ProjectsProvider: Session is ready, proceeding with fetch');
+        } else {
+          retries++;
+          if (retries < maxRetries) {
+            console.log(`⏳ ProjectsProvider: Session not ready yet, waiting... (attempt ${retries}/${maxRetries})`);
+            await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms before retry
+          }
+        }
+      } catch (error) {
+        retries++;
+        if (retries < maxRetries) {
+          console.warn(`⚠️ ProjectsProvider: Error checking session, retrying... (attempt ${retries}/${maxRetries})`);
+          await new Promise(resolve => setTimeout(resolve, 500));
+        } else {
+          console.error('❌ ProjectsProvider: Failed to verify session after retries');
+          setError('Session not ready. Please refresh the page.');
+          setIsLoading(false);
+          return;
+        }
+      }
+    }
+    
+    if (!sessionReady) {
+      console.error('❌ ProjectsProvider: Session never became ready');
+      setError('Session timeout. Please refresh the page.');
+      setIsLoading(false);
+      return;
+    }
+    
     try {
       console.log('ProjectsProvider: Fetching projects using API helper...');
       const data = await fetchProjectsAPI();

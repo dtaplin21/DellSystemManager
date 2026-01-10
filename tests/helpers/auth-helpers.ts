@@ -26,6 +26,75 @@ export class AuthHelpers {
     
     // Wait for navigation to dashboard
     await page.waitForURL(/\/dashboard/, { timeout: 15000 });
+    
+    // CRITICAL: Wait for session to be established and stored
+    // Wait for network to be idle (all auth requests complete)
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {
+      console.warn('⚠️ Network idle timeout, but continuing...');
+    });
+    
+    // Additional wait to ensure localStorage/sessionStorage is updated
+    await page.waitForTimeout(2000);
+    
+    // Verify session exists and is accessible via Supabase client
+    const sessionReady = await page.evaluate(async () => {
+      try {
+        // Try to get session via Supabase client if available
+        // @ts-ignore - checking if window has supabase client
+        const supabaseClient = (window as any).__SUPABASE_CLIENT__;
+        if (supabaseClient) {
+          const { data: { session } } = await supabaseClient.auth.getSession();
+          if (session?.access_token) {
+            return { ready: true, hasToken: true, method: 'supabaseClient' };
+          }
+        }
+        
+        // Fallback: Check localStorage for Supabase session
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (key.includes('supabase') || key.includes('auth') || key.includes('session'))) {
+            const value = localStorage.getItem(key);
+            if (value && (value.includes('access_token') || value.includes('token'))) {
+              return { ready: true, hasToken: true, method: 'localStorage' };
+            }
+          }
+        }
+        
+        return { ready: false, hasToken: false, method: 'none' };
+      } catch (error) {
+        return { ready: false, hasToken: false, method: 'error', error: String(error) };
+      }
+    });
+    
+    console.log('🔐 [AUTH HELPER] Session readiness check:', sessionReady);
+    
+    // If session isn't ready, wait and retry
+    if (!sessionReady.ready) {
+      console.warn('⚠️ Session not immediately ready, waiting and retrying...');
+      for (let attempt = 1; attempt <= 5; attempt++) {
+        await page.waitForTimeout(1000);
+        const retryCheck = await page.evaluate(async () => {
+          try {
+            // @ts-ignore
+            const supabaseClient = (window as any).__SUPABASE_CLIENT__;
+            if (supabaseClient) {
+              const { data: { session } } = await supabaseClient.auth.getSession();
+              return session?.access_token ? true : false;
+            }
+            return false;
+          } catch {
+            return false;
+          }
+        });
+        
+        if (retryCheck) {
+          console.log(`✅ [AUTH HELPER] Session ready after ${attempt} retries`);
+          break;
+        } else if (attempt === 5) {
+          console.warn('⚠️ [AUTH HELPER] Session still not ready after 5 retries, but continuing...');
+        }
+      }
+    }
   }
 
   /**

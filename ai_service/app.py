@@ -312,7 +312,9 @@ def chat_message():
                 'response': chat_result.get('response', 'No response generated'),
                 'success': True,
                 'user_id': chat_result.get('user_id', user_id),
-                'timestamp': chat_result.get('timestamp', '')
+                'timestamp': chat_result.get('timestamp', ''),
+                'conversation_id': chat_result.get('conversation_id') or chat_result.get('session_id') or chat_result.get('user_id'),
+                'session_id': chat_result.get('session_id') or chat_result.get('conversation_id') or chat_result.get('user_id'),
             }), 200
         else:
             # Log the error details before returning

@@ -1340,6 +1340,9 @@ You MUST execute browser_navigate, browser_screenshot, and browser_extract tools
             preflight_error = None
             automation_details = {}
             
+            # Initialize session_id for all paths (used for conversation tracking)
+            session_id = f"chat-{context.get('projectId', user_id)}-{int(time.time())}"
+            
             if requires_browser_tools:
                 logger.info(f"[handle_chat_message] ===== PRE-FLIGHT AUTOMATION START =====")
                 
@@ -1538,6 +1541,8 @@ You MUST execute browser_navigate, browser_screenshot, and browser_extract tools
                         "success": True,
                         "timestamp": time.time(),
                         "user_id": user_id,
+                        "session_id": session_id,
+                        "conversation_id": session_id,
                         "model_used": optimal_model,
                         "workflow_used": "multi_agent_browser_automation",
                         "agents_used": ["navigator", "visual_analyst", "interaction_executor", "validator"],
@@ -1567,8 +1572,12 @@ You MUST execute browser_navigate, browser_screenshot, and browser_extract tools
             if requires_browser_tools:
                 # Add critical instructions to the query
                 browser_tools_available = [name for name in self.tools.keys() if name.startswith("browser_")]
+                
+                # Clean context to remove None/undefined values that can't be serialized
+                cleaned_context = {k: v for k, v in enhanced_context.items() if v is not None}
+                
                 enhanced_query = f"""User request: {message}
-Context: {json.dumps(enhanced_context, default=str)}
+Context: {json.dumps(cleaned_context, default=str)}
 
 🚨 CRITICAL: THIS IS A VISUAL LAYOUT QUESTION - YOU MUST USE BROWSER AUTOMATION TOOLS ONLY.
 
@@ -1671,6 +1680,8 @@ IMPORTANT TOOL USAGE RULES:
                 "success": True,
                 "timestamp": time.time(),
                 "user_id": user_id,
+                "session_id": session_id,
+                "conversation_id": session_id,
                 "model_used": optimal_model,
                 "complexity_level": complexity.value,
                 "estimated_cost": estimated_cost,
