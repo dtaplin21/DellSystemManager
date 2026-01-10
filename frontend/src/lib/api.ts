@@ -236,7 +236,8 @@ export async function makeAuthenticatedRequest(url: string, options: RequestInit
           continue; // Retry the loop
         }
         // No more retries left
-        const errorMessage = `Request to ${requestUrl} timed out after ${timeout}ms (${attempt + 1} attempts). The backend may be slow or unresponsive.`;
+        const currentTimeout = baseTimeout * (attempt + 1); // Calculate timeout for this attempt
+        const errorMessage = `Request to ${requestUrl} timed out after ${currentTimeout}ms (${attempt + 1} attempts). The backend may be slow or unresponsive.`;
         console.error('❌ [AUTH] Request timeout (max retries exceeded):', errorMessage);
         const timeoutError = new Error(errorMessage);
         (timeoutError as any).originalError = error;
