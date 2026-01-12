@@ -88,9 +88,24 @@ const auth = async (req, res, next) => {
     let supabaseError;
     
     try {
+      logger.debug('[AUTH] Verifying token with Supabase', {
+        tokenPreview: token ? token.substring(0, 20) + '...' : 'null',
+        supabaseUrl: config.supabase.url,
+        usingServiceRole: !!config.supabase.serviceRoleKey
+      });
+      
       const result = await supabase.auth.getUser(token);
       supabaseUser = result.data?.user;
       supabaseError = result.error;
+      
+      if (supabaseError) {
+        logger.error('[AUTH] Supabase getUser returned error', {
+          errorMessage: supabaseError.message,
+          errorStatus: supabaseError.status,
+          errorCode: supabaseError.code,
+          errorName: supabaseError.name
+        });
+      }
     } catch (fetchError) {
       // Handle network/timeout errors
       const isTimeoutError = fetchError.message?.includes('timeout') || 

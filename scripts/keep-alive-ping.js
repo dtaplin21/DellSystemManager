@@ -16,7 +16,7 @@
  */
 
 const BACKEND_URL = process.env.BACKEND_URL || 'https://geosyntec-backend-ugea.onrender.com';
-const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'https://quality-control-quality-assurance.onrender.com';
+const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'https://geosyntec-backend.onrender.com';
 const PING_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
 
 // Colors for console output

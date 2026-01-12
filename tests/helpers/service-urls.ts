@@ -15,13 +15,13 @@ export const FRONTEND_BASE_URL = trimTrailingSlash(
 export const BACKEND_BASE_URL = trimTrailingSlash(
   process.env.PLAYWRIGHT_BACKEND_URL ||
     process.env.NEXT_PUBLIC_BACKEND_URL ||
-    'https://geosyntec-backend.onrender.com'
+    'https://geosyntec-backend-ugea.onrender.com'
 );
 
 export const AI_SERVICE_BASE_URL = trimTrailingSlash(
   process.env.PLAYWRIGHT_AI_SERVICE_URL ||
     process.env.NEXT_PUBLIC_AI_SERVICE_URL ||
-    'https://quality-control-quality-assurance.onrender.com'
+    'https://geosyntec-backend.onrender.com'
 );
 
 

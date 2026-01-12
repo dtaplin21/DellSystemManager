@@ -8,7 +8,11 @@ import { BACKEND_BASE_URL } from '../helpers/service-urls';
  * Tests multi-agent workflow orchestration
  */
 test.describe('AI Workflow Orchestration', () => {
-  test.skip(true, 'Workflow orchestration endpoints are not available on the deployed backend currently; enable once deployed.');
+  // Skip if live AI tests are not enabled
+  test.skip(
+    process.env.RUN_LIVE_AI_TESTS !== 'true',
+    'Live AI tests are disabled. Set RUN_LIVE_AI_TESTS=true to enable.'
+  );
 
   test.beforeEach(async ({ page }) => {
     await AuthHelpers.login(page, testUsers.admin.email, testUsers.admin.password);

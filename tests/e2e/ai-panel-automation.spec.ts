@@ -7,7 +7,11 @@ import { testUsers } from '../fixtures/test-data';
  * Tests automated panel creation from form data
  */
 test.describe('AI Panel Population Automation', () => {
-  test.skip(true, 'Automation job endpoints are not available in the deployed environment yet; enable once backend job queue endpoints are deployed.');
+  // Skip if live AI tests are not enabled
+  test.skip(
+    process.env.RUN_LIVE_AI_TESTS !== 'true',
+    'Live AI tests are disabled. Set RUN_LIVE_AI_TESTS=true to enable.'
+  );
 
   test.beforeEach(async ({ page }) => {
     await AuthHelpers.login(page, testUsers.admin.email, testUsers.admin.password);

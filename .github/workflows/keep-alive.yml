@@ -32,7 +32,7 @@ jobs:
       
       - name: Ping AI Service
         env:
-          AI_SERVICE_URL: ${{ secrets.AI_SERVICE_URL || 'https://quality-control-quality-assurance.onrender.com' }}
+          AI_SERVICE_URL: ${{ secrets.AI_SERVICE_URL || 'https://geosyntec-backend.onrender.com' }}
         run: |
           echo "Pinging AI service..."
           curl -f --max-time 30 "$AI_SERVICE_URL/health" || echo "AI service ping failed"
@@ -40,7 +40,7 @@ jobs:
       - name: Run Keep-Alive Script
         env:
           BACKEND_URL: ${{ secrets.BACKEND_URL || 'https://geosyntec-backend-ugea.onrender.com' }}
-          AI_SERVICE_URL: ${{ secrets.AI_SERVICE_URL || 'https://quality-control-quality-assurance.onrender.com' }}
+          AI_SERVICE_URL: ${{ secrets.AI_SERVICE_URL || 'https://geosyntec-backend.onrender.com' }}
         run: |
           node scripts/keep-alive-ping.js
 
