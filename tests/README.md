@@ -72,6 +72,12 @@ npx playwright test tests/e2e/auth.spec.ts
 npm run test:e2e:report
 ```
 
+### Run Regression Tests
+
+```bash
+npm run test:regression
+```
+
 ## Environment Variables
 
 Create a `.env.test` file or set these environment variables:
@@ -171,9 +177,15 @@ await AuthHelpers.login(page, testUsers.admin.email, testUsers.admin.password);
 
 ## CI/CD Integration
 
-For Phase 2, tests will run automatically on:
-- Pull requests
-- Pushes to main branch
+Tests run automatically on:
+- Pull requests to `main` or `develop` branches
+- Pushes to `main` or `develop` branches
+- Manual workflow dispatch
 
-See `.github/workflows/e2e-tests.yml` (to be created in Phase 2)
+See `.github/workflows/e2e-tests.yml` for the CI/CD configuration.
+
+## Additional Documentation
+
+- **Test Planning**: See `docs/qa/test-planning.md` for test case design and planning process
+- **Defect Tracking**: See `docs/qa/defect-tracking.md` for defect reporting and tracking workflow
 

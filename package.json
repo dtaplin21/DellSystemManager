@@ -16,6 +16,7 @@
     "test:e2e:report": "playwright show-report",
     "test:e2e:chromium": "playwright test --project=chromium",
     "test:e2e:chromium:live": "RUN_LIVE_AI_TESTS=true playwright test --project=chromium",
+    "test:regression": "playwright test --reporter=html,list",
     "dev": "nodemon --exec node backend/server.js",
     "start": "node backend/server.js",
     "migrate": "ts-node backend/scripts/migrate.js",
