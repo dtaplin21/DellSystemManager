@@ -1,5 +1,8 @@
 # GeoSynth QC Pro
 
+[![E2E Tests](https://github.com/dtaplin21/DellSystemManager/workflows/E2E%20Tests/badge.svg)](https://github.com/dtaplin21/DellSystemManager/actions/workflows/e2e-tests.yml)
+[![Keep-Alive Ping](https://github.com/dtaplin21/DellSystemManager/workflows/Keep-Alive%20Ping/badge.svg)](https://github.com/dtaplin21/DellSystemManager/actions/workflows/keep-alive.yml)
+
 This is a monorepo with frontend and backend applications.
 
 ## Platform Support
