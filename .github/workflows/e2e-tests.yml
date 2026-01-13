@@ -55,6 +55,8 @@ jobs:
       
       - name: Comment PR with test results
         if: github.event_name == 'pull_request'
+        env:
+          TEST_BASE_URL: ${{ secrets.PLAYWRIGHT_TEST_BASE_URL || 'https://dellsystemmanager.vercel.app' }}
         uses: actions/github-script@v7
         with:
           script: |
@@ -82,7 +84,7 @@ jobs:
             
             comment += `📊 [View HTML Report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})\n`;
             comment += `📹 Test videos available in artifacts (if tests failed)\n\n`;
-            comment += `---\n*Tests run against: ${{ secrets.PLAYWRIGHT_TEST_BASE_URL || 'https://dellsystemmanager.vercel.app' }}*`;
+            comment += `---\n*Tests run against: ${process.env.TEST_BASE_URL}*`;
             
             // Find existing comment
             const { data: comments } = await github.rest.issues.listComments({
