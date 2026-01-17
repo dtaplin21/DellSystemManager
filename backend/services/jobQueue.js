@@ -73,6 +73,17 @@ class JobQueueService {
    */
   async initialize() {
     try {
+      // Log Redis configuration (masked for security)
+      const configForLogging = typeof this.redisConfig === 'string' 
+        ? { url: this.redisConfig.substring(0, 30) + '...' }
+        : {
+            host: this.redisConfig.host,
+            port: this.redisConfig.port,
+            db: this.redisConfig.db,
+            hasPassword: !!this.redisConfig.password
+          };
+      logger.info('[JobQueue] Initializing Redis connection', configForLogging);
+      
       // Create Redis connection with lazy connect
       this.redisClient = new Redis(this.redisConfig);
       
@@ -80,7 +91,9 @@ class JobQueueService {
       this.redisClient.on('error', (error) => {
         logger.error('[JobQueue] Redis connection error', {
           error: error.message,
-          code: error.code
+          code: error.code,
+          errno: error.errno,
+          syscall: error.syscall
         });
       });
       
@@ -104,10 +117,22 @@ class JobQueueService {
         logger.info('[JobQueue] Redis connection verified with PING');
         return result;
       }).catch((error) => {
+        const configInfo = typeof this.redisConfig === 'string'
+          ? { redisUrl: this.redisConfig.substring(0, 50) + '...' }
+          : {
+              host: this.redisConfig.host,
+              port: this.redisConfig.port,
+              db: this.redisConfig.db
+            };
         logger.error('[JobQueue] Failed to connect to Redis', {
           error: error.message,
-          host: this.redisConfig.host || this.redisConfig.url,
-          port: this.redisConfig.port
+          code: error.code,
+          errno: error.errno,
+          syscall: error.syscall,
+          ...configInfo,
+          hint: error.code === 'ECONNREFUSED' 
+            ? 'Connection refused - ensure Redis and Worker services are in the same region (Oregon)'
+            : undefined
         });
         throw error;
       });
