@@ -18,8 +18,23 @@ const jobQueue = require('../services/jobQueue');
 // Initialize job queue and start processing
 (async () => {
   try {
-    await jobQueue.initialize();
-    const automationQueue = jobQueue.automationQueue;
+    // Try to initialize job queue - if Redis is not available, log warning and exit gracefully
+    let automationQueue;
+    try {
+      await jobQueue.initialize();
+      automationQueue = jobQueue.automationQueue;
+    } catch (queueError) {
+      logger.error('[Worker] Failed to initialize job queue. Redis may not be available.', {
+        error: queueError.message,
+        hint: 'If Redis is not needed, you can disable this worker service. Otherwise, ensure Redis is running and REDIS_URL is configured correctly.'
+      });
+      
+      // Exit gracefully instead of crashing
+      logger.warn('[Worker] Worker cannot function without Redis. Exiting gracefully.');
+      process.exit(0); // Exit with 0 to prevent Render from restarting
+      return;
+    }
+    
     const automationWorker = new AutomationWorker();
 
     // Process defect-based automation jobs
@@ -82,7 +97,17 @@ const jobQueue = require('../services/jobQueue');
       error: error.message,
       stack: error.stack
     });
-    process.exit(1);
+    
+    // If it's a Redis connection error, exit gracefully to prevent restart loop
+    if (error.message?.includes('Redis') || error.message?.includes('ECONNREFUSED') || error.code === 'ECONNREFUSED' || error.message?.includes('Connection is closed')) {
+      logger.warn('[Worker] Redis connection failed. Exiting gracefully to prevent restart loop.');
+      logger.warn('[Worker] To fix: Ensure Redis service is running and REDIS_URL is configured correctly.');
+      logger.warn('[Worker] If Redis is not needed, you can disable this worker service on Render.');
+      process.exit(0); // Exit with 0 to prevent Render from restarting
+    } else {
+      // For other errors, exit with error code
+      process.exit(1);
+    }
   }
 })();
 

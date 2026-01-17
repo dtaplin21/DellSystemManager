@@ -19,19 +19,35 @@ class JobQueueService {
   getRedisConfig() {
     // Support both REDIS_URL and individual Redis config
     if (process.env.REDIS_URL) {
-      return {
-        url: process.env.REDIS_URL,
-        connectTimeout: 5000, // 5 second connection timeout
-        lazyConnect: true, // Don't connect immediately
-        maxRetriesPerRequest: null,
-        enableReadyCheck: false,
-        retryStrategy: (times) => {
-          if (times > 3) {
-            return null; // Stop retrying after 3 attempts
+      // Parse Redis URL to extract host, port, password, and db
+      // ioredis works better with explicit host/port than URL string
+      try {
+        const redisUrl = new URL(process.env.REDIS_URL);
+        return {
+          host: redisUrl.hostname,
+          port: parseInt(redisUrl.port || '6379', 10),
+          password: redisUrl.password || undefined,
+          db: parseInt((redisUrl.pathname || '/0').substring(1) || '0', 10),
+          connectTimeout: 5000, // 5 second connection timeout
+          lazyConnect: true, // Don't connect immediately
+          maxRetriesPerRequest: null,
+          enableReadyCheck: false,
+          retryStrategy: (times) => {
+            if (times > 3) {
+              return null; // Stop retrying after 3 attempts
+            }
+            return Math.min(times * 200, 2000); // Exponential backoff
           }
-          return Math.min(times * 200, 2000); // Exponential backoff
-        }
-      };
+        };
+      } catch (error) {
+        // If URL parsing fails, log error and fall back to string format
+        logger.warn('[JobQueue] Failed to parse REDIS_URL, using as string', {
+          error: error.message,
+          redisUrl: process.env.REDIS_URL?.substring(0, 30) + '...'
+        });
+        // ioredis v5+ can accept URL string directly
+        return process.env.REDIS_URL;
+      }
     }
 
     return {
