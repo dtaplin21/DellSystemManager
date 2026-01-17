@@ -1,6 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { AuthHelpers } from '../helpers/auth-helpers';
 import { testUsers } from '../fixtures/test-data';
+import { ProjectHelpers } from '../helpers/project-helpers';
+import { TEST_UUIDS } from '../helpers/test-uuids';
 
 /**
  * AI Panel Population Automation E2E Tests
@@ -13,15 +15,25 @@ test.describe('AI Panel Population Automation', () => {
     'Live AI tests are disabled. Set RUN_LIVE_AI_TESTS=true to enable.'
   );
 
+  let firstProjectId: string | null = null;
+
   test.beforeEach(async ({ page }) => {
     await AuthHelpers.login(page, testUsers.admin.email, testUsers.admin.password);
+    
+    // Get first project ID for use in tests
+    firstProjectId = await ProjectHelpers.getFirstProjectId(page);
   });
 
   test('should automate panel population from form', async ({ page }) => {
+    if (!firstProjectId) {
+      test.skip(true, 'No projects available - cannot test automation without a project');
+      return;
+    }
+
     const response = await page.request.post('/api/automate-from-form', {
       data: {
-        form_id: 'test-form-id',
-        project_id: 'test-project-id',
+        form_id: TEST_UUIDS.FORM,
+        project_id: firstProjectId,
         automation_type: 'panel_placement'
       }
     });
@@ -42,11 +54,16 @@ test.describe('AI Panel Population Automation', () => {
   });
 
   test('should track automation job progress', async ({ page }) => {
+    if (!firstProjectId) {
+      test.skip(true, 'No projects available - cannot test automation without a project');
+      return;
+    }
+
     // Create automation job
     const createResponse = await page.request.post('/api/automate-from-form', {
       data: {
-        form_id: 'test-form-id',
-        project_id: 'test-project-id'
+        form_id: TEST_UUIDS.FORM,
+        project_id: firstProjectId
       }
     });
     

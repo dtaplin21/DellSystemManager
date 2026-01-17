@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { AuthHelpers } from '../helpers/auth-helpers';
 import { testUsers } from '../fixtures/test-data';
 import { BACKEND_BASE_URL } from '../helpers/service-urls';
+import { ProjectHelpers } from '../helpers/project-helpers';
 
 /**
  * AI Workflow Orchestration E2E Tests
@@ -14,8 +15,13 @@ test.describe('AI Workflow Orchestration', () => {
     'Live AI tests are disabled. Set RUN_LIVE_AI_TESTS=true to enable.'
   );
 
+  let firstProjectId: string | null = null;
+
   test.beforeEach(async ({ page }) => {
     await AuthHelpers.login(page, testUsers.admin.email, testUsers.admin.password);
+    
+    // Get first project ID for use in tests
+    firstProjectId = await ProjectHelpers.getFirstProjectId(page);
   });
 
   test('should get available workflows', async ({ page }) => {
@@ -36,7 +42,12 @@ test.describe('AI Workflow Orchestration', () => {
   });
 
   test('should start workflow orchestration', async ({ page }) => {
-    const response = await page.request.post(`${BACKEND_BASE_URL}/api/ai/orchestration/start/test-project-id`, {
+    if (!firstProjectId) {
+      test.skip(true, 'No projects available - cannot test workflow orchestration without a project');
+      return;
+    }
+
+    const response = await page.request.post(`${BACKEND_BASE_URL}/api/ai/orchestration/start/${firstProjectId}`, {
       data: {
         workflow_type: 'comprehensive',
         options: {}
@@ -51,8 +62,13 @@ test.describe('AI Workflow Orchestration', () => {
   });
 
   test('should get orchestration status', async ({ page }) => {
+    if (!firstProjectId) {
+      test.skip(true, 'No projects available - cannot test workflow orchestration without a project');
+      return;
+    }
+
     // Start orchestration first
-    const startResponse = await page.request.post(`${BACKEND_BASE_URL}/api/ai/orchestration/start/test-project-id`, {
+    const startResponse = await page.request.post(`${BACKEND_BASE_URL}/api/ai/orchestration/start/${firstProjectId}`, {
       data: { workflow_type: 'comprehensive' }
     });
     

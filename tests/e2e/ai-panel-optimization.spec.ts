@@ -2,19 +2,31 @@ import { test, expect } from '@playwright/test';
 import { AuthHelpers } from '../helpers/auth-helpers';
 import { testUsers } from '../fixtures/test-data';
 import { AI_SERVICE_BASE_URL } from '../helpers/service-urls';
+import { ProjectHelpers } from '../helpers/project-helpers';
+import { TEST_UUIDS } from '../helpers/test-uuids';
 
 /**
  * AI Panel Optimization E2E Tests
  * Tests AI-powered panel layout optimization
  */
 test.describe('AI Panel Optimization', () => {
+  let firstProjectId: string | null = null;
+
   test.beforeEach(async ({ page }) => {
     await AuthHelpers.login(page, testUsers.admin.email, testUsers.admin.password);
+    
+    // Get first project ID for use in tests
+    firstProjectId = await ProjectHelpers.getFirstProjectId(page);
   });
 
   test('should optimize panel layout', async ({ page }) => {
+    if (!firstProjectId) {
+      test.skip(true, 'No projects available - cannot test panel optimization without a project');
+      return;
+    }
+
     // Navigate to panel layout page
-    await page.goto('/dashboard/projects/test-project-id/panel-layout');
+    await page.goto(`/dashboard/projects/${firstProjectId}/panel-layout`);
     
     // Wait for panel layout to load
     await page.waitForSelector('canvas', { timeout: 10000 });
@@ -37,9 +49,7 @@ test.describe('AI Panel Optimization', () => {
   test('should optimize panels with strategy', async ({ page }) => {
     test.skip(process.env.RUN_LIVE_AI_TESTS !== 'true', 'Set RUN_LIVE_AI_TESTS=true to run live AI service tests.');
 
-    await page.goto('/dashboard/projects/test-project-id/panel-layout');
-    
-    // Test API endpoint directly
+    // Test API endpoint directly (doesn't require real project ID)
     const response = await page.request.post(`${AI_SERVICE_BASE_URL}/optimize-panels`, {
       timeout: 120_000,
       data: {
@@ -51,7 +61,7 @@ test.describe('AI Panel Optimization', () => {
           area: 1000,
           constraints: []
         },
-        user_id: 'test-user',
+        user_id: TEST_UUIDS.USER,
         user_tier: 'paid_user'
       }
     });

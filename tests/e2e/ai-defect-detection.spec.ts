@@ -4,6 +4,7 @@ import { testUsers } from '../fixtures/test-data';
 import path from 'path';
 import fs from 'fs';
 import { AI_SERVICE_BASE_URL } from '../helpers/service-urls';
+import { TEST_UUIDS } from '../helpers/test-uuids';
 
 /**
  * AI Defect Detection E2E Tests
@@ -24,7 +25,7 @@ test.describe('AI Defect Detection', () => {
       timeout: 120_000,
       data: {
         image_base64: imageBase64,
-        project_id: 'test-project-id',
+        project_id: TEST_UUIDS.PROJECT,
         metadata: { filename: path.basename(imagePath) }
       }
     });
@@ -55,7 +56,7 @@ test.describe('AI Defect Detection', () => {
       timeout: 120_000,
       data: {
         image_base64: imageBase64,
-        project_id: 'test-project-id',
+        project_id: TEST_UUIDS.PROJECT,
         metadata: { filename: path.basename(imagePath) }
       }
     });

@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { AuthHelpers } from '../helpers/auth-helpers';
 import { testUsers } from '../fixtures/test-data';
 import { AI_SERVICE_BASE_URL } from '../helpers/service-urls';
+import { TEST_UUIDS } from '../helpers/test-uuids';
 
 /**
  * AI Plan Geometry Extraction E2E Tests
@@ -18,9 +19,9 @@ test.describe('AI Plan Geometry Extraction', () => {
     const response = await page.request.post(`${AI_SERVICE_BASE_URL}/api/ai/extract-plan-geometry`, {
       timeout: 120_000,
       data: {
-        project_id: 'test-project-id',
+        project_id: TEST_UUIDS.PROJECT,
         // AI service expects `documents` with optional `textContent`; keep empty to avoid OpenAI calls.
-        documents: [{ id: 'test-document-id', textContent: '' }]
+        documents: [{ id: TEST_UUIDS.DOCUMENT, textContent: '' }]
       }
     });
     
@@ -36,8 +37,8 @@ test.describe('AI Plan Geometry Extraction', () => {
     const response = await page.request.post(`${AI_SERVICE_BASE_URL}/api/ai/extract-plan-geometry`, {
       timeout: 120_000,
       data: {
-        project_id: 'test-project-id',
-        documents: [{ id: 'test-document-id', textContent: '' }]
+        project_id: TEST_UUIDS.PROJECT,
+        documents: [{ id: TEST_UUIDS.DOCUMENT, textContent: '' }]
       }
     });
     

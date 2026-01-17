@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { AuthHelpers } from '../helpers/auth-helpers';
 import { testUsers } from '../fixtures/test-data';
 import { BACKEND_BASE_URL } from '../helpers/service-urls';
+import { ProjectHelpers } from '../helpers/project-helpers';
 import path from 'path';
 import fs from 'fs';
 
@@ -22,44 +23,7 @@ test.describe('AI Form Field Extraction', () => {
     await AuthHelpers.login(page, testUsers.admin.email, testUsers.admin.password);
     
     // Get first project ID for use in tests
-    try {
-      await page.goto('/dashboard/projects');
-      await page.waitForSelector('[data-testid="projects-page"]', { timeout: 30000 });
-      
-      // Wait for projects to load
-      await page.waitForFunction(() => {
-        const projectSelect = document.querySelector('#project-select') as HTMLSelectElement;
-        const projectCards = document.querySelectorAll('[data-testid="project"], .project-card');
-        return (projectSelect && projectSelect.options.length > 1) || projectCards.length > 0;
-      }, { timeout: 30000 });
-      
-      // Get the first project ID
-      firstProjectId = await page.evaluate(() => {
-        const projectSelect = document.querySelector('#project-select') as HTMLSelectElement;
-        if (projectSelect && projectSelect.options.length > 1) {
-          return projectSelect.options[1].value; // Skip "Select a project" option
-        }
-        
-        // Try to get from project card/link
-        const projectLink = document.querySelector('[data-testid="project"], .project-card, a[href*="/projects/"]') as HTMLElement;
-        if (projectLink) {
-          const href = projectLink.getAttribute('href');
-          if (href) {
-            const match = href.match(/\/projects\/([^\/]+)/);
-            if (match) return match[1];
-          }
-        }
-        return null;
-      });
-      
-      if (firstProjectId) {
-        console.log(`✅ Found project ID: ${firstProjectId}`);
-      } else {
-        console.warn('⚠️ No projects found');
-      }
-    } catch (error) {
-      console.warn('⚠️ Failed to get project ID:', error);
-    }
+    firstProjectId = await ProjectHelpers.getFirstProjectId(page);
   });
 
   test('should extract fields from as-built form image', async ({ page }) => {

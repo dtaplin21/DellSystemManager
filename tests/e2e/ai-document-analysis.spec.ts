@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { AuthHelpers } from '../helpers/auth-helpers';
 import { testUsers } from '../fixtures/test-data';
+import { ProjectHelpers } from '../helpers/project-helpers';
 import path from 'path';
 
 /**
@@ -15,43 +16,14 @@ test.describe('AI Document Analysis', () => {
     
     // CRITICAL: Get first project ID for use in tests
     // We'll select it programmatically after each navigation since React context doesn't persist
-    try {
-      await page.goto('/dashboard/projects');
-      await page.waitForSelector('[data-testid="projects-page"]', { timeout: 30000 });
-      
-      // Wait for projects to load
-      await page.waitForFunction(() => {
-        const projectSelect = document.querySelector('#project-select') as HTMLSelectElement;
-        const projectCards = document.querySelectorAll('[data-testid="project"], .project-card');
-        return (projectSelect && projectSelect.options.length > 1) || projectCards.length > 0;
-      }, { timeout: 30000 });
-      
-      // Get the first project ID and store it
-      firstProjectId = await page.evaluate(() => {
-        const projectSelect = document.querySelector('#project-select') as HTMLSelectElement;
-        if (projectSelect && projectSelect.options.length > 1) {
-          return projectSelect.options[1].value; // Skip "Select a project" option
-        }
-        
-        // Try to get from project card/link
-        const projectLink = document.querySelector('[data-testid="project"], .project-card, a[href*="/projects/"]') as HTMLElement;
-        if (projectLink) {
-          const href = projectLink.getAttribute('href');
-          if (href) {
-            const match = href.match(/\/projects\/([^\/]+)/);
-            if (match) return match[1];
-          }
-        }
-        return null;
-      });
-      
-      if (firstProjectId) {
-        console.log(`✅ Found project ID: ${firstProjectId}`);
-      } else {
-        console.warn('⚠️ No projects found');
-      }
-    } catch (error) {
-      console.warn('⚠️ Failed to get project ID:', error);
+    firstProjectId = await ProjectHelpers.getFirstProjectId(page);
+    
+    // Navigate to project page to ensure it's selected in ProjectsProvider
+    if (firstProjectId) {
+      await page.goto(`/dashboard/projects/${firstProjectId}`);
+      await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+      await page.waitForTimeout(1000); // Give ProjectsProvider time to select
+      console.log('✅ Project selected via navigation');
     }
   });
 

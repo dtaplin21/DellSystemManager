@@ -600,17 +600,59 @@ router.post('/upload-defect/:projectId', auth, upload.single('image'), async (re
             fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'mobile.js:595',message:'Attempting auto-approval',data:{recordId:asbuiltRecordId,userId:req.user.id,projectId,domain:formType},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
             // #endregion
             const formReviewService = require('../services/formReviewService');
-            await formReviewService.approveForm(asbuiltRecordId, req.user.id, 'Auto-approved: Mobile form submission (trigger on upload)');
+            const approvedForm = await formReviewService.approveForm(asbuiltRecordId, req.user.id, 'Auto-approved: Mobile form submission (trigger on upload)');
             // #region debug log
             fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'mobile.js:597',message:'Auto-approval successful',data:{recordId:asbuiltRecordId,domain:formType},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
             // #endregion
-            logger.info('[MOBILE] Form auto-approved (trigger on upload), automation should trigger', {
+            logger.info('[MOBILE] Form auto-approved (trigger on upload), triggering automation', {
               recordId: asbuiltRecordId,
               domain: formType,
               userId: req.user.id,
               projectId,
               triggerTiming
             });
+            
+            // Trigger automation directly since approveForm skips it when triggerTiming !== 'approval'
+            try {
+              const isEnabled = await formAutomationService.isAutoCreateEnabled(req.user.id, projectId);
+              
+              if (isEnabled) {
+                logger.info('[MOBILE] Automation enabled, triggering automation for auto-approved form', {
+                  recordId: asbuiltRecordId,
+                  domain: formType,
+                  projectId
+                });
+                
+                // Trigger automation directly
+                const automationResult = await formAutomationService.automateFromForm(
+                  approvedForm,
+                  projectId,
+                  req.user.id
+                );
+                
+                logger.info('[MOBILE] Automation triggered for auto-approved form', {
+                  recordId: asbuiltRecordId,
+                  success: automationResult.success,
+                  skipped: automationResult.skipped,
+                  jobId: automationResult.jobId,
+                  itemType: automationResult.itemType,
+                  error: automationResult.error
+                });
+              } else {
+                logger.info('[MOBILE] Automation disabled, skipping automation trigger', {
+                  recordId: asbuiltRecordId,
+                  userId: req.user.id,
+                  projectId
+                });
+              }
+            } catch (automationError) {
+              // Log error but don't fail the upload
+              logger.error('[MOBILE] Failed to trigger automation after auto-approval', {
+                recordId: asbuiltRecordId,
+                error: automationError.message,
+                stack: automationError.stack
+              });
+            }
           } catch (approvalError) {
             // #region debug log
             fetch('http://127.0.0.1:7242/ingest/84023283-6bf6-4478-bbf7-27311cfc4893',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'mobile.js:605',message:'Auto-approval failed',data:{recordId:asbuiltRecordId,error:approvalError.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});

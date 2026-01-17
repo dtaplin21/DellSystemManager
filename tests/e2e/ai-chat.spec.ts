@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { AuthHelpers } from '../helpers/auth-helpers';
 import { testUsers } from '../fixtures/test-data';
 import { AI_SERVICE_BASE_URL } from '../helpers/service-urls';
+import { TEST_UUIDS } from '../helpers/test-uuids';
 
 /**
  * AI Chat/Conversation E2E Tests
@@ -71,7 +72,7 @@ test.describe('AI Chat', () => {
       timeout: 300_000, // Increased to 5 minutes for cold starts and slow AI responses
       data: {
         message: 'What are the best practices for panel placement?',
-        context: { project_id: 'test-project-id' },
+        context: { project_id: TEST_UUIDS.PROJECT },
         user_id: 'test-user',
         user_tier: 'paid_user'
       }
@@ -122,7 +123,7 @@ test.describe('AI Chat', () => {
       timeout: 300_000, // Increased to 5 minutes for cold starts and slow AI responses
       data: {
         message: 'I have 10 panels to place',
-        context: { project_id: 'test-project-id' },
+        context: { project_id: TEST_UUIDS.PROJECT },
         user_id: 'test-user'
       }
     });
@@ -164,7 +165,7 @@ test.describe('AI Chat', () => {
       timeout: 300_000, // Increased to 5 minutes for cold starts and slow AI responses
       data: {
         message: 'What is the optimal layout?',
-        context: { project_id: 'test-project-id', conversation_id: conversationId },
+        context: { project_id: TEST_UUIDS.PROJECT, conversation_id: conversationId },
         user_id: 'test-user'
       }
     });
