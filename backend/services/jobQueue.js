@@ -19,11 +19,16 @@ class JobQueueService {
   getRedisConfig() {
     // Support both REDIS_URL and individual Redis config
     if (process.env.REDIS_URL) {
+      logger.info('[JobQueue] REDIS_URL found', {
+        urlLength: process.env.REDIS_URL.length,
+        urlPreview: process.env.REDIS_URL.substring(0, 50) + '...'
+      });
+      
       // Parse Redis URL to extract host, port, password, and db
       // ioredis works better with explicit host/port than URL string
       try {
         const redisUrl = new URL(process.env.REDIS_URL);
-        return {
+        const config = {
           host: redisUrl.hostname,
           port: parseInt(redisUrl.port || '6379', 10),
           password: redisUrl.password || undefined,
@@ -39,16 +44,27 @@ class JobQueueService {
             return Math.min(times * 200, 2000); // Exponential backoff
           }
         };
+        
+        logger.info('[JobQueue] Redis URL parsed successfully', {
+          host: config.host,
+          port: config.port,
+          db: config.db,
+          hasPassword: !!config.password
+        });
+        
+        return config;
       } catch (error) {
         // If URL parsing fails, log error and fall back to string format
-        logger.warn('[JobQueue] Failed to parse REDIS_URL, using as string', {
+        logger.error('[JobQueue] Failed to parse REDIS_URL, using as string', {
           error: error.message,
-          redisUrl: process.env.REDIS_URL?.substring(0, 30) + '...'
+          redisUrl: process.env.REDIS_URL?.substring(0, 50) + '...'
         });
         // ioredis v5+ can accept URL string directly
         return process.env.REDIS_URL;
       }
     }
+    
+    logger.warn('[JobQueue] REDIS_URL not found, using fallback config');
 
     return {
       host: process.env.REDIS_HOST || 'localhost',
@@ -73,6 +89,43 @@ class JobQueueService {
    */
   async initialize() {
     try {
+      // Test DNS resolution first
+      const dns = require('dns');
+      const hostname = typeof this.redisConfig === 'string' 
+        ? new URL(this.redisConfig).hostname
+        : this.redisConfig.host;
+      
+      logger.info('[JobQueue] Testing DNS resolution', { hostname });
+      
+      try {
+        await new Promise((resolve, reject) => {
+          dns.lookup(hostname, (err, address, family) => {
+            if (err) {
+              logger.error('[JobQueue] DNS lookup failed', {
+                hostname,
+                error: err.message,
+                code: err.code,
+                hint: 'DNS resolution failed - check if Redis service is accessible and services are in the same region'
+              });
+              reject(err);
+            } else {
+              logger.info('[JobQueue] DNS resolved successfully', {
+                hostname,
+                address,
+                family: family === 4 ? 'IPv4' : 'IPv6'
+              });
+              resolve();
+            }
+          });
+        });
+      } catch (dnsError) {
+        // Log DNS error but continue - connection attempt will fail anyway
+        logger.warn('[JobQueue] DNS resolution failed, continuing with connection attempt', {
+          hostname,
+          error: dnsError.message
+        });
+      }
+      
       // Log Redis configuration (masked for security)
       const configForLogging = typeof this.redisConfig === 'string' 
         ? { url: this.redisConfig.substring(0, 30) + '...' }
@@ -93,7 +146,18 @@ class JobQueueService {
           error: error.message,
           code: error.code,
           errno: error.errno,
-          syscall: error.syscall
+          syscall: error.syscall,
+          address: error.address,
+          port: error.port,
+          config: {
+            host: typeof this.redisConfig === 'string' 
+              ? new URL(this.redisConfig).hostname 
+              : this.redisConfig.host,
+            port: typeof this.redisConfig === 'string'
+              ? new URL(this.redisConfig).port
+              : this.redisConfig.port,
+            isString: typeof this.redisConfig === 'string'
+          }
         });
       });
       
