@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { AuthHelpers } from '../helpers/auth-helpers';
 import { testUsers } from '../fixtures/test-data';
 import { ProjectHelpers } from '../helpers/project-helpers';
+import { BackendHealth } from '../helpers/backend-health';
 import { BACKEND_BASE_URL, FRONTEND_BASE_URL } from '../helpers/service-urls';
 
 /**
@@ -65,13 +66,64 @@ test.describe('AI Document Analysis - Debug (Production)', () => {
       throw error;
     }
     
-    // Step 2: Test API call directly
-    console.log('\n🔍 [DEBUG] Step 2: Testing API call directly...');
-    console.log('🔍 [DEBUG] API Endpoint:', `${BACKEND_BASE_URL}/api/projects`);
-    try {
-      const apiResponse = await page.request.get(`${BACKEND_BASE_URL}/api/projects`, {
-        timeout: 15000
-      });
+            // Step 2: Run backend health checks
+            console.log('\n🔍 [DEBUG] Step 2: Running backend health checks...');
+            const healthChecks = await BackendHealth.runAllHealthChecks(page);
+            
+            // Step 3: Test API call directly with auth token
+            console.log('\n🔍 [DEBUG] Step 3: Testing API call directly with auth token...');
+            console.log('🔍 [DEBUG] API Endpoint:', `${BACKEND_BASE_URL}/api/projects`);
+            
+            // Extract auth token from localStorage
+            const authToken = await page.evaluate(async () => {
+              try {
+                // @ts-ignore
+                const supabaseClient = (window as any).__SUPABASE_CLIENT__;
+                if (supabaseClient) {
+                  const { data: { session } } = await supabaseClient.auth.getSession();
+                  if (session?.access_token) {
+                    return session.access_token;
+                  }
+                }
+                
+                // Fallback: Check localStorage
+                for (let i = 0; i < localStorage.length; i++) {
+                  const key = localStorage.key(i);
+                  if (key && (key.includes('supabase') || key.includes('auth') || key.includes('session'))) {
+                    const value = localStorage.getItem(key);
+                    if (value) {
+                      try {
+                        const parsed = JSON.parse(value);
+                        if (parsed.access_token) {
+                          return parsed.access_token;
+                        }
+                      } catch {
+                        // Not JSON, continue
+                      }
+                    }
+                  }
+                }
+                return null;
+              } catch {
+                return null;
+              }
+            });
+            
+            console.log('🔍 [DEBUG] Auth token extracted:', authToken ? `${authToken.substring(0, 20)}...` : 'None');
+            
+            try {
+              const headers: Record<string, string> = {};
+              if (authToken) {
+                headers['Authorization'] = `Bearer ${authToken}`;
+                console.log('🔍 [DEBUG] Added Authorization header');
+              } else {
+                console.warn('⚠️ [DEBUG] No auth token found, request may fail');
+              }
+              
+              const apiResponse = await page.request.get(`${BACKEND_BASE_URL}/api/projects`, {
+                timeout: 30000, // Increased timeout
+                headers
+              });
       
       console.log('🔍 [DEBUG] API Response Status:', apiResponse.status());
       console.log('🔍 [DEBUG] API Response Headers:', Object.fromEntries(Object.entries(apiResponse.headers())));
@@ -116,8 +168,8 @@ test.describe('AI Document Analysis - Debug (Production)', () => {
       console.error('❌ [DEBUG] Error stack:', apiError.stack?.substring(0, 500));
     }
     
-    // Step 3: Test cookies/session
-    console.log('\n🔍 [DEBUG] Step 3: Checking cookies and session...');
+            // Step 4: Test cookies/session
+            console.log('\n🔍 [DEBUG] Step 4: Checking cookies and session...');
     const cookies = await page.context().cookies();
     console.log('🔍 [DEBUG] Total cookies:', cookies.length);
     
@@ -136,8 +188,8 @@ test.describe('AI Document Analysis - Debug (Production)', () => {
       console.log(`  - ${c.name}: ${c.value.substring(0, 30)}... (domain: ${c.domain}, httpOnly: ${c.httpOnly})`);
     });
     
-    // Step 4: Test localStorage
-    console.log('\n🔍 [DEBUG] Step 4: Checking localStorage...');
+            // Step 5: Test localStorage
+            console.log('\n🔍 [DEBUG] Step 5: Checking localStorage...');
     const localStorageData = await page.evaluate(() => {
       const data: Record<string, string> = {};
       for (let i = 0; i < localStorage.length; i++) {
@@ -159,8 +211,8 @@ test.describe('AI Document Analysis - Debug (Production)', () => {
       console.log(`  - ${key}: ${value}`);
     });
     
-    // Step 5: Test ProjectHelpers
-    console.log('\n🔍 [DEBUG] Step 5: Testing ProjectHelpers.getFirstProjectId...');
+            // Step 6: Test ProjectHelpers
+            console.log('\n🔍 [DEBUG] Step 6: Testing ProjectHelpers.getFirstProjectId...');
     try {
       const projectId = await ProjectHelpers.getFirstProjectId(page);
       console.log('🔍 [DEBUG] ProjectHelpers returned:', projectId);
@@ -176,8 +228,8 @@ test.describe('AI Document Analysis - Debug (Production)', () => {
       console.error('❌ [DEBUG] Error stack:', error.stack?.substring(0, 500));
     }
     
-    // Step 6: Test navigating to projects page
-    console.log('\n🔍 [DEBUG] Step 6: Testing navigation to projects page...');
+            // Step 7: Test navigating to projects page
+            console.log('\n🔍 [DEBUG] Step 7: Testing navigation to projects page...');
     try {
       const projectsUrl = `${FRONTEND_BASE_URL}/dashboard/projects`;
       console.log('🔍 [DEBUG] Navigating to:', projectsUrl);
@@ -219,18 +271,23 @@ test.describe('AI Document Analysis - Debug (Production)', () => {
       console.error('❌ [DEBUG] Navigation error:', error.message);
     }
     
-    // Summary
-    console.log('\n📊 ========================================');
-    console.log('📊 [DEBUG] FINAL SUMMARY');
-    console.log('📊 ========================================');
-    console.log(`  - Frontend URL: ${FRONTEND_BASE_URL}`);
-    console.log(`  - Backend URL: ${BACKEND_BASE_URL}`);
-    console.log(`  - Login: ${firstProjectId ? '✅ Success' : '❌ Failed/No Projects'}`);
-    console.log(`  - Project ID found: ${firstProjectId || 'None'}`);
-    console.log(`  - Total cookies: ${cookies.length}`);
-    console.log(`  - Auth cookies: ${authCookies.length}`);
-    console.log(`  - localStorage auth keys: ${Object.keys(localStorageData).length}`);
-    console.log('📊 ========================================\n');
+            // Summary
+            console.log('\n📊 ========================================');
+            console.log('📊 [DEBUG] FINAL SUMMARY');
+            console.log('📊 ========================================');
+            console.log(`  - Frontend URL: ${FRONTEND_BASE_URL}`);
+            console.log(`  - Backend URL: ${BACKEND_BASE_URL}`);
+            console.log(`  - Login: ${firstProjectId ? '✅ Success' : '❌ Failed/No Projects'}`);
+            console.log(`  - Project ID found: ${firstProjectId || 'None'}`);
+            console.log(`  - Total cookies: ${cookies.length}`);
+            console.log(`  - Auth cookies: ${authCookies.length}`);
+            console.log(`  - localStorage auth keys: ${Object.keys(localStorageData).length}`);
+            console.log(`  - Auth token extracted: ${authToken ? '✅ Yes' : '❌ No'}`);
+            console.log('\n  Backend Health Checks:');
+            console.log(`    - /health: ${healthChecks.health.status} (${healthChecks.health.responseTime}ms)`);
+            console.log(`    - /api/health: ${healthChecks.apiHealth.status} (${healthChecks.apiHealth.responseTime}ms)`);
+            console.log(`    - /api/projects: ${healthChecks.projectsApi.status} (${healthChecks.projectsApi.responseTime}ms)`);
+            console.log('📊 ========================================\n');
     
     // Don't fail the test - this is just for debugging
     // But log a warning if no project was found

@@ -2,6 +2,51 @@ import { Page } from '@playwright/test';
 import { BACKEND_BASE_URL } from './service-urls';
 
 /**
+ * Helper to extract auth token from localStorage
+ * Exported for use in other test helpers
+ */
+export async function getAuthToken(page: Page): Promise<string | null> {
+  try {
+    const token = await page.evaluate(async () => {
+      // Try to get session via Supabase client if available
+      // @ts-ignore
+      const supabaseClient = (window as any).__SUPABASE_CLIENT__;
+      if (supabaseClient) {
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if (session?.access_token) {
+          return session.access_token;
+        }
+      }
+      
+      // Fallback: Check localStorage for Supabase session
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.includes('supabase') || key.includes('auth') || key.includes('session'))) {
+          const value = localStorage.getItem(key);
+          if (value) {
+            try {
+              const parsed = JSON.parse(value);
+              if (parsed.access_token) {
+                return parsed.access_token;
+              }
+            } catch {
+              // Not JSON, continue
+            }
+          }
+        }
+      }
+      
+      return null;
+    });
+    
+    return token;
+  } catch (error) {
+    console.warn('⚠️ [ProjectHelpers] Failed to extract auth token:', error);
+    return null;
+  }
+}
+
+/**
  * Project helper functions for E2E tests
  */
 export class ProjectHelpers {
@@ -11,12 +56,25 @@ export class ProjectHelpers {
    */
   static async getFirstProjectId(page: Page): Promise<string | null> {
     // Try API first - it's more reliable than waiting for UI
-    // page.request automatically includes auth cookies from the browser context
+    // Extract token from localStorage and add to Authorization header
     try {
       console.log('🔍 [ProjectHelpers] Attempting API call to:', `${BACKEND_BASE_URL}/api/projects`);
       
+      // Get auth token from localStorage
+      const authToken = await getAuthToken(page);
+      if (!authToken) {
+        console.warn('⚠️ [ProjectHelpers] No auth token found in localStorage, API call may fail');
+      }
+      
+      const headers: Record<string, string> = {};
+      if (authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`;
+        console.log('🔍 [ProjectHelpers] Added Authorization header');
+      }
+      
       const apiResponse = await page.request.get(`${BACKEND_BASE_URL}/api/projects`, {
-        timeout: 15000
+        timeout: 30000, // Increased timeout for slow backend
+        headers
       });
       
       console.log('🔍 [ProjectHelpers] API Response Status:', apiResponse.status());
@@ -98,8 +156,14 @@ export class ProjectHelpers {
       } catch (waitError) {
         // If UI wait fails, try API fallback immediately
         console.log('⚠️ UI wait failed, trying API fallback...');
+        const authToken = await getAuthToken(page);
+        const headers: Record<string, string> = {};
+        if (authToken) {
+          headers['Authorization'] = `Bearer ${authToken}`;
+        }
         const apiResponse = await page.request.get(`${BACKEND_BASE_URL}/api/projects`, {
-          timeout: 10000
+          timeout: 30000,
+          headers
         }).catch(() => null);
         
         if (apiResponse?.ok()) {
@@ -154,8 +218,14 @@ export class ProjectHelpers {
       // Fallback: Try to fetch projects via API if UI approach failed
       console.log('⚠️ UI approach failed, trying API fallback...');
       try {
+        const authToken = await getAuthToken(page);
+        const headers: Record<string, string> = {};
+        if (authToken) {
+          headers['Authorization'] = `Bearer ${authToken}`;
+        }
         const response = await page.request.get(`${BACKEND_BASE_URL}/api/projects`, {
-          timeout: 10000
+          timeout: 30000,
+          headers
         });
         
         if (response.ok()) {
@@ -177,8 +247,14 @@ export class ProjectHelpers {
       
       // Last resort: Try API fallback even if UI approach threw an error
       try {
+        const authToken = await getAuthToken(page);
+        const headers: Record<string, string> = {};
+        if (authToken) {
+          headers['Authorization'] = `Bearer ${authToken}`;
+        }
         const response = await page.request.get(`${BACKEND_BASE_URL}/api/projects`, {
-          timeout: 10000
+          timeout: 30000,
+          headers
         });
         
         if (response.ok()) {

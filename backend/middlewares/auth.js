@@ -225,11 +225,52 @@ const auth = async (req, res, next) => {
     }
     
     if (!userProfile) {
-      logger.warn('[AUTH] User not found in database', { userId: supabaseUser.id });
-      return res.status(401).json({
-        message: 'User not found in database',
-        code: 'USER_NOT_FOUND'
+      logger.info('[AUTH] User not found in database, auto-creating user record', { 
+        userId: supabaseUser.id,
+        email: supabaseUser.email 
       });
+      
+      // Auto-create user in database if they have a valid Supabase token
+      // This handles cases where users sign up via Supabase but haven't been synced to backend DB yet
+      try {
+        const insertResult = await queryWithRetry(
+          `INSERT INTO users (id, email, display_name, company, subscription, profile_image_url, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+           RETURNING id, email, display_name, company, subscription, is_admin, profile_image_url`,
+          [
+            supabaseUser.id,
+            supabaseUser.email || '',
+            supabaseUser.user_metadata?.display_name || 
+            supabaseUser.user_metadata?.full_name || 
+            supabaseUser.email?.split('@')[0] || 
+            'User',
+            supabaseUser.user_metadata?.company || null,
+            supabaseUser.user_metadata?.subscription || 'basic',
+            supabaseUser.user_metadata?.avatar_url || 
+            supabaseUser.user_metadata?.profile_image_url || 
+            null
+          ],
+          2 // 2 retries for insert
+        );
+        
+        userProfile = insertResult.rows[0];
+        logger.info('[AUTH] User auto-created successfully', { userId: userProfile.id });
+      } catch (insertError) {
+        logger.error('[AUTH] Failed to auto-create user in database', {
+          userId: supabaseUser.id,
+          error: {
+            message: insertError.message,
+            code: insertError.code,
+            stack: config.isDevelopment ? insertError.stack : undefined
+          }
+        });
+        
+        // If insert fails, still return 401 (don't allow access without DB record)
+        return res.status(401).json({
+          message: 'User not found in database and failed to create user record',
+          code: 'USER_NOT_FOUND'
+        });
+      }
     }
     
     req.user = {
