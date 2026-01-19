@@ -67,6 +67,8 @@ htmlcov/
 *.sublime-project
 *.sublime-workspace
 *.code-workspace
+.cursor/
+.cursor/debug.log
 
 # OS files
 .DS_Store
@@ -240,3 +242,52 @@ out/
 
 # Logs directory
 logs/
+
+# Temporary directories and files
+temp-hooks/
+*.broken
+*.temp
+*.test.js
+test-*.js
+local-test.js
+fix-local-server.js
+
+# Archive directories
+*-archived/
+*.archived/
+ai-service.archived/
+
+# Backend specific artifacts
+backend/out/
+backend/server*.log
+backend/server-startup.log
+
+# Frontend specific artifacts
+frontend/server.log
+
+# Temporary paste files and attachments
+attached_assets/*.txt
+attached_assets/*.png
+attached_assets/*.jpg
+attached_assets/*.jpeg
+
+# Temporary test files (root level)
+test-ai-analysis.js
+test-complete-workflow.js
+test-enhanced-import.js
+test-handwriting-debug.js
+test-token-refresh.js
+
+# Diagnostic and temporary files
+*.diagnosis.md
+*_DIAGNOSIS.md
+*_FIX.md
+*_ERROR*.md
+*_DEBUG.md
+cookies.txt
+firewall-rules.txt
+vscode-server.js
+
+# Project tree files (generated)
+PROJECT_TREE*.txt
+ai_service/PROJECT_TREE.txt

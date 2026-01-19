@@ -1,7 +1,12 @@
 # GeoSynth QC Pro
 
+[![GitHub Repository](https://img.shields.io/badge/GitHub-Repository-181717?logo=github)](https://github.com/dtaplin21/DellSystemManager)
 [![E2E Tests](https://github.com/dtaplin21/DellSystemManager/workflows/E2E%20Tests/badge.svg)](https://github.com/dtaplin21/DellSystemManager/actions/workflows/e2e-tests.yml)
 [![Keep-Alive Ping](https://github.com/dtaplin21/DellSystemManager/workflows/Keep-Alive%20Ping/badge.svg)](https://github.com/dtaplin21/DellSystemManager/actions/workflows/keep-alive.yml)
+
+> AI-powered quality control and project management platform for geosynthetic liner installation projects.
+
+**Repository**: [github.com/dtaplin21/DellSystemManager](https://github.com/dtaplin21/DellSystemManager)
 
 This is a monorepo with frontend and backend applications.
 
@@ -94,3 +99,73 @@ All scripts use Node.js wrappers for cross-platform compatibility:
 - `scripts/setup-ai-service.js` - Cross-platform AI service setup
 
 These scripts automatically detect the platform and use the appropriate commands (python vs python3, etc.).
+
+## 📚 Documentation
+
+### System Design Documentation
+Comprehensive system design documentation is available in the [`docs/system-design/`](./docs/system-design/) directory:
+
+- **[System Overview](./docs/system-design/01-system-overview.md)** - High-level system architecture
+- **[Architecture Patterns](./docs/system-design/02-architecture-patterns.md)** - Design patterns used
+- **[Component Architecture](./docs/system-design/03-component-architecture.md)** - Detailed component breakdown
+- **[Data Architecture](./docs/system-design/04-data-architecture.md)** - Database schema and data flow
+- **[Integration Architecture](./docs/system-design/05-integration-architecture.md)** - Service communication
+- **[Deployment Architecture](./docs/system-design/06-deployment-architecture.md)** - Infrastructure setup
+- **[Scalability & Performance](./docs/system-design/07-scalability-performance.md)** - Scaling strategies
+- **[Security Architecture](./docs/system-design/08-security-architecture.md)** - Security design
+- **[Technology Stack](./docs/system-design/09-technology-stack.md)** - Complete technology inventory
+- **[System Diagrams](./docs/system-design/10-system-diagrams.md)** - Visual representations
+
+### Other Documentation
+- **[Browser Tool Reference](./docs/browser_tool_reference.md)** - Browser automation tools
+- **[CI/CD Documentation](./docs/ci-cd/README.md)** - Continuous integration setup
+- **[QA Documentation](./docs/qa/test-planning.md)** - Testing strategies
+- **[Deployment Guide](./docs/deployment/redis-connection-setup.md)** - Redis setup
+
+## 🔗 GitHub Resources
+
+### Repository Links
+- **Main Repository**: [github.com/dtaplin21/DellSystemManager](https://github.com/dtaplin21/DellSystemManager)
+- **Issues**: [GitHub Issues](https://github.com/dtaplin21/DellSystemManager/issues)
+- **Pull Requests**: [GitHub Pull Requests](https://github.com/dtaplin21/DellSystemManager/pulls)
+- **Actions**: [GitHub Actions](https://github.com/dtaplin21/DellSystemManager/actions)
+
+### GitHub Actions Workflows
+- **[E2E Tests](./.github/workflows/e2e-tests.yml)** - End-to-end test automation
+  - [View Workflow Runs](https://github.com/dtaplin21/DellSystemManager/actions/workflows/e2e-tests.yml)
+- **[Keep-Alive Ping](./.github/workflows/keep-alive.yml)** - Service keep-alive automation
+  - [View Workflow Runs](https://github.com/dtaplin21/DellSystemManager/actions/workflows/keep-alive.yml)
+
+### Branch Information
+- **Main Branch**: `main` (production-ready code)
+- **Development Branch**: `develop` (active development)
+- **Default Branch**: `main`
+
+### Contributing
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+See [Contributing Guidelines](https://github.com/dtaplin21/DellSystemManager/blob/main/CONTRIBUTING.md) for more details (if available).
+
+## 🏗️ Project Structure
+
+```
+DellSystemManager/
+├── frontend/          # Next.js frontend application
+├── backend/           # Node.js/Express backend API
+├── ai_service/        # Python/Flask AI service
+├── mobile/            # iOS mobile application
+├── desktop/           # Electron desktop application
+├── tests/             # E2E tests (Playwright)
+├── docs/              # Documentation
+│   ├── system-design/ # System design documentation
+│   ├── ci-cd/         # CI/CD documentation
+│   ├── deployment/    # Deployment guides
+│   └── qa/            # QA documentation
+├── scripts/           # Utility scripts
+└── .github/           # GitHub Actions workflows
+    └── workflows/     # CI/CD workflows
+```
