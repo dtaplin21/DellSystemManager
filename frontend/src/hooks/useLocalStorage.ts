@@ -1,4 +1,12 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
+import {
+  loadCachedPositions,
+  saveCachedPositions,
+  updateCachedPosition,
+  removeCachedPosition,
+  clearCachedPositions,
+  type PanelPositionMap,
+} from '@/lib/panel-sync';
 
 interface UseLocalStorageOptions {
   enableLogging?: boolean;
@@ -107,29 +115,67 @@ export function useLocalStorage<T>(
 }
 
 /**
- * Specialized hook for panel positions
+ * Specialized hook for panel positions using sync strategy
  */
 export function usePanelPositions() {
-  const [positions, setPositions, clearPositions] = useLocalStorage<Record<string, { x: number; y: number; rotation?: number }>>(
-    'panelLayoutPositions',
-    {},
-    { enableLogging: process.env.NODE_ENV === 'development' }
-  );
+  const [positions, setPositions] = useState<PanelPositionMap>(() => {
+    if (typeof window === 'undefined') {
+      return {};
+    }
+    return loadCachedPositions();
+  });
 
-  const updatePanelPosition = useCallback((panelId: string, position: { x: number; y: number; rotation?: number }) => {
-    const newPositions = { ...positions };
-    newPositions[panelId] = position;
-    setPositions(newPositions);
-  }, [positions, setPositions]);
+  const updatePanelPosition = useCallback((panelId: string, position: { x: number; y: number; rotation?: number }, markAsSynced: boolean = false) => {
+    updateCachedPosition(panelId, {
+      ...position,
+      timestamp: Date.now(),
+      backendSynced: markAsSynced,
+    }, markAsSynced);
+    setPositions(prev => ({ 
+      ...prev, 
+      [panelId]: {
+        ...position,
+        timestamp: Date.now(),
+        backendSynced: markAsSynced,
+      }
+    }));
+  }, []);
 
   const removePanelPosition = useCallback((panelId: string) => {
-    const { [panelId]: removed, ...rest } = positions;
-    setPositions(rest);
-  }, [positions, setPositions]);
+    removeCachedPosition(panelId);
+    setPositions(prev => {
+      const { [panelId]: removed, ...rest } = prev;
+      return rest;
+    });
+  }, []);
 
   const getPanelPosition = useCallback((panelId: string) => {
     return positions[panelId] || null;
   }, [positions]);
+
+  const clearPositions = useCallback(() => {
+    clearCachedPositions();
+    setPositions({});
+  }, []);
+
+  // Sync with localStorage on mount and when storage changes
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'panelLayoutPositions' && e.newValue) {
+        try {
+          const cached = loadCachedPositions();
+          setPositions(cached);
+        } catch (error) {
+          console.warn('[usePanelPositions] Error syncing from storage:', error);
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
 
   return {
     positions,

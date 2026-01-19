@@ -13,6 +13,15 @@ import {
   DEFAULT_FEATURE_FLAGS
 } from '@/types/panel';
 import { cleanupStalePanelIdsSilent } from '@/lib/localStorage-cleanup';
+import {
+  syncPositions,
+  loadCachedPositions,
+  saveCachedPositions,
+  clearCachedPositions,
+  markPositionAsSynced,
+  updateCachedPosition,
+  type PanelPositionMap,
+} from '@/lib/panel-sync';
 
 interface UsePanelDataOptions {
   projectId: string;
@@ -55,44 +64,25 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
     }
   }, [flags.ENABLE_DEBUG_LOGGING]);
 
-  // Load data from localStorage
+  // Load data from localStorage using sync utility
   const loadLocalStorageData = useCallback((): PanelPositionMap => {
-    if (!flags.ENABLE_LOCAL_STORAGE || typeof window === 'undefined') {
+    if (!flags.ENABLE_LOCAL_STORAGE) {
       return {};
     }
+    
+    const { loadCachedPositions } = require('@/lib/panel-sync');
+    return loadCachedPositions();
+  }, [flags.ENABLE_LOCAL_STORAGE]);
 
-    try {
-      const saved = localStorage.getItem('panelLayoutPositions');
-      if (!saved) return {};
-
-      const parsed = JSON.parse(saved);
-      if (validatePanelPositionMap(parsed)) {
-        debugLog('Loaded localStorage positions', parsed);
-        return parsed;
-      } else {
-        debugLog('Invalid localStorage data, clearing', parsed);
-        localStorage.removeItem('panelLayoutPositions');
-        return {};
-      }
-    } catch (error) {
-      debugLog('Error loading localStorage data', error);
-      localStorage.removeItem('panelLayoutPositions');
-      return {};
-    }
-  }, [flags.ENABLE_LOCAL_STORAGE, debugLog]);
-
-  // Save data to localStorage
+  // Save data to localStorage using sync utility
   const saveToLocalStorage = useCallback((positionMap: PanelPositionMap) => {
-    if (!flags.ENABLE_LOCAL_STORAGE || typeof window === 'undefined') {
+    if (!flags.ENABLE_LOCAL_STORAGE) {
       return;
     }
-
-    try {
-      localStorage.setItem('panelLayoutPositions', JSON.stringify(positionMap));
-      debugLog('Saved to localStorage', positionMap);
-    } catch (error) {
-      debugLog('Error saving to localStorage', error);
-    }
+    
+    const { saveCachedPositions } = require('@/lib/panel-sync');
+    saveCachedPositions(positionMap);
+    debugLog('Saved to localStorage cache', positionMap);
   }, [flags.ENABLE_LOCAL_STORAGE, debugLog]);
 
   // Fetch data from backend
@@ -248,33 +238,45 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
     }
   }, [projectId, debugLog]);
 
-  // Merge backend data with localStorage positions
+  // Merge backend data with localStorage positions using sync strategy
   const mergeDataWithLocalStorage = useCallback((
-    backendPanels: Panel[], 
-    localPositions: PanelPositionMap
+    backendPanels: Panel[]
   ): Panel[] => {
-    debugLog('Merging backend data with localStorage', { 
-      backendCount: backendPanels.length, 
-      localCount: Object.keys(localPositions).length 
+    debugLog('Syncing backend data with cache', { 
+      backendCount: backendPanels.length
     });
 
+    // Use sync strategy: backend is source of truth, cache fills gaps
+    // Backend panels may have updated_at timestamp from database
+    const syncedPositions = syncPositions(
+      backendPanels.map(panel => ({
+        id: panel.id,
+        x: panel.x,
+        y: panel.y,
+        rotation: panel.rotation,
+        // If panel has updated_at from backend, pass it for timestamp comparison
+        updated_at: (panel as any).updated_at || (panel as any).updatedAt,
+      }))
+    );
+
+    // Apply synced positions to panels
     return backendPanels.map(panel => {
-      const localPosition = localPositions[panel.id];
-      if (localPosition) {
-        debugLog(`Applying localStorage position for panel ${panel.id}`, localPosition);
-        debugLog('🔍 [SHAPE DEBUG] Merge logic - panel shape fields:', {
-          panelId: panel.id,
-          backendShape: panel.shape,
-          localShape: localPosition.shape,
-          finalShape: localPosition.shape || panel.shape || 'rectangle'
-        });
+      const synced = syncedPositions[panel.id];
+      if (synced) {
+        const wasOverridden = synced.x !== panel.x || synced.y !== panel.y || synced.rotation !== panel.rotation;
+        if (wasOverridden) {
+          debugLog(`Applying synced position for panel ${panel.id} (cache overrode backend)`, {
+            backend: { x: panel.x, y: panel.y, rotation: panel.rotation },
+            synced: { x: synced.x, y: synced.y, rotation: synced.rotation },
+            timestamp: synced.timestamp,
+            backendSynced: synced.backendSynced,
+          });
+        }
         return {
           ...panel,
-          x: localPosition.x,
-          y: localPosition.y,
-          rotation: localPosition.rotation ?? panel.rotation,
-          // Use shape from localStorage if available, otherwise from backend
-          shape: localPosition.shape || panel.shape || 'rectangle',
+          x: synced.x,
+          y: synced.y,
+          rotation: synced.rotation ?? panel.rotation,
           isValid: true
         };
       }
@@ -289,10 +291,6 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
     setDataState(prev => ({ ...prev, state: 'loading' }));
 
     try {
-      // Load localStorage positions first
-      const localPositions = loadLocalStorageData();
-      debugLog('🔍 [usePanelData] Local positions:', localPositions);
-
       // Fetch backend data
       debugLog('🔍 [usePanelData] About to call fetchBackendData...');
       const backendLayout = await fetchBackendData();
@@ -313,9 +311,9 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
         return;
       }
 
-      // Merge data
-      debugLog('🔍 [usePanelData] About to merge data...');
-      const mergedPanels = mergeDataWithLocalStorage(backendLayout.panels, localPositions);
+      // Sync backend data with cache (sync strategy handles merging)
+      debugLog('🔍 [usePanelData] About to sync data...');
+      const mergedPanels = mergeDataWithLocalStorage(backendLayout.panels);
       debugLog('🔍 [usePanelData] Merged panels:', mergedPanels);
       debugLog('🔍 [usePanelData] Merged panels length:', mergedPanels.length);
 
@@ -430,7 +428,7 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
           : p
       );
 
-      // Update localStorage atomically
+      // Update localStorage atomically - mark as unsynced initially
       if (flags.ENABLE_PERSISTENCE) {
         const positionMap: PanelPositionMap = {};
         updatedPanels.forEach(panel => {
@@ -438,10 +436,11 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
             x: panel.x,
             y: panel.y,
             rotation: panel.rotation,
-            shape: panel.shape // Include shape in localStorage
+            timestamp: Date.now(), // Mark when this position was updated
+            backendSynced: false, // Not synced yet - will be marked as synced after backend save
           };
         });
-        saveToLocalStorage(positionMap);
+        saveToLocalStorage(positionMap, false); // Don't mark as synced yet
       }
 
       debugLog(`Updated panel ${panelId} position locally`, position);
@@ -504,6 +503,12 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
 
       debugLog('Backend panel update successful', result);
       
+      // Mark position as synced after successful backend save
+      if (flags.ENABLE_PERSISTENCE) {
+        markPositionAsSynced(panelId);
+        debugLog(`Marked panel ${panelId} position as synced to backend`);
+      }
+      
     } catch (error) {
       console.error('Failed to update panel position in backend:', error);
       
@@ -534,10 +539,11 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
                 x: panel.x,
                 y: panel.y,
                 rotation: panel.rotation,
-                shape: panel.shape
+                timestamp: Date.now(),
+                backendSynced: true, // Keep existing sync status
               };
             });
-            saveToLocalStorage(positionMap);
+            saveToLocalStorage(positionMap, false);
           }
           
           return {
@@ -558,9 +564,14 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
         userMessage = 'Server temporarily unavailable. Panel saved locally.';
       }
       
-      // You can add toast notification here
+      // Position is already saved to cache as unsynced, so it will be preserved
+      // and can be retried later or will win on next load if it's newer
       console.warn(userMessage);
-      debugLog(`Backend update failed: ${userMessage}`, { panelId, position, error: apiError.message });
+      debugLog(`Backend update failed: ${userMessage}. Position saved locally and will be preserved.`, { 
+        panelId, 
+        position, 
+        error: apiError.message 
+      });
     }
   }, [projectId, flags.ENABLE_PERSISTENCE, saveToLocalStorage, debugLog, authState.isAuthenticated, dataState.panels, dataState.state]);
 
@@ -785,10 +796,8 @@ export function usePanelData({ projectId, featureFlags = {} }: UsePanelDataOptio
 
   // Clear localStorage
   const clearLocalStorage = useCallback(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('panelLayoutPositions');
-      debugLog('Cleared localStorage');
-    }
+    clearCachedPositions();
+    debugLog('Cleared panel position cache');
   }, [debugLog]);
 
   // Cleanup stale panel IDs from localStorage

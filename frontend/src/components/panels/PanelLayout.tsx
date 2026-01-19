@@ -23,6 +23,11 @@ import { useFullscreenCanvas } from '../../hooks/use-fullscreen-canvas'
 import { useInteractiveGrid, type GridConfig } from '../../hooks/use-interactive-grid'
 import { snapToGrid, clamp } from '../../lib/geometry'
 import PanelSidebar from '../panel-layout/panel-sidebar'
+import {
+  syncPositions,
+  saveCachedPositions,
+  type PanelPositionMap,
+} from '../../lib/panel-sync'
 
 // CRITICAL FIX #12: Comprehensive position persistence debugging
 const DEBUG_POSITION_PERSISTENCE = false; // Temporarily disabled to restore panels
@@ -465,185 +470,63 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
         return;
       }
       
-      // CRITICAL DEBUG: localStorage position check with detailed logging
-      // Temporarily disabled excessive logging
-      // console.log('🚨 [PanelLayout] === localStorage POSITION CHECK ===');
-      const savedPositions = localStorage.getItem('panelLayoutPositions');
-      // console.log('🚨 [PanelLayout] savedPositions from localStorage:', savedPositions);
-      
-      // CRITICAL FIX: Only process localStorage if we have valid external panels
-      if (savedPositions && externalPanelsRef.length > 0) {
-        try {
-          const positionMap = JSON.parse(savedPositions);
-          const hasValidSavedPositions = Object.keys(positionMap).length > 0;
-          
-          console.log('🚨 [PanelLayout] positionMap parsed:', positionMap);
-          console.log('🚨 [PanelLayout] hasValidSavedPositions:', hasValidSavedPositions);
-          console.log('🚨 [PanelLayout] localStorage panel count:', Object.keys(positionMap).length);
-          
-          if (hasValidSavedPositions) {
-            // Check if external panels are all at default positions
-            console.log('🚨 [PanelLayout] Checking for default positions in external panels...');
-            const defaultPositionDetails = externalPanelsRef.map(panel => ({
-              id: panel.id,
-              x: panel.x,
-              y: panel.y,
-              isDefault: (panel.x === 50 && panel.y === 50) || 
-                        (panel.x === 0 && panel.y === 0) ||
-                        (Math.abs(panel.x - 50) < 10 && Math.abs(panel.y - 50) < 10)
-            }));
-            
-            console.log('🚨 [PanelLayout] Default position analysis:', defaultPositionDetails);
-            
-            const allAtDefaultPositions = externalPanelsRef.every(panel => {
-              const isDefaultPosition = (panel.x === 50 && panel.y === 50) || 
-                                      (panel.x === 0 && panel.y === 0) ||
-                                      (Math.abs(panel.x - 50) < 10 && Math.abs(panel.y - 50) < 10);
-              return isDefaultPosition;
-            });
-            
-            console.log('🚨 [PanelLayout] allAtDefaultPositions:', allAtDefaultPositions);
-            
-            if (allAtDefaultPositions) {
-              console.log('🚨 [PanelLayout] 🚨🚨🚨 CRITICAL: Backend sent default positions, but localStorage has valid positions. IGNORING backend data. 🚨🚨🚨');
-              console.log('🚨 [PanelLayout] Keeping current localStorage positions to prevent panel stacking.');
-              console.log('🚨 [PanelLayout] === PANEL RE-RENDER DEBUG END (IGNORED) ===');
-              return; // Don't update panels, keep current localStorage positions
-            }
-            
-            // Even if not all default, check if we have more valid positions in localStorage
-            const localStoragePanelCount = Object.keys(positionMap).length;
-            const externalPanelCount = externalPanelsRef.length;
-            
-            console.log('🚨 [PanelLayout] Panel count comparison: localStorage vs external:', localStoragePanelCount, 'vs', externalPanelCount);
-            
-            if (localStoragePanelCount >= externalPanelCount) {
-              console.log('🚨 [PanelLayout] 🚨🚨🚨 localStorage has more/equal panels vs backend. Prioritizing localStorage. 🚨🚨🚨');
-              console.log('🚨 [PanelLayout] === PANEL RE-RENDER DEBUG END (IGNORED) ===');
-              return; // Don't update panels, localStorage has more complete data
-            }
-          }
-        } catch (error) {
-          console.warn('🚨 [PanelLayout] Error checking localStorage positions:', error);
-        }
-      } else {
-        console.log('🚨 [PanelLayout] No localStorage positions or no external panels');
-      }
-      
+      // Use sync strategy: backend is source of truth, localStorage is cache
       if (externalPanelsRef.length > 0) {
-        console.log('🚨 [PanelLayout] === PANEL VALIDATION ===');
+        console.log('[PanelLayout] Syncing positions with backend and cache');
+        
+        // Validate panels first
         const validExternalPanels = externalPanelsRef.filter(panel => {
           if (!isValidPanel(panel)) {
             const errors = getPanelValidationErrors(panel);
-            console.warn('🚨 [PanelLayout] Skipping invalid external panel:', { panel, errors });
+            console.warn('[PanelLayout] Skipping invalid external panel:', { panel, errors });
             return false;
           }
           return true;
         });
         
-        console.log('🚨 [PanelLayout] Valid external panels count:', validExternalPanels.length);
-        
         if (validExternalPanels.length > 0) {
-          // CRITICAL DEBUG: Enhanced external panels processing with localStorage priority
-          console.log('🚨 [PanelLayout] === PANEL PROCESSING WITH localStorage ===');
-          let panelsWithPositions = validExternalPanels;
-          try {
-            const savedPositions = localStorage.getItem('panelLayoutPositions');
-            console.log('🚨 [PanelLayout] Processing savedPositions:', savedPositions);
-            
-            if (savedPositions) {
-              const positionMap = JSON.parse(savedPositions);
-              console.log('🚨 [PanelLayout] Processing positionMap:', positionMap);
-              console.log(`🚨 [PanelLayout] Processing ${validExternalPanels.length} external panels with ${Object.keys(positionMap).length} localStorage positions`);
-              
-              panelsWithPositions = validExternalPanels.map(panel => {
-                const saved = positionMap[panel.id];
-                if (saved && typeof saved.x === 'number' && typeof saved.y === 'number') {
-                  // CRITICAL FIX #8: Relaxed validation - localStorage positions are trusted
-                  // Only reject completely invalid coordinates (NaN, Infinity, etc.)
-                  const isValidX = !isNaN(saved.x) && isFinite(saved.x);
-                  const isValidY = !isNaN(saved.y) && isFinite(saved.y);
-                  
-                  if (isValidX && isValidY) {
-                    // localStorage positions ALWAYS win over backend defaults
-                    const finalX = saved.x;
-                    const finalY = saved.y;
-                    
-                    if (finalX !== panel.x || finalY !== panel.y) {
-                      console.log(`[PanelLayout] localStorage OVERRIDE: panel ${panel.id}: backend(${panel.x}, ${panel.y}) -> localStorage(${finalX}, ${finalY})`);
-                    }
-                    
-                    return { ...panel, x: finalX, y: finalY };
-                  } else {
-                    console.warn(`[PanelLayout] Invalid localStorage position for panel ${panel.id}: x=${saved.x}, y=${saved.y}`);
-                  }
-                }
-                
-                // If no localStorage position, check if this is a default stacking position
-                const isDefaultPosition = (panel.x === 50 && panel.y === 50) || 
-                                        (panel.x === 0 && panel.y === 0) ||
-                                        (Math.abs(panel.x - 50) < 10 && Math.abs(panel.y - 50) < 10);
-                
-                if (isDefaultPosition) {
-                  // Find a unique position that doesn't conflict with localStorage positions
-                  let uniqueX = panel.x;
-                  let uniqueY = panel.y;
-                  let attempts = 0;
-                  
-                  while (attempts < 100) { // Prevent infinite loop
-                    const conflictingPanel = Object.values(positionMap).find((pos: any) => 
-                      Math.abs(pos.x - uniqueX) < 50 && Math.abs(pos.y - uniqueY) < 50
-                    );
-                    
-                    if (!conflictingPanel) break;
-                    
-                    uniqueX = Math.random() * 1000 + 100;
-                    uniqueY = Math.random() * 1000 + 100;
-                    attempts++;
-                  }
-                  
-                  console.log(`[PanelLayout] Auto-spread panel ${panel.id} from default (${panel.x}, ${panel.y}) to unique (${uniqueX}, ${uniqueY})`);
-                  return { ...panel, x: uniqueX, y: uniqueY };
-                }
-                
-                return panel;
-              });
-              console.log('[PanelLayout] Processed external panels with localStorage priority');
-            } else {
-              // If no localStorage data, spread out panels to prevent stacking
-              console.log('[PanelLayout] No localStorage positions found, spreading out panels to prevent stacking');
-              panelsWithPositions = validExternalPanels.map((panel, index) => {
-                // Check if panel has default stacking position (50,50 or similar)
-                const isDefaultPosition = (panel.x === 50 && panel.y === 50) || 
-                                        (panel.x === 0 && panel.y === 0) ||
-                                        (Math.abs(panel.x - 50) < 10 && Math.abs(panel.y - 50) < 10);
-                
-                if (isDefaultPosition) {
-                  const spreadX = index * 300 + 100;
-                  const spreadY = 100;
-                  console.log(`[PanelLayout] Spreading panel ${panel.id} from (${panel.x}, ${panel.y}) to (${spreadX}, ${spreadY})`);
-                  return { ...panel, x: spreadX, y: spreadY };
-                }
-                return panel;
-              });
-            }
-          } catch (error) {
-            console.warn('[PanelLayout] Failed to process external panels with localStorage:', error);
-          }
+          // Sync backend positions with cache (backend may have updated_at timestamp)
+          const syncedPositions = syncPositions(
+            validExternalPanels.map(panel => ({
+              id: panel.id,
+              x: panel.x,
+              y: panel.y,
+              rotation: panel.rotation,
+              updated_at: (panel as any).updated_at || (panel as any).updatedAt,
+            }))
+          );
           
-          // CRITICAL DEBUG: Final panel dispatch
-          console.log('🚨 [PanelLayout] === FINAL PANEL DISPATCH ===');
-          console.log('🚨 [PanelLayout] panelsWithPositions to be dispatched:', panelsWithPositions);
-          console.log('🚨 [PanelLayout] Panel positions after processing:');
-          panelsWithPositions.forEach((panel, index) => {
-            console.log(`🚨 [PanelLayout] Panel ${index}: id=${panel.id}, x=${panel.x}, y=${panel.y}`);
+          // Apply synced positions to panels
+          const panelsWithSyncedPositions = validExternalPanels.map(panel => {
+            const synced = syncedPositions[panel.id];
+            if (synced) {
+              const wasOverridden = synced.x !== panel.x || synced.y !== panel.y;
+              if (wasOverridden) {
+                console.log(`[PanelLayout] Cache overrode backend for panel ${panel.id}:`, {
+                  backend: { x: panel.x, y: panel.y },
+                  cache: { x: synced.x, y: synced.y },
+                  synced: synced.backendSynced === false ? 'unsynced (newer)' : 'synced',
+                });
+              }
+              return {
+                ...panel,
+                x: synced.x,
+                y: synced.y,
+                rotation: synced.rotation || panel.rotation,
+              };
+            }
+            return panel;
+          });
+          
+          console.log('[PanelLayout] Synced positions:', {
+            backendCount: validExternalPanels.length,
+            syncedCount: Object.keys(syncedPositions).length,
+            unsyncedCount: Object.values(syncedPositions).filter((p: any) => p.backendSynced === false).length,
           });
           
           // Set a flag to prevent the notification useEffect from running
           lastInternalPanels.current = externalPanelsString;
-          console.log('🚨 [PanelLayout] Dispatching SET_PANELS action...');
-          dispatch({ type: 'SET_PANELS', payload: panelsWithPositions });
-          console.log('🚨 [PanelLayout] === PANEL RE-RENDER DEBUG END (PROCESSED) ===');
+          dispatch({ type: 'SET_PANELS', payload: panelsWithSyncedPositions });
         }
       } else {
         // Only clear if internal panels are not already empty
@@ -686,27 +569,27 @@ export default function PanelLayout({ mode, projectInfo, externalPanels, onPanel
     
     // console.log('🚨 [PanelLayout] ✅ Proceeding with localStorage save...');
     
-    // Save panel positions to localStorage whenever they change
+    // Save current positions to cache using sync utility
+    // Note: These positions are saved as unsynced initially
+    // They will be marked as synced when successfully saved to backend via updatePanelPosition
     try {
-      const positionMap: Record<string, { x: number; y: number }> = {};
+      const positionMap: PanelPositionMap = {};
       panels.panels.forEach(panel => {
-        positionMap[panel.id] = { x: panel.x, y: panel.y };
-        console.log(`🚨 [PanelLayout] Saving panel ${panel.id}: x=${panel.x}, y=${panel.y}`);
+        if (panel.isValid) {
+          positionMap[panel.id] = {
+            x: panel.x,
+            y: panel.y,
+            rotation: panel.rotation,
+            timestamp: Date.now(),
+            backendSynced: false, // Will be marked as synced after backend save
+          };
+        }
       });
       
-      const positionMapString = JSON.stringify(positionMap);
-      console.log('🚨 [PanelLayout] About to save positionMap to localStorage:', positionMapString);
-      
-      localStorage.setItem('panelLayoutPositions', positionMapString);
-      console.log('🚨 [PanelLayout] ✅ SUCCESS: Saved panel positions to localStorage');
-      console.log('🚨 [PanelLayout] Saved', Object.keys(positionMap).length, 'panel positions');
-      
-      // Verify the save worked
-      const verification = localStorage.getItem('panelLayoutPositions');
-      console.log('🚨 [PanelLayout] Verification - localStorage now contains:', verification);
-      
+      saveCachedPositions(positionMap, false); // Don't mark as synced yet
+      console.log('[PanelLayout] Saved', Object.keys(positionMap).length, 'panel positions to cache (unsynced)');
     } catch (error) {
-      console.error('🚨 [PanelLayout] ❌ FAILED to save panel positions:', error);
+      console.error('[PanelLayout] Failed to save panel positions to cache:', error);
     }
     
     if (currentPanelsString !== lastNotifiedPanels.current && onPanelUpdateRef.current) {

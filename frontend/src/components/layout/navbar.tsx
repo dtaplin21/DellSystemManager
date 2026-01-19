@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
 import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
+import { clearCachedPositions } from '@/lib/panel-sync';
 
 export default function Navbar() {
   const { user, signOut } = useSupabaseAuth();
@@ -21,6 +22,9 @@ export default function Navbar() {
 
   const handleLogout = async () => {
     try {
+      // Clear panel position cache on logout
+      clearCachedPositions();
+      
       if (user) {
         await signOut();
       }
