@@ -6,6 +6,7 @@ const config = require('../config/env');
 const logger = require('../lib/logger');
 const panelLayoutService = require('../services/panelLayoutService');
 const { auth } = require('../middlewares/auth');
+const { getCostMonitor } = require('../services/costMonitor');
 
 // Python AI Service configuration
 const AI_SERVICE_URL = process.env.AI_SERVICE_URL || process.env.PYTHON_AI_SERVICE_URL || 'http://localhost:5001';

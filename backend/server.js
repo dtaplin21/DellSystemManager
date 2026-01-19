@@ -6,6 +6,7 @@ const helmet = require('helmet');
 const { WebSocketServer } = require('ws');
 const config = require('./config/env');
 const logger = require('./lib/logger');
+const { generalLimiter, authLimiter, aiLimiter, uploadLimiter } = require('./middlewares/rateLimiter');
 const { setupWebSocketServer } = require('./services/websocket');
 const { connectToDatabase, applyMigrations, pool } = require('./db');
 const { isOpenAIConfigured, initAIServices } = require('./services/ai-connector');
@@ -67,6 +68,9 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(cookieParser());
 
+// Apply rate limiting (before routes)
+app.use('/api', generalLimiter);
+
 // Backend server should not handle root requests - only API routes
 // Root requests should go directly to gateway server on port 5000
 
@@ -107,17 +111,17 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
-// Setup API routes
-app.use('/api/auth', require('./routes/auth'));
+// Setup API routes with specific rate limiters
+app.use('/api/auth', authLimiter, require('./routes/auth'));
+app.use('/api/ai', aiLimiter, require('./routes/ai'));
+app.use('/api/mobile', uploadLimiter, require('./routes/mobile'));
+app.use('/api/documents', uploadLimiter, require('./routes/documents'));
 app.use('/api/projects', require('./routes/projects'));
-app.use('/api/documents', require('./routes/documents'));
 app.use('/api/telemetry', require('./routes/telemetry'));
 app.use('/api/panels', require('./routes/panels'));
 app.use('/api/qc-data', require('./routes/qc-data'));
 app.use('/api/payments', require('./routes/payments'));
-app.use('/api/ai', require('./routes/ai'));
 app.use('/api/ai-automation', require('./routes/ai-automation'));
-app.use('/api/mobile', require('./routes/mobile'));
 app.use('/api/panel-layout', require('./routes/panelLayout'));
 app.use('/api/panel-requirements', require('./routes/panelRequirements'));
 app.use('/api/handwriting', require('./routes/handwriting'));

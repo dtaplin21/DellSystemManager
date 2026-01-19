@@ -38,6 +38,7 @@ from openai_service import OpenAIService
 from utils import setup_logging, save_temp_file
 from integration_layer import get_ai_integration, run_async
 from telemetry import get_telemetry
+from content_safety import content_safety_checker
 
 # Set up logging
 setup_logging()
@@ -288,6 +289,19 @@ def chat_message():
         if not message:
             return jsonify({'error': 'No message provided', 'success': False}), 400
         
+        # Content safety check for user input
+        input_safe, input_error, input_details = content_safety_checker.validate_input(message)
+        if not input_safe:
+            logger.warning('[Chat Endpoint] Content safety check failed for user input', {
+                'user_id': user_id,
+                'details': input_details
+            })
+            return jsonify({
+                'error': input_error or 'Invalid input detected',
+                'success': False,
+                'safety_check_failed': True
+            }), 400
+        
         if not ai_integration.is_hybrid_ai_available():
             logger.warning("[Chat Endpoint] Hybrid AI not available, returning error")
             return jsonify({
@@ -307,14 +321,41 @@ def chat_message():
         logger.info(f"[Chat Endpoint] Result: success={chat_result.get('success')}, has_response={bool(chat_result.get('response'))}, error={chat_result.get('error')}")
         
         if chat_result.get('success'):
+            ai_response = chat_result.get('response', 'No response generated')
+            
+            # Content safety check for AI output
+            output_safe, output_error, output_details = content_safety_checker.validate_output(
+                ai_response,
+                context={'user_id': user_id, 'project_id': project_id}
+            )
+            
+            if not output_safe:
+                logger.error('[Chat Endpoint] Content safety check failed for AI output', {
+                    'user_id': user_id,
+                    'details': output_details
+                })
+                # Use sanitized output if available
+                sanitized_response = output_details.get('sanitized_output', 'Response was filtered for safety reasons.')
+                ai_response = sanitized_response
+            
+            # Quality check
+            quality_valid, quality_error = content_safety_checker.check_response_quality(ai_response)
+            if not quality_valid:
+                logger.warning('[Chat Endpoint] Response quality check failed', {
+                    'user_id': user_id,
+                    'error': quality_error
+                })
+            
             return jsonify({
-                'reply': chat_result.get('response', 'No response generated'),  # Map response to reply for frontend compatibility
-                'response': chat_result.get('response', 'No response generated'),
+                'reply': ai_response,
+                'response': ai_response,
                 'success': True,
                 'user_id': chat_result.get('user_id', user_id),
                 'timestamp': chat_result.get('timestamp', ''),
                 'conversation_id': chat_result.get('conversation_id') or chat_result.get('session_id') or chat_result.get('user_id'),
                 'session_id': chat_result.get('session_id') or chat_result.get('conversation_id') or chat_result.get('user_id'),
+                'safety_checked': True,
+                'output_safe': output_safe
             }), 200
         else:
             # Log the error details before returning

@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
+    "prepare": "husky install || true",
     "test": "jest",
     "test:classifier": "jest --runTestsByPath tests/filenameClassifier.test.js",
     "test:e2e": "playwright test",
@@ -17,6 +18,10 @@
     "test:e2e:chromium": "playwright test --project=chromium",
     "test:e2e:chromium:live": "RUN_LIVE_AI_TESTS=true playwright test --project=chromium",
     "test:regression": "playwright test --reporter=html,list",
+    "lint": "eslint . --ext .js,.jsx,.ts,.tsx --max-warnings 0",
+    "lint:fix": "eslint . --ext .js,.jsx,.ts,.tsx --fix",
+    "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,css,scss,md}\"",
+    "format:check": "prettier --check \"**/*.{js,jsx,ts,tsx,json,css,scss,md}\"",
     "dev": "nodemon --exec node backend/server.js",
     "start": "node backend/server.js",
     "migrate": "ts-node backend/scripts/migrate.js",
@@ -108,10 +113,14 @@
     "@types/ws": "^8.18.1",
     "autoprefixer": "^10.4.21",
     "concurrently": "^9.2.1",
+    "eslint": "^8.57.1",
+    "husky": "^9.1.7",
     "jest": "^29.7.0",
+    "lint-staged": "^15.2.11",
     "node-loader": "^2.1.0",
     "nodemon": "^3.1.10",
     "postcss": "^8.5.4",
+    "prettier": "^3.3.3",
     "tailwindcss": "^4.1.8"
   }
 }

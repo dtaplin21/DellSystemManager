@@ -1,0 +1,82 @@
+{
+  "root": true,
+  "env": {
+    "node": true,
+    "es2021": true,
+    "browser": true
+  },
+  "extends": [
+    "eslint:recommended"
+  ],
+  "parserOptions": {
+    "ecmaVersion": 2021,
+    "sourceType": "module"
+  },
+  "rules": {
+    "no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
+    "no-console": ["warn", { "allow": ["warn", "error"] }],
+    "no-debugger": "error",
+    "no-alert": "warn",
+    "prefer-const": "warn",
+    "no-var": "error",
+    "eqeqeq": ["error", "always"],
+    "curly": ["error", "all"],
+    "no-throw-literal": "error",
+    "no-return-await": "error",
+    "require-await": "warn",
+    "no-async-promise-executor": "error",
+    "no-promise-executor-return": "error",
+    "prefer-promise-reject-errors": "error",
+    "no-template-curly-in-string": "warn",
+    "array-callback-return": "error",
+    "no-constructor-return": "error",
+    "no-implicit-coercion": "warn",
+    "no-param-reassign": ["warn", { "props": true }],
+    "no-unmodified-loop-condition": "warn",
+    "no-useless-concat": "warn",
+    "prefer-template": "warn",
+    "yoda": "error"
+  },
+  "overrides": [
+    {
+      "files": ["**/*.test.js", "**/*.spec.js"],
+      "env": {
+        "jest": true
+      },
+      "rules": {
+        "no-unused-vars": "off"
+      }
+    },
+    {
+      "files": ["frontend/**/*"],
+      "env": {
+        "browser": true
+      },
+      "parserOptions": {
+        "ecmaVersion": 2021,
+        "sourceType": "module",
+        "ecmaFeatures": {
+          "jsx": true
+        }
+      }
+    },
+    {
+      "files": ["backend/**/*"],
+      "env": {
+        "node": true
+      }
+    }
+  ],
+  "ignorePatterns": [
+    "node_modules/",
+    "dist/",
+    "build/",
+    "out/",
+    "*.min.js",
+    "coverage/",
+    ".next/",
+    "playwright-report/",
+    "test-results/"
+  ]
+}
+

@@ -100,6 +100,33 @@ All scripts use Node.js wrappers for cross-platform compatibility:
 
 These scripts automatically detect the platform and use the appropriate commands (python vs python3, etc.).
 
+## 🛡️ Guardrails & Safety
+
+The project includes comprehensive guardrails to ensure security, cost control, and code quality:
+
+- **API Rate Limiting**: Prevents abuse and ensures fair resource usage
+- **Code Quality Checks**: ESLint, Prettier, and pre-commit hooks
+- **Branch Protection**: Requires tests and reviews before merging
+- **Content Safety**: AI input/output validation and sanitization
+- **Cost Monitoring**: Tracks AI costs and sends alerts when thresholds are exceeded
+
+See [Guardrails Documentation](./docs/guardrails/README.md) for details.
+
+### Quick Setup
+
+```bash
+# Install dependencies
+npm install
+cd backend && npm install && cd ..
+
+# Initialize pre-commit hooks
+npm run prepare
+
+# Run code quality checks
+npm run lint
+npm run format:check
+```
+
 ## 📚 Documentation
 
 ### System Design Documentation
@@ -121,6 +148,7 @@ Comprehensive system design documentation is available in the [`docs/system-desi
 - **[CI/CD Documentation](./docs/ci-cd/README.md)** - Continuous integration setup
 - **[QA Documentation](./docs/qa/test-planning.md)** - Testing strategies
 - **[Deployment Guide](./docs/deployment/redis-connection-setup.md)** - Redis setup
+- **[Guardrails Documentation](./docs/guardrails/README.md)** - Safety measures and constraints
 
 ## 🔗 GitHub Resources
 
