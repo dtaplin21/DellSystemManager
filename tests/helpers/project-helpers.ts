@@ -13,24 +13,46 @@ export class ProjectHelpers {
     // Try API first - it's more reliable than waiting for UI
     // page.request automatically includes auth cookies from the browser context
     try {
+      console.log('🔍 [ProjectHelpers] Attempting API call to:', `${BACKEND_BASE_URL}/api/projects`);
+      
       const apiResponse = await page.request.get(`${BACKEND_BASE_URL}/api/projects`, {
         timeout: 15000
       });
       
+      console.log('🔍 [ProjectHelpers] API Response Status:', apiResponse.status());
+      console.log('🔍 [ProjectHelpers] API Response Headers:', Object.fromEntries(Object.entries(apiResponse.headers())));
+      
       if (apiResponse.ok()) {
         const projects = await apiResponse.json();
+        console.log('🔍 [ProjectHelpers] Projects received:', projects?.length || 0);
+        
         if (Array.isArray(projects) && projects.length > 0) {
           const firstProjectId = projects[0].id;
           console.log(`✅ Found project ID via API: ${firstProjectId}`);
           return firstProjectId;
         } else {
           console.warn('⚠️ API returned empty projects array');
+          console.warn('⚠️ This may mean: 1) User has no projects, 2) Auth failed silently, 3) Backend error');
         }
       } else {
-        console.warn(`⚠️ API returned status ${apiResponse.status()}: ${await apiResponse.text().catch(() => 'unknown error')}`);
+        const errorText = await apiResponse.text().catch(() => 'Could not read error response');
+        console.error(`❌ API returned status ${apiResponse.status()}`);
+        console.error(`❌ Error response: ${errorText.substring(0, 200)}`);
+        
+        // Check for auth errors
+        if (apiResponse.status() === 401) {
+          console.error('❌ Authentication failed - check if login was successful');
+        } else if (apiResponse.status() === 403) {
+          console.error('❌ Authorization failed - user may not have access');
+        } else if (apiResponse.status() >= 500) {
+          console.error('❌ Server error - backend may be down or experiencing issues');
+        }
       }
     } catch (apiError: any) {
-      console.log('⚠️ API approach failed, trying UI approach...', apiError?.message || apiError);
+      console.error('❌ API approach failed with exception:', apiError?.message || apiError);
+      console.error('❌ Error type:', apiError?.name);
+      console.error('❌ Error stack:', apiError?.stack?.substring(0, 500));
+      console.log('⚠️ Falling back to UI approach...');
     }
     
     // Fallback to UI approach if API fails

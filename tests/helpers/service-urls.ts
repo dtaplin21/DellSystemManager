@@ -8,7 +8,7 @@
 const trimTrailingSlash = (url: string) => url.replace(/\/+$/, '');
 
 export const FRONTEND_BASE_URL = trimTrailingSlash(
-  process.env.PLAYWRIGHT_TEST_BASE_URL || 'http://localhost:3000'
+  process.env.PLAYWRIGHT_TEST_BASE_URL || 'https://dellsystemmanager.vercel.app'
 );
 
 // Prefer explicit Playwright overrides, then reuse the app's public env vars if present.
