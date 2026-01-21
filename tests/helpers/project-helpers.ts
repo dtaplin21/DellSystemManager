@@ -73,7 +73,7 @@ export class ProjectHelpers {
       }
       
       const apiResponse = await page.request.get(`${BACKEND_BASE_URL}/api/projects`, {
-        timeout: 30000, // Increased timeout for slow backend
+        timeout: 90000, // Increased from 30000 to 90000 for cold starts (60s cold start + 30s buffer)
         headers
       });
       
@@ -116,7 +116,7 @@ export class ProjectHelpers {
     // Fallback to UI approach if API fails
     try {
       await page.goto('/dashboard/projects');
-      await page.waitForSelector('[data-testid="projects-page"]', { timeout: 30000 });
+      await page.waitForSelector('[data-testid="projects-page"]', { timeout: 90000 }); // Increased for cold starts
       
       // Wait for loading state to finish - the "Loading projects..." text should disappear
       // This is more reliable than waiting for projects to appear
@@ -125,7 +125,7 @@ export class ProjectHelpers {
           el => el.textContent?.includes('Loading projects')
         );
         return !loadingText; // Loading is done when the text is gone
-      }, { timeout: 30000 }).catch(() => {
+      }, { timeout: 90000 }).catch(() => { // Increased for cold starts
         // If loading text check fails, try alternative approach
         console.log('⚠️ Loading text check failed, trying alternative...');
       });
@@ -162,7 +162,7 @@ export class ProjectHelpers {
           headers['Authorization'] = `Bearer ${authToken}`;
         }
         const apiResponse = await page.request.get(`${BACKEND_BASE_URL}/api/projects`, {
-          timeout: 30000,
+          timeout: 90000, // Increased for cold starts
           headers
         }).catch(() => null);
         
@@ -224,7 +224,7 @@ export class ProjectHelpers {
           headers['Authorization'] = `Bearer ${authToken}`;
         }
         const response = await page.request.get(`${BACKEND_BASE_URL}/api/projects`, {
-          timeout: 30000,
+          timeout: 90000, // Increased for cold starts
           headers
         });
         
@@ -253,7 +253,7 @@ export class ProjectHelpers {
           headers['Authorization'] = `Bearer ${authToken}`;
         }
         const response = await page.request.get(`${BACKEND_BASE_URL}/api/projects`, {
-          timeout: 30000,
+          timeout: 90000, // Increased for cold starts
           headers
         });
         

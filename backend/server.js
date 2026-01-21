@@ -77,19 +77,27 @@ app.use('/api', generalLimiter);
 // API health check endpoint - must be before other API routes
 app.get('/api/health', async (req, res) => {
   try {
-    // Test database connection
-    const client = await pool.connect();
-    await client.query('SELECT 1 as test');
-    client.release();
+    // Add timeout wrapper for cold starts (60 seconds)
+    const healthCheck = Promise.race([
+      (async () => {
+        const client = await pool.connect();
+        await client.query('SELECT 1 as test');
+        client.release();
+        return { status: 'OK', database: 'connected' };
+      })(),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Health check timeout after 60 seconds')), 60000)
+      )
+    ]);
     
+    const result = await healthCheck;
     res.status(200).json({ 
-      status: 'OK', 
+      ...result,
       service: SERVICE_NAME,
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
       environment: config.nodeEnv,
-      version: SERVICE_VERSION,
-      database: 'connected'
+      version: SERVICE_VERSION
     });
   } catch (error) {
     logger.error('API health check failed', {
@@ -164,14 +172,22 @@ app.use((err, req, res, next) => {
 // Health check endpoint - moved here after pool import
 app.get('/health', async (req, res) => {
   try {
-    // Test database connection
-    const client = await pool.connect();
-    await client.query('SELECT 1 as test');
-    client.release();
+    // Add timeout wrapper for cold starts (60 seconds)
+    const healthCheck = Promise.race([
+      (async () => {
+        const client = await pool.connect();
+        await client.query('SELECT 1 as test');
+        client.release();
+        return { status: 'healthy', database: 'connected' };
+      })(),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Health check timeout after 60 seconds')), 60000)
+      )
+    ]);
     
+    const result = await healthCheck;
     res.status(200).json({ 
-      status: 'healthy',
-      database: 'connected',
+      ...result,
       timestamp: new Date().toISOString()
     });
   } catch (error) {

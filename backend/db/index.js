@@ -207,7 +207,7 @@ const pool = new Pool({
   max: 10, // Increased to handle concurrent requests
   min: 0, // Start with 0 to avoid startup failures if DB is temporarily unavailable
   idleTimeoutMillis: 30000, // 30 seconds - shorter timeout to detect dead connections faster
-  connectionTimeoutMillis: 20000, // 20 seconds - increased for slower networks
+  connectionTimeoutMillis: 60000, // 60 seconds - increased for Render cold starts (can take 30-60s)
   application_name: 'dell-system-manager',
   keepAlive: true,
   keepAliveInitialDelayMillis: 10000, // Send keep-alive after 10 seconds
@@ -420,7 +420,7 @@ async function queryWithRetry(queryText, params = [], maxRetries = 3) {
           const result = await Promise.race([
             optimizedPool.query(queryText, params),
             new Promise((_, reject) => 
-              setTimeout(() => reject(new Error('Query timeout')), 25000)
+              setTimeout(() => reject(new Error('Query timeout')), 90000) // Increased from 25000 to 90000 for cold starts
             )
           ]);
           await optimizedPool.end();
@@ -436,7 +436,7 @@ async function queryWithRetry(queryText, params = [], maxRetries = 3) {
       // Add query timeout to prevent hanging
       const queryPromise = queryPool.query(queryText, params);
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Query timeout after 25 seconds')), 25000);
+        setTimeout(() => reject(new Error('Query timeout after 90 seconds')), 90000); // Increased from 25000 to 90000 for cold starts
       });
       
       const result = await Promise.race([queryPromise, timeoutPromise]);

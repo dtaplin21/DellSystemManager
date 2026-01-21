@@ -4,7 +4,7 @@ export const config = {
   backend: {
     baseUrl: process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003',
     apiVersion: 'v1',
-    timeout: 60000, // 60 seconds - increased for Render cold starts (can take 30-60s)
+    timeout: 90000, // 90 seconds - increased for Render cold starts (60s cold start + 30s buffer)
   },
   
   // Frontend configuration

@@ -24,7 +24,7 @@ export class BackendHealth {
     
     try {
       const response = await page.request.get(endpoint, {
-        timeout: 10000
+        timeout: 90000 // Increased from 10000 to 90000 for cold starts (60s cold start + 30s buffer)
       });
       
       const responseTime = Date.now() - startTime;
@@ -69,7 +69,7 @@ export class BackendHealth {
     
     try {
       const response = await page.request.get(endpoint, {
-        timeout: 10000
+        timeout: 90000 // Increased from 10000 to 90000 for cold starts (60s cold start + 30s buffer)
       });
       
       const responseTime = Date.now() - startTime;
@@ -120,7 +120,7 @@ export class BackendHealth {
       }
       
       const response = await page.request.get(endpoint, {
-        timeout: 30000, // Longer timeout for authenticated endpoints
+        timeout: 90000, // Increased from 30000 to 90000 for cold starts (60s cold start + 30s buffer)
         headers
       });
       
